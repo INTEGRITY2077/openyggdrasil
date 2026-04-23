@@ -14,6 +14,7 @@
 ```text
 %OPENYGGDRASIL_ROOT%
 +-- contracts
++-- doc
 +-- docs
 +-- providers
 |   +-- hermes-router
@@ -23,8 +24,11 @@
 ## Directory Meaning
 - `contracts`
   - shared schemas and explicit contracts for the forest engine
+- `doc`
+  - local-only centralized working documentation
+  - intentionally gitignored
 - `docs`
-  - product, architecture, and operating documents for OpenYggdrasil
+  - tracked public-facing product and architecture documents
 - `providers`
   - runtime-specific adapters and routers
 - `runtime`
@@ -37,4 +41,6 @@
   - ingress path:
     - `%HERMES_ROUTER_ROOT%`
   - current active workspace:
-    - provider-local code, policy, vault, and ops assets still live under this subtree
+    - provider-local code, vault layout, skills, and adapter runtime live under this subtree
+  - local policy workspace:
+    - `%OPENYGGDRASIL_ROOT%\doc\providers\hermes-router\policy`
