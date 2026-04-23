@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/turn_delta.v1.schema.json",
+  "title": "OpenYggdrasil Turn Delta v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "delta_id",
+    "sequence",
+    "created_at",
+    "role",
+    "content"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "turn_delta.v1"
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "delta_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "system",
+        "user",
+        "assistant",
+        "tool"
+      ]
+    },
+    "content": {
+      "type": "string"
+    },
+    "summary": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

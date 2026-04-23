@@ -15,10 +15,14 @@ ops/
 **/state.db-*
 
 # transient runtime dirs
+.yggdrasil/
+**/.yggdrasil/
 **/sessions/
 **/logs/
 **/cache/
 **/tmp/
+_tmp/
+**/_tmp/
 **/temp/
 **/artifacts/
 **/exports/

@@ -15,3 +15,9 @@ Provider directories should not be the canonical home for:
 
 Current provider:
 - `hermes-router`
+
+Planned provider-facing usage also includes skill-generated runtime attachments.
+
+In that mode, provider folders act as placeholders and documentation anchors,
+while live attachment artifacts are generated inside a workspace-local
+`.yggdrasil/providers/...` tree.

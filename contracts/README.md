@@ -7,3 +7,5 @@ This directory is reserved for engine-level contracts:
 - semantic edge contracts
 - retrieval tool contracts
 - support bundle contracts
+- skill-generated provider attachment contracts
+- provider/session-bound inbox packet contracts

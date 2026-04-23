@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/inbox_binding.v1.schema.json",
+  "title": "OpenYggdrasil Inbox Binding v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "inbox_mode",
+    "target_kind",
+    "inbox_path",
+    "workspace_root",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "inbox_binding.v1"
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "inbox_mode": {
+      "type": "string",
+      "enum": [
+        "jsonl_file"
+      ]
+    },
+    "target_kind": {
+      "type": "string",
+      "enum": [
+        "session_bound"
+      ]
+    },
+    "inbox_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workspace_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

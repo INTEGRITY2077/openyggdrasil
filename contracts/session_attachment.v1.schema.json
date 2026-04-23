@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/session_attachment.v1.schema.json",
+  "title": "OpenYggdrasil Session Attachment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "origin_kind",
+    "origin_locator",
+    "update_mode",
+    "created_at",
+    "attachment_root",
+    "workspace_root",
+    "capabilities"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "session_attachment.v1"
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "origin_kind": {
+      "type": "string",
+      "enum": [
+        "provider-thread",
+        "conversation",
+        "workspace-session"
+      ]
+    },
+    "origin_locator": {
+      "type": "object"
+    },
+    "update_mode": {
+      "type": "string",
+      "enum": [
+        "push-delta"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "attachment_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workspace_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "turn_delta",
+        "reverse_inbox"
+      ],
+      "properties": {
+        "turn_delta": {
+          "type": "boolean"
+        },
+        "reverse_inbox": {
+          "type": "boolean"
+        },
+        "heartbeat": {
+          "type": "boolean"
+        }
+      }
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/inbox_packet.v1.schema.json",
+  "title": "OpenYggdrasil Inbox Packet v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "message_id",
+    "provider_id",
+    "provider_profile",
+    "session_uid",
+    "packet_type",
+    "created_at",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "inbox_packet.v1"
+    },
+    "message_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "packet_type": {
+      "type": "string",
+      "enum": [
+        "support_bundle",
+        "operator_brief",
+        "graph_hint",
+        "retrieval_hint",
+        "session_digest",
+        "attention_flag"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "payload": {
+      "type": "object"
+    }
+  }
+}

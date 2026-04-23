@@ -14,3 +14,5 @@ Current occupants:
 - promotion worthiness and placement runtime
 - provenance and semantic edge runtime
 - pathfinder runtime and PTC MVP substrate
+- skill-generated provider attachment runtime
+- provider/session-bound reverse inbox runtime
