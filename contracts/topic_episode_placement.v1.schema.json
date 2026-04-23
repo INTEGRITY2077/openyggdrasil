@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "topic_episode_placement.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile",
+    "session_id",
+    "place",
+    "topic_id",
+    "episode_id",
+    "page_id",
+    "canonical_relative_path",
+    "topic_title",
+    "placement_mode",
+    "page_action",
+    "claim_actions",
+    "reasons",
+    "evaluation_mode",
+    "evaluated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "topic_episode_placement.v1"
+    },
+    "profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "place": {
+      "type": "boolean"
+    },
+    "topic_id": {
+      "type": "string",
+      "pattern": "^topic:[a-z0-9/_-]+$"
+    },
+    "episode_id": {
+      "type": "string",
+      "pattern": "^episode:[a-z0-9/_-]+:[a-z0-9/_-]+$"
+    },
+    "page_id": {
+      "type": "string",
+      "pattern": "^page:[a-z0-9/_-]+$"
+    },
+    "canonical_relative_path": {
+      "type": "string",
+      "pattern": "^queries/[a-z0-9/_-]+\\.md$"
+    },
+    "topic_title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "placement_mode": {
+      "type": "string",
+      "enum": [
+        "new_topic_new_episode",
+        "existing_topic_new_episode",
+        "existing_topic_existing_episode",
+        "reject"
+      ]
+    },
+    "page_action": {
+      "type": "string",
+      "enum": [
+        "create_new_page",
+        "update_existing_page",
+        "no_page_write"
+      ]
+    },
+    "claim_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reasons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "evaluation_mode": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evaluated_at": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

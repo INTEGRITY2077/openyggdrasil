@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pathfinder Retrieval Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "query_text",
+    "anchor_type",
+    "anchor_id",
+    "topic_id",
+    "episode_ids",
+    "claim_ids",
+    "page_ids",
+    "source_paths",
+    "support_facts",
+    "bundle_mode",
+    "generated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "pathfinder.v1"
+    },
+    "query_text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "anchor_type": {
+      "type": "string",
+      "enum": ["topic", "none"]
+    },
+    "anchor_id": {
+      "type": ["string", "null"]
+    },
+    "topic_id": {
+      "type": ["string", "null"]
+    },
+    "anchor_title": {
+      "type": ["string", "null"]
+    },
+    "episode_ids": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "claim_ids": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "page_ids": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "source_paths": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "support_facts": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "bundle_mode": {
+      "type": "string",
+      "enum": [
+        "topic-page-latest-episodes",
+        "topic-page-latest-episodes-with-semantic-edges",
+        "topic-page-recent-origin",
+        "unanchored"
+      ]
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

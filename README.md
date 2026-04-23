@@ -16,9 +16,11 @@
 +-- contracts
 +-- doc
 +-- docs
++-- projects
 +-- providers
 |   +-- hermes-router
 +-- runtime
++-- vault
 ```
 
 ## Directory Meaning
@@ -29,10 +31,14 @@
   - intentionally gitignored
 - `docs`
   - tracked public-facing product and architecture documents
+- `projects`
+  - provider-neutral derivation and migration utilities
 - `providers`
   - runtime-specific adapters and routers
 - `runtime`
   - core implementation space for engine roles and retrieval runtime
+- `vault`
+  - canonical provider-neutral memory surface
 
 ## Current Provider
 - `hermes-router`
@@ -41,6 +47,6 @@
   - ingress path:
     - `%HERMES_ROUTER_ROOT%`
   - current active workspace:
-    - provider-local code, vault layout, skills, and adapter runtime live under this subtree
+    - provider-local ingress, skills, and adapter runtime live under this subtree
   - local policy workspace:
     - `%OPENYGGDRASIL_ROOT%\doc\providers\hermes-router\policy`

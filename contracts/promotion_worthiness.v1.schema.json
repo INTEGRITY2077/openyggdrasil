@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hermes Central Promotion Worthiness Verdict v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "profile",
+    "session_id",
+    "promote",
+    "score",
+    "durability_score",
+    "novelty_score",
+    "decision_density_score",
+    "rederivation_cost_score",
+    "triviality_score",
+    "prefilter_ok",
+    "prefilter_reasons",
+    "evaluation_mode",
+    "reason_labels",
+    "summary",
+    "evaluated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "promotion_worthiness.v1"
+    },
+    "profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "promote": {
+      "type": "boolean"
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "durability_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "novelty_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "decision_density_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "rederivation_cost_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "triviality_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "prefilter_ok": {
+      "type": "boolean"
+    },
+    "prefilter_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evaluation_mode": {
+      "type": "string",
+      "enum": [
+        "prefilter_only",
+        "hermes_runtime"
+      ]
+    },
+    "reason_labels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "summary": {
+      "type": "string"
+    },
+    "evaluated_at": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": true
+}
