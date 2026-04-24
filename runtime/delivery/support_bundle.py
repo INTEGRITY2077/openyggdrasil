@@ -38,6 +38,21 @@ def _normalize_paths(source_paths: Iterable[str], *, workspace_root: Path) -> li
     return [_workspace_relative_path(path_value, workspace_root=workspace_root) for path_value in source_paths]
 
 
+def _normalize_pathfinder_bundle(
+    pathfinder_bundle: Mapping[str, Any],
+    *,
+    workspace_root: Path,
+) -> dict[str, Any]:
+    normalized = dict(pathfinder_bundle)
+    source_paths = normalized.get("source_paths")
+    if isinstance(source_paths, list):
+        normalized["source_paths"] = _normalize_paths(
+            [str(item) for item in source_paths],
+            workspace_root=workspace_root,
+        )
+    return normalized
+
+
 def _first_matching_path(
     relative_source_paths: Iterable[str],
     *,
@@ -115,7 +130,10 @@ def build_support_bundle_payload(
         "facts": [str(item) for item in payload.get("facts") or []],
         "source_paths": relative_source_paths,
         "graph_freshness": dict(payload.get("graph_freshness") or {}),
-        "pathfinder_bundle": dict(payload.get("pathfinder_bundle") or {}),
+        "pathfinder_bundle": _normalize_pathfinder_bundle(
+            dict(payload.get("pathfinder_bundle") or {}),
+            workspace_root=active_workspace,
+        ),
         "decision_key": None,
         "mailbox_location": None,
         "proof_token": None,

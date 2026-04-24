@@ -50,6 +50,16 @@ Core rules:
 - never create flat `.yggdrasil` root files
 - validate JSON and JSONL with a real parser before finishing
 
+Support consumption rule:
+
+- when a delivered session-bound `support_bundle` exists for the current unresolved question,
+  inspect that delivered packet first
+- prefer `payload.canonical_note` and `payload.provenance_note` from the latest delivered
+  `support_bundle` over older workspace notes when the task explicitly asks for delivered
+  OpenYggdrasil support
+- do not substitute an older topic page if the delivered `support_bundle` already names a
+  canonical note for the current question
+
 Use repo-owned validation/repair tooling when needed:
 
 - `runtime/attachments/validate_attachment.py`
