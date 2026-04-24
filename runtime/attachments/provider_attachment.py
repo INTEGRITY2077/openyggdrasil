@@ -179,6 +179,7 @@ def bootstrap_skill_provider_session(
             "attachment": True,
             "turn_delta": True,
             "reverse_inbox": True,
+            "background_reasoning": False,
             "heartbeat": False,
         },
         "provider_extras": dict(provider_extras or {}),

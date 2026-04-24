@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/reasoning_lease_result.v1.schema.json",
+  "title": "OpenYggdrasil Reasoning Lease Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lease_result_id",
+    "lease_request_id",
+    "lease_status",
+    "producer_role",
+    "fallback_used",
+    "output",
+    "confidence_score",
+    "completed_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "reasoning_lease_result.v1"
+    },
+    "lease_result_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lease_request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lease_status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "declined",
+        "unavailable",
+        "failed",
+        "fallback_used"
+      ]
+    },
+    "producer_role": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "worker_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "fallback_used": {
+      "type": "boolean"
+    },
+    "output": {
+      "type": "object"
+    },
+    "confidence_score": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "failure_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

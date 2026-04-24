@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/reasoning_lease_request.v1.schema.json",
+  "title": "OpenYggdrasil Reasoning Lease Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lease_request_id",
+    "requested_by_role",
+    "capability",
+    "job_type",
+    "priority",
+    "inference_mode",
+    "objective",
+    "input_refs",
+    "fallback_policy",
+    "requested_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "reasoning_lease_request.v1"
+    },
+    "lease_request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requested_by_role": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "session_uid": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "capability": {
+      "const": "background_reasoning"
+    },
+    "job_type": {
+      "type": "string",
+      "enum": [
+        "decision_distillation",
+        "provenance_review",
+        "duplicate_review",
+        "category_discovery",
+        "pathfinding_review"
+      ]
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "inference_mode": {
+      "type": "string",
+      "enum": [
+        "provider_headless",
+        "local_worker",
+        "manual_review"
+      ]
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_refs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "integer",
+          "boolean",
+          "null",
+          "array",
+          "object"
+        ]
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expected_output_schema": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "fallback_policy": {
+      "type": "string",
+      "enum": [
+        "deterministic_base_path",
+        "local_worker",
+        "manual_review"
+      ]
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  }
+}

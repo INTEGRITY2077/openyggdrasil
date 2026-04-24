@@ -83,6 +83,9 @@
         "reverse_inbox": {
           "type": "boolean"
         },
+        "background_reasoning": {
+          "type": "boolean"
+        },
         "heartbeat": {
           "type": "boolean"
         }
