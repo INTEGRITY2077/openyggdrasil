@@ -10,3 +10,4 @@ Scope:
 - generated provider session discovery
 - provider-native skill deployment hooks
 - attachment validation helpers
+- provider bootstrap contract smoke helpers

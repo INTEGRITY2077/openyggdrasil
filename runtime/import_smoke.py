@@ -9,6 +9,7 @@ CANONICAL_RUNTIME_MODULES = [
     "admission.amundsen_stub",
     "admission.decision_contracts",
     "admission.session_admission_gate",
+    "attachments.bootstrap_contract",
     "attachments.provider_attachment",
     "attachments.provider_inbox",
     "capture.decision_distiller",
