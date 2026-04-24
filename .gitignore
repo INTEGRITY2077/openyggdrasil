@@ -1,6 +1,6 @@
 # canonical repo ignores
 
-# repo-managed documentation is not part of the deploy/runtime surface
+# repo-managed documentation is not a deploy/runtime dependency
 /doc/
 /README.ko.md
 /agent-list.ko.md
