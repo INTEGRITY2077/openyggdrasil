@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import socket
 import time
 import uuid
@@ -15,11 +16,27 @@ from typing import Any, Dict, Iterator, List, Optional
 OPENYGGDRASIL_ROOT = Path(
     os.getenv("OPENYGGDRASIL_ROOT", str(Path(__file__).resolve().parents[1]))
 )
+CORE_ROOT = OPENYGGDRASIL_ROOT
+WORKSPACE_ROOT = Path(
+    os.getenv("OPENYGGDRASIL_WORKSPACE_ROOT", str(OPENYGGDRASIL_ROOT))
+)
+WORKSPACE_RUNTIME_ROOT = WORKSPACE_ROOT / ".yggdrasil"
 PROVIDER_ROOT = Path(
-    os.getenv("HERMES_ROUTER_ROOT", str(OPENYGGDRASIL_ROOT / "providers" / "hermes-router"))
+    os.getenv(
+        "HERMES_ROOT",
+        os.getenv("HERMES_ROUTER_ROOT", str(OPENYGGDRASIL_ROOT / "providers" / "hermes")),
+    )
 )
 CENTRAL_ROOT = PROVIDER_ROOT
-OPS_ROOT = PROVIDER_ROOT / "ops"
+LEGACY_OPS_ROOT = PROVIDER_ROOT / "ops"
+DEFAULT_RUNTIME_STATE_ROOT = WORKSPACE_RUNTIME_ROOT / "ops"
+RUNTIME_STATE_ROOT = Path(
+    os.getenv(
+        "OPENYGGDRASIL_RUNTIME_STATE_ROOT",
+        os.getenv("OPENYGGDRASIL_OPS_ROOT", str(DEFAULT_RUNTIME_STATE_ROOT)),
+    )
+)
+OPS_ROOT = RUNTIME_STATE_ROOT
 QUEUE_ROOT = OPS_ROOT / "queue"
 LOCKS_ROOT = OPS_ROOT / "locks"
 HERMES_HOME_WIN = Path(os.getenv("HERMES_HOME_WIN", str(Path.home() / ".hermes")))
@@ -40,7 +57,12 @@ DEFAULT_GRAPHIFY_MANIFEST = (
         )
     )
 )
-DEFAULT_VAULT = Path(os.getenv("HERMES_VAULT_ROOT", str(OPENYGGDRASIL_ROOT / "vault")))
+DEFAULT_VAULT = Path(
+    os.getenv(
+        "OPENYGGDRASIL_VAULT_ROOT",
+        os.getenv("HERMES_VAULT_ROOT", str(OPENYGGDRASIL_ROOT / "vault")),
+    )
+)
 
 
 def utc_now_iso() -> str:
@@ -59,7 +81,24 @@ def hermes_state_db_posix(profile: str) -> str:
     return f"{HERMES_HOME_POSIX}/profiles/{profile}/state.db"
 
 
+def _should_seed_runtime_state_from_legacy() -> bool:
+    return (
+        OPS_ROOT == DEFAULT_RUNTIME_STATE_ROOT
+        and OPS_ROOT != LEGACY_OPS_ROOT
+        and not OPS_ROOT.exists()
+        and LEGACY_OPS_ROOT.exists()
+    )
+
+
+def ensure_runtime_state_root() -> None:
+    OPS_ROOT.parent.mkdir(parents=True, exist_ok=True)
+    if _should_seed_runtime_state_from_legacy():
+        shutil.copytree(LEGACY_OPS_ROOT, OPS_ROOT, dirs_exist_ok=True)
+    OPS_ROOT.mkdir(parents=True, exist_ok=True)
+
+
 def ensure_runtime_dirs() -> None:
+    ensure_runtime_state_root()
     QUEUE_ROOT.mkdir(parents=True, exist_ok=True)
     LOCKS_ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -253,3 +292,6 @@ def retrying_file_lock(
             if time.monotonic() >= deadline:
                 raise TimeoutError(f"Timed out waiting for lock: {name}")
             time.sleep(poll_interval)
+
+
+ensure_runtime_state_root()

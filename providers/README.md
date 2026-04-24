@@ -14,7 +14,7 @@ Provider directories should not be the canonical home for:
 - provider-neutral graph derivation stacks
 
 Current provider:
-- `hermes-router`
+- `hermes`
 
 Planned provider-facing usage also includes skill-generated runtime attachments.
 

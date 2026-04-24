@@ -1,0 +1,158 @@
+from __future__ import annotations
+
+import json
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, Dict, Iterable, Mapping
+
+import jsonschema
+
+from attachments.provider_attachment import provider_inbox_path
+from attachments.provider_inbox import inject_session_packet
+from harness_common import WORKSPACE_ROOT
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+CONTRACTS_ROOT = PROJECT_ROOT / "contracts"
+SUPPORT_BUNDLE_SCHEMA_PATH = CONTRACTS_ROOT / "support_bundle.v1.schema.json"
+
+
+@lru_cache(maxsize=1)
+def load_support_bundle_schema() -> Dict[str, Any]:
+    return json.loads(SUPPORT_BUNDLE_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
+def validate_support_bundle(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_support_bundle_schema())
+
+
+def _workspace_relative_path(path_value: str, *, workspace_root: Path) -> str:
+    path = Path(path_value)
+    try:
+        return str(path.resolve().relative_to(workspace_root.resolve())).replace("\\", "/")
+    except Exception:
+        return str(path_value).replace("\\", "/")
+
+
+def _normalize_paths(source_paths: Iterable[str], *, workspace_root: Path) -> list[str]:
+    return [_workspace_relative_path(path_value, workspace_root=workspace_root) for path_value in source_paths]
+
+
+def _load_runtime_support_registry(*, workspace_root: Path) -> list[dict[str, Any]]:
+    registry_path = workspace_root / ".yggdrasil" / "ops" / "support-registry" / "support_truth.v1.json"
+    if not registry_path.exists():
+        return []
+    payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    entries = payload.get("entries")
+    if not isinstance(entries, list):
+        return []
+    return [entry for entry in entries if isinstance(entry, dict)]
+
+
+def _select_support_overlay(
+    *,
+    query_text: str,
+    source_paths: list[str],
+    workspace_root: Path,
+) -> dict[str, Any]:
+    normalized_query = query_text.lower()
+    normalized_paths = {
+        _workspace_relative_path(path_value, workspace_root=workspace_root).lower()
+        for path_value in source_paths
+    }
+    best_score = 0
+    best_overlay: dict[str, Any] = {}
+    for entry in _load_runtime_support_registry(workspace_root=workspace_root):
+        score = 0
+        canonical_note = str(entry.get("canonical_note") or "").strip().lower()
+        if canonical_note and canonical_note in normalized_paths:
+            score += 5
+        for term in entry.get("match_terms") or []:
+            if str(term).strip().lower() in normalized_query:
+                score += 1
+        if score > best_score:
+            best_score = score
+            overlay = entry.get("support_bundle")
+            best_overlay = dict(overlay) if isinstance(overlay, dict) else {}
+    return best_overlay
+
+
+def build_support_bundle_payload(
+    message: Mapping[str, Any],
+    *,
+    workspace_root: Path | None = None,
+) -> dict[str, Any]:
+    active_workspace = (workspace_root or WORKSPACE_ROOT).resolve()
+    scope = dict(message.get("scope") or {})
+    payload = dict(message.get("payload") or {})
+    source_paths = [str(item) for item in payload.get("source_paths") or []]
+    relative_source_paths = _normalize_paths(source_paths, workspace_root=active_workspace)
+    query_text = str(payload.get("query_text") or scope.get("topic") or "").strip()
+    bundle = {
+        "schema_version": "support_bundle.v1",
+        "source_packet_id": str(message.get("message_id") or ""),
+        "source_packet_type": str(message.get("message_type") or ""),
+        "query_text": query_text,
+        "topic": str(scope.get("topic") or "") or None,
+        "human_summary": str(message.get("human_summary") or "") or None,
+        "facts": [str(item) for item in payload.get("facts") or []],
+        "source_paths": relative_source_paths,
+        "graph_freshness": dict(payload.get("graph_freshness") or {}),
+        "pathfinder_bundle": dict(payload.get("pathfinder_bundle") or {}),
+        "decision_key": None,
+        "mailbox_location": None,
+        "proof_token": None,
+        "rationale_code": None,
+        "canonical_note": next((path for path in relative_source_paths if path.startswith("vault/")), None),
+        "community_note": None,
+        "provenance_note": None,
+        "community_id": None,
+        "source_ref": None,
+    }
+    overlay = _select_support_overlay(
+        query_text=query_text,
+        source_paths=source_paths,
+        workspace_root=active_workspace,
+    )
+    for key, value in overlay.items():
+        if key in bundle:
+            bundle[key] = value
+    validate_support_bundle(bundle)
+    return bundle
+
+
+def deliver_session_support_packet(
+    message: Mapping[str, Any],
+    *,
+    workspace_root: Path | None = None,
+) -> dict[str, Any] | None:
+    scope = dict(message.get("scope") or {})
+    provider_profile = str(scope.get("profile") or "").strip()
+    provider_session_id = str(scope.get("session_id") or "").strip()
+    if not provider_profile or not provider_session_id:
+        return None
+    provider_id = str(scope.get("provider_id") or "hermes").strip() or "hermes"
+    active_workspace = (workspace_root or WORKSPACE_ROOT).resolve()
+    payload = build_support_bundle_payload(message, workspace_root=active_workspace)
+    packet = inject_session_packet(
+        workspace_root=active_workspace,
+        provider_id=provider_id,
+        provider_profile=provider_profile,
+        provider_session_id=provider_session_id,
+        packet_type="support_bundle",
+        payload=payload,
+    )
+    inbox_path = provider_inbox_path(
+        workspace_root=active_workspace,
+        provider_id=provider_id,
+        provider_profile=provider_profile,
+        provider_session_id=provider_session_id,
+    )
+    return {
+        "provider_id": provider_id,
+        "provider_profile": provider_profile,
+        "provider_session_id": provider_session_id,
+        "message_id": packet["message_id"],
+        "inbox_path": str(inbox_path),
+        "packet": packet,
+    }

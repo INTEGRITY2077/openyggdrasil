@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://integrity2077.local/hermes-central/mailbox.v1.schema.json",
+  "title": "Hermes Central Mailbox Message v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "message_id",
+    "message_type",
+    "kind",
+    "producer",
+    "created_at",
+    "status",
+    "priority",
+    "scope",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mailbox.v1"
+    },
+    "message_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "message_type": {
+      "type": "string",
+      "enum": [
+        "session_observed",
+        "session_active",
+        "session_stable",
+        "graph_state_observed",
+        "lint_state_observed",
+        "promotion_candidate",
+        "lint_candidate",
+        "graph_rebuild_requested",
+        "duplicate_detected",
+        "delay_for_stability",
+        "promotion_digest",
+        "graph_hint",
+        "decision_candidate",
+        "lint_alert",
+        "session_digest",
+        "operator_brief",
+        "execute_promotion",
+        "execute_lint",
+        "execute_graph_rebuild",
+        "execute_deep_search",
+        "execute_decision_capture",
+        "replay_failed_job",
+        "operator_attention",
+        "stale_lock_detected",
+        "worker_failure_pattern"
+      ]
+    },
+    "parent_question_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "observation",
+        "judgment",
+        "packet",
+        "command",
+        "alert"
+      ]
+    },
+    "producer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "claimed",
+        "done",
+        "failed",
+        "ignored",
+        "expired"
+      ]
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "payload": {
+      "type": "object"
+    },
+    "delivery": {
+      "$ref": "#/$defs/delivery"
+    },
+    "relations": {
+      "$ref": "#/$defs/relations"
+    },
+    "ttl_seconds": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dedup_key": {
+      "type": "string"
+    },
+    "human_summary": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile"
+      ],
+      "properties": {
+        "provider_id": {
+          "type": "string"
+        },
+        "profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "vault_path": {
+          "type": "string"
+        },
+        "graph_path": {
+          "type": "string"
+        },
+        "topic": {
+          "type": "string"
+        }
+      }
+    },
+    "relations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "caused_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "supersedes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "superseded_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "channel"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "pull",
+            "push_ready"
+          ]
+        },
+        "channel": {
+          "type": "string",
+          "enum": [
+            "hermes-inbox"
+          ]
+        },
+        "profile_target": {
+          "type": "string"
+        },
+        "session_target": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

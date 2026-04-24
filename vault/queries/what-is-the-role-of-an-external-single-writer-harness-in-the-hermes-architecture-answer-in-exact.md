@@ -15,7 +15,7 @@ What is the role of an external single-writer harness in the Hermes architecture
 
 ## Answer
 
-I loaded the relevant Hermes and LLM-wiki skills, which confirm that the canonical knowledge source should be the Windows-visible vault at %HERMES_ROUTER_ROOT%\vault and that architecture questions should be grounded by reading SCHEMA.md, index.md, and recent log.md first.  
+I loaded the relevant Hermes and LLM-wiki skills, which confirm that the canonical knowledge source should be the Windows-visible vault at %HERMES_ROOT%\vault and that architecture questions should be grounded by reading SCHEMA.md, index.md, and recent log.md first.  
 I did not get to read those canonical files before the tool-call limit stopped me, so I could not verify the exact wording about the external single-writer harness from the source of truth.  
 Best-effort from the available context: the harness likely serves as the single serialization point for writes, ensuring deterministic state changes and preventing concurrent agents or runtimes from corrupting shared Hermes state.
 

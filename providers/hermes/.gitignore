@@ -1,0 +1,39 @@
+# canonical repo ignores
+
+# ops / runtime state
+ops/
+
+# secrets / runtime config
+**/.env
+**/auth.json
+**/config.local.yaml
+**/state.db
+**/state.db-*
+
+# transient runtime dirs
+**/sessions/
+**/logs/
+**/cache/
+**/tmp/
+**/temp/
+**/artifacts/
+**/exports/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/htmlcov/
+
+# python / node build noise
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/node_modules/
+
+# platform files
+.DS_Store
+Thumbs.db
+**/vault/raw/transcripts/
+**/vault/.obsidian/cache/
+**/vault/.obsidian/workspace*.json
+**/vault/.trash/

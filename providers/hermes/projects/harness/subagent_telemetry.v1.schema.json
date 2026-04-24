@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://integrity2077.local/hermes-central/subagent-telemetry.v1.schema.json",
+  "title": "Hermes Central Subagent Telemetry Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "timestamp",
+    "trace_id",
+    "parent_question_id",
+    "capability",
+    "role",
+    "actor",
+    "decider",
+    "action",
+    "status",
+    "producer",
+    "artifacts",
+    "scope",
+    "inference"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "subagent-telemetry.v1"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parent_question_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "capability": {
+      "type": "string",
+      "enum": [
+        "ingest",
+        "query",
+        "lint",
+        "system"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "hermes",
+        "observer",
+        "postman",
+        "sot_writer",
+        "graph_builder",
+        "lint_executor",
+        "operator"
+      ]
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "decider": {
+      "type": "string",
+      "minLength": 1
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "start",
+        "info",
+        "success",
+        "failure"
+      ]
+    },
+    "producer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifacts": {
+      "$ref": "#/$defs/artifacts"
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "inference": {
+      "$ref": "#/$defs/inference"
+    },
+    "details": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "message_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "packet_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "command_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "claim_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "job_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parent_job_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay_root_job_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay_depth": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "session_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vault_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "graph_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "target_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "inference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "deterministic",
+            "hermes_runtime"
+          ]
+        },
+        "profile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "provider": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

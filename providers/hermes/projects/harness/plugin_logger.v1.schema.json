@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://integrity2077.local/hermes-central/plugin-logger.v1.schema.json",
+  "title": "Hermes Central Plugin Plane Log Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "timestamp",
+    "event_type",
+    "actor",
+    "parent_question_id",
+    "profile",
+    "session_id",
+    "query_text",
+    "artifacts",
+    "state"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "plugin-logger.v1"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "deep_search_command_emitted",
+        "decision_capture_command_emitted",
+        "observer_command_emitted",
+        "command_routed",
+        "decision_candidate_generated",
+        "graph_hint_generated",
+        "lint_alert_generated",
+        "packet_delivered",
+        "pathfinder_bundle_built",
+        "preflight_selection_made",
+        "decision_log_rendered",
+        "answer_rendered",
+        "answer_quality_evaluated",
+        "answer_assurance_applied"
+      ]
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parent_question_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "profile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "session_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "query_text": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "artifacts": {
+      "type": "object"
+    },
+    "state": {
+      "type": "object"
+    }
+  }
+}

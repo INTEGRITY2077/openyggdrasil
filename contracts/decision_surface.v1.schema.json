@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/decision_surface.v1.schema.json",
+  "title": "OpenYggdrasil Decision Surface v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "turn_start",
+    "turn_end",
+    "surface_summary",
+    "trigger_reason",
+    "conversation_excerpt",
+    "origin_locator",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "decision_surface.v1"
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "turn_start": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "turn_end": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "surface_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trigger_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "topic_hint": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "conversation_excerpt": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "text"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "origin_locator": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

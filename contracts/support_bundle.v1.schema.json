@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/support_bundle.v1.schema.json",
+  "title": "OpenYggdrasil Support Bundle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_packet_id",
+    "source_packet_type",
+    "query_text",
+    "facts",
+    "source_paths"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "support_bundle.v1"
+    },
+    "source_packet_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_packet_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "query_text": {
+      "type": "string"
+    },
+    "topic": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "human_summary": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "graph_freshness": {
+      "type": "object"
+    },
+    "pathfinder_bundle": {
+      "type": "object"
+    },
+    "decision_key": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "mailbox_location": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "proof_token": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rationale_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "canonical_note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "community_note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "provenance_note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "community_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

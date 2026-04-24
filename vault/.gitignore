@@ -1,3 +1,12 @@
 .obsidian/workspace.json
+.obsidian/workspace*.json
+.obsidian/cache/
+.trash/
+.runtime/
+runtime/
+staging/
+imports/
+raw/transcripts/
+raw/provider-snapshots/
 .DS_Store
 Thumbs.db

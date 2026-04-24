@@ -1,7 +1,11 @@
 # canonical repo ignores
 
-# local-only documentation workspace
+# repo-managed documentation is not part of the deploy/runtime surface
 /doc/
+/README.ko.md
+/agent-list.ko.md
+README.ko.md
+agent-list.ko.md
 
 # ops / runtime state
 ops/
@@ -46,7 +50,22 @@ Thumbs.db
 **/memories/MEMORY.md
 **/memories/USER.md
 **/*.lock
+projects/**/_archive/
 **/vault/raw/transcripts/
+**/vault/.obsidian/
 **/vault/.obsidian/cache/
 **/vault/.obsidian/workspace*.json
 **/vault/.trash/
+
+# local verification surface
+/tests/
+**/tests/
+
+# generated provider-native skill deployment output
+.claude/
+.cursor/
+.windsurf/
+GEMINI.md
+
+# provider compat should not carry duplicate canonical graphify data
+providers/*/projects/graphify-poc/graphify-corpus.manifest.json
