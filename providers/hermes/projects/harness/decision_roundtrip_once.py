@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from admission_stub import admit_decision_candidate
+from community_bridge_stub import build_community_topography
 from gardener_stub import cultivate_decision_seed
 from gardener_stub import plan_seed_planting
 from map_maker_stub import update_map_topography
@@ -15,6 +16,7 @@ from decision_contracts import (
     validate_cultivated_decision,
     validate_decision_candidate,
     validate_engraved_seed,
+    validate_community_topography,
     validate_map_topography,
     validate_planting_decision,
 )
@@ -23,6 +25,7 @@ from mailbox_status import write_mailbox_status
 from mailbox_store import append_claim, claimed_message_ids, read_messages
 from packet_factory import (
     build_admission_verdict_packet,
+    build_community_topography_packet,
     build_cultivated_decision_packet,
     build_engraved_seed_packet,
     build_map_topography_packet,
@@ -96,6 +99,10 @@ def roundtrip_decision_candidate_message(
         cultivated_decision=cultivated_decision,
     )
     validate_map_topography(map_topography)
+    community_topography = build_community_topography(
+        map_topography=map_topography,
+    )
+    validate_community_topography(community_topography)
 
     append_claim(
         message_id=message["message_id"],
@@ -139,11 +146,18 @@ def roundtrip_decision_candidate_message(
         parent_question_id=parent_question_id,
         map_topography=map_topography,
     )
+    community_topography_packet = build_community_topography_packet(
+        profile=profile,
+        session_id=session_id,
+        parent_question_id=parent_question_id,
+        community_topography=community_topography,
+    )
     submit_packet(admission_packet, namespace=mailbox_namespace)
     submit_packet(engraved_packet, namespace=mailbox_namespace)
     submit_packet(planting_packet, namespace=mailbox_namespace)
     submit_packet(cultivated_packet, namespace=mailbox_namespace)
     submit_packet(map_topography_packet, namespace=mailbox_namespace)
+    submit_packet(community_topography_packet, namespace=mailbox_namespace)
     return {
         "candidate_message_id": message["message_id"],
         "admission_packet_id": admission_packet["message_id"],
@@ -151,6 +165,7 @@ def roundtrip_decision_candidate_message(
         "planting_packet_id": planting_packet["message_id"],
         "cultivated_packet_id": cultivated_packet["message_id"],
         "map_topography_packet_id": map_topography_packet["message_id"],
+        "community_topography_packet_id": community_topography_packet["message_id"],
         "seed_identity_key": engraved_seed["seed_identity_key"],
         "integrity_status": engraved_seed["integrity_status"],
         "planting_ready": engraved_seed["planting_ready"],
@@ -160,6 +175,9 @@ def roundtrip_decision_candidate_message(
         "bed_id": map_topography["bed_id"],
         "topography_status": map_topography["topography_status"],
         "routing_mode": map_topography["routing_mode"],
+        "community_id": community_topography["community_id"],
+        "bridge_count": community_topography["bridge_count"],
+        "bridge_status": community_topography["bridge_status"],
         "topic_id": cultivated_decision["topic_id"],
         "canonical_relative_path": cultivated_decision["canonical_relative_path"],
         "canonical_note_path": cultivated_decision["canonical_note_path"],

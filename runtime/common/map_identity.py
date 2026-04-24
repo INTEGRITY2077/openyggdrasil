@@ -23,6 +23,10 @@ def build_topic_id(topic_key: str) -> str:
     return f"topic:{normalize_key(topic_key)}"
 
 
+def build_community_id(community_key: str) -> str:
+    return f"community:{normalize_key(community_key)}"
+
+
 def build_episode_id(*, topic_id: str, episode_key: str) -> str:
     if not topic_id.startswith("topic:"):
         raise ValueError("topic_id must start with 'topic:'")

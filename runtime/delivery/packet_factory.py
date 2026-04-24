@@ -344,6 +344,52 @@ def build_map_topography_packet(
     return message
 
 
+def build_community_topography_packet(
+    *,
+    provider_id: str = "hermes",
+    profile: str,
+    session_id: Optional[str],
+    parent_question_id: Optional[str] = None,
+    community_topography: Dict[str, Any],
+    producer: str = "decision-roundtrip-once",
+) -> Dict[str, Any]:
+    message = {
+        "schema_version": "mailbox.v1",
+        "message_id": uuid.uuid4().hex,
+        "message_type": "community_topography",
+        "kind": "packet",
+        "parent_question_id": parent_question_id,
+        "producer": producer,
+        "created_at": utc_now_iso(),
+        "status": "new",
+        "priority": "medium",
+        "scope": {
+            "provider_id": provider_id,
+            "profile": profile,
+            "vault_path": str(DEFAULT_VAULT.resolve()),
+            "topic": str(community_topography.get("community_title") or community_topography.get("community_id") or ""),
+        },
+        "payload": {
+            "community_topography": community_topography,
+            "facts": [
+                str(community_topography.get("community_id") or "").strip(),
+                str(community_topography.get("community_note_relative_path") or "").strip(),
+                str(community_topography.get("bridge_status") or "").strip(),
+            ],
+            "confidence_score": 1.0,
+            "relevance_score": 1.0,
+        },
+        "human_summary": (
+            f"Community topography isolated {str(community_topography.get('community_id') or '').strip()} "
+            f"with bridges={str(community_topography.get('bridge_count') or '').strip()}."
+        ),
+    }
+    if session_id:
+        message["scope"]["session_id"] = session_id
+    validate_message(message)
+    return message
+
+
 def is_push_ready_packet(message: Dict[str, Any]) -> bool:
     return (
         message.get("kind") == "packet"

@@ -270,6 +270,10 @@ def main() -> int:
         mailbox_namespace=args.mailbox_namespace,
         message_type="map_topography",
     )
+    community_topography_message = latest_message_by_type(
+        mailbox_namespace=args.mailbox_namespace,
+        message_type="community_topography",
+    )
 
     deep_search_question = build_deep_search_question(decoy_bait=args.decoy_bait)
     deep_search_command = build_deep_search_command(
@@ -347,6 +351,7 @@ def main() -> int:
         "planting_message": planting_message,
         "cultivated_message": cultivated_message,
         "map_topography_message": map_topography_message,
+        "community_topography_message": community_topography_message,
         "roundtrip_result": roundtrip_result,
         "deep_search_command_id": deep_search_command["message_id"],
         "routed_search": routed_search,

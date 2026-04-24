@@ -45,6 +45,7 @@
         "planting_decision",
         "cultivated_decision",
         "map_topography",
+        "community_topography",
         "lint_alert",
         "session_digest",
         "operator_brief",
