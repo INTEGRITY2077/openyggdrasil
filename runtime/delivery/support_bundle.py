@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, Mapping
 import jsonschema
 
 from attachments.provider_attachment import provider_inbox_path
-from attachments.provider_inbox import inject_session_packet
+from attachments.provider_inbox import inject_session_packet, validate_inbox_packet
 from delivery.mailbox_contamination_guard import MailboxGuardPolicy, ensure_mailbox_message_accepted
 from harness_common import WORKSPACE_ROOT
 
@@ -38,6 +38,17 @@ def validate_support_bundle(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_support_bundle_schema())
 
 
+def validate_support_bundle_inbox_packet(packet: Mapping[str, Any]) -> None:
+    validate_inbox_packet(packet)
+    if packet.get("packet_type") != "support_bundle":
+        raise ValueError("Expected packet_type='support_bundle'")
+    validate_support_bundle(dict(packet.get("payload") or {}))
+
+
+def _non_empty_strings(values: Iterable[Any]) -> list[str]:
+    return [str(item).strip() for item in values if str(item).strip()]
+
+
 def _workspace_relative_path(path_value: str, *, workspace_root: Path) -> str:
     path = Path(path_value)
     try:
@@ -47,7 +58,10 @@ def _workspace_relative_path(path_value: str, *, workspace_root: Path) -> str:
 
 
 def _normalize_paths(source_paths: Iterable[str], *, workspace_root: Path) -> list[str]:
-    return [_workspace_relative_path(path_value, workspace_root=workspace_root) for path_value in source_paths]
+    return [
+        _workspace_relative_path(path_value, workspace_root=workspace_root)
+        for path_value in _non_empty_strings(source_paths)
+    ]
 
 
 def _normalize_pathfinder_bundle(
@@ -139,6 +153,13 @@ def build_support_bundle_payload(
     source_paths = [str(item) for item in payload.get("source_paths") or []]
     relative_source_paths = _normalize_paths(source_paths, workspace_root=active_workspace)
     query_text = str(payload.get("query_text") or scope.get("topic") or "").strip()
+    pathfinder_bundle = _normalize_pathfinder_bundle(
+        dict(payload.get("pathfinder_bundle") or {}),
+        workspace_root=active_workspace,
+    )
+    facts = _non_empty_strings(payload.get("facts") or [])
+    if not facts and pathfinder_bundle:
+        facts = _non_empty_strings(pathfinder_bundle.get("support_facts") or [])
     bundle = {
         "schema_version": "support_bundle.v1",
         "source_packet_id": str(message.get("message_id") or ""),
@@ -146,13 +167,10 @@ def build_support_bundle_payload(
         "query_text": query_text,
         "topic": str(scope.get("topic") or "") or None,
         "human_summary": str(message.get("human_summary") or "") or None,
-        "facts": [str(item) for item in payload.get("facts") or []],
+        "facts": facts,
         "source_paths": relative_source_paths,
         "graph_freshness": dict(payload.get("graph_freshness") or {}),
-        "pathfinder_bundle": _normalize_pathfinder_bundle(
-            dict(payload.get("pathfinder_bundle") or {}),
-            workspace_root=active_workspace,
-        ),
+        "pathfinder_bundle": pathfinder_bundle,
         "decision_key": None,
         "mailbox_location": None,
         "proof_token": None,
@@ -202,6 +220,7 @@ def deliver_session_support_packet(
         packet_type="support_bundle",
         payload=payload,
     )
+    validate_support_bundle_inbox_packet(packet)
     inbox_path = provider_inbox_path(
         workspace_root=active_workspace,
         provider_id=provider_id,
