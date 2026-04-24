@@ -39,6 +39,7 @@ CANONICAL_RUNTIME_MODULES = [
     "reasoning.provider_resource_boundary",
     "reasoning.reasoning_lease_contracts",
     "retrieval.graph_freshness",
+    "retrieval.graphify_snapshot_adapter",
     "retrieval.origin_shortcut_roundtrip",
     "retrieval.pathfinder",
     "retrieval.pathfinder_ptc_mvp",
