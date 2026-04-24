@@ -40,6 +40,7 @@ CANONICAL_RUNTIME_MODULES = [
     "reasoning.reasoning_lease_contracts",
     "retrieval.graph_freshness",
     "retrieval.graphify_snapshot_adapter",
+    "retrieval.graphify_snapshot_manifest",
     "retrieval.origin_shortcut_roundtrip",
     "retrieval.pathfinder",
     "retrieval.pathfinder_ptc_mvp",

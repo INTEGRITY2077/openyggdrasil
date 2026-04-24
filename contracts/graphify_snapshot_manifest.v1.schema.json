@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Graphify Snapshot Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_id",
+    "source_adapter_schema_version",
+    "status",
+    "snapshot_role",
+    "canonicality",
+    "mutation_policy",
+    "graph_path",
+    "summary_path",
+    "graphify_manifest_path",
+    "vault_root",
+    "summary",
+    "freshness",
+    "failure",
+    "provenance_policy",
+    "generated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "graphify_snapshot_manifest.v1"
+    },
+    "manifest_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_adapter_schema_version": {
+      "const": "graphify_snapshot_adapter.v1"
+    },
+    "status": {
+      "enum": [
+        "available",
+        "unavailable"
+      ]
+    },
+    "snapshot_role": {
+      "const": "derived_graph_snapshot"
+    },
+    "canonicality": {
+      "const": "non_sot"
+    },
+    "mutation_policy": {
+      "const": "read_only_no_sot_mutation"
+    },
+    "graph_path": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "summary_path": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "graphify_manifest_path": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "vault_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "nodes",
+            "edges",
+            "communities",
+            "god_nodes",
+            "surprising_connections"
+          ],
+          "properties": {
+            "nodes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "edges": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "communities": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "god_nodes": {
+              "type": "array"
+            },
+            "surprising_connections": {
+              "type": "array"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "freshness": {
+      "type": "object"
+    },
+    "failure": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason_code",
+            "message"
+          ],
+          "properties": {
+            "reason_code": {
+              "type": "string",
+              "minLength": 1
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "provenance_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "graphify_is_sot",
+        "must_verify_against_sot",
+        "raw_session_copy_allowed",
+        "provider_may_answer_from_graphify_alone"
+      ],
+      "properties": {
+        "graphify_is_sot": {
+          "const": false
+        },
+        "must_verify_against_sot": {
+          "const": true
+        },
+        "raw_session_copy_allowed": {
+          "const": false
+        },
+        "provider_may_answer_from_graphify_alone": {
+          "const": false
+        }
+      }
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
