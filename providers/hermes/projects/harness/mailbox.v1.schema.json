@@ -44,6 +44,7 @@
         "engraved_seed",
         "planting_decision",
         "cultivated_decision",
+        "map_topography",
         "lint_alert",
         "session_digest",
         "operator_brief",

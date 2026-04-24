@@ -298,6 +298,52 @@ def build_cultivated_decision_packet(
     return message
 
 
+def build_map_topography_packet(
+    *,
+    provider_id: str = "hermes",
+    profile: str,
+    session_id: Optional[str],
+    parent_question_id: Optional[str] = None,
+    map_topography: Dict[str, Any],
+    producer: str = "decision-roundtrip-once",
+) -> Dict[str, Any]:
+    message = {
+        "schema_version": "mailbox.v1",
+        "message_id": uuid.uuid4().hex,
+        "message_type": "map_topography",
+        "kind": "packet",
+        "parent_question_id": parent_question_id,
+        "producer": producer,
+        "created_at": utc_now_iso(),
+        "status": "new",
+        "priority": "medium",
+        "scope": {
+            "provider_id": provider_id,
+            "profile": profile,
+            "vault_path": str(DEFAULT_VAULT.resolve()),
+            "topic": str(map_topography.get("topic_title") or map_topography.get("topic_id") or ""),
+        },
+        "payload": {
+            "map_topography": map_topography,
+            "facts": [
+                str(map_topography.get("continent_key") or "").strip(),
+                str(map_topography.get("bed_id") or "").strip(),
+                str(map_topography.get("canonical_relative_path") or "").strip(),
+            ],
+            "confidence_score": 1.0,
+            "relevance_score": 1.0,
+        },
+        "human_summary": (
+            f"Map Maker aligned {str(map_topography.get('canonical_relative_path') or '').strip()} "
+            f"inside {str(map_topography.get('bed_id') or '').strip()}."
+        ),
+    }
+    if session_id:
+        message["scope"]["session_id"] = session_id
+    validate_message(message)
+    return message
+
+
 def is_push_ready_packet(message: Dict[str, Any]) -> bool:
     return (
         message.get("kind") == "packet"

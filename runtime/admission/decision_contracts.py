@@ -46,6 +46,11 @@ def load_cultivated_decision_schema() -> Dict[str, Any]:
     return _load_schema("cultivated_decision.v1.schema.json")
 
 
+@lru_cache(maxsize=1)
+def load_map_topography_schema() -> Dict[str, Any]:
+    return _load_schema("map_topography.v1.schema.json")
+
+
 def validate_decision_surface(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_decision_surface_schema())
 
@@ -68,3 +73,7 @@ def validate_planting_decision(payload: Mapping[str, Any]) -> None:
 
 def validate_cultivated_decision(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_cultivated_decision_schema())
+
+
+def validate_map_topography(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_map_topography_schema())
