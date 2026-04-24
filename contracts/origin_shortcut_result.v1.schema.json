@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/origin_shortcut_result.v1.schema.json",
+  "title": "OpenYggdrasil Origin Shortcut Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_packet_id",
+    "source_packet_type",
+    "query_text",
+    "shortcut_kind",
+    "shortcut_path",
+    "resolved_path",
+    "exists",
+    "evidence_preview"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "origin_shortcut_result.v1"
+    },
+    "source_packet_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_packet_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "query_text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "shortcut_kind": {
+      "type": "string",
+      "enum": [
+        "canonical_note",
+        "provenance_note",
+        "source_path",
+        "pathfinder_source_path",
+        "none"
+      ]
+    },
+    "shortcut_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "resolved_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "exists": {
+      "type": "boolean"
+    },
+    "evidence_preview": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

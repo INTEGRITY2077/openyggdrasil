@@ -37,6 +37,7 @@ CANONICAL_RUNTIME_MODULES = [
     "provenance.provenance_store",
     "reasoning.reasoning_lease_contracts",
     "retrieval.graph_freshness",
+    "retrieval.origin_shortcut_roundtrip",
     "retrieval.pathfinder",
     "retrieval.pathfinder_ptc_mvp",
     "retrieval.pathfinder_tools",
