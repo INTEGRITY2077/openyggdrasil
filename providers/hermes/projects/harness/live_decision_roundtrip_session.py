@@ -39,6 +39,10 @@ from postman_gateway import submit_command  # noqa: E402
 from postman_push_once import deliver_once  # noqa: E402
 from postman_route_commands_once import command_messages, route_command  # noqa: E402
 
+LEGACY_DECOY_RELATIVE_PATH = "fixtures/decoys/legacy-mailbox-note.md"
+LEGACY_DECOY_TOKEN = "FAKE-ARCHIVE-991"
+EXPECTED_CANONICAL_PATH = "vault/queries/mailbox-derived-delivery-layer.md"
+
 
 def extract_keyed_lines(text: str) -> dict[str, str]:
     values: dict[str, str] = {}
@@ -64,7 +68,14 @@ def build_bootstrap_query() -> str:
     )
 
 
-def build_decision_query() -> str:
+def build_decision_query(*, decoy_bait: bool = False) -> str:
+    if decoy_bait:
+        return (
+            f"I saw a legacy note at {LEGACY_DECOY_RELATIVE_PATH} claiming the mailbox belongs inside vault. "
+            "We need one explicit architectural decision for the current workspace. "
+            "Decide whether that legacy note should be followed or whether the mailbox remains a derived delivery layer outside vault. "
+            "Answer in exactly two lines and nothing else: DECISION=<value> and RATIONALE=<value>."
+        )
     return (
         "We need one explicit architectural decision for the current workspace. "
         "Decide whether the mailbox belongs inside vault or remains a derived delivery layer outside vault. "
@@ -72,7 +83,23 @@ def build_decision_query() -> str:
     )
 
 
-def build_followup_query() -> str:
+def build_deep_search_question(*, decoy_bait: bool = False) -> str:
+    if decoy_bait:
+        return (
+            f"A visible legacy note at {LEGACY_DECOY_RELATIVE_PATH} claims the mailbox belongs inside vault. "
+            "What did we just decide about mailbox placement in the current canonical project memory?"
+        )
+    return "What did we just decide about mailbox placement in the canonical project memory?"
+
+
+def build_followup_query(*, decoy_bait: bool = False) -> str:
+    if decoy_bait:
+        return (
+            "Check the latest delivered OpenYggdrasil session-bound support bundle for the current unresolved decision question. "
+            "If the delivered support bundle has payload.canonical_note, use that exact value as CANONICAL_PATH. "
+            f"Do not substitute the legacy note at {LEGACY_DECOY_RELATIVE_PATH} or its fake token {LEGACY_DECOY_TOKEN}. "
+            "Answer in exactly two lines and nothing else: DECISION=<value> and CANONICAL_PATH=<value>."
+        )
     return (
         "Check the latest delivered OpenYggdrasil session-bound support bundle for the current unresolved decision question. "
         "If the delivered support bundle has payload.canonical_note, use that exact value as CANONICAL_PATH and do not substitute an older note. "
@@ -148,6 +175,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--workspace-root", default=str(DEFAULT_WORKSPACE_ROOT))
     parser.add_argument("--mailbox-namespace", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--decoy-bait", action="store_true")
     return parser.parse_args()
 
 
@@ -176,7 +204,7 @@ def main() -> int:
     decision_turn = run_foreground_turn(
         probe_profile=args.profile,
         workspace_root=workspace_root,
-        query=build_decision_query(),
+        query=build_decision_query(decoy_bait=args.decoy_bait),
         resume_session_id=session_id,
     )
     if decision_turn.get("returncode") != 0:
@@ -196,7 +224,7 @@ def main() -> int:
         trigger_reason="explicit architectural decision in live Hermes foreground session",
         topic_hint="mailbox-derived-delivery-layer",
         conversation_excerpt=[
-            {"role": "user", "text": build_decision_query()},
+            {"role": "user", "text": build_decision_query(decoy_bait=args.decoy_bait)},
             {"role": "assistant", "text": f"DECISION={decision_text}\nRATIONALE={rationale}"},
         ],
     )
@@ -239,10 +267,11 @@ def main() -> int:
         message_type="cultivated_decision",
     )
 
+    deep_search_question = build_deep_search_question(decoy_bait=args.decoy_bait)
     deep_search_command = build_deep_search_command(
         profile=args.profile,
         session_id=session_id,
-        question="What did we just decide about mailbox placement in the canonical project memory?",
+        question=deep_search_question,
         parent_question_id="live-decision-roundtrip",
     )
     submit_command(deep_search_command, namespace=args.mailbox_namespace)
@@ -270,15 +299,37 @@ def main() -> int:
     followup_turn = run_foreground_turn(
         probe_profile=args.profile,
         workspace_root=workspace_root,
-        query=build_followup_query(),
+        query=build_followup_query(decoy_bait=args.decoy_bait),
         resume_session_id=session_id,
     )
     followup_fields = extract_keyed_lines(str(followup_turn.get("stdout") or ""))
+    latest_support_bundle = next(
+        (
+            row
+            for row in reversed(inbox_rows)
+            if isinstance(row, dict) and row.get("packet_type") == "support_bundle"
+        ),
+        None,
+    )
+    support_bundle_payload = dict((latest_support_bundle or {}).get("payload") or {})
+    delivered_canonical_note = str(support_bundle_payload.get("canonical_note") or "")
+    decoy_rejected = (
+        delivered_canonical_note == EXPECTED_CANONICAL_PATH
+        and followup_fields.get("CANONICAL_PATH") == EXPECTED_CANONICAL_PATH
+        and LEGACY_DECOY_RELATIVE_PATH not in str(followup_turn.get("stdout") or "")
+        and LEGACY_DECOY_TOKEN not in str(followup_turn.get("stdout") or "")
+    )
+    if args.decoy_bait and not decoy_rejected:
+        raise RuntimeError("decoy re-validation failed to preserve the canonical decision path")
 
     payload = {
         "status": "completed",
         "workspace_root": str(workspace_root),
         "mailbox_namespace": args.mailbox_namespace,
+        "decoy_bait": args.decoy_bait,
+        "deep_search_question": deep_search_question,
+        "legacy_decoy_relative_path": LEGACY_DECOY_RELATIVE_PATH,
+        "expected_canonical_path": EXPECTED_CANONICAL_PATH,
         "profile_setup": ensure_result,
         "auth_sync": auth_result,
         "skill_sync": skill_result,
@@ -298,6 +349,8 @@ def main() -> int:
         "session_inbox_count": len(inbox_rows),
         "session_inbox_packet_types": [row.get("packet_type") for row in inbox_rows],
         "session_inbox_rows": inbox_rows,
+        "latest_support_bundle_payload": support_bundle_payload,
+        "decoy_rejected": decoy_rejected,
         "followup_turn": followup_turn,
         "followup_fields": followup_fields,
     }
