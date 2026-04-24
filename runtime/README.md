@@ -18,3 +18,13 @@ Current occupants:
 - pathfinder runtime and PTC MVP substrate
 - skill-generated provider attachment runtime
 - provider/session-bound reverse inbox runtime
+
+## Runtime Surface Policy
+
+Canonical implementations live under domain packages such as `runtime/admission/`, `runtime/delivery/`, `runtime/retrieval/`, and `runtime/attachments/`.
+
+Same-name top-level modules are compatibility shims for legacy scripts, tests, and provider harnesses. They stay until provider imports migrate to canonical package paths and `runtime/import_smoke.py` confirms both surfaces remain importable.
+
+Top-level modules without package counterparts are runtime utilities or proof entrypoints. They require an explicit policy decision before move/delete work.
+
+See `runtime/shim_policy.py` for the executable mapping between compatibility shims and canonical targets.

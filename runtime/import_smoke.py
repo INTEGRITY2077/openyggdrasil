@@ -80,6 +80,11 @@ COMPATIBILITY_SHIM_MODULES = [
 ]
 
 
+RUNTIME_UTILITY_MODULES = [
+    "shim_policy",
+]
+
+
 @dataclass(frozen=True)
 class ImportSmokeResult:
     imported: tuple[str, ...]
@@ -104,4 +109,4 @@ def smoke_import_modules(module_names: list[str] | tuple[str, ...]) -> ImportSmo
 
 
 def smoke_import_runtime_surface() -> ImportSmokeResult:
-    return smoke_import_modules(CANONICAL_RUNTIME_MODULES + COMPATIBILITY_SHIM_MODULES)
+    return smoke_import_modules(CANONICAL_RUNTIME_MODULES + COMPATIBILITY_SHIM_MODULES + RUNTIME_UTILITY_MODULES)
