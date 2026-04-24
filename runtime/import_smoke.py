@@ -34,6 +34,7 @@ CANONICAL_RUNTIME_MODULES = [
     "placement.topic_episode_placement_engine",
     "placement.topic_page_filing",
     "provenance.episode_semantic_edges",
+    "provenance.episode_semantic_edges_v2",
     "provenance.provenance_store",
     "reasoning.provider_resource_boundary",
     "reasoning.reasoning_lease_contracts",

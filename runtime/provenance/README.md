@@ -8,3 +8,4 @@ Scope:
 - provenance record parsing
 - provenance path helpers
 - semantic trace persistence support
+- temporal semantic edge contract helpers

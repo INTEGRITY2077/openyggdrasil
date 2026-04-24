@@ -5,6 +5,7 @@ This directory is reserved for engine-level contracts:
 - geography and region contracts
 - provenance contracts
 - semantic edge contracts
+- temporal semantic edge contracts
 - retrieval tool contracts
 - optional reasoning lease contracts
 - session structure signal contracts

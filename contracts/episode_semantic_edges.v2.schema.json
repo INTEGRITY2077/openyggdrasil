@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Episode Semantic Edges Temporal Verdict",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_schema_version",
+    "current_episode_id",
+    "current_claim_id",
+    "edges",
+    "reason_labels",
+    "summary",
+    "evaluation_mode",
+    "evaluated_at",
+    "as_of"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "episode_semantic_edges.v2"
+    },
+    "source_schema_version": {
+      "const": "episode_semantic_edges.v1"
+    },
+    "current_episode_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "current_claim_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "edge_id",
+          "edge_type",
+          "source_claim_id",
+          "target_claim_id",
+          "valid_at",
+          "invalid_at",
+          "invalidated_by",
+          "as_of"
+        ],
+        "properties": {
+          "edge_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "edge_type": {
+            "enum": [
+              "supports",
+              "supersedes",
+              "contradicts"
+            ]
+          },
+          "source_claim_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_claim_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "valid_at": {
+            "type": "string",
+            "minLength": 1
+          },
+          "invalid_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "invalidated_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "as_of": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "reason_labels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "summary": {
+      "type": "string"
+    },
+    "evaluation_mode": {
+      "type": "string"
+    },
+    "evaluated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "as_of": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
