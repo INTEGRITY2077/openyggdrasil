@@ -10,5 +10,6 @@ This directory is reserved for engine-level contracts:
 - session structure signal contracts
 - session admission verdict contracts
 - support bundle contracts
+- mailbox guard result contracts
 - skill-generated provider attachment contracts
 - provider/session-bound inbox packet contracts

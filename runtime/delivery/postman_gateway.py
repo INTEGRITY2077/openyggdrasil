@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from delivery.mailbox_contamination_guard import ensure_mailbox_message_accepted
 from delivery.mailbox_status import write_mailbox_status
 from delivery.mailbox_store import append_message
 
@@ -12,6 +13,7 @@ def submit_message(
     namespace: str | None = None,
     refresh_status: bool = True,
 ) -> Dict[str, Any]:
+    ensure_mailbox_message_accepted(message)
     append_message(message, namespace=namespace)
     if refresh_status:
         write_mailbox_status(namespace=namespace)

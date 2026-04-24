@@ -9,12 +9,24 @@ import jsonschema
 
 from attachments.provider_attachment import provider_inbox_path
 from attachments.provider_inbox import inject_session_packet
+from delivery.mailbox_contamination_guard import MailboxGuardPolicy, ensure_mailbox_message_accepted
 from harness_common import WORKSPACE_ROOT
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS_ROOT = PROJECT_ROOT / "contracts"
 SUPPORT_BUNDLE_SCHEMA_PATH = CONTRACTS_ROOT / "support_bundle.v1.schema.json"
+SUPPORT_BUNDLE_SOURCE_PACKET_TYPES = (
+    "graph_hint",
+    "decision_candidate",
+    "admission_verdict",
+    "engraved_seed",
+    "planting_decision",
+    "cultivated_decision",
+    "map_topography",
+    "community_topography",
+    "operator_brief",
+)
 
 
 @lru_cache(maxsize=1)
@@ -114,6 +126,13 @@ def build_support_bundle_payload(
     *,
     workspace_root: Path | None = None,
 ) -> dict[str, Any]:
+    ensure_mailbox_message_accepted(
+        message,
+        policy=MailboxGuardPolicy(
+            allowed_message_types=SUPPORT_BUNDLE_SOURCE_PACKET_TYPES,
+            require_delivery_match=False,
+        ),
+    )
     active_workspace = (workspace_root or WORKSPACE_ROOT).resolve()
     scope = dict(message.get("scope") or {})
     payload = dict(message.get("payload") or {})
