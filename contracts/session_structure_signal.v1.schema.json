@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/session_structure_signal.v1.schema.json",
+  "title": "OpenYggdrasil Session Structure Signal v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "signal_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "turn_range",
+    "trigger_type",
+    "reason_labels",
+    "surface_reason",
+    "priority",
+    "source_ref",
+    "emitted_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "session_structure_signal.v1"
+    },
+    "signal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "turn_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to"
+      ],
+      "properties": {
+        "from": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "to": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "trigger_type": {
+      "type": "string",
+      "enum": [
+        "hard_trigger",
+        "boundary_trigger",
+        "correction_supersession_trigger",
+        "context_pressure_trigger",
+        "retrieval_need_trigger"
+      ]
+    },
+    "reason_labels": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "surface_reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 280
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "immediate",
+        "deferred",
+        "review"
+      ]
+    },
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "path_hint",
+        "range_hint"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "provider_session"
+          ]
+        },
+        "path_hint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "range_hint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "symlink_hint": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        }
+      }
+    },
+    "anchor_hash": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "emitted_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
