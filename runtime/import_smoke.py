@@ -35,6 +35,7 @@ CANONICAL_RUNTIME_MODULES = [
     "placement.topic_page_filing",
     "provenance.episode_semantic_edges",
     "provenance.provenance_store",
+    "reasoning.provider_resource_boundary",
     "reasoning.reasoning_lease_contracts",
     "retrieval.graph_freshness",
     "retrieval.origin_shortcut_roundtrip",
