@@ -19,6 +19,11 @@
     "page_id",
     "canonical_relative_path",
     "episode_id",
+    "continent_key",
+    "continent_id",
+    "continent_title",
+    "continent_decision",
+    "route_reason",
     "rationale_code",
     "admitted_at"
   ],
@@ -78,6 +83,29 @@
       "minLength": 1
     },
     "episode_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "continent_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "continent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "continent_title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "continent_decision": {
+      "type": "string",
+      "enum": [
+        "existing_continent",
+        "new_continent"
+      ]
+    },
+    "route_reason": {
       "type": "string",
       "minLength": 1
     },

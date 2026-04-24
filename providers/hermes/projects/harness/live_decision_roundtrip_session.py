@@ -222,6 +222,14 @@ def main() -> int:
         vault_root=Path(DEFAULT_VAULT).resolve(),
         mailbox_namespace=args.mailbox_namespace,
     )
+    admission_message = latest_message_by_type(
+        mailbox_namespace=args.mailbox_namespace,
+        message_type="admission_verdict",
+    )
+    cultivated_message = latest_message_by_type(
+        mailbox_namespace=args.mailbox_namespace,
+        message_type="cultivated_decision",
+    )
 
     deep_search_command = build_deep_search_command(
         profile=args.profile,
@@ -271,6 +279,8 @@ def main() -> int:
         "decision_turn": decision_turn,
         "decision_command_id": decision_command["message_id"],
         "routed_decision": routed_decision,
+        "admission_message": admission_message,
+        "cultivated_message": cultivated_message,
         "roundtrip_result": roundtrip_result,
         "deep_search_command_id": deep_search_command["message_id"],
         "routed_search": routed_search,

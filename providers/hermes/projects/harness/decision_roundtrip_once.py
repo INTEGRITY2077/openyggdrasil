@@ -67,7 +67,10 @@ def roundtrip_decision_candidate_message(
         raise RuntimeError("decision_candidate packet missing payload.decision_candidate")
     validate_decision_candidate(decision_candidate)
 
-    admission_verdict = admit_decision_candidate(decision_candidate=decision_candidate)
+    admission_verdict = admit_decision_candidate(
+        decision_candidate=decision_candidate,
+        vault_root=vault_root,
+    )
     validate_admission_verdict(admission_verdict)
     engraved_seed = engrave_decision_seed(
         admission_verdict=admission_verdict,
