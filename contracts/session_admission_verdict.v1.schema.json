@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/session_admission_verdict.v1.schema.json",
+  "title": "OpenYggdrasil Session Admission Verdict v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "verdict_id",
+    "signal_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "verdict",
+    "reason_codes",
+    "next_role",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "session_admission_verdict.v1"
+    },
+    "verdict_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "signal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "accept",
+        "defer",
+        "reject"
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "next_role": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "seedkeeper",
+        "review_queue",
+        null
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

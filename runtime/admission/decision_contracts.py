@@ -37,6 +37,11 @@ def load_session_structure_signal_schema() -> Dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
+def load_session_admission_verdict_schema() -> Dict[str, Any]:
+    return _load_schema("session_admission_verdict.v1.schema.json")
+
+
+@lru_cache(maxsize=1)
 def load_engraved_seed_schema() -> Dict[str, Any]:
     return _load_schema("engraved_seed.v1.schema.json")
 
@@ -137,6 +142,10 @@ def _validate_signal_constraints(payload: Mapping[str, Any]) -> None:
 def validate_session_structure_signal(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_session_structure_signal_schema())
     _validate_signal_constraints(payload)
+
+
+def validate_session_admission_verdict(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_session_admission_verdict_schema())
 
 
 def validate_engraved_seed(payload: Mapping[str, Any]) -> None:
