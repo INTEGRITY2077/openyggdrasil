@@ -37,6 +37,10 @@ def cultivate_decision_seed(
     vault_root: Path = DEFAULT_VAULT,
 ) -> dict[str, Any]:
     validate_engraved_seed(engraved_seed)
+    if not bool(engraved_seed.get("planting_ready")):
+        raise ValueError(
+            f"Nursery seed is not planting-ready: {str(engraved_seed.get('integrity_reason') or 'unknown')}"
+        )
     active_vault_root = vault_root.resolve()
     canonical_relative_path = str(engraved_seed["canonical_relative_path"])
     topic_path = active_vault_root / canonical_relative_path

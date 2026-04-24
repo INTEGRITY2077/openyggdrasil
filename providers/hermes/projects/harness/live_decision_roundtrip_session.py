@@ -226,6 +226,10 @@ def main() -> int:
         mailbox_namespace=args.mailbox_namespace,
         message_type="admission_verdict",
     )
+    engraved_message = latest_message_by_type(
+        mailbox_namespace=args.mailbox_namespace,
+        message_type="engraved_seed",
+    )
     cultivated_message = latest_message_by_type(
         mailbox_namespace=args.mailbox_namespace,
         message_type="cultivated_decision",
@@ -280,6 +284,7 @@ def main() -> int:
         "decision_command_id": decision_command["message_id"],
         "routed_decision": routed_decision,
         "admission_message": admission_message,
+        "engraved_message": engraved_message,
         "cultivated_message": cultivated_message,
         "roundtrip_result": roundtrip_result,
         "deep_search_command_id": deep_search_command["message_id"],

@@ -41,6 +41,7 @@
         "graph_hint",
         "decision_candidate",
         "admission_verdict",
+        "engraved_seed",
         "cultivated_decision",
         "lint_alert",
         "session_digest",

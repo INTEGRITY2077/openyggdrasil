@@ -160,6 +160,51 @@ def build_admission_verdict_packet(
     return message
 
 
+def build_engraved_seed_packet(
+    *,
+    provider_id: str = "hermes",
+    profile: str,
+    session_id: Optional[str],
+    parent_question_id: Optional[str] = None,
+    engraved_seed: Dict[str, Any],
+    producer: str = "decision-roundtrip-once",
+) -> Dict[str, Any]:
+    message = {
+        "schema_version": "mailbox.v1",
+        "message_id": uuid.uuid4().hex,
+        "message_type": "engraved_seed",
+        "kind": "packet",
+        "parent_question_id": parent_question_id,
+        "producer": producer,
+        "created_at": utc_now_iso(),
+        "status": "new",
+        "priority": "medium",
+        "scope": {
+            "provider_id": provider_id,
+            "profile": profile,
+            "vault_path": str(DEFAULT_VAULT.resolve()),
+            "topic": str(engraved_seed.get("topic_title") or engraved_seed.get("topic_key") or ""),
+        },
+        "payload": {
+            "engraved_seed": engraved_seed,
+            "facts": [
+                str(engraved_seed.get("seed_identity_key") or "").strip(),
+                str(engraved_seed.get("integrity_reason") or "").strip(),
+            ],
+            "confidence_score": 1.0,
+            "relevance_score": 1.0,
+        },
+        "human_summary": (
+            f"Nursery engraved seed {str(engraved_seed.get('seed_identity_key') or '').strip()} "
+            f"with integrity {str(engraved_seed.get('integrity_status') or '').strip()}."
+        ),
+    }
+    if session_id:
+        message["scope"]["session_id"] = session_id
+    validate_message(message)
+    return message
+
+
 def build_cultivated_decision_packet(
     *,
     provider_id: str = "hermes",

@@ -38,7 +38,7 @@ def build_decision_surface(
         "surface_summary": surface_summary,
         "trigger_reason": trigger_reason,
         "topic_hint": topic_hint,
-        "source_ref": None,
+        "source_ref": f"provider://hermes/{profile}/{session_id}#turns={turn_start}-{turn_end}",
         "conversation_excerpt": conversation_excerpt,
         "origin_locator": {
             "provider_id": "hermes",

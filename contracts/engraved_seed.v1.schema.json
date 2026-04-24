@@ -9,12 +9,22 @@
     "seed_id",
     "verdict_id",
     "candidate_id",
+    "continent_key",
+    "continent_id",
+    "continent_title",
     "topic_key",
     "topic_id",
     "topic_title",
     "page_id",
     "canonical_relative_path",
     "episode_id",
+    "seed_identity_key",
+    "planting_target_kind",
+    "planting_target_hint",
+    "planting_ready",
+    "integrity_status",
+    "integrity_reason",
+    "provenance_ring",
     "surface_summary",
     "trigger_reason",
     "decision_text",
@@ -35,6 +45,18 @@
       "minLength": 1
     },
     "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "continent_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "continent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "continent_title": {
       "type": "string",
       "minLength": 1
     },
@@ -61,6 +83,80 @@
     "episode_id": {
       "type": "string",
       "minLength": 1
+    },
+    "seed_identity_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "planting_target_kind": {
+      "type": "string",
+      "enum": [
+        "topic_page"
+      ]
+    },
+    "planting_target_hint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "planting_ready": {
+      "type": "boolean"
+    },
+    "integrity_status": {
+      "type": "string",
+      "enum": [
+        "clean",
+        "review_needed"
+      ]
+    },
+    "integrity_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provenance_ring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_id",
+        "provider_profile",
+        "provider_session_id",
+        "session_uid",
+        "turn_range"
+      ],
+      "properties": {
+        "provider_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_uid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "turn_range": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "integer"
+          }
+        },
+        "source_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "origin_locator": {
+          "type": "object"
+        }
+      }
     },
     "surface_summary": {
       "type": "string"

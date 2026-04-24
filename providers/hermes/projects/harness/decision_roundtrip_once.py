@@ -20,6 +20,7 @@ from mailbox_store import append_claim, claimed_message_ids, read_messages
 from packet_factory import (
     build_admission_verdict_packet,
     build_cultivated_decision_packet,
+    build_engraved_seed_packet,
 )
 from postman_gateway import submit_packet
 
@@ -101,6 +102,12 @@ def roundtrip_decision_candidate_message(
         parent_question_id=parent_question_id,
         admission_verdict=admission_verdict,
     )
+    engraved_packet = build_engraved_seed_packet(
+        profile=profile,
+        session_id=session_id,
+        parent_question_id=parent_question_id,
+        engraved_seed=engraved_seed,
+    )
     cultivated_packet = build_cultivated_decision_packet(
         profile=profile,
         session_id=session_id,
@@ -108,11 +115,16 @@ def roundtrip_decision_candidate_message(
         cultivated_decision=cultivated_decision,
     )
     submit_packet(admission_packet, namespace=mailbox_namespace)
+    submit_packet(engraved_packet, namespace=mailbox_namespace)
     submit_packet(cultivated_packet, namespace=mailbox_namespace)
     return {
         "candidate_message_id": message["message_id"],
         "admission_packet_id": admission_packet["message_id"],
+        "engraved_packet_id": engraved_packet["message_id"],
         "cultivated_packet_id": cultivated_packet["message_id"],
+        "seed_identity_key": engraved_seed["seed_identity_key"],
+        "integrity_status": engraved_seed["integrity_status"],
+        "planting_ready": engraved_seed["planting_ready"],
         "topic_id": cultivated_decision["topic_id"],
         "canonical_relative_path": cultivated_decision["canonical_relative_path"],
         "canonical_note_path": cultivated_decision["canonical_note_path"],
