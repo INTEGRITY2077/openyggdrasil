@@ -38,6 +38,18 @@ def _normalize_paths(source_paths: Iterable[str], *, workspace_root: Path) -> li
     return [_workspace_relative_path(path_value, workspace_root=workspace_root) for path_value in source_paths]
 
 
+def _first_matching_path(
+    relative_source_paths: Iterable[str],
+    *,
+    prefixes: tuple[str, ...],
+) -> str | None:
+    for path_value in relative_source_paths:
+        lowered = path_value.lower()
+        if any(lowered.startswith(prefix.lower()) for prefix in prefixes):
+            return path_value
+    return None
+
+
 def _load_runtime_support_registry(*, workspace_root: Path) -> list[dict[str, Any]]:
     registry_path = workspace_root / ".yggdrasil" / "ops" / "support-registry" / "support_truth.v1.json"
     if not registry_path.exists():
@@ -65,11 +77,16 @@ def _select_support_overlay(
     for entry in _load_runtime_support_registry(workspace_root=workspace_root):
         score = 0
         canonical_note = str(entry.get("canonical_note") or "").strip().lower()
-        if canonical_note and canonical_note in normalized_paths:
-            score += 5
-        for term in entry.get("match_terms") or []:
-            if str(term).strip().lower() in normalized_query:
-                score += 1
+        has_source_paths = bool(normalized_paths)
+        if has_source_paths:
+            if canonical_note and canonical_note in normalized_paths:
+                score += 5
+            else:
+                continue
+        else:
+            for term in entry.get("match_terms") or []:
+                if str(term).strip().lower() in normalized_query:
+                    score += 1
         if score > best_score:
             best_score = score
             overlay = entry.get("support_bundle")
@@ -103,9 +120,15 @@ def build_support_bundle_payload(
         "mailbox_location": None,
         "proof_token": None,
         "rationale_code": None,
-        "canonical_note": next((path for path in relative_source_paths if path.startswith("vault/")), None),
+        "canonical_note": _first_matching_path(
+            relative_source_paths,
+            prefixes=("vault/topics/", "vault/queries/"),
+        ),
         "community_note": None,
-        "provenance_note": None,
+        "provenance_note": _first_matching_path(
+            relative_source_paths,
+            prefixes=("vault/provenance/", "vault/_meta/provenance/"),
+        ),
         "community_id": None,
         "source_ref": None,
     }
@@ -115,7 +138,7 @@ def build_support_bundle_payload(
         workspace_root=active_workspace,
     )
     for key, value in overlay.items():
-        if key in bundle:
+        if key in bundle and bundle[key] in (None, "", [], {}):
             bundle[key] = value
     validate_support_bundle(bundle)
     return bundle

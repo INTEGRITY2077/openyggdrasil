@@ -26,9 +26,36 @@ def load_decision_candidate_schema() -> Dict[str, Any]:
     return _load_schema("decision_candidate.v1.schema.json")
 
 
+@lru_cache(maxsize=1)
+def load_admission_verdict_schema() -> Dict[str, Any]:
+    return _load_schema("admission_verdict.v1.schema.json")
+
+
+@lru_cache(maxsize=1)
+def load_engraved_seed_schema() -> Dict[str, Any]:
+    return _load_schema("engraved_seed.v1.schema.json")
+
+
+@lru_cache(maxsize=1)
+def load_cultivated_decision_schema() -> Dict[str, Any]:
+    return _load_schema("cultivated_decision.v1.schema.json")
+
+
 def validate_decision_surface(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_decision_surface_schema())
 
 
 def validate_decision_candidate(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_decision_candidate_schema())
+
+
+def validate_admission_verdict(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_admission_verdict_schema())
+
+
+def validate_engraved_seed(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_engraved_seed_schema())
+
+
+def validate_cultivated_decision(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_cultivated_decision_schema())

@@ -111,8 +111,95 @@ def build_decision_candidate_packet(
             "relevance_score": confidence_score,
             "confidence_score": confidence_score,
         },
-        "delivery": default_delivery(profile=profile, session_id=session_id),
         "human_summary": str(decision_candidate.get("decision_text") or topic),
+    }
+    if session_id:
+        message["scope"]["session_id"] = session_id
+    validate_message(message)
+    return message
+
+
+def build_admission_verdict_packet(
+    *,
+    provider_id: str = "hermes",
+    profile: str,
+    session_id: Optional[str],
+    parent_question_id: Optional[str] = None,
+    admission_verdict: Dict[str, Any],
+    producer: str = "decision-roundtrip-once",
+) -> Dict[str, Any]:
+    message = {
+        "schema_version": "mailbox.v1",
+        "message_id": uuid.uuid4().hex,
+        "message_type": "admission_verdict",
+        "kind": "packet",
+        "parent_question_id": parent_question_id,
+        "producer": producer,
+        "created_at": utc_now_iso(),
+        "status": "new",
+        "priority": "medium",
+        "scope": {
+            "provider_id": provider_id,
+            "profile": profile,
+            "vault_path": str(DEFAULT_VAULT.resolve()),
+            "topic": str(admission_verdict.get("topic_title") or admission_verdict.get("topic_key") or ""),
+        },
+        "payload": {
+            "admission_verdict": admission_verdict,
+            "facts": [str(admission_verdict.get("topic_title") or "").strip()],
+            "confidence_score": 1.0,
+            "relevance_score": 1.0,
+        },
+        "human_summary": (
+            f"Admission accepted for {str(admission_verdict.get('topic_title') or '').strip() or 'decision candidate'}."
+        ),
+    }
+    if session_id:
+        message["scope"]["session_id"] = session_id
+    validate_message(message)
+    return message
+
+
+def build_cultivated_decision_packet(
+    *,
+    provider_id: str = "hermes",
+    profile: str,
+    session_id: Optional[str],
+    parent_question_id: Optional[str] = None,
+    cultivated_decision: Dict[str, Any],
+    producer: str = "decision-roundtrip-once",
+) -> Dict[str, Any]:
+    source_paths = [
+        str(cultivated_decision.get("canonical_note_path") or "").strip(),
+        str(cultivated_decision.get("provenance_note_path") or "").strip(),
+    ]
+    source_paths = [path for path in source_paths if path]
+    message = {
+        "schema_version": "mailbox.v1",
+        "message_id": uuid.uuid4().hex,
+        "message_type": "cultivated_decision",
+        "kind": "packet",
+        "parent_question_id": parent_question_id,
+        "producer": producer,
+        "created_at": utc_now_iso(),
+        "status": "new",
+        "priority": "medium",
+        "scope": {
+            "provider_id": provider_id,
+            "profile": profile,
+            "vault_path": str(DEFAULT_VAULT.resolve()),
+            "topic": str(cultivated_decision.get("topic_title") or cultivated_decision.get("topic_id") or ""),
+        },
+        "payload": {
+            "cultivated_decision": cultivated_decision,
+            "source_paths": source_paths,
+            "facts": [str(cultivated_decision.get("support_fact") or "").strip()],
+            "confidence_score": 1.0,
+            "relevance_score": 1.0,
+        },
+        "human_summary": (
+            f"Cultivated canonical decision page at {str(cultivated_decision.get('canonical_relative_path') or '').strip()}."
+        ),
     }
     if session_id:
         message["scope"]["session_id"] = session_id

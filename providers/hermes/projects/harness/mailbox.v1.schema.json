@@ -40,6 +40,8 @@
         "promotion_digest",
         "graph_hint",
         "decision_candidate",
+        "admission_verdict",
+        "cultivated_decision",
         "lint_alert",
         "session_digest",
         "operator_brief",

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/admission_verdict.v1.schema.json",
+  "title": "OpenYggdrasil Admission Verdict v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "verdict_id",
+    "candidate_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "admission_status",
+    "topic_key",
+    "topic_id",
+    "topic_title",
+    "page_id",
+    "canonical_relative_path",
+    "episode_id",
+    "rationale_code",
+    "admitted_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "admission_verdict.v1"
+    },
+    "verdict_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "admission_status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "rejected"
+      ]
+    },
+    "topic_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "topic_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "topic_title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "page_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "canonical_relative_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "episode_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rationale_code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "admitted_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

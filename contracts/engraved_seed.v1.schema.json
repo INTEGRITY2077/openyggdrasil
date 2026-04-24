@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/engraved_seed.v1.schema.json",
+  "title": "OpenYggdrasil Engraved Seed v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "seed_id",
+    "verdict_id",
+    "candidate_id",
+    "topic_key",
+    "topic_id",
+    "topic_title",
+    "page_id",
+    "canonical_relative_path",
+    "episode_id",
+    "surface_summary",
+    "trigger_reason",
+    "decision_text",
+    "rationale",
+    "stability_state",
+    "engraved_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "engraved_seed.v1"
+    },
+    "seed_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verdict_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "topic_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "topic_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "topic_title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "page_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "canonical_relative_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "episode_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "surface_summary": {
+      "type": "string"
+    },
+    "trigger_reason": {
+      "type": "string"
+    },
+    "decision_text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rationale": {
+      "type": "string"
+    },
+    "alternatives_rejected": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stability_state": {
+      "type": "string",
+      "enum": [
+        "provisional",
+        "stable",
+        "superseding"
+      ]
+    },
+    "source_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "origin_locator": {
+      "type": "object"
+    },
+    "engraved_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
