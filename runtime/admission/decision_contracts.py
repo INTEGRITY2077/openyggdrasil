@@ -37,6 +37,11 @@ def load_engraved_seed_schema() -> Dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
+def load_planting_decision_schema() -> Dict[str, Any]:
+    return _load_schema("planting_decision.v1.schema.json")
+
+
+@lru_cache(maxsize=1)
 def load_cultivated_decision_schema() -> Dict[str, Any]:
     return _load_schema("cultivated_decision.v1.schema.json")
 
@@ -55,6 +60,10 @@ def validate_admission_verdict(payload: Mapping[str, Any]) -> None:
 
 def validate_engraved_seed(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_engraved_seed_schema())
+
+
+def validate_planting_decision(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_planting_decision_schema())
 
 
 def validate_cultivated_decision(payload: Mapping[str, Any]) -> None:

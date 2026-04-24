@@ -205,6 +205,52 @@ def build_engraved_seed_packet(
     return message
 
 
+def build_planting_decision_packet(
+    *,
+    provider_id: str = "hermes",
+    profile: str,
+    session_id: Optional[str],
+    parent_question_id: Optional[str] = None,
+    planting_decision: Dict[str, Any],
+    producer: str = "decision-roundtrip-once",
+) -> Dict[str, Any]:
+    message = {
+        "schema_version": "mailbox.v1",
+        "message_id": uuid.uuid4().hex,
+        "message_type": "planting_decision",
+        "kind": "packet",
+        "parent_question_id": parent_question_id,
+        "producer": producer,
+        "created_at": utc_now_iso(),
+        "status": "new",
+        "priority": "medium",
+        "scope": {
+            "provider_id": provider_id,
+            "profile": profile,
+            "vault_path": str(DEFAULT_VAULT.resolve()),
+            "topic": str(planting_decision.get("topic_title") or planting_decision.get("topic_id") or ""),
+        },
+        "payload": {
+            "planting_decision": planting_decision,
+            "facts": [
+                str(planting_decision.get("planting_target_key") or "").strip(),
+                str(planting_decision.get("growth_decision") or "").strip(),
+                str(planting_decision.get("pruning_decision") or "").strip(),
+            ],
+            "confidence_score": 1.0,
+            "relevance_score": 1.0,
+        },
+        "human_summary": (
+            f"Gardener planted into {str(planting_decision.get('planting_target_key') or '').strip()} "
+            f"with growth={str(planting_decision.get('growth_decision') or '').strip()}."
+        ),
+    }
+    if session_id:
+        message["scope"]["session_id"] = session_id
+    validate_message(message)
+    return message
+
+
 def build_cultivated_decision_packet(
     *,
     provider_id: str = "hermes",

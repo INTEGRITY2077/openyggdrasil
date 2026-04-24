@@ -4,7 +4,11 @@ import uuid
 from pathlib import Path
 from typing import Any, Mapping
 
-from admission.decision_contracts import validate_cultivated_decision, validate_engraved_seed
+from admission.decision_contracts import (
+    validate_cultivated_decision,
+    validate_engraved_seed,
+    validate_planting_decision,
+)
 from common.map_identity import build_claim_id
 from harness_common import DEFAULT_VAULT, utc_now_iso
 from placement.topic_page_filing import render_topic_page
@@ -31,16 +35,42 @@ def _answer_text(seed: Mapping[str, Any]) -> str:
     return decision_text or rationale or "(no decision text)"
 
 
+def plan_seed_planting(*, engraved_seed: Mapping[str, Any]) -> dict[str, Any]:
+    validate_engraved_seed(engraved_seed)
+    if not bool(engraved_seed.get("planting_ready")):
+        raise ValueError(
+            f"Nursery seed is not planting-ready: {str(engraved_seed.get('integrity_reason') or 'unknown')}"
+        )
+    planting = {
+        "schema_version": "planting_decision.v1",
+        "planting_id": uuid.uuid4().hex,
+        "seed_id": str(engraved_seed["seed_id"]),
+        "candidate_id": str(engraved_seed["candidate_id"]),
+        "continent_id": str(engraved_seed["continent_id"]),
+        "continent_key": str(engraved_seed["continent_key"]),
+        "topic_id": str(engraved_seed["topic_id"]),
+        "topic_title": str(engraved_seed["topic_title"]),
+        "bed_id": f"bed:{str(engraved_seed['continent_key'])}",
+        "planting_target_kind": str(engraved_seed["planting_target_kind"]),
+        "planting_target_key": str(engraved_seed["planting_target_hint"]),
+        "planting_status": "planted",
+        "quarantine_status": "clean",
+        "growth_decision": "allow_growth",
+        "pruning_decision": "keep",
+        "planting_reason": str(engraved_seed.get("integrity_reason") or "foreground_trace_complete"),
+        "planted_at": utc_now_iso(),
+    }
+    validate_planting_decision(planting)
+    return planting
+
+
 def cultivate_decision_seed(
     *,
     engraved_seed: Mapping[str, Any],
     vault_root: Path = DEFAULT_VAULT,
 ) -> dict[str, Any]:
     validate_engraved_seed(engraved_seed)
-    if not bool(engraved_seed.get("planting_ready")):
-        raise ValueError(
-            f"Nursery seed is not planting-ready: {str(engraved_seed.get('integrity_reason') or 'unknown')}"
-        )
+    planting_decision = plan_seed_planting(engraved_seed=engraved_seed)
     active_vault_root = vault_root.resolve()
     canonical_relative_path = str(engraved_seed["canonical_relative_path"])
     topic_path = active_vault_root / canonical_relative_path
@@ -85,6 +115,7 @@ def cultivate_decision_seed(
     cultivated = {
         "schema_version": "cultivated_decision.v1",
         "cultivation_id": uuid.uuid4().hex,
+        "planting_id": str(planting_decision["planting_id"]),
         "seed_id": str(engraved_seed["seed_id"]),
         "candidate_id": str(engraved_seed["candidate_id"]),
         "topic_id": str(engraved_seed["topic_id"]),
@@ -100,6 +131,8 @@ def cultivate_decision_seed(
         ),
         "decision_text": str(engraved_seed["decision_text"]),
         "support_fact": str(engraved_seed["decision_text"]),
+        "planting_target_kind": str(planting_decision["planting_target_kind"]),
+        "planting_target_key": str(planting_decision["planting_target_key"]),
         "source_rel": source_rel,
         "cultivated_at": created,
     }

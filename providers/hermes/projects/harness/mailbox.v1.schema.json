@@ -42,6 +42,7 @@
         "decision_candidate",
         "admission_verdict",
         "engraved_seed",
+        "planting_decision",
         "cultivated_decision",
         "lint_alert",
         "session_digest",

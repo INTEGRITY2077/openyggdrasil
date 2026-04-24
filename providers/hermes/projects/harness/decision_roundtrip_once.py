@@ -7,12 +7,14 @@ from typing import Any, Dict, List
 
 from admission_stub import admit_decision_candidate
 from gardener_stub import cultivate_decision_seed
+from gardener_stub import plan_seed_planting
 from nursery_stub import engrave_decision_seed
 from decision_contracts import (
     validate_admission_verdict,
     validate_cultivated_decision,
     validate_decision_candidate,
     validate_engraved_seed,
+    validate_planting_decision,
 )
 from harness_common import DEFAULT_VAULT
 from mailbox_status import write_mailbox_status
@@ -21,6 +23,7 @@ from packet_factory import (
     build_admission_verdict_packet,
     build_cultivated_decision_packet,
     build_engraved_seed_packet,
+    build_planting_decision_packet,
 )
 from postman_gateway import submit_packet
 
@@ -78,6 +81,8 @@ def roundtrip_decision_candidate_message(
         decision_candidate=decision_candidate,
     )
     validate_engraved_seed(engraved_seed)
+    planting_decision = plan_seed_planting(engraved_seed=engraved_seed)
+    validate_planting_decision(planting_decision)
     cultivated_decision = cultivate_decision_seed(
         engraved_seed=engraved_seed,
         vault_root=vault_root,
@@ -108,6 +113,12 @@ def roundtrip_decision_candidate_message(
         parent_question_id=parent_question_id,
         engraved_seed=engraved_seed,
     )
+    planting_packet = build_planting_decision_packet(
+        profile=profile,
+        session_id=session_id,
+        parent_question_id=parent_question_id,
+        planting_decision=planting_decision,
+    )
     cultivated_packet = build_cultivated_decision_packet(
         profile=profile,
         session_id=session_id,
@@ -116,15 +127,20 @@ def roundtrip_decision_candidate_message(
     )
     submit_packet(admission_packet, namespace=mailbox_namespace)
     submit_packet(engraved_packet, namespace=mailbox_namespace)
+    submit_packet(planting_packet, namespace=mailbox_namespace)
     submit_packet(cultivated_packet, namespace=mailbox_namespace)
     return {
         "candidate_message_id": message["message_id"],
         "admission_packet_id": admission_packet["message_id"],
         "engraved_packet_id": engraved_packet["message_id"],
+        "planting_packet_id": planting_packet["message_id"],
         "cultivated_packet_id": cultivated_packet["message_id"],
         "seed_identity_key": engraved_seed["seed_identity_key"],
         "integrity_status": engraved_seed["integrity_status"],
         "planting_ready": engraved_seed["planting_ready"],
+        "growth_decision": planting_decision["growth_decision"],
+        "pruning_decision": planting_decision["pruning_decision"],
+        "planting_target_key": planting_decision["planting_target_key"],
         "topic_id": cultivated_decision["topic_id"],
         "canonical_relative_path": cultivated_decision["canonical_relative_path"],
         "canonical_note_path": cultivated_decision["canonical_note_path"],
