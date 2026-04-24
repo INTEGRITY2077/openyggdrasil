@@ -35,6 +35,7 @@ from hermes_foreground_probe import (  # noqa: E402
     sync_probe_skill,
 )
 from mailbox_store import read_messages  # noqa: E402
+from plugin_logger import read_plugin_events  # noqa: E402
 from postman_gateway import submit_command  # noqa: E402
 from postman_push_once import deliver_once  # noqa: E402
 from postman_route_commands_once import command_messages, route_command  # noqa: E402
@@ -168,6 +169,14 @@ def latest_message_by_type(*, mailbox_namespace: str, message_type: str) -> dict
     raise RuntimeError(f"Missing mailbox message: {message_type}")
 
 
+def latest_plugin_event_for_packet(*, packet_id: str) -> dict[str, Any]:
+    for event in reversed(read_plugin_events()):
+        artifacts = dict(event.get("artifacts") or {})
+        if artifacts.get("packet_id") == packet_id:
+            return event
+    raise RuntimeError(f"Missing plugin event for packet: {packet_id}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run one live Hermes thin decision roundtrip session proof.")
     parser.add_argument("--profile", default=DEFAULT_PROBE_PROFILE)
@@ -245,6 +254,15 @@ def main() -> int:
         mailbox_namespace=args.mailbox_namespace,
         message_type="decision_candidate",
     )
+    decision_distiller_event = latest_plugin_event_for_packet(
+        packet_id=str(candidate_message["message_id"]),
+    )
+    distiller_artifacts = dict(decision_distiller_event.get("artifacts") or {})
+    if distiller_artifacts.get("core_role") != "decision_distiller":
+        raise RuntimeError("decision_candidate_generated event is missing core_role=decision_distiller")
+    decision_candidate_payload = dict(candidate_message.get("payload") or {}).get("decision_candidate")
+    if not isinstance(decision_candidate_payload, dict):
+        raise RuntimeError("decision_candidate message missing payload.decision_candidate")
     roundtrip_result = roundtrip_decision_candidate_message(
         candidate_message,
         vault_root=Path(DEFAULT_VAULT).resolve(),
@@ -346,6 +364,18 @@ def main() -> int:
         "decision_turn": decision_turn,
         "decision_command_id": decision_command["message_id"],
         "routed_decision": routed_decision,
+        "candidate_message": candidate_message,
+        "decision_distiller_event": decision_distiller_event,
+        "decision_distiller_proof": {
+            "core_role": distiller_artifacts.get("core_role"),
+            "packet_id": candidate_message["message_id"],
+            "candidate_id": decision_candidate_payload.get("candidate_id"),
+            "schema_version": decision_candidate_payload.get("schema_version"),
+            "session_uid": decision_candidate_payload.get("session_uid"),
+            "source_ref": decision_candidate_payload.get("source_ref"),
+            "topic_hint": decision_candidate_payload.get("topic_hint"),
+            "dedup_key": decision_candidate_payload.get("dedup_key"),
+        },
         "admission_message": admission_message,
         "engraved_message": engraved_message,
         "planting_message": planting_message,
