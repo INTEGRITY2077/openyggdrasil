@@ -85,6 +85,7 @@ CANONICAL_RUNTIME_MODULES = [
     "retrieval.cross_provider_memory_consumption",
     "retrieval.graphify_snapshot_adapter",
     "retrieval.graphify_snapshot_manifest",
+    "retrieval.graphify_snapshot_rebuild",
     "retrieval.origin_shortcut_roundtrip",
     "retrieval.pathfinder",
     "retrieval.pathfinder_ptc_mvp",
