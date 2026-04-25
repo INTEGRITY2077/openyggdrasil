@@ -130,6 +130,7 @@ COMPATIBILITY_SHIM_MODULES = [
 
 
 RUNTIME_UTILITY_MODULES = [
+    "import_hygiene",
     "shim_policy",
     "surface_policy",
 ]

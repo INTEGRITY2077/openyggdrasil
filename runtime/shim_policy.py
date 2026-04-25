@@ -49,6 +49,7 @@ TOP_LEVEL_RUNTIME_UTILITIES = {
     "harness_common",
     "hermes_attachment_reliability",
     "hermes_foreground_probe",
+    "import_hygiene",
     "import_smoke",
     "map_maker_quality",
     "prove_antigravity_live_skill_attach",
