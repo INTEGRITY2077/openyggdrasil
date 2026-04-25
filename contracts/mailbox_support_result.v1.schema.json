@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/mailbox_support_result.v1.schema.json",
+  "title": "OpenYggdrasil Mailbox Support Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "emission_result_id",
+    "chain_result_id",
+    "signal_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "status",
+    "stop_reason",
+    "source_refs",
+    "mailbox_packet_refs",
+    "fallback_state",
+    "mailbox_message",
+    "mailbox_guard_result",
+    "support_bundle",
+    "origin_shortcut_result",
+    "inbox_delivery",
+    "next_action",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mailbox_support_result.v1"
+    },
+    "emission_result_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "chain_result_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "signal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "stopped"
+      ]
+    },
+    "stop_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 180
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object"
+      }
+    },
+    "mailbox_packet_refs": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "message_id",
+          "packet_type"
+        ],
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "packet_type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "path_hint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "fallback_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fallback_used",
+        "fallback_reason",
+        "quarantine"
+      ],
+      "properties": {
+        "fallback_used": {
+          "type": "boolean"
+        },
+        "fallback_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 180
+        },
+        "quarantine": {
+          "type": "boolean"
+        }
+      }
+    },
+    "mailbox_message": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "mailbox_guard_result": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "support_bundle": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "origin_shortcut_result": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "inbox_delivery": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "next_action": {
+      "type": "string",
+      "enum": [
+        "same_session_answer_smoke",
+        "stop"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -233,3 +233,39 @@ def run_session_signal_thin_chain(
         "entrypoint_result": entrypoint_result,
         "chain_result": chain_result,
     }
+
+
+def run_session_signal_mailbox_support(
+    signal: Mapping[str, Any],
+    *,
+    runtime_event_labels: list[str] | tuple[str, ...] | None = None,
+    evidence_refs: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...] | None = None,
+    source_ref_exists: bool = True,
+    duplicate_signal: bool = False,
+    privacy_risk_detected: bool = False,
+    candidate_renderer: Any = None,
+    vault_root: Path | None = None,
+    workspace_root: Path | None = None,
+) -> dict[str, Any]:
+    """Run R1, R2, and R3 and return typed intermediate results."""
+
+    from runner.mailbox_support_emission import emit_mailbox_support_result
+
+    chain = run_session_signal_thin_chain(
+        signal,
+        runtime_event_labels=runtime_event_labels,
+        evidence_refs=evidence_refs,
+        source_ref_exists=source_ref_exists,
+        duplicate_signal=duplicate_signal,
+        privacy_risk_detected=privacy_risk_detected,
+        candidate_renderer=candidate_renderer,
+        vault_root=vault_root,
+    )
+    support_result = emit_mailbox_support_result(
+        chain_result=chain["chain_result"],
+        workspace_root=workspace_root,
+    )
+    return {
+        **chain,
+        "mailbox_support_result": support_result,
+    }

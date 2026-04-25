@@ -57,6 +57,11 @@ def load_thin_worker_chain_result_schema() -> Dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
+def load_mailbox_support_result_schema() -> Dict[str, Any]:
+    return _load_schema("mailbox_support_result.v1.schema.json")
+
+
+@lru_cache(maxsize=1)
 def load_engraved_seed_schema() -> Dict[str, Any]:
     return _load_schema("engraved_seed.v1.schema.json")
 
@@ -231,6 +236,39 @@ def _reject_forbidden_thin_chain_result_keys(value: Any, *, path: str = "$") -> 
 def validate_thin_worker_chain_result(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_thin_worker_chain_result_schema())
     _reject_forbidden_thin_chain_result_keys(payload)
+
+
+FORBIDDEN_MAILBOX_SUPPORT_RESULT_KEYS = {
+    "raw_text",
+    "raw_session",
+    "raw_transcript",
+    "transcript",
+    "conversation_excerpt",
+    "long_summary",
+    "summary",
+    "canonical_claim",
+    "canonical_path",
+    "mailbox_mutation",
+    "sot_write",
+}
+
+
+def _reject_forbidden_mailbox_support_result_keys(value: Any, *, path: str = "$") -> None:
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            if key in FORBIDDEN_MAILBOX_SUPPORT_RESULT_KEYS:
+                _raise_signal_validation_error(
+                    f"mailbox_support_result.v1 forbids raw/provider authority field {path}.{key}"
+                )
+            _reject_forbidden_mailbox_support_result_keys(child, path=f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            _reject_forbidden_mailbox_support_result_keys(child, path=f"{path}[{index}]")
+
+
+def validate_mailbox_support_result(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_mailbox_support_result_schema())
+    _reject_forbidden_mailbox_support_result_keys(payload)
 
 
 def validate_engraved_seed(payload: Mapping[str, Any]) -> None:
