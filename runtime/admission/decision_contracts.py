@@ -87,6 +87,11 @@ def load_session_signal_runner_result_schema() -> Dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
+def load_role_split_integration_result_schema() -> Dict[str, Any]:
+    return _load_schema("role_split_integration_result.v1.schema.json")
+
+
+@lru_cache(maxsize=1)
 def load_thin_worker_chain_result_schema() -> Dict[str, Any]:
     return _load_schema("thin_worker_chain_result.v1.schema.json")
 
@@ -271,6 +276,10 @@ def _reject_forbidden_runner_result_keys(value: Any, *, path: str = "$") -> None
 def validate_session_signal_runner_result(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_session_signal_runner_result_schema())
     _reject_forbidden_runner_result_keys(payload)
+
+
+def validate_role_split_integration_result(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_role_split_integration_result_schema())
 
 
 FORBIDDEN_THIN_CHAIN_RESULT_KEYS = {

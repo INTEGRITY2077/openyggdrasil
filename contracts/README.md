@@ -19,6 +19,7 @@ This directory is reserved for engine-level contracts:
 - seedkeeper deterministic segment/source-ref preservation contracts
 - Nursery composed seed input contracts
 - Gardener forest routing contracts
+- role split integration result contracts
 - provider runtime integrity result contracts
 - session signal runner result contracts
 - thin worker chain result contracts
