@@ -47,3 +47,4 @@ This directory is reserved for engine-level contracts:
 - no credential/API/OAuth prompt regression contracts
 - explicit vault promotion request contracts
 - vault record lifecycle / soft-delete contracts
+- Gardener lifecycle transition request contracts
