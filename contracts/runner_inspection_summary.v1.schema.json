@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/runner_inspection_summary.v1.schema.json",
+  "title": "OpenYggdrasil Runner Inspection Summary v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "inspection_id",
+    "status",
+    "signal_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "step_statuses",
+    "role_steps",
+    "fallback_state",
+    "source_refs",
+    "mailbox_packet_refs",
+    "support_bundle_shortcuts",
+    "source_ref_resolution",
+    "delivery_status",
+    "inbox_delivery",
+    "origin_shortcut",
+    "next_action",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "runner_inspection_summary.v1"
+    },
+    "inspection_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "stopped",
+        "unknown"
+      ]
+    },
+    "signal_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "provider_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 80
+    },
+    "provider_profile": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 120
+    },
+    "provider_session_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 180
+    },
+    "session_uid": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    },
+    "step_statuses": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object"
+      }
+    },
+    "role_steps": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object"
+      }
+    },
+    "fallback_state": {
+      "type": "object"
+    },
+    "source_refs": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "object"
+      }
+    },
+    "mailbox_packet_refs": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "object"
+      }
+    },
+    "support_bundle_shortcuts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_note",
+        "provenance_note",
+        "source_ref",
+        "source_paths"
+      ],
+      "properties": {
+        "canonical_note": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "provenance_note": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "source_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 700
+        },
+        "source_paths": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "source_ref_resolution": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "delivery_status": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 80
+    },
+    "inbox_delivery": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "delivery_status",
+        "message_id",
+        "inbox_path",
+        "dedup_fingerprint"
+      ],
+      "properties": {
+        "delivery_status": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 80
+        },
+        "message_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "inbox_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 700
+        },
+        "dedup_fingerprint": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        }
+      }
+    },
+    "origin_shortcut": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "shortcut_kind",
+        "shortcut_path",
+        "resolved_path",
+        "exists"
+      ],
+      "properties": {
+        "shortcut_kind": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 80
+        },
+        "shortcut_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 700
+        },
+        "resolved_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 700
+        },
+        "exists": {
+          "type": "boolean"
+        }
+      }
+    },
+    "next_action": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 120
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
