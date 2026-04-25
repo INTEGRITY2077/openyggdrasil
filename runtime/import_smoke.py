@@ -11,6 +11,7 @@ CANONICAL_RUNTIME_MODULES = [
     "admission.decision_contracts",
     "admission.session_admission_gate",
     "attachments.bootstrap_contract",
+    "attachments.claude_code_provider_packaging_baseline",
     "attachments.codex_provider_packaging_baseline",
     "attachments.hermes_foreground_unavailable_contract",
     "attachments.hermes_provider_packaging_baseline",
