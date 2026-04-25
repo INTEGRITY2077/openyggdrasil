@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/helper_output_staging.v1.schema.json",
+  "title": "OpenYggdrasil Helper Output Staging v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "staging_id",
+    "staging_status",
+    "promotion_request_id",
+    "candidate_id",
+    "worthiness_id",
+    "lease_result_ref",
+    "staged_output_ref",
+    "validation_metadata",
+    "promotion_review_required",
+    "staging_authority",
+    "canonical_authority",
+    "canonical_write_status",
+    "vault_mutation_allowed",
+    "helper_output_canonicalized",
+    "reason_codes",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "helper_output_staging.v1"
+    },
+    "staging_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "staging_status": {
+      "const": "staged_for_promotion_review"
+    },
+    "promotion_request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "worthiness_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lease_result_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lease_result_id",
+        "lease_request_id",
+        "lease_status",
+        "producer_role",
+        "provider_id",
+        "provider_profile",
+        "provider_session_id",
+        "worker_ref",
+        "confidence_score",
+        "completed_at"
+      ],
+      "properties": {
+        "lease_result_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lease_request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lease_status": {
+          "const": "completed"
+        },
+        "producer_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "worker_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "staged_output_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result_source_ref",
+        "result_digest_sha256",
+        "result_preview",
+        "preview_max_chars",
+        "source_refs",
+        "effort_status",
+        "actual_effort_estimate",
+        "raw_transcript_copied",
+        "raw_session_copied",
+        "state_db_result_harvested",
+        "foreground_context_appended"
+      ],
+      "properties": {
+        "result_source_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 700
+        },
+        "result_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "result_preview": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "preview_max_chars": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 512
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 700
+          }
+        },
+        "effort_status": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "accepted"
+          ]
+        },
+        "actual_effort_estimate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "raw_transcript_copied": {
+          "const": false
+        },
+        "raw_session_copied": {
+          "const": false
+        },
+        "state_db_result_harvested": {
+          "const": false
+        },
+        "foreground_context_appended": {
+          "const": false
+        }
+      }
+    },
+    "validation_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lease_gate",
+        "worthiness_gate",
+        "source_ref_gate",
+        "raw_surface_gate",
+        "canonical_write_gate"
+      ],
+      "properties": {
+        "lease_gate": {
+          "const": "completed_lease_required"
+        },
+        "worthiness_gate": {
+          "const": "ready_effort_aware_worthiness_required"
+        },
+        "source_ref_gate": {
+          "const": "digest_preview_source_ref_required"
+        },
+        "raw_surface_gate": {
+          "const": "no_raw_provider_material"
+        },
+        "canonical_write_gate": {
+          "const": "not_authorized_by_staging"
+        }
+      }
+    },
+    "promotion_review_required": {
+      "const": true
+    },
+    "staging_authority": {
+      "const": "staging_only"
+    },
+    "canonical_authority": {
+      "const": "not_this_contract"
+    },
+    "canonical_write_status": {
+      "const": "not_written"
+    },
+    "vault_mutation_allowed": {
+      "const": false
+    },
+    "helper_output_canonicalized": {
+      "const": false
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -21,6 +21,7 @@ CANONICAL_RUNTIME_MODULES = [
     "cultivation.effort_aware_gardener_worthiness",
     "cultivation.gardener_lifecycle_transition_request",
     "cultivation.gardener_routing",
+    "cultivation.helper_output_staging",
     "cultivation.gardener_stub",
     "cultivation.nursery_stub",
     "cultivation.nursery_composition_input",
