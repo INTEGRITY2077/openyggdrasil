@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 
+from common.wsl_runner import DEFAULT_WSL_DISTRO, run_wsl_python
 
-WSL_DISTRO = "ubuntu-agent"
+WSL_DISTRO = DEFAULT_WSL_DISTRO
 DEFAULT_SKILL_NAME = "openyggdrasil-foreground-probe"
 DEFAULT_SKILL_CATEGORY = "autonomous-ai-agents"
 
@@ -70,19 +70,6 @@ Do not edit it by hand.
 """
 
 
-def _run_wsl_python(python_code: str, *, timeout_seconds: int = 120) -> subprocess.CompletedProcess[str]:
-    script = "python3 - <<'PY'\n" + python_code + "\nPY"
-    return subprocess.run(
-        ["wsl", "-d", WSL_DISTRO, "--", "bash", "-lc", script],
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        capture_output=True,
-        timeout=timeout_seconds,
-        check=False,
-    )
-
-
 def sync_hermes_profile_skill(
     *,
     probe_profile: str,
@@ -111,7 +98,7 @@ skill_path = skill_root / "SKILL.md"
 skill_path.write_text(skill_markdown, encoding="utf-8")
 print(json.dumps({{"skill_root": str(skill_root), "skill_path": str(skill_path)}}))
 """.strip()
-    completed = _run_wsl_python(python_code, timeout_seconds=120)
+    completed = run_wsl_python(python_code, timeout_seconds=120, mode="heredoc")
     if completed.returncode != 0:
         raise RuntimeError(
             "Failed to sync Hermes profile skill\n"

@@ -19,9 +19,10 @@ from attachments.deploy_hermes_profile_skill import (
     build_hermes_profile_skill_markdown,
     sync_hermes_profile_skill,
 )
+from common.wsl_runner import DEFAULT_WSL_DISTRO, run_wsl_python
 
 
-WSL_DISTRO = "ubuntu-agent"
+WSL_DISTRO = DEFAULT_WSL_DISTRO
 DEFAULT_HERMES_BIN = "~/.local/bin/hermes"
 DEFAULT_BASE_PROFILE = "wiki"
 DEFAULT_PROBE_PROFILE = "yggdrasilfgpoc"
@@ -279,11 +280,6 @@ def _run_wsl_bash(script: str, *, timeout_seconds: int = 240) -> subprocess.Comp
     )
 
 
-def _run_wsl_python(python_code: str, *, timeout_seconds: int = 240) -> subprocess.CompletedProcess[str]:
-    script = "python3 - <<'PY'\n" + python_code + "\nPY"
-    return _run_wsl_bash(script, timeout_seconds=timeout_seconds)
-
-
 def _hermes_shell_expr() -> str:
     return '"$HOME/.local/bin/hermes"'
 
@@ -320,7 +316,7 @@ if not profile_root.exists():
     created = True
 print(json.dumps({{"created": created, "profile_root": str(profile_root), "stdout": stdout, "stderr": stderr}}))
 """.strip()
-    completed = _run_wsl_python(python_code, timeout_seconds=120)
+    completed = run_wsl_python(python_code, timeout_seconds=120, mode="heredoc")
     if completed.returncode != 0:
         raise RuntimeError(
             "Failed to ensure Hermes probe profile\n"
@@ -363,7 +359,7 @@ print(json.dumps({{
     "copied": copied,
 }}))
 """.strip()
-    completed = _run_wsl_python(python_code, timeout_seconds=120)
+    completed = run_wsl_python(python_code, timeout_seconds=120, mode="heredoc")
     if completed.returncode != 0:
         raise RuntimeError(
             "Failed to sync Hermes probe auth\n"
@@ -412,7 +408,7 @@ sessions_dir = base / "sessions"
 paths = sorted(path.name for path in sessions_dir.glob("session_*.json"))
 print(json.dumps(paths))
 """.strip()
-    completed = _run_wsl_python(python_code, timeout_seconds=120)
+    completed = run_wsl_python(python_code, timeout_seconds=120, mode="heredoc")
     if completed.returncode != 0:
         raise RuntimeError(
             "Failed to list Hermes session files\n"
@@ -450,7 +446,7 @@ summary = {{
 }}
 print(json.dumps(summary, ensure_ascii=False))
 """.strip()
-    completed = _run_wsl_python(python_code, timeout_seconds=120)
+    completed = run_wsl_python(python_code, timeout_seconds=120, mode="heredoc")
     if completed.returncode != 0:
         raise RuntimeError(
             "Failed to read Hermes session summary\n"

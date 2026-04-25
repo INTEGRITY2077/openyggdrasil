@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Mapping
 
 import jsonschema
 
+from common.jsonl_io import append_jsonl
 from harness_common import utc_now_iso
 from attachments.provider_attachment import (
     _read_jsonl,
@@ -28,12 +29,6 @@ def load_inbox_packet_schema() -> Dict[str, Any]:
 
 def validate_inbox_packet(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_inbox_packet_schema())
-
-
-def _append_jsonl(path: Path, payload: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(dict(payload), ensure_ascii=False) + "\n")
 
 
 def inject_session_packet(
@@ -77,7 +72,7 @@ def inject_session_packet(
         "payload": dict(payload),
     }
     validate_inbox_packet(packet)
-    _append_jsonl(inbox_path, packet)
+    append_jsonl(inbox_path, packet)
     return packet
 
 

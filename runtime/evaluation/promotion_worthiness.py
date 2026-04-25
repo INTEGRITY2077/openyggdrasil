@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import json
-import shutil
 import subprocess
 import time
 from functools import lru_cache
@@ -11,6 +10,7 @@ from typing import Any, Callable, Dict, List, Mapping
 
 import jsonschema
 
+from common.wsl_runner import run_wsl_python
 from harness_common import (
     DEFAULT_HERMES_BIN,
     hermes_profile_home_win,
@@ -241,16 +241,7 @@ def build_worthiness_prompt(*, context: Mapping[str, Any], prefilter: Mapping[st
 
 
 def _run_wsl_python(python_code: str) -> subprocess.CompletedProcess[str]:
-    if shutil.which("wsl") is None:
-        raise RuntimeError("wsl command is not available")
-    return subprocess.run(
-        ["wsl", "-d", "ubuntu-agent", "--", "python3", "-c", python_code],
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        capture_output=True,
-        cwd=str(RUNTIME_ROOT),
-    )
+    return run_wsl_python(python_code, cwd=RUNTIME_ROOT)
 
 
 def _extract_json_object(text: str) -> dict[str, Any]:

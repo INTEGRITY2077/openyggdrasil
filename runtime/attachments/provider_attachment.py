@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Mapping
 
 import jsonschema
 
+from common.jsonl_io import append_jsonl, read_jsonl
 from harness_common import utc_now_iso
 
 
@@ -128,12 +129,6 @@ def validate_turn_delta(payload: Mapping[str, Any]) -> None:
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(dict(payload), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-
-def _append_jsonl(path: Path, payload: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(dict(payload), ensure_ascii=False) + "\n")
 
 
 def bootstrap_skill_provider_session(
@@ -268,7 +263,7 @@ def append_turn_delta(
         "summary": summary,
     }
     validate_turn_delta(payload)
-    _append_jsonl(attachment_root / "turn_delta.v1.jsonl", payload)
+    append_jsonl(attachment_root / "turn_delta.v1.jsonl", payload)
     return payload
 
 
@@ -277,16 +272,7 @@ def _read_json(path: Path) -> Dict[str, Any]:
 
 
 def _read_jsonl(path: Path) -> List[Dict[str, Any]]:
-    if not path.exists():
-        return []
-    rows: List[Dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
-            rows.append(json.loads(line))
-    return rows
+    return read_jsonl(path)
 
 
 def discover_generated_provider_sessions(workspace_root: Path) -> List[Dict[str, Any]]:
