@@ -84,6 +84,7 @@ CANONICAL_RUNTIME_MODULES = [
     "retrieval.graph_freshness",
     "retrieval.cross_provider_memory_consumption",
     "retrieval.graph_output_guard",
+    "retrieval.graph_snapshot_replacement_guard",
     "retrieval.graphify_snapshot_adapter",
     "retrieval.graphify_snapshot_manifest",
     "retrieval.graphify_snapshot_rebuild",

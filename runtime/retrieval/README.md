@@ -9,6 +9,7 @@ Graphify policy:
 - Snapshot manifests must say that Graphify is not SOT and cannot be the sole answer source.
 - Snapshot rebuild proof must produce either a validated non-SOT manifest or a typed unavailable manifest.
 - Graph output guard must keep graph/wiki/index output freshness-bound, source-ref backed, and limited to support-bundle hints.
+- Snapshot replacement guard must record lineage/count deltas and block unexplained major shrink before replacement.
 - Provider answers must verify Graphify hints against linked SOT/provenance shortcuts.
 
 Phase 5 lifecycle retrieval policy:
