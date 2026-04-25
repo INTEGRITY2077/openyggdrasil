@@ -56,6 +56,7 @@ CANONICAL_RUNTIME_MODULES = [
     "reasoning.reasoning_lease_contracts",
     "runner.failure_fallback_regression",
     "runner.mailbox_support_emission",
+    "runner.no_credential_prompt_regression",
     "runner.provider_declined_visibility",
     "runner.role_split_integration",
     "runner.same_session_answer_smoke",
