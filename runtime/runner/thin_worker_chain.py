@@ -19,6 +19,7 @@ from cultivation.gardener_stub import plan_seed_planting
 from cultivation.nursery_composition_input import build_nursery_composition_input
 from cultivation.nursery_stub import engrave_composed_decision_seed
 from cultivation.seedkeeper import preserve_decision_segment
+from delivery.postman_finalization import build_postman_delivery_handoff
 from evaluation.evaluator import evaluate_decision_candidate
 from evaluation.evaluator_amundsen_handoff import build_evaluator_amundsen_handoff
 from harness_common import DEFAULT_VAULT, utc_now_iso
@@ -296,21 +297,12 @@ def _postman_handoff(
     source_refs: list[dict[str, Any]],
 ) -> dict[str, Any]:
     session_admission = dict(runner_result.get("admission_verdict") or {})
-    return {
-        "handoff_status": "ready_for_mailbox_packet",
-        "message_type": "map_topography",
-        "target": {
-            "provider_id": str(admission_verdict["provider_id"]),
-            "profile": str(admission_verdict["provider_profile"]),
-            "session_id": str(admission_verdict["provider_session_id"]),
-            "topic": str(admission_verdict["topic_key"]),
-            "canonical_relative_path": str(admission_verdict["canonical_relative_path"]),
-            "topography_id": str(map_topography["topography_id"]),
-            "session_admission_verdict_id": session_admission.get("verdict_id"),
-            "source_refs": source_refs,
-        },
-        "reason_codes": ["postman_handoff_ready", "mailbox_mutation_deferred_to_r3"],
-    }
+    return build_postman_delivery_handoff(
+        admission_verdict=admission_verdict,
+        map_topography=map_topography,
+        source_refs=source_refs,
+        session_admission_verdict_id=session_admission.get("verdict_id"),
+    )
 
 
 def _result(

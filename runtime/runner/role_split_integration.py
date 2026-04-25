@@ -110,6 +110,15 @@ def inspect_role_split_integration(*, chain_result: Mapping[str, Any]) -> dict[s
             and map_topography.get("adjacency_keys") == []
         ),
         "postman_delivery_ready": postman_handoff.get("handoff_status") == "ready_for_mailbox_packet",
+        "postman_delivery_finalization_only": (
+            postman_handoff.get("delivery_authority") == "session_delivery_finalization_only"
+            and postman_handoff.get("semantic_worth_authority") == "not_postman"
+            and postman_handoff.get("category_authority") == "not_postman"
+            and postman_handoff.get("placement_authority") == "not_postman"
+            and postman_handoff.get("sot_mutation_authority") == "not_postman"
+            and postman_handoff.get("mailbox_mutation_authority") == "deferred_to_guarded_emission"
+            and postman_handoff.get("source_ref_authority") == "forward_only"
+        ),
     }
     failures = _failure_reasons(
         required_artifacts=required_artifacts,

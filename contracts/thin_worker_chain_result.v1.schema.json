@@ -354,12 +354,30 @@
       ],
       "additionalProperties": false,
       "required": [
+        "schema_version",
+        "handoff_id",
         "handoff_status",
         "message_type",
         "target",
-        "reason_codes"
+        "delivery_authority",
+        "semantic_worth_authority",
+        "category_authority",
+        "placement_authority",
+        "sot_mutation_authority",
+        "mailbox_mutation_authority",
+        "source_ref_authority",
+        "reason_codes",
+        "created_at"
       ],
       "properties": {
+        "schema_version": {
+          "const": "postman_delivery_handoff.v1"
+        },
+        "handoff_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
         "handoff_status": {
           "type": "string",
           "enum": [
@@ -380,6 +398,48 @@
             "null"
           ]
         },
+        "delivery_authority": {
+          "type": "string",
+          "enum": [
+            "session_delivery_finalization_only"
+          ]
+        },
+        "semantic_worth_authority": {
+          "type": "string",
+          "enum": [
+            "not_postman"
+          ]
+        },
+        "category_authority": {
+          "type": "string",
+          "enum": [
+            "not_postman"
+          ]
+        },
+        "placement_authority": {
+          "type": "string",
+          "enum": [
+            "not_postman"
+          ]
+        },
+        "sot_mutation_authority": {
+          "type": "string",
+          "enum": [
+            "not_postman"
+          ]
+        },
+        "mailbox_mutation_authority": {
+          "type": "string",
+          "enum": [
+            "deferred_to_guarded_emission"
+          ]
+        },
+        "source_ref_authority": {
+          "type": "string",
+          "enum": [
+            "forward_only"
+          ]
+        },
         "reason_codes": {
           "type": "array",
           "maxItems": 16,
@@ -390,6 +450,10 @@
             "maxLength": 100,
             "pattern": "^[A-Za-z0-9._:-]+$"
           }
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },

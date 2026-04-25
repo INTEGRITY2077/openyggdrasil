@@ -20,6 +20,7 @@ This directory is reserved for engine-level contracts:
 - Nursery composed seed input contracts
 - Gardener forest routing contracts
 - Map Maker placement-only boundary contracts
+- Postman delivery-finalization boundary contracts
 - role split integration result contracts
 - provider runtime integrity result contracts
 - session signal runner result contracts

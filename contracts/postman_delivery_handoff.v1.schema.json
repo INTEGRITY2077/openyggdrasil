@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/postman_delivery_handoff.v1.schema.json",
+  "title": "OpenYggdrasil Postman Delivery Handoff v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "handoff_id",
+    "handoff_status",
+    "message_type",
+    "target",
+    "delivery_authority",
+    "semantic_worth_authority",
+    "category_authority",
+    "placement_authority",
+    "sot_mutation_authority",
+    "mailbox_mutation_authority",
+    "source_ref_authority",
+    "reason_codes",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "postman_delivery_handoff.v1"
+    },
+    "handoff_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "handoff_status": {
+      "type": "string",
+      "enum": [
+        "ready_for_mailbox_packet",
+        "not_ready"
+      ]
+    },
+    "message_type": {
+      "type": "string",
+      "enum": [
+        "map_topography"
+      ]
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_id",
+        "provider_profile",
+        "provider_session_id",
+        "topic",
+        "canonical_relative_path",
+        "topography_id",
+        "session_admission_verdict_id",
+        "source_refs"
+      ],
+      "properties": {
+        "provider_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "topic": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonical_relative_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "topography_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_admission_verdict_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "delivery_authority": {
+      "type": "string",
+      "enum": [
+        "session_delivery_finalization_only"
+      ]
+    },
+    "semantic_worth_authority": {
+      "type": "string",
+      "enum": [
+        "not_postman"
+      ]
+    },
+    "category_authority": {
+      "type": "string",
+      "enum": [
+        "not_postman"
+      ]
+    },
+    "placement_authority": {
+      "type": "string",
+      "enum": [
+        "not_postman"
+      ]
+    },
+    "sot_mutation_authority": {
+      "type": "string",
+      "enum": [
+        "not_postman"
+      ]
+    },
+    "mailbox_mutation_authority": {
+      "type": "string",
+      "enum": [
+        "deferred_to_guarded_emission"
+      ]
+    },
+    "source_ref_authority": {
+      "type": "string",
+      "enum": [
+        "forward_only"
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

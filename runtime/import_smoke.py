@@ -29,6 +29,7 @@ CANONICAL_RUNTIME_MODULES = [
     "delivery.packet_factory",
     "delivery.packet_scoring",
     "delivery.plugin_logger",
+    "delivery.postman_finalization",
     "delivery.postman_gateway",
     "delivery.subagent_telemetry",
     "delivery.support_bundle",

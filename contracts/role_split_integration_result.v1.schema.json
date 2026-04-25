@@ -125,7 +125,8 @@
         "nursery_composed_input_ready",
         "gardener_forest_routing_only",
         "map_maker_placement_only",
-        "postman_delivery_ready"
+        "postman_delivery_ready",
+        "postman_delivery_finalization_only"
       ],
       "properties": {
         "distiller_no_semantic_filter": {
@@ -150,6 +151,9 @@
           "type": "boolean"
         },
         "postman_delivery_ready": {
+          "type": "boolean"
+        },
+        "postman_delivery_finalization_only": {
           "type": "boolean"
         }
       }

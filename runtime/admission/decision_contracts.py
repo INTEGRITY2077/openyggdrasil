@@ -92,6 +92,11 @@ def load_role_split_integration_result_schema() -> Dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
+def load_postman_delivery_handoff_schema() -> Dict[str, Any]:
+    return _load_schema("postman_delivery_handoff.v1.schema.json")
+
+
+@lru_cache(maxsize=1)
 def load_thin_worker_chain_result_schema() -> Dict[str, Any]:
     return _load_schema("thin_worker_chain_result.v1.schema.json")
 
@@ -280,6 +285,10 @@ def validate_session_signal_runner_result(payload: Mapping[str, Any]) -> None:
 
 def validate_role_split_integration_result(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_role_split_integration_result_schema())
+
+
+def validate_postman_delivery_handoff(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_postman_delivery_handoff_schema())
 
 
 FORBIDDEN_THIN_CHAIN_RESULT_KEYS = {
