@@ -1,3 +1,3 @@
 # Runtime Cultivation
 
-This family will own Gardener-style forest and community maintenance logic.
+This family owns deterministic Seedkeeper preservation plus Gardener-style forest and community maintenance logic.

@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/seedkeeper_segment.v1.schema.json",
+  "title": "OpenYggdrasil Seedkeeper Segment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "segment_id",
+    "candidate_id",
+    "dedup_key",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "turn_start",
+    "turn_end",
+    "source_ref",
+    "source_ref_status",
+    "origin_locator",
+    "provenance_ring",
+    "preservation_status",
+    "integrity_status",
+    "integrity_reason",
+    "segment_authority",
+    "semantic_worth_authority",
+    "category_authority",
+    "planting_ready",
+    "reason_codes",
+    "preserved_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "seedkeeper_segment.v1"
+    },
+    "segment_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dedup_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "turn_start": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "turn_end": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_ref_status": {
+      "type": "string",
+      "enum": [
+        "present",
+        "missing"
+      ]
+    },
+    "origin_locator": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "provenance_ring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_id",
+        "provider_profile",
+        "provider_session_id",
+        "session_uid",
+        "turn_range",
+        "source_ref",
+        "origin_locator"
+      ],
+      "properties": {
+        "provider_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_uid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "turn_range": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "integer"
+          }
+        },
+        "source_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "origin_locator": {
+          "type": "object"
+        }
+      }
+    },
+    "preservation_status": {
+      "type": "string",
+      "enum": [
+        "preserved",
+        "review_needed"
+      ]
+    },
+    "integrity_status": {
+      "type": "string",
+      "enum": [
+        "clean",
+        "review_needed"
+      ]
+    },
+    "integrity_reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "segment_authority": {
+      "type": "string",
+      "enum": [
+        "deterministic_source_ref_preservation_only"
+      ]
+    },
+    "semantic_worth_authority": {
+      "type": "string",
+      "enum": [
+        "not_seedkeeper"
+      ]
+    },
+    "category_authority": {
+      "type": "string",
+      "enum": [
+        "not_seedkeeper"
+      ]
+    },
+    "planting_ready": {
+      "type": "boolean"
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "preserved_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

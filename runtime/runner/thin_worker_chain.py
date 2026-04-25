@@ -15,6 +15,7 @@ from capture.decision_distiller import finalize_decision_candidate
 from common.map_identity import build_claim_id
 from cultivation.gardener_stub import plan_seed_planting
 from cultivation.nursery_stub import engrave_decision_seed
+from cultivation.seedkeeper import preserve_decision_segment
 from evaluation.evaluator import evaluate_decision_candidate
 from evaluation.evaluator_amundsen_handoff import build_evaluator_amundsen_handoff
 from harness_common import DEFAULT_VAULT, utc_now_iso
@@ -26,6 +27,7 @@ ROLE_ORDER = (
     "distiller",
     "evaluator",
     "amundsen",
+    "seedkeeper",
     "gardener",
     "map_maker",
     "postman",
@@ -190,6 +192,7 @@ def _empty_artifacts() -> dict[str, Any]:
         "evaluator_verdict": None,
         "evaluator_amundsen_handoff": None,
         "admission_verdict": None,
+        "seedkeeper_segment": None,
         "engraved_seed": None,
         "planting_decision": None,
         "cultivated_decision": None,
@@ -207,6 +210,9 @@ def _artifact_id(role: str, artifacts: Mapping[str, Any]) -> tuple[str | None, s
     if role == "amundsen":
         artifact = artifacts.get("admission_verdict")
         return "topic_route", str(artifact.get("continent_id")) if isinstance(artifact, Mapping) else None
+    if role == "seedkeeper":
+        artifact = artifacts.get("seedkeeper_segment")
+        return "seedkeeper_segment", str(artifact.get("segment_id")) if isinstance(artifact, Mapping) else None
     if role == "gardener":
         artifact = artifacts.get("planting_decision")
         return "planting_decision", str(artifact.get("planting_id")) if isinstance(artifact, Mapping) else None
@@ -234,6 +240,9 @@ def _role_steps(
                 reason_codes.append("session_admission_preserved")
             elif role == "amundsen":
                 reason_codes.append("topic_route_placeholder")
+            elif role == "seedkeeper":
+                reason_codes.append("source_ref_preserved")
+                reason_codes.append("nursery_boundary_ready")
             elif role == "gardener":
                 reason_codes.append("thin_planting_only")
         elif role == fallback_role:
@@ -496,6 +505,29 @@ def run_thin_worker_chain(
         completed_roles.add("amundsen")
 
         fallback = _fallback_result_if_requested(
+            role="seedkeeper",
+            role_fallbacks=role_fallbacks,
+            signal=signal,
+            runner_result=runner_result,
+            completed_roles=completed_roles,
+            artifacts=artifacts,
+        )
+        if fallback is not None:
+            return fallback
+        seedkeeper_segment = preserve_decision_segment(decision_candidate=decision_candidate)
+        artifacts["seedkeeper_segment"] = seedkeeper_segment
+        if seedkeeper_segment["preservation_status"] != "preserved":
+            return _stopped_result(
+                signal=signal,
+                runner_result=runner_result,
+                stop_reason=str(seedkeeper_segment["integrity_reason"]),
+                blocked_role="seedkeeper",
+                completed_roles=completed_roles,
+                artifacts=artifacts,
+            )
+        completed_roles.add("seedkeeper")
+
+        fallback = _fallback_result_if_requested(
             role="gardener",
             role_fallbacks=role_fallbacks,
             signal=signal,
@@ -508,6 +540,7 @@ def run_thin_worker_chain(
         engraved_seed = engrave_decision_seed(
             admission_verdict=admission_verdict,
             decision_candidate=decision_candidate,
+            seedkeeper_segment=seedkeeper_segment,
         )
         artifacts["engraved_seed"] = engraved_seed
         planting_decision = plan_seed_planting(engraved_seed=engraved_seed)

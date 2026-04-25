@@ -35,6 +35,7 @@ COMPATIBILITY_SHIM_TARGETS = {
     "provider_inbox": "attachments.provider_inbox",
     "reasoning_lease_contracts": "reasoning.reasoning_lease_contracts",
     "session_admission_gate": "admission.session_admission_gate",
+    "seedkeeper": "cultivation.seedkeeper",
     "session_structure_signal": "capture.session_structure_signal",
     "subagent_telemetry": "delivery.subagent_telemetry",
     "support_bundle": "delivery.support_bundle",

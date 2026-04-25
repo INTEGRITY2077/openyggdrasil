@@ -79,8 +79,8 @@
     },
     "role_steps": {
       "type": "array",
-      "minItems": 6,
-      "maxItems": 6,
+      "minItems": 7,
+      "maxItems": 7,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -98,6 +98,7 @@
               "distiller",
               "evaluator",
               "amundsen",
+              "seedkeeper",
               "gardener",
               "map_maker",
               "postman"
@@ -255,6 +256,7 @@
         "evaluator_verdict",
         "evaluator_amundsen_handoff",
         "admission_verdict",
+        "seedkeeper_segment",
         "engraved_seed",
         "planting_decision",
         "cultivated_decision",
@@ -280,6 +282,12 @@
           ]
         },
         "admission_verdict": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "seedkeeper_segment": {
           "type": [
             "object",
             "null"
