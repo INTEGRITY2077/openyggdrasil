@@ -27,6 +27,11 @@ def load_decision_candidate_schema() -> Dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
+def load_decision_candidate_batch_schema() -> Dict[str, Any]:
+    return _load_schema("decision_candidate_batch.v1.schema.json")
+
+
+@lru_cache(maxsize=1)
 def load_evaluator_verdict_schema() -> Dict[str, Any]:
     return _load_schema("evaluator_verdict.v1.schema.json")
 
@@ -112,6 +117,10 @@ def validate_decision_surface(payload: Mapping[str, Any]) -> None:
 
 def validate_decision_candidate(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_decision_candidate_schema())
+
+
+def validate_decision_candidate_batch(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_decision_candidate_batch_schema())
 
 
 def validate_evaluator_verdict(payload: Mapping[str, Any]) -> None:

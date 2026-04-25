@@ -3,9 +3,13 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
-from admission.decision_contracts import validate_decision_candidate, validate_decision_surface
+from admission.decision_contracts import (
+    validate_decision_candidate,
+    validate_decision_candidate_batch,
+    validate_decision_surface,
+)
 from attachments.provider_attachment import build_session_uid
 from harness_common import utc_now_iso
 
@@ -158,6 +162,80 @@ def finalize_decision_candidate(
     }
     validate_decision_candidate(candidate)
     return candidate
+
+
+def _deterministic_skip_reason(raw_candidate: Any) -> str | None:
+    if not isinstance(raw_candidate, Mapping):
+        return "raw_candidate_not_mapping"
+    if not str(raw_candidate.get("decision_text") or "").strip():
+        return "missing_decision_text"
+    if not str(raw_candidate.get("rationale") or "").strip():
+        return "missing_rationale"
+    return None
+
+
+def finalize_exhaustive_decision_candidates(
+    *,
+    decision_surface: Mapping[str, Any],
+    raw_candidates: Iterable[Any],
+    provider_id: str | None = None,
+    profile: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any]:
+    """Finalize every deterministic raw candidate without semantic-worth filtering."""
+
+    validate_decision_surface(decision_surface)
+    raw_candidate_list = list(raw_candidates)
+    candidates: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    for index, raw_candidate in enumerate(raw_candidate_list):
+        skip_reason = _deterministic_skip_reason(raw_candidate)
+        if skip_reason is not None:
+            skipped.append({"index": index, "reason_code": skip_reason})
+            continue
+        candidates.append(
+            finalize_decision_candidate(
+                decision_surface=decision_surface,
+                raw_candidate=dict(raw_candidate),
+                provider_id=provider_id,
+                profile=profile,
+                session_id=session_id,
+            )
+        )
+
+    reason_codes = ["distiller_exhaustive_candidate_rule"]
+    exhaustiveness_status = "exhaustive" if candidates else "deterministic_skip"
+    if skipped:
+        reason_codes.append("deterministic_raw_candidate_skip_recorded")
+    if exhaustiveness_status == "deterministic_skip":
+        reason_codes.append("no_valid_raw_candidates")
+
+    batch = {
+        "schema_version": "decision_candidate_batch.v1",
+        "batch_id": uuid.uuid4().hex,
+        "provider_id": str(decision_surface["provider_id"]),
+        "provider_profile": str(decision_surface["provider_profile"]),
+        "provider_session_id": str(decision_surface["provider_session_id"]),
+        "session_uid": build_session_uid(
+            provider_id=str(decision_surface["provider_id"]),
+            provider_profile=str(decision_surface["provider_profile"]),
+            provider_session_id=str(decision_surface["provider_session_id"]),
+        ),
+        "turn_start": int(decision_surface["turn_start"]),
+        "turn_end": int(decision_surface["turn_end"]),
+        "raw_candidate_count": len(raw_candidate_list),
+        "candidate_count": len(candidates),
+        "skip_count": len(skipped),
+        "exhaustiveness_status": exhaustiveness_status,
+        "distiller_authority": "candidate_extraction_only_no_semantic_worth_filter",
+        "semantic_filtering_allowed": False,
+        "candidates": candidates,
+        "skipped_raw_candidates": skipped,
+        "reason_codes": reason_codes,
+        "created_at": utc_now_iso(),
+    }
+    validate_decision_candidate_batch(batch)
+    return batch
 
 
 def distill_decision_candidate(

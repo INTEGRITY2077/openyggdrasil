@@ -253,6 +253,7 @@
       "additionalProperties": false,
       "required": [
         "decision_candidate",
+        "decision_candidate_batch",
         "evaluator_verdict",
         "evaluator_amundsen_handoff",
         "admission_verdict",
@@ -264,6 +265,12 @@
       ],
       "properties": {
         "decision_candidate": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "decision_candidate_batch": {
           "type": [
             "object",
             "null"

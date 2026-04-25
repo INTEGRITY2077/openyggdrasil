@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/decision_candidate_batch.v1.schema.json",
+  "title": "OpenYggdrasil Decision Candidate Batch v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "batch_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "turn_start",
+    "turn_end",
+    "raw_candidate_count",
+    "candidate_count",
+    "skip_count",
+    "exhaustiveness_status",
+    "distiller_authority",
+    "semantic_filtering_allowed",
+    "candidates",
+    "skipped_raw_candidates",
+    "reason_codes",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "decision_candidate_batch.v1"
+    },
+    "batch_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "turn_start": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "turn_end": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "raw_candidate_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "candidate_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "skip_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "exhaustiveness_status": {
+      "type": "string",
+      "enum": [
+        "exhaustive",
+        "deterministic_skip"
+      ]
+    },
+    "distiller_authority": {
+      "type": "string",
+      "enum": [
+        "candidate_extraction_only_no_semantic_worth_filter"
+      ]
+    },
+    "semantic_filtering_allowed": {
+      "const": false
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "minProperties": 1
+      }
+    },
+    "skipped_raw_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "index",
+          "reason_code"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason_code": {
+            "type": "string",
+            "enum": [
+              "raw_candidate_not_mapping",
+              "missing_decision_text",
+              "missing_rationale"
+            ]
+          }
+        }
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

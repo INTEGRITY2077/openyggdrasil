@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 from admission.admission_stub import admit_evaluator_handoff
 from admission.decision_contracts import (
@@ -11,7 +11,7 @@ from admission.decision_contracts import (
     validate_session_structure_signal,
     validate_thin_worker_chain_result,
 )
-from capture.decision_distiller import finalize_decision_candidate
+from capture.decision_distiller import finalize_exhaustive_decision_candidates
 from common.map_identity import build_claim_id
 from cultivation.gardener_stub import plan_seed_planting
 from cultivation.nursery_stub import engrave_decision_seed
@@ -33,7 +33,7 @@ ROLE_ORDER = (
     "postman",
 )
 
-ThinCandidateRenderer = Callable[..., Mapping[str, Any]]
+ThinCandidateRenderer = Callable[..., Mapping[str, Any] | Sequence[Mapping[str, Any]]]
 RoleFallbacks = Mapping[str, str]
 
 
@@ -189,6 +189,7 @@ def _cultivation_intent(
 def _empty_artifacts() -> dict[str, Any]:
     return {
         "decision_candidate": None,
+        "decision_candidate_batch": None,
         "evaluator_verdict": None,
         "evaluator_amundsen_handoff": None,
         "admission_verdict": None,
@@ -202,6 +203,9 @@ def _empty_artifacts() -> dict[str, Any]:
 
 def _artifact_id(role: str, artifacts: Mapping[str, Any]) -> tuple[str | None, str | None]:
     if role == "distiller":
+        artifact = artifacts.get("decision_candidate_batch")
+        if isinstance(artifact, Mapping):
+            return "decision_candidate_batch", str(artifact.get("batch_id"))
         artifact = artifacts.get("decision_candidate")
         return "decision_candidate", str(artifact.get("candidate_id")) if isinstance(artifact, Mapping) else None
     if role == "evaluator":
@@ -236,6 +240,8 @@ def _role_steps(
         if role in completed_roles:
             status = "completed"
             reason_codes = [f"{role}_completed"]
+            if role == "distiller":
+                reason_codes.append("exhaustive_candidate_batch")
             if role == "evaluator":
                 reason_codes.append("session_admission_preserved")
             elif role == "amundsen":
@@ -380,6 +386,14 @@ def _fallback_reason(role: str, role_fallbacks: RoleFallbacks | None) -> str | N
     return f"{role}_fallback_used:{reason}"
 
 
+def _raw_candidate_payloads(rendered: Any) -> list[Any]:
+    if isinstance(rendered, Mapping):
+        return [rendered]
+    if isinstance(rendered, Sequence) and not isinstance(rendered, (str, bytes, bytearray)):
+        return list(rendered)
+    return [rendered]
+
+
 def _fallback_result_if_requested(
     *,
     role: str,
@@ -450,10 +464,24 @@ def run_thin_worker_chain(
         if fallback is not None:
             return fallback
         decision_surface = build_decision_surface_from_signal(signal)
-        decision_candidate = finalize_decision_candidate(
-            decision_surface=decision_surface,
-            raw_candidate=dict((candidate_renderer or _default_candidate_renderer)(decision_surface=decision_surface)),
+        raw_candidates = _raw_candidate_payloads(
+            (candidate_renderer or _default_candidate_renderer)(decision_surface=decision_surface)
         )
+        decision_candidate_batch = finalize_exhaustive_decision_candidates(
+            decision_surface=decision_surface,
+            raw_candidates=raw_candidates,
+        )
+        artifacts["decision_candidate_batch"] = decision_candidate_batch
+        if decision_candidate_batch["exhaustiveness_status"] != "exhaustive":
+            return _stopped_result(
+                signal=signal,
+                runner_result=runner_result,
+                stop_reason="distiller_deterministic_skip:no_valid_raw_candidates",
+                blocked_role="distiller",
+                completed_roles=completed_roles,
+                artifacts=artifacts,
+            )
+        decision_candidate = dict(decision_candidate_batch["candidates"][0])
         artifacts["decision_candidate"] = decision_candidate
         completed_roles.add("distiller")
 

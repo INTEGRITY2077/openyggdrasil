@@ -10,6 +10,7 @@ This directory is reserved for engine-level contracts:
 - optional reasoning lease contracts
 - session structure signal contracts
 - session admission verdict contracts
+- decision candidate batch/exhaustive distillation contracts
 - evaluator verdict contracts
 - evaluator deterministic prefilter and high-reasoning boundary contracts
 - evaluator vault-promotion readiness contracts
