@@ -8,7 +8,7 @@ from admission.decision_contracts import validate_source_ref_resolution_result
 from harness_common import utc_now_iso
 
 
-RANGE_HINT_RE = re.compile(r"^turns:[1-9][0-9]*(?:-[1-9][0-9]*)?$")
+RANGE_HINT_RE = re.compile(r"^turns:([1-9][0-9]*)(?:-([1-9][0-9]*))?$")
 
 
 def _string_field(payload: Mapping[str, Any], key: str, fallback: str = "unknown") -> str:
@@ -37,6 +37,15 @@ def _source_ref_token(source_ref: Mapping[str, Any]) -> str:
     path_hint = str(source_ref["path_hint"]).strip()
     range_hint = str(source_ref["range_hint"]).strip()
     return f"provider_session:{path_hint}#{range_hint}"
+
+
+def _range_hint_is_valid(range_hint: str) -> bool:
+    match = RANGE_HINT_RE.fullmatch(range_hint)
+    if match is None:
+        return False
+    start = int(match.group(1))
+    end = int(match.group(2) or match.group(1))
+    return start <= end
 
 
 def _result(
@@ -122,7 +131,7 @@ def resolve_signal_source_ref(
             source_ref=clean_ref,
             next_action="reject_signal",
         )
-    if not RANGE_HINT_RE.fullmatch(range_hint):
+    if not _range_hint_is_valid(range_hint):
         return _result(
             signal=signal,
             status="reject",
