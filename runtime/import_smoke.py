@@ -13,6 +13,7 @@ CANONICAL_RUNTIME_MODULES = [
     "attachments.provider_attachment",
     "attachments.provider_inbox",
     "capture.decision_distiller",
+    "capture.provider_runtime_integrity",
     "capture.session_structure_signal",
     "common.map_identity",
     "cultivation.gardener_stub",

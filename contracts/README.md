@@ -10,6 +10,7 @@ This directory is reserved for engine-level contracts:
 - optional reasoning lease contracts
 - session structure signal contracts
 - session admission verdict contracts
+- provider runtime integrity result contracts
 - support bundle contracts
 - mailbox guard result contracts
 - origin shortcut result contracts

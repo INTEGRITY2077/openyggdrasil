@@ -11,7 +11,7 @@ Expected future occupants:
 
 Current occupants:
 - common identity and runtime utilities
-- provider-neutral decision capture and Decision Distiller runtime
+- provider-neutral decision capture, provider runtime integrity, and Decision Distiller runtime
 - optional reasoning lease contract runtime
 - promotion worthiness and placement runtime
 - provenance and semantic edge runtime
