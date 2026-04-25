@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/same_session_answer_smoke_result.v1.schema.json",
+  "title": "OpenYggdrasil Same Session Answer Smoke Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "smoke_result_id",
+    "status",
+    "signal_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "mailbox_support_status",
+    "inbox_packet_ref",
+    "relevant_question",
+    "relevant_answer",
+    "decoy_question",
+    "decoy_answer",
+    "assertions",
+    "next_action",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "same_session_answer_smoke_result.v1"
+    },
+    "smoke_result_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed"
+      ]
+    },
+    "signal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "mailbox_support_status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "stopped"
+      ]
+    },
+    "inbox_packet_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_id",
+        "packet_type",
+        "path_hint"
+      ],
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "packet_type": {
+          "const": "support_bundle"
+        },
+        "path_hint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "relevant_question": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "relevant_answer": {
+      "$ref": "#/$defs/provider_answer"
+    },
+    "decoy_question": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "decoy_answer": {
+      "$ref": "#/$defs/provider_answer"
+    },
+    "assertions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "support_bundle_delivered",
+        "relevant_answer_consumed_bundle",
+        "relevant_answer_cited_mailbox",
+        "decoy_answer_rejected_bundle",
+        "no_uncaught_exception"
+      ],
+      "properties": {
+        "support_bundle_delivered": {
+          "type": "boolean"
+        },
+        "relevant_answer_consumed_bundle": {
+          "type": "boolean"
+        },
+        "relevant_answer_cited_mailbox": {
+          "type": "boolean"
+        },
+        "decoy_answer_rejected_bundle": {
+          "type": "boolean"
+        },
+        "no_uncaught_exception": {
+          "type": "boolean"
+        }
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "enum": [
+        "provider_headless_lease_dry_run",
+        "investigate_failure"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "provider_answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "answer_id",
+        "status",
+        "consumed_support_bundle",
+        "cited_mailbox_message_id",
+        "canonical_note",
+        "source_ref",
+        "answer_text",
+        "reason_codes"
+      ],
+      "properties": {
+        "answer_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "answered",
+            "ignored"
+          ]
+        },
+        "consumed_support_bundle": {
+          "type": "boolean"
+        },
+        "cited_mailbox_message_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "canonical_note": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "source_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "answer_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 900
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          }
+        }
+      }
+    }
+  }
+}

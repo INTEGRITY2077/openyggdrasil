@@ -7,11 +7,13 @@ Current role:
 - `Thin Worker Chain`: turns an accepted runner result into deterministic Distiller/Evaluator/Amundsen/Gardener/Map Maker/Postman boundary artifacts without running full role services.
 - `Mailbox Support Emission`: turns a completed thin chain result into a guarded `support_bundle.v1` session inbox packet.
 - `Failure Fallback Regression`: proves known failure modes return typed fallback/quarantine/reject results instead of provider-facing uncaught exceptions.
+- `Same Session Answer Smoke`: proves a foreground-equivalent provider answer consumes the delivered session support bundle while an unrelated decoy does not.
 
 Current contract:
 - `session_signal_runner_result.v1`: typed entrypoint result consumed by the thin worker chain.
 - `thin_worker_chain_result.v1`: typed chain result consumed by mailbox/support emission.
 - `mailbox_support_result.v1`: typed mailbox/support emission result consumed by same-session answer smoke.
 - `failure_fallback_regression_result.v1`: typed S2 regression summary for missing provider background reasoning, missing Graphify snapshot, stale mailbox packet, and unresolved source ref.
+- `same_session_answer_smoke_result.v1`: typed R4 smoke result for same-session support consumption and decoy rejection.
 
 The runner package must not become an observer daemon and must not own semantic category, canonical claim, or mailbox mutation decisions.

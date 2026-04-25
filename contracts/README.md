@@ -15,6 +15,7 @@ This directory is reserved for engine-level contracts:
 - thin worker chain result contracts
 - mailbox support result contracts
 - failure fallback regression result contracts
+- same session answer smoke result contracts
 - support bundle contracts
 - mailbox guard result contracts
 - origin shortcut result contracts
