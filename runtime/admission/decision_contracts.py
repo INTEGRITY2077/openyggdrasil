@@ -47,6 +47,11 @@ def load_provider_runtime_integrity_result_schema() -> Dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
+def load_session_signal_runner_result_schema() -> Dict[str, Any]:
+    return _load_schema("session_signal_runner_result.v1.schema.json")
+
+
+@lru_cache(maxsize=1)
 def load_engraved_seed_schema() -> Dict[str, Any]:
     return _load_schema("engraved_seed.v1.schema.json")
 
@@ -155,6 +160,39 @@ def validate_session_admission_verdict(payload: Mapping[str, Any]) -> None:
 
 def validate_provider_runtime_integrity_result(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_provider_runtime_integrity_result_schema())
+
+
+FORBIDDEN_RUNNER_RESULT_KEYS = {
+    "raw_text",
+    "raw_session",
+    "raw_transcript",
+    "transcript",
+    "conversation_excerpt",
+    "long_summary",
+    "summary",
+    "canonical_claim",
+    "canonical_path",
+    "mailbox_mutation",
+    "sot_write",
+}
+
+
+def _reject_forbidden_runner_result_keys(value: Any, *, path: str = "$") -> None:
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            if key in FORBIDDEN_RUNNER_RESULT_KEYS:
+                _raise_signal_validation_error(
+                    f"session_signal_runner_result.v1 forbids raw/provider authority field {path}.{key}"
+                )
+            _reject_forbidden_runner_result_keys(child, path=f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            _reject_forbidden_runner_result_keys(child, path=f"{path}[{index}]")
+
+
+def validate_session_signal_runner_result(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_session_signal_runner_result_schema())
+    _reject_forbidden_runner_result_keys(payload)
 
 
 def validate_engraved_seed(payload: Mapping[str, Any]) -> None:

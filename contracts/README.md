@@ -11,6 +11,7 @@ This directory is reserved for engine-level contracts:
 - session structure signal contracts
 - session admission verdict contracts
 - provider runtime integrity result contracts
+- session signal runner result contracts
 - support bundle contracts
 - mailbox guard result contracts
 - origin shortcut result contracts

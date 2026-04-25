@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/session_signal_runner_result.v1.schema.json",
+  "title": "OpenYggdrasil Session Signal Runner Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "runner_result_id",
+    "signal_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "status",
+    "admission_status",
+    "stop_reason",
+    "step_statuses",
+    "source_refs",
+    "mailbox_packet_refs",
+    "fallback_state",
+    "integrity_result",
+    "admission_verdict",
+    "runner_plan",
+    "next_action",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "session_signal_runner_result.v1"
+    },
+    "runner_result_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "signal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "runner_plan_ready",
+        "stopped"
+      ]
+    },
+    "admission_status": {
+      "type": "string",
+      "enum": [
+        "accept",
+        "defer",
+        "reject",
+        "not_run"
+      ]
+    },
+    "stop_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 120
+    },
+    "step_statuses": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step",
+          "status",
+          "reason_codes"
+        ],
+        "properties": {
+          "step": {
+            "type": "string",
+            "enum": [
+              "provider_runtime_integrity",
+              "session_admission_gate",
+              "thin_worker_chain"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "ready",
+              "skipped",
+              "blocked"
+            ]
+          },
+          "reason_codes": {
+            "type": "array",
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          }
+        }
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "path_hint"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "provider_session",
+              "provider_session_source_ref",
+              "provenance",
+              "mailbox_packet",
+              "support_bundle"
+            ]
+          },
+          "path_hint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "range_hint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "symlink_hint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          },
+          "message_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    "mailbox_packet_refs": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "message_id",
+          "packet_type"
+        ],
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "packet_type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "path_hint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "fallback_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fallback_used",
+        "fallback_reason",
+        "quarantine"
+      ],
+      "properties": {
+        "fallback_used": {
+          "type": "boolean"
+        },
+        "fallback_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "quarantine": {
+          "type": "boolean"
+        }
+      }
+    },
+    "integrity_result": {
+      "type": "object"
+    },
+    "admission_verdict": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "runner_plan": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "next_action": {
+      "type": "string",
+      "enum": [
+        "run_thin_worker_chain",
+        "stop"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
