@@ -31,6 +31,7 @@ This directory is reserved for engine-level contracts:
 - support bundle contracts
 - mailbox guard result contracts
 - origin shortcut result contracts
+- Pathfinder mailbox/support retrieval result contracts
 - Graphify derived snapshot manifest contracts
 - skill-generated provider attachment contracts
 - provider/session-bound inbox packet contracts

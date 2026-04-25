@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/pathfinder_retrieval_result.v1.schema.json",
+  "title": "OpenYggdrasil Pathfinder Retrieval Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "retrieval_result_id",
+    "query_text",
+    "status",
+    "stop_reason",
+    "source_refs",
+    "mailbox_packet_refs",
+    "support_bundle_shortcuts",
+    "origin_shortcut_result",
+    "pathfinder_bundle",
+    "retrieval_authority",
+    "source_ref_authority",
+    "bypassed_source_refs",
+    "reason_codes",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "pathfinder_retrieval_result.v1"
+    },
+    "retrieval_result_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "query_text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "stopped"
+      ]
+    },
+    "stop_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 180
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "path_hint"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "provider_session",
+              "provider_session_source_ref",
+              "provenance",
+              "mailbox_packet",
+              "support_bundle"
+            ]
+          },
+          "path_hint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "range_hint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "symlink_hint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          },
+          "message_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    "mailbox_packet_refs": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "message_id",
+          "packet_type"
+        ],
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "packet_type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "path_hint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "support_bundle_shortcuts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_note",
+        "provenance_note",
+        "source_paths",
+        "pathfinder_source_paths"
+      ],
+      "properties": {
+        "canonical_note": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "provenance_note": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "source_paths": {
+          "type": "array",
+          "maxItems": 24,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "pathfinder_source_paths": {
+          "type": "array",
+          "maxItems": 24,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "origin_shortcut_result": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "pathfinder_bundle": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "retrieval_authority": {
+      "type": "string",
+      "enum": [
+        "mailbox_support_and_shortcut_consumption_only"
+      ]
+    },
+    "source_ref_authority": {
+      "type": "string",
+      "enum": [
+        "required_forward_only"
+      ]
+    },
+    "bypassed_source_refs": {
+      "const": false
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
