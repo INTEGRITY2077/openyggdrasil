@@ -192,26 +192,28 @@ def emit_mailbox_support_result(
         support_bundle["source_ref"] = support_bundle.get("source_ref") or _source_ref_token(source_refs)
         validate_support_bundle(support_bundle)
 
-        origin_result = follow_origin_shortcut(support_bundle, workspace_root=active_workspace)
         inbox_delivery = deliver_session_support_packet(
             message,
             workspace_root=active_workspace,
             support_bundle_payload=support_bundle,
         )
+        delivered_packet = dict((inbox_delivery or {}).get("packet") or {})
+        delivered_support_bundle = dict(delivered_packet.get("payload") or support_bundle)
+        origin_result = follow_origin_shortcut(delivered_support_bundle, workspace_root=active_workspace)
         if not inbox_delivery:
             return _empty_result(
                 chain_result=chain_result,
                 stop_reason="session_inbox_unavailable",
                 mailbox_message=message,
                 mailbox_guard_result=guard_result,
-                support_bundle=support_bundle,
+                support_bundle=delivered_support_bundle,
                 origin_shortcut_result=origin_result,
             )
         return _completed_result(
             chain_result=chain_result,
             mailbox_message=message,
             mailbox_guard_result=guard_result,
-            support_bundle=support_bundle,
+            support_bundle=delivered_support_bundle,
             origin_shortcut_result=origin_result,
             inbox_delivery=inbox_delivery,
         )

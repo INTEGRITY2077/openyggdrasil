@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from functools import lru_cache
 from pathlib import Path
@@ -8,7 +9,7 @@ from typing import Any, Dict, Iterable, Mapping
 import jsonschema
 
 from attachments.provider_attachment import provider_inbox_path
-from attachments.provider_inbox import inject_session_packet, validate_inbox_packet
+from attachments.provider_inbox import inject_session_packet, read_session_inbox, validate_inbox_packet
 from delivery.mailbox_contamination_guard import MailboxGuardPolicy, ensure_mailbox_message_accepted
 from harness_common import WORKSPACE_ROOT
 
@@ -27,6 +28,7 @@ SUPPORT_BUNDLE_SOURCE_PACKET_TYPES = (
     "community_topography",
     "operator_brief",
 )
+SUPPORT_BUNDLE_DEDUP_IGNORE_KEYS = {"source_packet_id"}
 
 
 @lru_cache(maxsize=1)
@@ -43,6 +45,28 @@ def validate_support_bundle_inbox_packet(packet: Mapping[str, Any]) -> None:
     if packet.get("packet_type") != "support_bundle":
         raise ValueError("Expected packet_type='support_bundle'")
     validate_support_bundle(dict(packet.get("payload") or {}))
+
+
+def support_bundle_dedup_fingerprint(payload: Mapping[str, Any]) -> str:
+    """Return a stable fingerprint for replay-equivalent support bundles.
+
+    `source_packet_id` is intentionally ignored because upstream mailbox source
+    packet IDs are UUID-based and can change across replay of the same bounded
+    signal while the provider-facing support content remains equivalent.
+    """
+
+    normalized = {
+        key: value
+        for key, value in dict(payload).items()
+        if key not in SUPPORT_BUNDLE_DEDUP_IGNORE_KEYS
+    }
+    encoded = json.dumps(
+        normalized,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _non_empty_strings(values: Iterable[Any]) -> list[str]:
@@ -135,6 +159,33 @@ def _select_support_overlay(
     return best_overlay
 
 
+def _find_existing_support_bundle_packet(
+    *,
+    workspace_root: Path,
+    provider_id: str,
+    provider_profile: str,
+    provider_session_id: str,
+    payload: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    expected_fingerprint = support_bundle_dedup_fingerprint(payload)
+    for row in read_session_inbox(
+        workspace_root=workspace_root,
+        provider_id=provider_id,
+        provider_profile=provider_profile,
+        provider_session_id=provider_session_id,
+    ):
+        if row.get("packet_type") != "support_bundle":
+            continue
+        try:
+            validate_support_bundle_inbox_packet(row)
+        except Exception:
+            continue
+        existing_payload = dict(row.get("payload") or {})
+        if support_bundle_dedup_fingerprint(existing_payload) == expected_fingerprint:
+            return dict(row)
+    return None
+
+
 def build_support_bundle_payload(
     message: Mapping[str, Any],
     *,
@@ -217,6 +268,30 @@ def deliver_session_support_packet(
     else:
         payload = dict(support_bundle_payload)
         validate_support_bundle(payload)
+    existing_packet = _find_existing_support_bundle_packet(
+        workspace_root=active_workspace,
+        provider_id=provider_id,
+        provider_profile=provider_profile,
+        provider_session_id=provider_session_id,
+        payload=payload,
+    )
+    inbox_path = provider_inbox_path(
+        workspace_root=active_workspace,
+        provider_id=provider_id,
+        provider_profile=provider_profile,
+        provider_session_id=provider_session_id,
+    )
+    if existing_packet is not None:
+        return {
+            "provider_id": provider_id,
+            "provider_profile": provider_profile,
+            "provider_session_id": provider_session_id,
+            "message_id": str(existing_packet["message_id"]),
+            "inbox_path": str(inbox_path),
+            "packet": existing_packet,
+            "delivery_status": "reused",
+            "dedup_fingerprint": support_bundle_dedup_fingerprint(payload),
+        }
     packet = inject_session_packet(
         workspace_root=active_workspace,
         provider_id=provider_id,
@@ -226,12 +301,6 @@ def deliver_session_support_packet(
         payload=payload,
     )
     validate_support_bundle_inbox_packet(packet)
-    inbox_path = provider_inbox_path(
-        workspace_root=active_workspace,
-        provider_id=provider_id,
-        provider_profile=provider_profile,
-        provider_session_id=provider_session_id,
-    )
     return {
         "provider_id": provider_id,
         "provider_profile": provider_profile,
@@ -239,4 +308,6 @@ def deliver_session_support_packet(
         "message_id": packet["message_id"],
         "inbox_path": str(inbox_path),
         "packet": packet,
+        "delivery_status": "created",
+        "dedup_fingerprint": support_bundle_dedup_fingerprint(payload),
     }
