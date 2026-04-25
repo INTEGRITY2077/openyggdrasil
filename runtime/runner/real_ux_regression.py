@@ -180,6 +180,44 @@ def _boundary_signal() -> dict[str, Any]:
     }
 
 
+def _context_pressure_signal() -> dict[str, Any]:
+    provider_id = "hermes"
+    provider_profile = "p2-ux"
+    provider_session_id = "session-context-pressure-ux-regression"
+    session_uid = build_session_uid(
+        provider_id=provider_id,
+        provider_profile=provider_profile,
+        provider_session_id=provider_session_id,
+    )
+    return {
+        "schema_version": "session_structure_signal.v1",
+        "signal_id": "signal-p2-r4-context-pressure",
+        "provider_id": provider_id,
+        "provider_profile": provider_profile,
+        "provider_session_id": provider_session_id,
+        "session_uid": session_uid,
+        "turn_range": {
+            "from": 18,
+            "to": 22,
+        },
+        "trigger_type": "context_pressure_trigger",
+        "reason_labels": ["context_pressure", "bounded_candidate_needed", "context_pressure_ux"],
+        "surface_reason": (
+            "Long session context is approaching pressure, but only turns 18-22 are candidates "
+            "for later structuring; do not summarize the full session"
+        ),
+        "priority": "deferred",
+        "source_ref": {
+            "kind": "provider_session",
+            "path_hint": ".yggdrasil/providers/hermes/p2-ux/hermes_p2-ux_session-context-pressure-ux-regression/turn_delta.v1.jsonl",
+            "range_hint": "turns:18-22",
+            "symlink_hint": None,
+        },
+        "anchor_hash": "p2-r4-context-pressure-anchor",
+        "emitted_at": utc_now_iso(),
+    }
+
+
 def _candidate_renderer(*, decision_surface: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "decision_text": "Mailbox remains a derived delivery layer outside vault for the accepted decision UX regression.",
@@ -858,6 +896,179 @@ def run_boundary_transition_regression(*, workspace_root: Path | None = None) ->
     return result
 
 
+def run_context_pressure_regression(*, workspace_root: Path | None = None) -> dict[str, Any]:
+    active_workspace = (workspace_root or _default_workspace_root("context-pressure")).resolve()
+    active_vault = active_workspace / "vault"
+    signal = _context_pressure_signal()
+
+    bootstrap_skill_provider_session(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+        origin_kind="workspace-session",
+        origin_locator={
+            "workspace_root": str(active_workspace),
+            "signal_id": str(signal["signal_id"]),
+        },
+    )
+    for sequence in range(1, 18):
+        append_turn_delta(
+            workspace_root=active_workspace,
+            provider_id=str(signal["provider_id"]),
+            provider_profile=str(signal["provider_profile"]),
+            provider_session_id=str(signal["provider_session_id"]),
+            sequence=sequence,
+            role="user" if sequence % 2 else "assistant",
+            content=f"Long-running setup context marker {sequence}; not a structuring target.",
+            summary="Non-target context pressure filler.",
+        )
+    for sequence, role, content, summary in (
+        (
+            18,
+            "user",
+            "We are running out of context; the only candidate range is this context-pressure segment.",
+            "User marks bounded context pressure range.",
+        ),
+        (
+            19,
+            "assistant",
+            "I will not summarize the whole session; I will surface only the bounded candidate.",
+            "Provider avoids full-session summary.",
+        ),
+        (
+            20,
+            "user",
+            "Defer canonical memory until a later proof point can inspect this narrow range.",
+            "User asks for defer, not immediate memory write.",
+        ),
+        (
+            21,
+            "assistant",
+            "Context-pressure signal will be typed as deferred.",
+            "Provider surfaces typed defer.",
+        ),
+        (
+            22,
+            "user",
+            "Keep the source shortcut to turns 18-22 only.",
+            "User confirms bounded source range.",
+        ),
+    ):
+        append_turn_delta(
+            workspace_root=active_workspace,
+            provider_id=str(signal["provider_id"]),
+            provider_profile=str(signal["provider_profile"]),
+            provider_session_id=str(signal["provider_session_id"]),
+            sequence=sequence,
+            role=role,
+            content=content,
+            summary=summary,
+        )
+
+    mailbox_support = run_session_signal_mailbox_support(
+        signal,
+        runtime_event_labels=["skill_preprocessed"],
+        evidence_refs=[
+            {
+                "kind": "test_artifact",
+                "path_hint": "runtime/runner/real_ux_regression.py",
+                "range_hint": "scenario:context_pressure",
+                "commit_ref": None,
+                "source_url": None,
+            }
+        ],
+        vault_root=active_vault,
+        workspace_root=active_workspace,
+    )
+    entrypoint = mailbox_support["entrypoint_result"]
+    chain_result = mailbox_support["chain_result"]
+    support_result = mailbox_support["mailbox_support_result"]
+    admission_verdict = dict(entrypoint.get("admission_verdict") or {})
+    inbox_rows = read_session_inbox(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+    )
+    latest_packet = _latest_support_packet(inbox_rows)
+    answer = {
+        "answer_id": uuid.uuid4().hex,
+        "status": "ignored",
+        "consumed_support_bundle": False,
+        "cited_mailbox_message_id": None,
+        "answer_text": (
+            "Context pressure signal was deferred with bounded_range=turns:18-22; "
+            "no support bundle was emitted and no long summary was produced."
+        ),
+        "reason_codes": [
+            "context_pressure_deferred",
+            "support_bundle_not_emitted",
+            "bounded_source_range_preserved",
+        ],
+    }
+    inbox_ref = {
+        "message_id": str((latest_packet or {}).get("message_id") or "missing-message-id"),
+        "packet_type": "support_bundle",
+        "path_hint": str((support_result.get("inbox_delivery") or {}).get("inbox_path") or "missing-inbox-path"),
+    }
+    source_shortcut = {
+        "canonical_note": "not-emitted-context-pressure-defer",
+        "provenance_note": "not-emitted-context-pressure-defer",
+        "source_ref": "provider_session:.yggdrasil/providers/hermes/p2-ux/hermes_p2-ux_session-context-pressure-ux-regression/turn_delta.v1.jsonl#turns:18-22",
+        "origin_shortcut_exists": False,
+    }
+    answer_text = str(answer.get("answer_text") or "")
+    assertions = {
+        "bounded_signal_created": (
+            signal["trigger_type"] == "context_pressure_trigger"
+            and signal["turn_range"] == {"from": 18, "to": 22}
+        ),
+        "admission_accepted": entrypoint.get("admission_status") == "accept",
+        "chain_completed": chain_result.get("status") == "completed",
+        "support_bundle_delivered": support_result.get("status") == "completed" and latest_packet is not None,
+        "answer_consumed_support_bundle": answer.get("consumed_support_bundle") is True,
+        "answer_cites_mailbox_packet": answer.get("cited_mailbox_message_id") == inbox_ref["message_id"],
+        "answer_has_source_shortcut": "turns:18-22" in source_shortcut["source_ref"],
+        "origin_shortcut_resolves": source_shortcut["origin_shortcut_exists"],
+        "no_provider_raw_session_copied": True,
+    }
+    scenario_specific_assertions = {
+        "context_pressure_trigger_used": signal["trigger_type"] == "context_pressure_trigger",
+        "admission_deferred": entrypoint.get("admission_status") == "defer",
+        "chain_not_run": chain_result.get("status") == "stopped" and chain_result.get("stop_reason") == "defer",
+        "support_bundle_not_delivered": support_result.get("status") == "stopped" and latest_packet is None,
+        "bounded_range_preserved": signal["turn_range"] == {"from": 18, "to": 22} and "turns:18-22" in source_shortcut["source_ref"],
+        "no_full_session_summary": "full-session summary was produced" not in answer_text
+        and "full session transcript" not in answer_text.lower(),
+        "defer_reason_code_visible": "context_pressure_only" in admission_verdict.get("reason_codes", []),
+    }
+    passed = all(scenario_specific_assertions.values()) and assertions["bounded_signal_created"] and assertions["no_provider_raw_session_copied"]
+    result = {
+        "schema_version": "real_ux_regression_result.v1",
+        "regression_id": uuid.uuid4().hex,
+        "scenario": "context_pressure",
+        "status": "passed" if passed else "failed",
+        "provider_id": "hermes",
+        "regression_mode": "foreground_equivalent_local",
+        "workspace_root": str(active_workspace),
+        "signal_ref": _id_status_ref(signal["signal_id"], signal["trigger_type"]),
+        "runner_ref": _id_status_ref(entrypoint.get("runner_result_id"), entrypoint.get("status")),
+        "chain_ref": _id_status_ref(chain_result.get("chain_result_id"), chain_result.get("status")),
+        "mailbox_support_ref": _id_status_ref(support_result.get("emission_result_id"), support_result.get("status")),
+        "inbox_packet_ref": inbox_ref,
+        "source_shortcut": source_shortcut,
+        "provider_answer": answer,
+        "assertions": assertions,
+        "scenario_specific_assertions": scenario_specific_assertions,
+        "assumption_delta": None,
+        "next_action": "irrelevant_decoy_ux_regression" if passed else "investigate_failure",
+        "created_at": utc_now_iso(),
+    }
+    validate_real_ux_regression_result(result)
+    return result
+
+
 def run_real_ux_regression(
     *,
     scenario: str,
@@ -869,6 +1080,8 @@ def run_real_ux_regression(
         return run_correction_supersession_regression(workspace_root=workspace_root)
     if scenario == "boundary_transition":
         return run_boundary_transition_regression(workspace_root=workspace_root)
+    if scenario == "context_pressure":
+        return run_context_pressure_regression(workspace_root=workspace_root)
     raise ValueError(f"Unsupported real UX regression scenario: {scenario}")
 
 
@@ -877,7 +1090,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--scenario",
         default="accepted_decision",
-        choices=["accepted_decision", "correction_supersession", "boundary_transition"],
+        choices=["accepted_decision", "correction_supersession", "boundary_transition", "context_pressure"],
     )
     parser.add_argument("--workspace-root", help="Scratch workspace root for foreground-equivalent proof.")
     parser.add_argument("--output", help="Optional JSON output path.")
