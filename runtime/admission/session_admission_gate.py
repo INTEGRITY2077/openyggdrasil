@@ -80,7 +80,7 @@ def evaluate_session_structure_signal(
         return _base_verdict(
             signal=signal,
             verdict="reject",
-            reason_codes=["schema_invalid"] + list(source_ref_resolution.get("reason_codes") or []),
+            reason_codes=["schema_invalid"],
             source_ref_resolution=source_ref_resolution,
             next_role=None,
         )

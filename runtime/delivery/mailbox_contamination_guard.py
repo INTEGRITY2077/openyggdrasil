@@ -130,6 +130,8 @@ def _graph_freshness_stale(payload: Mapping[str, Any]) -> bool:
     if not isinstance(graph_freshness, Mapping):
         return False
     status = str(graph_freshness.get("status") or "").strip().lower()
+    if graph_freshness.get("graph_query_used") is False:
+        return False
     return status in STALE_GRAPH_STATUSES
 
 
