@@ -41,7 +41,8 @@
         "correction_supersession",
         "boundary_transition",
         "context_pressure",
-        "irrelevant_decoy"
+        "irrelevant_decoy",
+        "follow_up_retrieval"
       ]
     },
     "status": {
@@ -249,6 +250,7 @@
         "context_pressure_ux_regression",
         "irrelevant_decoy_ux_regression",
         "follow_up_retrieval_ux_regression",
+        "result_artifact_summarizer",
         "investigate_failure"
       ]
     },

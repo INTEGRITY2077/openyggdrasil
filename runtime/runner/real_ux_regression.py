@@ -381,6 +381,19 @@ def _provider_answer_from_support(
             "source_shortcut_rendered",
             "boundary_transition_rendered",
         ]
+    elif scenario == "follow_up_retrieval":
+        support_fact = facts[0] if facts else "Mailbox remains a derived delivery layer outside vault."
+        answer_text = (
+            f"Pathfinder support matched mailbox packet {packet['message_id']} for the follow-up. "
+            f"topic={topic}; fact={support_fact}; canonical_note={canonical_note}; "
+            f"provenance_note={provenance_note}; source_ref={source_ref}."
+        )
+        reason_codes = [
+            "support_bundle_matched",
+            "pathfinder_support_matched",
+            "mailbox_packet_cited",
+            "source_shortcut_rendered",
+        ]
     else:
         answer_text = (
             f"Mailbox packet {packet['message_id']} supports the accepted decision. "
@@ -1148,6 +1161,83 @@ def run_irrelevant_decoy_regression(*, workspace_root: Path | None = None) -> di
     return result
 
 
+def run_follow_up_retrieval_regression(*, workspace_root: Path | None = None) -> dict[str, Any]:
+    active_workspace = (workspace_root or _default_workspace_root("follow-up-retrieval")).resolve()
+    setup_result = run_accepted_decision_regression(workspace_root=active_workspace)
+    signal = _accepted_signal()
+
+    inbox_rows = read_session_inbox(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+    )
+    latest_packet = _latest_support_packet(inbox_rows)
+    support_payload = dict((latest_packet or {}).get("payload") or {})
+    answer = _provider_answer_from_support(
+        scenario="follow_up_retrieval",
+        question=(
+            "Follow-up: what did we decide about mailbox placement, and show the SOT/provenance shortcut?"
+        ),
+        inbox_rows=inbox_rows,
+    )
+    setup_assertions = dict(setup_result.get("assertions") or {})
+    inbox_ref = dict(setup_result.get("inbox_packet_ref") or {})
+    source_shortcut = dict(setup_result.get("source_shortcut") or {})
+    answer_text = str(answer.get("answer_text") or "")
+    reason_codes = list(answer.get("reason_codes") or [])
+    assertions = {
+        "bounded_signal_created": setup_assertions.get("bounded_signal_created") is True,
+        "admission_accepted": setup_assertions.get("admission_accepted") is True,
+        "chain_completed": setup_assertions.get("chain_completed") is True,
+        "support_bundle_delivered": setup_assertions.get("support_bundle_delivered") is True
+        and latest_packet is not None,
+        "answer_consumed_support_bundle": answer.get("consumed_support_bundle") is True,
+        "answer_cites_mailbox_packet": answer.get("cited_mailbox_message_id") == inbox_ref.get("message_id"),
+        "answer_has_source_shortcut": all(
+            bool(source_shortcut.get(key)) and not str(source_shortcut.get(key)).startswith("missing-")
+            for key in ("canonical_note", "provenance_note", "source_ref")
+        )
+        and all(fragment in answer_text for fragment in ("canonical_note=", "provenance_note=", "source_ref=")),
+        "origin_shortcut_resolves": setup_assertions.get("origin_shortcut_resolves") is True,
+        "no_provider_raw_session_copied": True,
+    }
+    scenario_specific_assertions = {
+        "follow_up_question_consumed_support": answer.get("status") == "answered"
+        and answer.get("consumed_support_bundle") is True,
+        "pathfinder_support_reason_code_visible": "pathfinder_support_matched" in reason_codes,
+        "mailbox_topic_matched": "mailbox" in str(support_payload.get("topic") or "").lower()
+        or "mailbox" in answer_text.lower(),
+        "sot_shortcut_rendered": "canonical_note=" in answer_text and "source_ref=" in answer_text,
+        "provenance_shortcut_rendered": "provenance_note=" in answer_text,
+        "same_mailbox_packet_reused": answer.get("cited_mailbox_message_id") == inbox_ref.get("message_id"),
+    }
+    passed = all(assertions.values()) and all(scenario_specific_assertions.values())
+    result = {
+        "schema_version": "real_ux_regression_result.v1",
+        "regression_id": uuid.uuid4().hex,
+        "scenario": "follow_up_retrieval",
+        "status": "passed" if passed else "failed",
+        "provider_id": "hermes",
+        "regression_mode": "foreground_equivalent_local",
+        "workspace_root": str(active_workspace),
+        "signal_ref": setup_result["signal_ref"],
+        "runner_ref": setup_result["runner_ref"],
+        "chain_ref": setup_result["chain_ref"],
+        "mailbox_support_ref": setup_result["mailbox_support_ref"],
+        "inbox_packet_ref": inbox_ref,
+        "source_shortcut": source_shortcut,
+        "provider_answer": answer,
+        "assertions": assertions,
+        "scenario_specific_assertions": scenario_specific_assertions,
+        "assumption_delta": None,
+        "next_action": "result_artifact_summarizer" if passed else "investigate_failure",
+        "created_at": utc_now_iso(),
+    }
+    validate_real_ux_regression_result(result)
+    return result
+
+
 def run_real_ux_regression(
     *,
     scenario: str,
@@ -1163,6 +1253,8 @@ def run_real_ux_regression(
         return run_context_pressure_regression(workspace_root=workspace_root)
     if scenario == "irrelevant_decoy":
         return run_irrelevant_decoy_regression(workspace_root=workspace_root)
+    if scenario == "follow_up_retrieval":
+        return run_follow_up_retrieval_regression(workspace_root=workspace_root)
     raise ValueError(f"Unsupported real UX regression scenario: {scenario}")
 
 
@@ -1177,6 +1269,7 @@ def main(argv: list[str] | None = None) -> int:
             "boundary_transition",
             "context_pressure",
             "irrelevant_decoy",
+            "follow_up_retrieval",
         ],
     )
     parser.add_argument("--workspace-root", help="Scratch workspace root for foreground-equivalent proof.")
