@@ -67,6 +67,7 @@ CANONICAL_RUNTIME_MODULES = [
     "reasoning.provider_capability_descriptor",
     "reasoning.provider_resource_boundary",
     "reasoning.provider_reasoning_gate",
+    "reasoning.process_sandbox_policy",
     "reasoning.reasoning_lease_contracts",
     "runner.failure_fallback_regression",
     "runner.mailbox_support_emission",
