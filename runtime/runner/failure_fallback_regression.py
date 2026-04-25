@@ -19,6 +19,7 @@ from reasoning.provider_resource_boundary import (
     build_provider_headless_lease_request,
     resolve_provider_resource_request,
 )
+from reasoning.provider_reasoning_gate import build_phase4_provider_reasoning_gate
 from reasoning.reasoning_lease_contracts import validate_reasoning_lease_result
 from retrieval.graphify_snapshot_adapter import (
     adapt_graphify_snapshot,
@@ -157,6 +158,11 @@ def _missing_provider_background_reasoning(signal: Mapping[str, Any]) -> dict[st
     lease_result = resolve_provider_resource_request(
         provider_descriptor=descriptor,
         request=request,
+        provider_reasoning_gate=build_phase4_provider_reasoning_gate(
+            role_local_fallback_contracts_status="equivalent_guard",
+            role_boundary_inspection_output_status="equivalent_guard",
+            evidence_refs=["failure_fallback_regression:provider_background_unavailable"],
+        ),
         fallback_output={
             "fallback_surface": "thin_worker_chain",
             "provider_answer_policy": "typed_fallback_only",

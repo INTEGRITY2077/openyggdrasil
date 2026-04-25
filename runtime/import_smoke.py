@@ -45,6 +45,7 @@ CANONICAL_RUNTIME_MODULES = [
     "provenance.episode_semantic_edges_v2",
     "provenance.provenance_store",
     "reasoning.provider_resource_boundary",
+    "reasoning.provider_reasoning_gate",
     "reasoning.reasoning_lease_contracts",
     "runner.failure_fallback_regression",
     "runner.mailbox_support_emission",

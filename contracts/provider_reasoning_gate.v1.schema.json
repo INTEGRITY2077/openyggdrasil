@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/provider_reasoning_gate.v1.schema.json",
+  "title": "OpenYggdrasil Provider Reasoning Gate v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "gate_id",
+    "phase",
+    "status",
+    "requested_capability",
+    "provider_reasoning_output_allowed",
+    "blocked_reason_codes",
+    "carry_forward_items",
+    "required_before_provider_output",
+    "evidence_refs",
+    "next_action",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "provider_reasoning_gate.v1"
+    },
+    "gate_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "phase": {
+      "const": "Phase 4. Provider-Owned Reasoning Channel"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "blocked",
+        "ready"
+      ]
+    },
+    "requested_capability": {
+      "const": "background_reasoning"
+    },
+    "provider_reasoning_output_allowed": {
+      "type": "boolean"
+    },
+    "blocked_reason_codes": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "phase3_role_local_fallback_contracts_unclosed",
+          "phase3_role_boundary_inspection_output_unclosed"
+        ]
+      }
+    },
+    "carry_forward_items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role_local_fallback_contracts",
+        "role_boundary_inspection_output"
+      ],
+      "properties": {
+        "role_local_fallback_contracts": {
+          "$ref": "#/$defs/carry_forward_item"
+        },
+        "role_boundary_inspection_output": {
+          "$ref": "#/$defs/carry_forward_item"
+        }
+      }
+    },
+    "required_before_provider_output": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "string",
+        "enum": [
+          "P3.S1.role-local-fallback-contracts",
+          "P3.S2.role-boundary-inspection-output"
+        ]
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 700
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "carry_forward_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_item",
+        "status",
+        "gate_policy"
+      ],
+      "properties": {
+        "source_item": {
+          "type": "string",
+          "enum": [
+            "P3.S1.role-local-fallback-contracts",
+            "P3.S2.role-boundary-inspection-output"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "carried_forward_required",
+            "equivalent_guard",
+            "closed"
+          ]
+        },
+        "gate_policy": {
+          "type": "string",
+          "enum": [
+            "blocks_provider_output_until_resolved",
+            "allows_provider_output"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -35,3 +35,4 @@ This directory is reserved for engine-level contracts:
 - Graphify derived snapshot manifest contracts
 - skill-generated provider attachment contracts
 - provider/session-bound inbox packet contracts
+- provider reasoning gate contracts

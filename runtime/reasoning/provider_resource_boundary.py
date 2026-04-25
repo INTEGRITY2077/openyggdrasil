@@ -9,6 +9,7 @@ from reasoning.reasoning_lease_contracts import (
     validate_reasoning_lease_request,
     validate_reasoning_lease_result,
 )
+from reasoning.provider_reasoning_gate import provider_reasoning_gate_allows_output
 
 
 def _session_uid(provider_descriptor: Mapping[str, Any]) -> str | None:
@@ -46,6 +47,7 @@ def build_provider_headless_lease_request(
             "do_not_request_oauth",
             "do_not_copy_raw_provider_session",
             "use_source_refs_only",
+            "require_phase4_provider_reasoning_gate",
         ],
         "expected_output_schema": expected_output_schema,
         "fallback_policy": fallback_policy,
@@ -125,10 +127,18 @@ def resolve_provider_resource_request(
     *,
     provider_descriptor: Mapping[str, Any],
     request: Mapping[str, Any],
+    provider_reasoning_gate: Mapping[str, Any] | None = None,
     provider_declined: bool = False,
     fallback_output: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     validate_reasoning_lease_request(request)
+    if "require_phase4_provider_reasoning_gate" in (request.get("constraints") or []):
+        if not provider_reasoning_gate_allows_output(provider_reasoning_gate):
+            return fallback_reasoning_lease_result(
+                request,
+                reason_code="phase3_must_fix_guard_blocks_provider_reasoning",
+                output=fallback_output,
+            )
     if request.get("inference_mode") != "provider_headless":
         return fallback_reasoning_lease_result(
             request,
