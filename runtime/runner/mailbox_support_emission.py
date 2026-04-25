@@ -197,6 +197,15 @@ def emit_mailbox_support_result(
             workspace_root=active_workspace,
             support_bundle_payload=support_bundle,
         )
+        if isinstance(inbox_delivery, Mapping) and inbox_delivery.get("delivery_status") == "rejected":
+            return _empty_result(
+                chain_result=chain_result,
+                stop_reason="support_bundle_delivery_rejected",
+                mailbox_message=message,
+                mailbox_guard_result=guard_result,
+                support_bundle=support_bundle,
+                inbox_delivery=inbox_delivery,
+            )
         delivered_packet = dict((inbox_delivery or {}).get("packet") or {})
         delivered_support_bundle = dict(delivered_packet.get("payload") or support_bundle)
         origin_result = follow_origin_shortcut(delivered_support_bundle, workspace_root=active_workspace)
