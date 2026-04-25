@@ -259,6 +259,7 @@
         "admission_verdict",
         "amundsen_nursery_handoff",
         "seedkeeper_segment",
+        "nursery_composition_input",
         "engraved_seed",
         "planting_decision",
         "cultivated_decision",
@@ -302,6 +303,12 @@
           ]
         },
         "seedkeeper_segment": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "nursery_composition_input": {
           "type": [
             "object",
             "null"

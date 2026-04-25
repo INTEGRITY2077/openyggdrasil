@@ -8,6 +8,7 @@ from admission.decision_contracts import (
     validate_amundsen_nursery_handoff,
     validate_decision_candidate,
     validate_engraved_seed,
+    validate_nursery_composition_input,
     validate_seedkeeper_segment,
 )
 from cultivation.seedkeeper import preserve_decision_segment
@@ -125,3 +126,16 @@ def engrave_decision_seed(
     }
     validate_engraved_seed(seed)
     return seed
+
+
+def engrave_composed_decision_seed(*, nursery_composition_input: Mapping[str, Any]) -> dict[str, Any]:
+    validate_nursery_composition_input(nursery_composition_input)
+    if nursery_composition_input.get("composition_status") != "ready_for_seed_composition":
+        raise ValueError(str(nursery_composition_input.get("blocked_reason") or "nursery_input_not_ready"))
+    amundsen_handoff = dict(nursery_composition_input["amundsen_nursery_handoff"])
+    return engrave_decision_seed(
+        admission_verdict=dict(amundsen_handoff["admission_verdict"]),
+        decision_candidate=dict(nursery_composition_input["decision_candidate"]),
+        seedkeeper_segment=dict(nursery_composition_input["seedkeeper_segment"]),
+        amundsen_nursery_handoff=amundsen_handoff,
+    )

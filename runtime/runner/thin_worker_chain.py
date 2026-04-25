@@ -15,7 +15,8 @@ from admission.decision_contracts import (
 from capture.decision_distiller import finalize_exhaustive_decision_candidates
 from common.map_identity import build_claim_id
 from cultivation.gardener_stub import plan_seed_planting
-from cultivation.nursery_stub import engrave_decision_seed
+from cultivation.nursery_composition_input import build_nursery_composition_input
+from cultivation.nursery_stub import engrave_composed_decision_seed
 from cultivation.seedkeeper import preserve_decision_segment
 from evaluation.evaluator import evaluate_decision_candidate
 from evaluation.evaluator_amundsen_handoff import build_evaluator_amundsen_handoff
@@ -196,6 +197,7 @@ def _empty_artifacts() -> dict[str, Any]:
         "admission_verdict": None,
         "amundsen_nursery_handoff": None,
         "seedkeeper_segment": None,
+        "nursery_composition_input": None,
         "engraved_seed": None,
         "planting_decision": None,
         "cultivated_decision": None,
@@ -570,6 +572,22 @@ def run_thin_worker_chain(
                 artifacts=artifacts,
             )
         completed_roles.add("seedkeeper")
+        nursery_composition_input = build_nursery_composition_input(
+            decision_candidate=decision_candidate,
+            evaluator_verdict=evaluator_verdict,
+            amundsen_nursery_handoff=amundsen_nursery_handoff,
+            seedkeeper_segment=seedkeeper_segment,
+        )
+        artifacts["nursery_composition_input"] = nursery_composition_input
+        if nursery_composition_input["composition_status"] != "ready_for_seed_composition":
+            return _stopped_result(
+                signal=signal,
+                runner_result=runner_result,
+                stop_reason=str(nursery_composition_input["blocked_reason"]),
+                blocked_role="gardener",
+                completed_roles=completed_roles,
+                artifacts=artifacts,
+            )
 
         fallback = _fallback_result_if_requested(
             role="gardener",
@@ -581,11 +599,8 @@ def run_thin_worker_chain(
         )
         if fallback is not None:
             return fallback
-        engraved_seed = engrave_decision_seed(
-            admission_verdict=admission_verdict,
-            decision_candidate=decision_candidate,
-            seedkeeper_segment=seedkeeper_segment,
-            amundsen_nursery_handoff=amundsen_nursery_handoff,
+        engraved_seed = engrave_composed_decision_seed(
+            nursery_composition_input=nursery_composition_input,
         )
         artifacts["engraved_seed"] = engraved_seed
         planting_decision = plan_seed_planting(engraved_seed=engraved_seed)

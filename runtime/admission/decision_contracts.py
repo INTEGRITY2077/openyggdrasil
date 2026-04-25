@@ -52,6 +52,11 @@ def load_seedkeeper_segment_schema() -> Dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
+def load_nursery_composition_input_schema() -> Dict[str, Any]:
+    return _load_schema("nursery_composition_input.v1.schema.json")
+
+
+@lru_cache(maxsize=1)
 def load_admission_verdict_schema() -> Dict[str, Any]:
     return _load_schema("admission_verdict.v1.schema.json")
 
@@ -142,6 +147,10 @@ def validate_amundsen_nursery_handoff(payload: Mapping[str, Any]) -> None:
 
 def validate_seedkeeper_segment(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_seedkeeper_segment_schema())
+
+
+def validate_nursery_composition_input(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_nursery_composition_input_schema())
 
 
 def validate_admission_verdict(payload: Mapping[str, Any]) -> None:

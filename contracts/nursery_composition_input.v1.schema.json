@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/nursery_composition_input.v1.schema.json",
+  "title": "OpenYggdrasil Nursery Composition Input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "input_id",
+    "candidate_id",
+    "evaluator_verdict_id",
+    "amundsen_handoff_id",
+    "seedkeeper_segment_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "composition_status",
+    "nursery_authority",
+    "semantic_worth_source",
+    "route_source",
+    "source_ref_source",
+    "decision_candidate",
+    "evaluator_verdict",
+    "amundsen_nursery_handoff",
+    "seedkeeper_segment",
+    "blocked_reason",
+    "reason_codes",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "nursery_composition_input.v1"
+    },
+    "input_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evaluator_verdict_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "amundsen_handoff_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "seedkeeper_segment_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "composition_status": {
+      "type": "string",
+      "enum": [
+        "ready_for_seed_composition",
+        "blocked"
+      ]
+    },
+    "nursery_authority": {
+      "type": "string",
+      "enum": [
+        "seed_composition_only_after_typed_handoffs"
+      ]
+    },
+    "semantic_worth_source": {
+      "type": "string",
+      "enum": [
+        "evaluator_verdict"
+      ]
+    },
+    "route_source": {
+      "type": "string",
+      "enum": [
+        "amundsen_nursery_handoff"
+      ]
+    },
+    "source_ref_source": {
+      "type": "string",
+      "enum": [
+        "seedkeeper_segment"
+      ]
+    },
+    "decision_candidate": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "evaluator_verdict": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "amundsen_nursery_handoff": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "seedkeeper_segment": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "blocked_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 160
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

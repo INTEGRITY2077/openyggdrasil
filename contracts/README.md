@@ -17,6 +17,7 @@ This directory is reserved for engine-level contracts:
 - evaluator to Amundsen handoff contracts
 - Amundsen to Nursery route handoff contracts
 - seedkeeper deterministic segment/source-ref preservation contracts
+- Nursery composed seed input contracts
 - provider runtime integrity result contracts
 - session signal runner result contracts
 - thin worker chain result contracts

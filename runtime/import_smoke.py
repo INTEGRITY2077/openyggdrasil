@@ -19,6 +19,7 @@ CANONICAL_RUNTIME_MODULES = [
     "common.map_identity",
     "cultivation.gardener_stub",
     "cultivation.nursery_stub",
+    "cultivation.nursery_composition_input",
     "cultivation.seedkeeper",
     "delivery.mailbox_schema",
     "delivery.mailbox_contamination_guard",
