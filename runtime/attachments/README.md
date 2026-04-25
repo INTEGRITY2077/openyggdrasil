@@ -16,3 +16,4 @@ Scope:
 - Codex provider packaging degrade/baseline helpers
 - Hermes provider packaging baseline helpers
 - Hermes live foreground typed-unavailable packaging helpers
+- provider packaging known limitations matrix helpers

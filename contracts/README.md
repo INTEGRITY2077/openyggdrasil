@@ -40,6 +40,7 @@ This directory is reserved for engine-level contracts:
 - Codex provider packaging degrade/baseline contracts
 - Hermes provider packaging baseline contracts
 - Hermes live foreground unavailable provider-packaging contracts
+- provider packaging known limitations matrix contracts
 - provider reasoning gate contracts
 - provider background reasoning capability descriptor states
 - Hermes background invocation smoke contracts
