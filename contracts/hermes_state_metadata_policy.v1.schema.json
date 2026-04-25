@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/hermes_state_metadata_policy.v1.schema.json",
+  "title": "OpenYggdrasil Hermes State Metadata Policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "policy_status",
+    "reason_codes",
+    "provider_state_refs",
+    "verification_surfaces",
+    "result_text_source",
+    "state_result_harvest_attempt_status",
+    "blocked_attempt_kinds",
+    "provider_state_as_result_source",
+    "state_db_result_harvested",
+    "raw_state_payload_copied",
+    "source_refs",
+    "next_action",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "hermes_state_metadata_policy.v1"
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "reject"
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "provider_state_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path_hint",
+          "ref_kind",
+          "allowed_use"
+        ],
+        "properties": {
+          "path_hint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 700
+          },
+          "ref_kind": {
+            "type": "string",
+            "enum": [
+              "state_db",
+              "state_file",
+              "session_metadata",
+              "provider_log_metadata",
+              "other_provider_state"
+            ]
+          },
+          "allowed_use": {
+            "const": "metadata_source_ref_or_provenance_hint_only"
+          }
+        }
+      }
+    },
+    "verification_surfaces": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "typed_gateway_result_surface",
+          "digest",
+          "source_ref",
+          "task_ref",
+          "explicit_unavailable",
+          "provider_state_metadata_ref"
+        ]
+      }
+    },
+    "result_text_source": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "typed_gateway_result_surface",
+        "digest",
+        "source_ref",
+        "task_ref",
+        "explicit_unavailable",
+        null
+      ]
+    },
+    "state_result_harvest_attempt_status": {
+      "type": "string",
+      "enum": [
+        "not_attempted",
+        "blocked"
+      ]
+    },
+    "blocked_attempt_kinds": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "state_db_as_result_text",
+          "provider_state_as_result_text",
+          "raw_state_payload_copy",
+          "unknown_verification_surface"
+        ]
+      }
+    },
+    "provider_state_as_result_source": {
+      "const": false
+    },
+    "state_db_result_harvested": {
+      "const": false
+    },
+    "raw_state_payload_copied": {
+      "const": false
+    },
+    "source_refs": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 700
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
