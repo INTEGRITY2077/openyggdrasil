@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/hermes_live_replay_regression_result.v1.schema.json",
+  "title": "OpenYggdrasil Hermes Live Replay Regression Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "regression_id",
+    "status",
+    "provider_id",
+    "live_surface_status",
+    "regression_mode",
+    "availability_checks",
+    "same_session_smoke_result_id",
+    "source_shortcut_present",
+    "decoy_rejected",
+    "inbox_packet_ref",
+    "canonical_note",
+    "source_ref",
+    "assertions",
+    "assumption_delta",
+    "next_action",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "hermes_live_replay_regression_result.v1"
+    },
+    "regression_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "live_passed",
+        "foreground_equivalent_passed",
+        "failed"
+      ]
+    },
+    "provider_id": {
+      "const": "hermes"
+    },
+    "live_surface_status": {
+      "type": "string",
+      "enum": [
+        "available",
+        "unavailable"
+      ]
+    },
+    "regression_mode": {
+      "type": "string",
+      "enum": [
+        "live_foreground",
+        "foreground_equivalent_local"
+      ]
+    },
+    "availability_checks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check",
+          "status",
+          "detail"
+        ],
+        "properties": {
+          "check": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "skipped"
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 700
+          }
+        }
+      }
+    },
+    "same_session_smoke_result_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "source_shortcut_present": {
+      "type": "boolean"
+    },
+    "decoy_rejected": {
+      "type": "boolean"
+    },
+    "inbox_packet_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_id",
+        "packet_type",
+        "path_hint"
+      ],
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "packet_type": {
+          "const": "support_bundle"
+        },
+        "path_hint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "canonical_note": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "source_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "assertions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "same_session_smoke_passed",
+        "source_ref_present",
+        "canonical_note_present",
+        "relevant_answer_consumed_bundle",
+        "relevant_answer_cited_mailbox",
+        "decoy_answer_rejected_bundle",
+        "no_raw_provider_session_copied"
+      ],
+      "properties": {
+        "same_session_smoke_passed": {
+          "type": "boolean"
+        },
+        "source_ref_present": {
+          "type": "boolean"
+        },
+        "canonical_note_present": {
+          "type": "boolean"
+        },
+        "relevant_answer_consumed_bundle": {
+          "type": "boolean"
+        },
+        "relevant_answer_cited_mailbox": {
+          "type": "boolean"
+        },
+        "decoy_answer_rejected_bundle": {
+          "type": "boolean"
+        },
+        "no_raw_provider_session_copied": {
+          "type": "boolean"
+        }
+      }
+    },
+    "assumption_delta": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "expected",
+        "observed",
+        "evidence_artifact",
+        "scope_impact",
+        "classification",
+        "next_action"
+      ],
+      "properties": {
+        "expected": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 700
+        },
+        "observed": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 700
+        },
+        "evidence_artifact": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 700
+        },
+        "scope_impact": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 700
+        },
+        "classification": {
+          "type": "string",
+          "enum": [
+            "within_scope_fallback",
+            "defer_with_contract",
+            "evidence_gap"
+          ]
+        },
+        "next_action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 700
+        }
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "enum": [
+        "phase_close_code_review",
+        "investigate_failure"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
