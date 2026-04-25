@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/evaluator_verdict.v1.schema.json",
+  "title": "OpenYggdrasil Evaluator Verdict v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evaluator_verdict_id",
+    "candidate_id",
+    "dedup_key",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "turn_start",
+    "turn_end",
+    "evaluator_status",
+    "promotion_recommendation",
+    "promotion_gate",
+    "worthiness_score",
+    "confidence_score",
+    "amundsen_handoff_allowed",
+    "requires_high_reasoning",
+    "reason_codes",
+    "verdict_summary",
+    "source_ref",
+    "origin_locator",
+    "evaluated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "evaluator_verdict.v1"
+    },
+    "evaluator_verdict_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dedup_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "turn_start": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "turn_end": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "evaluator_status": {
+      "type": "string",
+      "enum": [
+        "accept_for_amundsen",
+        "defer",
+        "reject"
+      ]
+    },
+    "promotion_recommendation": {
+      "type": "boolean"
+    },
+    "promotion_gate": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "not_ready",
+        "deferred_to_phase_5",
+        "rejected"
+      ]
+    },
+    "worthiness_score": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "confidence_score": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "amundsen_handoff_allowed": {
+      "type": "boolean"
+    },
+    "requires_high_reasoning": {
+      "type": "boolean"
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "verdict_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "origin_locator": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "evaluated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

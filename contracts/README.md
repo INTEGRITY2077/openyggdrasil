@@ -10,6 +10,7 @@ This directory is reserved for engine-level contracts:
 - optional reasoning lease contracts
 - session structure signal contracts
 - session admission verdict contracts
+- evaluator verdict contracts
 - provider runtime integrity result contracts
 - session signal runner result contracts
 - thin worker chain result contracts
