@@ -15,6 +15,9 @@
     "support_bundle_shortcuts",
     "origin_shortcut_result",
     "pathfinder_bundle",
+    "lifecycle_filter_mode",
+    "lifecycle_records",
+    "lifecycle_inactive_records_filtered",
     "retrieval_authority",
     "source_ref_authority",
     "bypassed_source_refs",
@@ -185,6 +188,120 @@
         "object",
         "null"
       ]
+    },
+    "lifecycle_filter_mode": {
+      "type": "string",
+      "enum": [
+        "active_only",
+        "historical_including_inactive"
+      ]
+    },
+    "lifecycle_records": {
+      "type": "array",
+      "maxItems": 48,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "lifecycle_record_id",
+          "canonical_record_id",
+          "lifecycle_state",
+          "canonical_ref",
+          "source_refs",
+          "provenance",
+          "valid_from",
+          "valid_until",
+          "invalidated_by",
+          "superseded_by",
+          "superseded_at",
+          "supersession_reason",
+          "archive_trace_refs"
+        ],
+        "properties": {
+          "lifecycle_record_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "canonical_record_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lifecycle_state": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "SUPERSEDED",
+              "STALE"
+            ]
+          },
+          "canonical_ref": {
+            "type": "object",
+            "minProperties": 1
+          },
+          "source_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 24,
+            "items": {
+              "type": "object",
+              "minProperties": 1
+            }
+          },
+          "provenance": {
+            "type": "object",
+            "minProperties": 1
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "valid_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "invalidated_by": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "superseded_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "superseded_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "supersession_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "archive_trace_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 48,
+            "items": {
+              "type": "object",
+              "minProperties": 1
+            }
+          }
+        }
+      }
+    },
+    "lifecycle_inactive_records_filtered": {
+      "type": "integer",
+      "minimum": 0
     },
     "retrieval_authority": {
       "type": "string",

@@ -8,7 +8,7 @@ import time
 import uuid
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 import jsonschema
 
@@ -16,6 +16,7 @@ from admission.decision_contracts import validate_mailbox_support_result
 from delivery.support_bundle import validate_support_bundle
 from harness_common import DEFAULT_VAULT, utc_now_iso
 from common.map_identity import build_claim_id, build_page_id, build_topic_id
+from cultivation.vault_record_lifecycle import validate_vault_record_lifecycle
 from evaluation.promotion_worthiness import (
     DEFAULT_HERMES_BIN,
     DEFAULT_RETRIES,
@@ -35,6 +36,7 @@ PATHFINDER_SCHEMA_PATH = OPENYGGDRASIL_ROOT / "contracts" / "pathfinder.v1.schem
 PATHFINDER_RETRIEVAL_RESULT_SCHEMA_PATH = (
     OPENYGGDRASIL_ROOT / "contracts" / "pathfinder_retrieval_result.v1.schema.json"
 )
+ACTIVE_LIFECYCLE_STATE = "ACTIVE"
 
 
 @lru_cache(maxsize=1)
@@ -340,6 +342,41 @@ def _support_facts_from_mailbox_support(
     return facts
 
 
+def _lifecycle_ref(record: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "lifecycle_record_id": str(record["lifecycle_record_id"]),
+        "canonical_record_id": str(record["canonical_record_id"]),
+        "lifecycle_state": str(record["lifecycle_state"]),
+        "canonical_ref": dict(record["canonical_ref"]),
+        "source_refs": [dict(ref) for ref in record["source_refs"]],
+        "provenance": dict(record["provenance"]),
+        "valid_from": record.get("valid_from"),
+        "valid_until": record.get("valid_until"),
+        "invalidated_by": dict(record["invalidated_by"]) if isinstance(record.get("invalidated_by"), Mapping) else None,
+        "superseded_by": record.get("superseded_by"),
+        "superseded_at": record.get("superseded_at"),
+        "supersession_reason": record.get("supersession_reason"),
+        "archive_trace_refs": [dict(ref) for ref in record["archive_trace_refs"]],
+    }
+
+
+def filter_lifecycle_records_for_retrieval(
+    lifecycle_records: Sequence[Mapping[str, Any]] | None,
+    *,
+    include_historical: bool = False,
+) -> tuple[list[dict[str, Any]], int]:
+    selected: list[dict[str, Any]] = []
+    filtered_inactive = 0
+    for record in lifecycle_records or []:
+        validate_vault_record_lifecycle(record)
+        lifecycle_state = str(record.get("lifecycle_state") or "")
+        if lifecycle_state != ACTIVE_LIFECYCLE_STATE and not include_historical:
+            filtered_inactive += 1
+            continue
+        selected.append(_lifecycle_ref(record))
+    return selected, filtered_inactive
+
+
 def _pathfinder_bundle_from_mailbox_support(
     *,
     support_bundle: Mapping[str, Any],
@@ -394,8 +431,16 @@ def _pathfinder_retrieval_result(
     support_bundle_shortcuts: Mapping[str, Any],
     origin_shortcut_result: Mapping[str, Any] | None,
     pathfinder_bundle: Mapping[str, Any] | None,
+    lifecycle_records: list[dict[str, Any]],
+    lifecycle_filter_mode: str,
+    lifecycle_inactive_records_filtered: int,
     reason_codes: list[str],
 ) -> dict[str, Any]:
+    active_reason_codes = list(reason_codes)
+    if lifecycle_inactive_records_filtered:
+        active_reason_codes.append("inactive_lifecycle_records_filtered")
+    if lifecycle_filter_mode == "historical_including_inactive":
+        active_reason_codes.append("historical_lifecycle_requested")
     result = {
         "schema_version": "pathfinder_retrieval_result.v1",
         "retrieval_result_id": uuid.uuid4().hex,
@@ -407,10 +452,13 @@ def _pathfinder_retrieval_result(
         "support_bundle_shortcuts": dict(support_bundle_shortcuts),
         "origin_shortcut_result": dict(origin_shortcut_result) if isinstance(origin_shortcut_result, Mapping) else None,
         "pathfinder_bundle": dict(pathfinder_bundle) if isinstance(pathfinder_bundle, Mapping) else None,
+        "lifecycle_filter_mode": lifecycle_filter_mode,
+        "lifecycle_records": lifecycle_records,
+        "lifecycle_inactive_records_filtered": lifecycle_inactive_records_filtered,
         "retrieval_authority": "mailbox_support_and_shortcut_consumption_only",
         "source_ref_authority": "required_forward_only",
         "bypassed_source_refs": False,
-        "reason_codes": reason_codes,
+        "reason_codes": active_reason_codes,
         "created_at": utc_now_iso(),
     }
     validate_pathfinder_retrieval_result(result)
@@ -421,9 +469,16 @@ def build_pathfinder_retrieval_result(
     *,
     mailbox_support_result: Mapping[str, Any],
     workspace_root: Path | None = None,
+    lifecycle_records: Sequence[Mapping[str, Any]] | None = None,
+    include_historical_lifecycle: bool = False,
 ) -> dict[str, Any]:
     """Consume mailbox support without allowing source-less Pathfinder retrieval."""
 
+    lifecycle_filter_mode = "historical_including_inactive" if include_historical_lifecycle else "active_only"
+    selected_lifecycle_records, inactive_filtered = filter_lifecycle_records_for_retrieval(
+        lifecycle_records,
+        include_historical=include_historical_lifecycle,
+    )
     source_refs = _source_refs(mailbox_support_result)
     mailbox_refs = _mailbox_packet_refs(mailbox_support_result)
     support_bundle = dict(mailbox_support_result.get("support_bundle") or {})
@@ -449,6 +504,9 @@ def build_pathfinder_retrieval_result(
             support_bundle_shortcuts=shortcuts,
             origin_shortcut_result=None,
             pathfinder_bundle=None,
+            lifecycle_records=selected_lifecycle_records,
+            lifecycle_filter_mode=lifecycle_filter_mode,
+            lifecycle_inactive_records_filtered=inactive_filtered,
             reason_codes=["mailbox_support_result_invalid"],
         )
 
@@ -462,6 +520,9 @@ def build_pathfinder_retrieval_result(
             support_bundle_shortcuts=shortcuts,
             origin_shortcut_result=None,
             pathfinder_bundle=None,
+            lifecycle_records=selected_lifecycle_records,
+            lifecycle_filter_mode=lifecycle_filter_mode,
+            lifecycle_inactive_records_filtered=inactive_filtered,
             reason_codes=["mailbox_support_not_completed"],
         )
 
@@ -475,6 +536,9 @@ def build_pathfinder_retrieval_result(
             support_bundle_shortcuts=shortcuts,
             origin_shortcut_result=None,
             pathfinder_bundle=None,
+            lifecycle_records=selected_lifecycle_records,
+            lifecycle_filter_mode=lifecycle_filter_mode,
+            lifecycle_inactive_records_filtered=inactive_filtered,
             reason_codes=["support_bundle_missing"],
         )
 
@@ -490,6 +554,9 @@ def build_pathfinder_retrieval_result(
             support_bundle_shortcuts=shortcuts,
             origin_shortcut_result=None,
             pathfinder_bundle=None,
+            lifecycle_records=selected_lifecycle_records,
+            lifecycle_filter_mode=lifecycle_filter_mode,
+            lifecycle_inactive_records_filtered=inactive_filtered,
             reason_codes=["support_bundle_invalid"],
         )
 
@@ -503,6 +570,9 @@ def build_pathfinder_retrieval_result(
             support_bundle_shortcuts=shortcuts,
             origin_shortcut_result=None,
             pathfinder_bundle=None,
+            lifecycle_records=selected_lifecycle_records,
+            lifecycle_filter_mode=lifecycle_filter_mode,
+            lifecycle_inactive_records_filtered=inactive_filtered,
             reason_codes=["source_ref_missing"],
         )
 
@@ -523,6 +593,9 @@ def build_pathfinder_retrieval_result(
             support_bundle_shortcuts=shortcuts,
             origin_shortcut_result=origin_result,
             pathfinder_bundle=None,
+            lifecycle_records=selected_lifecycle_records,
+            lifecycle_filter_mode=lifecycle_filter_mode,
+            lifecycle_inactive_records_filtered=inactive_filtered,
             reason_codes=["origin_shortcut_missing"],
         )
 
@@ -539,6 +612,9 @@ def build_pathfinder_retrieval_result(
         support_bundle_shortcuts=shortcuts,
         origin_shortcut_result=origin_result,
         pathfinder_bundle=bundle,
+        lifecycle_records=selected_lifecycle_records,
+        lifecycle_filter_mode=lifecycle_filter_mode,
+        lifecycle_inactive_records_filtered=inactive_filtered,
         reason_codes=[
             "mailbox_support_consumed",
             "origin_shortcut_resolved",
