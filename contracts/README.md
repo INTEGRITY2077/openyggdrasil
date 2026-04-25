@@ -37,3 +37,4 @@ This directory is reserved for engine-level contracts:
 - provider/session-bound inbox packet contracts
 - provider reasoning gate contracts
 - provider background reasoning capability descriptor states
+- Hermes background invocation smoke contracts

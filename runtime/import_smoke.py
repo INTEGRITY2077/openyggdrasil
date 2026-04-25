@@ -44,6 +44,7 @@ CANONICAL_RUNTIME_MODULES = [
     "provenance.episode_semantic_edges",
     "provenance.episode_semantic_edges_v2",
     "provenance.provenance_store",
+    "reasoning.hermes_background_invocation_smoke",
     "reasoning.provider_capability_descriptor",
     "reasoning.provider_resource_boundary",
     "reasoning.provider_reasoning_gate",

@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/hermes_background_invocation_smoke.v1.schema.json",
+  "title": "OpenYggdrasil Hermes Background Invocation Smoke v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "smoke_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "smoke_status",
+    "reason_code",
+    "command",
+    "invocation_surface",
+    "execution_mode",
+    "live_provider_invoked",
+    "lease_completion_claimed",
+    "task_ref_status",
+    "source_markers",
+    "safety",
+    "source_refs",
+    "next_action",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "hermes_background_invocation_smoke.v1"
+    },
+    "smoke_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "smoke_status": {
+      "type": "string",
+      "enum": [
+        "explicit_surface_static_proven",
+        "typed_unavailable",
+        "blocked_unsafe_surface"
+      ]
+    },
+    "reason_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "command": {
+      "const": "/background"
+    },
+    "invocation_surface": {
+      "type": "string",
+      "enum": [
+        "provider_owned_command_gateway",
+        "none"
+      ]
+    },
+    "execution_mode": {
+      "type": "string",
+      "enum": [
+        "static_reference_smoke",
+        "not_executed"
+      ]
+    },
+    "live_provider_invoked": {
+      "const": false
+    },
+    "lease_completion_claimed": {
+      "const": false
+    },
+    "task_ref_status": {
+      "type": "string",
+      "enum": [
+        "bg_prefix_static_marker_present",
+        "unavailable"
+      ]
+    },
+    "source_markers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "foreground_injection",
+        "raw_session_copied",
+        "state_db_result_harvested",
+        "openyggdrasil_credentials_requested",
+        "main_active_conversation_appended"
+      ],
+      "properties": {
+        "foreground_injection": {
+          "type": "boolean"
+        },
+        "raw_session_copied": {
+          "type": "boolean"
+        },
+        "state_db_result_harvested": {
+          "type": "boolean"
+        },
+        "openyggdrasil_credentials_requested": {
+          "type": "boolean"
+        },
+        "main_active_conversation_appended": {
+          "type": "boolean"
+        }
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 700
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
