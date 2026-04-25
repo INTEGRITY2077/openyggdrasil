@@ -40,3 +40,4 @@ This directory is reserved for engine-level contracts:
 - Hermes background invocation smoke contracts
 - Hermes background task reference capture contracts
 - Hermes background result contract and lease-result gating contracts
+- Hermes background unavailable/declined/timeout/cancel runner-visibility contracts
