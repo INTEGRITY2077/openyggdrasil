@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/real_ux_regression_result.v1.schema.json",
+  "title": "OpenYggdrasil Real UX Regression Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "regression_id",
+    "scenario",
+    "status",
+    "provider_id",
+    "regression_mode",
+    "workspace_root",
+    "signal_ref",
+    "runner_ref",
+    "chain_ref",
+    "mailbox_support_ref",
+    "inbox_packet_ref",
+    "source_shortcut",
+    "provider_answer",
+    "assertions",
+    "assumption_delta",
+    "next_action",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "real_ux_regression_result.v1"
+    },
+    "regression_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "scenario": {
+      "type": "string",
+      "enum": [
+        "accepted_decision"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed"
+      ]
+    },
+    "provider_id": {
+      "const": "hermes"
+    },
+    "regression_mode": {
+      "type": "string",
+      "enum": [
+        "foreground_equivalent_local"
+      ]
+    },
+    "workspace_root": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 700
+    },
+    "signal_ref": {
+      "$ref": "#/$defs/id_status_ref"
+    },
+    "runner_ref": {
+      "$ref": "#/$defs/id_status_ref"
+    },
+    "chain_ref": {
+      "$ref": "#/$defs/id_status_ref"
+    },
+    "mailbox_support_ref": {
+      "$ref": "#/$defs/id_status_ref"
+    },
+    "inbox_packet_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_id",
+        "packet_type",
+        "path_hint"
+      ],
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "packet_type": {
+          "const": "support_bundle"
+        },
+        "path_hint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 700
+        }
+      }
+    },
+    "source_shortcut": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_note",
+        "provenance_note",
+        "source_ref",
+        "origin_shortcut_exists"
+      ],
+      "properties": {
+        "canonical_note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 700
+        },
+        "provenance_note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 700
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 700
+        },
+        "origin_shortcut_exists": {
+          "type": "boolean"
+        }
+      }
+    },
+    "provider_answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "answer_id",
+        "status",
+        "consumed_support_bundle",
+        "cited_mailbox_message_id",
+        "answer_text",
+        "reason_codes"
+      ],
+      "properties": {
+        "answer_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "answered",
+            "ignored"
+          ]
+        },
+        "consumed_support_bundle": {
+          "type": "boolean"
+        },
+        "cited_mailbox_message_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "answer_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          }
+        }
+      }
+    },
+    "assertions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bounded_signal_created",
+        "admission_accepted",
+        "chain_completed",
+        "support_bundle_delivered",
+        "answer_consumed_support_bundle",
+        "answer_cites_mailbox_packet",
+        "answer_has_source_shortcut",
+        "origin_shortcut_resolves",
+        "no_provider_raw_session_copied"
+      ],
+      "properties": {
+        "bounded_signal_created": {
+          "type": "boolean"
+        },
+        "admission_accepted": {
+          "type": "boolean"
+        },
+        "chain_completed": {
+          "type": "boolean"
+        },
+        "support_bundle_delivered": {
+          "type": "boolean"
+        },
+        "answer_consumed_support_bundle": {
+          "type": "boolean"
+        },
+        "answer_cites_mailbox_packet": {
+          "type": "boolean"
+        },
+        "answer_has_source_shortcut": {
+          "type": "boolean"
+        },
+        "origin_shortcut_resolves": {
+          "type": "boolean"
+        },
+        "no_provider_raw_session_copied": {
+          "type": "boolean"
+        }
+      }
+    },
+    "assumption_delta": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "next_action": {
+      "type": "string",
+      "enum": [
+        "correction_supersession_ux_regression",
+        "investigate_failure"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "id_status_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      }
+    }
+  }
+}
