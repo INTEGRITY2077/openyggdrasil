@@ -48,6 +48,7 @@ CANONICAL_RUNTIME_MODULES = [
     "reasoning.hermes_background_result_contract",
     "reasoning.hermes_background_task_capture",
     "reasoning.hermes_background_unavailable_contract",
+    "reasoning.hermes_main_context_non_accumulation",
     "reasoning.hermes_state_metadata_policy",
     "reasoning.provider_capability_descriptor",
     "reasoning.provider_resource_boundary",
