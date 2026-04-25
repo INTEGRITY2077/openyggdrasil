@@ -36,3 +36,4 @@ This directory is reserved for engine-level contracts:
 - skill-generated provider attachment contracts
 - provider/session-bound inbox packet contracts
 - provider reasoning gate contracts
+- provider background reasoning capability descriptor states

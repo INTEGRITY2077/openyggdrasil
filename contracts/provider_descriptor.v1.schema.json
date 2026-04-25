@@ -86,8 +86,105 @@
         "background_reasoning": {
           "type": "boolean"
         },
+        "background_reasoning_descriptor": {
+          "$ref": "#/$defs/background_reasoning_descriptor"
+        },
         "heartbeat": {
           "type": "boolean"
+        }
+      }
+    },
+    "background_reasoning_descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "provider_surface",
+        "support_status",
+        "live_proof_required",
+        "completion_status",
+        "invocation_surface",
+        "task_id_prefix",
+        "context_window_policy",
+        "raw_session_policy",
+        "credential_policy",
+        "evidence_refs",
+        "next_action"
+      ],
+      "properties": {
+        "capability": {
+          "const": "background_reasoning"
+        },
+        "provider_surface": {
+          "type": "string",
+          "enum": [
+            "hermes_background_command",
+            "unavailable"
+          ]
+        },
+        "support_status": {
+          "type": "string",
+          "enum": [
+            "unavailable",
+            "adapted_candidate",
+            "supported"
+          ]
+        },
+        "live_proof_required": {
+          "type": "boolean"
+        },
+        "completion_status": {
+          "type": "string",
+          "enum": [
+            "not_proven",
+            "live_proven",
+            "unavailable"
+          ]
+        },
+        "invocation_surface": {
+          "type": "string",
+          "enum": [
+            "provider_owned_command_gateway",
+            "none"
+          ]
+        },
+        "task_id_prefix": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 16
+        },
+        "context_window_policy": {
+          "type": "string",
+          "enum": [
+            "must_not_append_to_main_active_conversation",
+            "not_applicable"
+          ]
+        },
+        "raw_session_policy": {
+          "type": "string",
+          "enum": [
+            "metadata_only_no_raw_session_copy",
+            "not_applicable"
+          ]
+        },
+        "credential_policy": {
+          "const": "provider_owned_no_openyggdrasil_credentials"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 700
+          }
+        },
+        "next_action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
         }
       }
     }

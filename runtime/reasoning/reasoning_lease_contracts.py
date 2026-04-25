@@ -7,6 +7,8 @@ from typing import Any, Dict, Mapping
 
 import jsonschema
 
+from reasoning.provider_capability_descriptor import background_reasoning_descriptor_implies_completed_support
+
 
 OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS_ROOT = OPENYGGDRASIL_ROOT / "contracts"
@@ -35,10 +37,7 @@ def validate_reasoning_lease_result(payload: Mapping[str, Any]) -> None:
 
 
 def provider_supports_background_reasoning(provider_descriptor: Mapping[str, Any]) -> bool:
-    capabilities = provider_descriptor.get("capabilities")
-    if not isinstance(capabilities, Mapping):
-        return False
-    return bool(capabilities.get("background_reasoning"))
+    return background_reasoning_descriptor_implies_completed_support(provider_descriptor)
 
 
 def lease_mode_for_provider(provider_descriptor: Mapping[str, Any]) -> str:
