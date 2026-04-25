@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/antigravity_provider_packaging_baseline.v1.schema.json",
+  "title": "OpenYggdrasil Antigravity Provider Packaging Baseline v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "baseline_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "provider_family",
+    "packaging_status",
+    "gemini_deploy_target_status",
+    "gemini_deploy_tool_surface",
+    "gemini_deploy_target",
+    "antigravity_scaffold_surface",
+    "antigravity_skill_path",
+    "antigravity_rule_path",
+    "antigravity_workflow_path",
+    "provider_descriptor_contract",
+    "session_attachment_contract",
+    "inbox_binding_contract",
+    "turn_delta_contract",
+    "expected_yggdrasil_tree",
+    "local_smoke_status",
+    "gemini_deploy_smoke_status",
+    "antigravity_scaffold_smoke_status",
+    "known_limitations",
+    "safety",
+    "next_action",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "antigravity_provider_packaging_baseline.v1"
+    },
+    "baseline_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "provider_id": {
+      "const": "antigravity"
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "provider_family": {
+      "const": "Gemini / Antigravity"
+    },
+    "packaging_status": {
+      "const": "baseline_ready_with_workspace_router_and_gemini_file_target"
+    },
+    "gemini_deploy_target_status": {
+      "const": "provider_native_deploy_target_available"
+    },
+    "gemini_deploy_tool_surface": {
+      "const": "runtime/attachments/deploy_skill.py"
+    },
+    "gemini_deploy_target": {
+      "const": "GEMINI.md"
+    },
+    "antigravity_scaffold_surface": {
+      "const": "runtime/antigravity_router_bootstrap.py"
+    },
+    "antigravity_skill_path": {
+      "const": ".agents/skills/openyggdrasil-provider-bootstrap/SKILL.md"
+    },
+    "antigravity_rule_path": {
+      "const": ".agents/rules/openyggdrasil-attachment-discipline.md"
+    },
+    "antigravity_workflow_path": {
+      "const": ".agents/workflows/emit-openyggdrasil-bootstrap.md"
+    },
+    "provider_descriptor_contract": {
+      "const": "provider_descriptor.v1"
+    },
+    "session_attachment_contract": {
+      "const": "session_attachment.v1"
+    },
+    "inbox_binding_contract": {
+      "const": "inbox_binding.v1"
+    },
+    "turn_delta_contract": {
+      "const": "turn_delta.v1"
+    },
+    "expected_yggdrasil_tree": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_descriptor",
+        "session_attachment",
+        "inbox_binding",
+        "turn_delta",
+        "session_inbox"
+      ],
+      "properties": {
+        "provider_descriptor": {
+          "type": "string",
+          "pattern": "^\\.yggdrasil/providers/antigravity/.+/provider_descriptor\\.v1\\.json$"
+        },
+        "session_attachment": {
+          "type": "string",
+          "pattern": "^\\.yggdrasil/providers/antigravity/.+/session_attachment\\.v1\\.json$"
+        },
+        "inbox_binding": {
+          "type": "string",
+          "pattern": "^\\.yggdrasil/providers/antigravity/.+/inbox_binding\\.v1\\.json$"
+        },
+        "turn_delta": {
+          "type": "string",
+          "pattern": "^\\.yggdrasil/providers/antigravity/.+/turn_delta\\.v1\\.jsonl$"
+        },
+        "session_inbox": {
+          "type": "string",
+          "pattern": "^\\.yggdrasil/inbox/antigravity/.+\\.jsonl$"
+        }
+      }
+    },
+    "local_smoke_status": {
+      "type": "string",
+      "enum": [
+        "antigravity_workspace_bootstrap_passed",
+        "not_run"
+      ]
+    },
+    "gemini_deploy_smoke_status": {
+      "type": "string",
+      "enum": [
+        "gemini_file_deploy_write_passed",
+        "gemini_file_deploy_dry_run_passed",
+        "not_run"
+      ]
+    },
+    "antigravity_scaffold_smoke_status": {
+      "type": "string",
+      "enum": [
+        "workspace_scaffold_write_passed",
+        "not_run"
+      ]
+    },
+    "known_limitations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "doc_committed",
+        "raw_transcript_copied",
+        "raw_session_copied",
+        "global_inbox_created",
+        "product_behavior_claimed",
+        "provider_specific_contract_bypass",
+        "phase5_memory_gates_weakened"
+      ],
+      "properties": {
+        "doc_committed": {
+          "const": false
+        },
+        "raw_transcript_copied": {
+          "const": false
+        },
+        "raw_session_copied": {
+          "const": false
+        },
+        "global_inbox_created": {
+          "const": false
+        },
+        "product_behavior_claimed": {
+          "const": false
+        },
+        "provider_specific_contract_bypass": {
+          "const": false
+        },
+        "phase5_memory_gates_weakened": {
+          "const": false
+        }
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -10,6 +10,7 @@ CANONICAL_RUNTIME_MODULES = [
     "admission.amundsen_nursery_handoff",
     "admission.decision_contracts",
     "admission.session_admission_gate",
+    "attachments.antigravity_provider_packaging_baseline",
     "attachments.bootstrap_contract",
     "attachments.claude_code_provider_packaging_baseline",
     "attachments.codex_provider_packaging_baseline",
