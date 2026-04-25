@@ -9,6 +9,7 @@ from reasoning.reasoning_lease_contracts import (
     validate_reasoning_lease_request,
     validate_reasoning_lease_result,
 )
+from reasoning.worker_hardening_policy import worker_hardening_constraints
 from reasoning.provider_reasoning_gate import provider_reasoning_gate_allows_output
 
 
@@ -42,13 +43,15 @@ def build_provider_headless_lease_request(
         "inference_mode": "provider_headless",
         "objective": objective,
         "input_refs": dict(input_refs),
-        "constraints": [
-            "do_not_request_api_key",
-            "do_not_request_oauth",
-            "do_not_copy_raw_provider_session",
-            "use_source_refs_only",
-            "require_phase4_provider_reasoning_gate",
-        ],
+        "constraints": worker_hardening_constraints(
+            [
+                "do_not_request_api_key",
+                "do_not_request_oauth",
+                "do_not_copy_raw_provider_session",
+                "use_source_refs_only",
+                "require_phase4_provider_reasoning_gate",
+            ]
+        ),
         "expected_output_schema": expected_output_schema,
         "fallback_policy": fallback_policy,
         "requested_at": utc_now_iso(),
