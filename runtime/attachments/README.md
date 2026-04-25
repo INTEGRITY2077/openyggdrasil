@@ -11,3 +11,4 @@ Scope:
 - provider-native skill deployment hooks
 - attachment validation helpers
 - provider bootstrap contract smoke helpers
+- Hermes live foreground typed-unavailable packaging helpers
