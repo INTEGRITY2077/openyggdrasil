@@ -27,6 +27,10 @@
     "high_reasoning_status",
     "phase4_handoff_recommended",
     "provider_credential_required",
+    "vault_promotion_readiness",
+    "vault_promotion_owner",
+    "vault_promotion_request_emitted",
+    "vault_mutation_allowed",
     "reason_codes",
     "verdict_summary",
     "source_ref",
@@ -135,6 +139,26 @@
       "type": "boolean"
     },
     "provider_credential_required": {
+      "const": false
+    },
+    "vault_promotion_readiness": {
+      "type": "string",
+      "enum": [
+        "ready_after_delivery",
+        "not_ready",
+        "rejected"
+      ]
+    },
+    "vault_promotion_owner": {
+      "type": "string",
+      "enum": [
+        "phase_5_postman_after_delivery"
+      ]
+    },
+    "vault_promotion_request_emitted": {
+      "const": false
+    },
+    "vault_mutation_allowed": {
       "const": false
     },
     "reason_codes": {

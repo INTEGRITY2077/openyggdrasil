@@ -91,6 +91,16 @@ def _prefilter_boundary(*, evaluator_status: str, requires_high_reasoning: bool)
     return "deterministic_defer"
 
 
+def _vault_promotion_readiness(
+    *, evaluator_status: str, promotion_recommendation: bool
+) -> str:
+    if evaluator_status == "reject":
+        return "rejected"
+    if promotion_recommendation:
+        return "ready_after_delivery"
+    return "not_ready"
+
+
 def evaluate_decision_candidate(
     *,
     decision_candidate: Mapping[str, Any],
@@ -163,6 +173,10 @@ def evaluate_decision_candidate(
         evaluator_status=evaluator_status,
         requires_high_reasoning=requires_high_reasoning,
     )
+    vault_promotion_readiness = _vault_promotion_readiness(
+        evaluator_status=evaluator_status,
+        promotion_recommendation=promotion_recommendation,
+    )
     verdict = {
         "schema_version": "evaluator_verdict.v1",
         "evaluator_verdict_id": uuid.uuid4().hex,
@@ -188,6 +202,10 @@ def evaluate_decision_candidate(
         ),
         "phase4_handoff_recommended": phase4_handoff_recommended,
         "provider_credential_required": False,
+        "vault_promotion_readiness": vault_promotion_readiness,
+        "vault_promotion_owner": "phase_5_postman_after_delivery",
+        "vault_promotion_request_emitted": False,
+        "vault_mutation_allowed": False,
         "reason_codes": reason_codes,
         "verdict_summary": decision_text[:180] or "Decision candidate evaluated.",
         "source_ref": decision_candidate.get("source_ref"),
