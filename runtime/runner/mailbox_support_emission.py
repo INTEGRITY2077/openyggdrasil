@@ -193,7 +193,11 @@ def emit_mailbox_support_result(
         validate_support_bundle(support_bundle)
 
         origin_result = follow_origin_shortcut(support_bundle, workspace_root=active_workspace)
-        inbox_delivery = deliver_session_support_packet(message, workspace_root=active_workspace)
+        inbox_delivery = deliver_session_support_packet(
+            message,
+            workspace_root=active_workspace,
+            support_bundle_payload=support_bundle,
+        )
         if not inbox_delivery:
             return _empty_result(
                 chain_result=chain_result,

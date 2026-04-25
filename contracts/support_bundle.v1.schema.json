@@ -129,6 +129,9 @@
         },
         {
           "$ref": "#/$defs/pathfinder_bundle"
+        },
+        {
+          "$ref": "#/$defs/pathfinder_source_bundle"
         }
       ]
     },
@@ -310,6 +313,27 @@
         "generated_at": {
           "type": "string",
           "minLength": 1
+        }
+      }
+    },
+    "pathfinder_source_bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "source_paths"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pathfinder.v1"
+        },
+        "source_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     }

@@ -203,6 +203,7 @@ def deliver_session_support_packet(
     message: Mapping[str, Any],
     *,
     workspace_root: Path | None = None,
+    support_bundle_payload: Mapping[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     scope = dict(message.get("scope") or {})
     provider_profile = str(scope.get("profile") or "").strip()
@@ -211,7 +212,11 @@ def deliver_session_support_packet(
         return None
     provider_id = str(scope.get("provider_id") or "hermes").strip() or "hermes"
     active_workspace = (workspace_root or WORKSPACE_ROOT).resolve()
-    payload = build_support_bundle_payload(message, workspace_root=active_workspace)
+    if support_bundle_payload is None:
+        payload = build_support_bundle_payload(message, workspace_root=active_workspace)
+    else:
+        payload = dict(support_bundle_payload)
+        validate_support_bundle(payload)
     packet = inject_session_packet(
         workspace_root=active_workspace,
         provider_id=provider_id,
