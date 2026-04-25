@@ -20,6 +20,7 @@
     "source_shortcut",
     "provider_answer",
     "assertions",
+    "scenario_specific_assertions",
     "assumption_delta",
     "next_action",
     "created_at"
@@ -36,7 +37,8 @@
     "scenario": {
       "type": "string",
       "enum": [
-        "accepted_decision"
+        "accepted_decision",
+        "correction_supersession"
       ]
     },
     "status": {
@@ -222,6 +224,14 @@
         }
       }
     },
+    "scenario_specific_assertions": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 16,
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
     "assumption_delta": {
       "type": [
         "object",
@@ -232,6 +242,7 @@
       "type": "string",
       "enum": [
         "correction_supersession_ux_regression",
+        "boundary_transition_ux_regression",
         "investigate_failure"
       ]
     },

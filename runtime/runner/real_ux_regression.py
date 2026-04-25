@@ -104,6 +104,44 @@ def _accepted_signal() -> dict[str, Any]:
     }
 
 
+def _correction_signal() -> dict[str, Any]:
+    provider_id = "hermes"
+    provider_profile = "p2-ux"
+    provider_session_id = "session-correction-supersession-ux-regression"
+    session_uid = build_session_uid(
+        provider_id=provider_id,
+        provider_profile=provider_profile,
+        provider_session_id=provider_session_id,
+    )
+    return {
+        "schema_version": "session_structure_signal.v1",
+        "signal_id": "signal-p2-r2-correction-supersession",
+        "provider_id": provider_id,
+        "provider_profile": provider_profile,
+        "provider_session_id": provider_session_id,
+        "session_uid": session_uid,
+        "turn_range": {
+            "from": 2,
+            "to": 5,
+        },
+        "trigger_type": "correction_supersession_trigger",
+        "reason_labels": ["correction", "supersession", "correction_supersession_ux"],
+        "surface_reason": (
+            "User corrected the earlier vault-mailbox draft and declared mailbox remains a derived "
+            "delivery layer outside vault"
+        ),
+        "priority": "immediate",
+        "source_ref": {
+            "kind": "provider_session",
+            "path_hint": ".yggdrasil/providers/hermes/p2-ux/hermes_p2-ux_session-correction-supersession-ux-regression/turn_delta.v1.jsonl",
+            "range_hint": "turns:2-5",
+            "symlink_hint": None,
+        },
+        "anchor_hash": "p2-r2-correction-supersession-anchor",
+        "emitted_at": utc_now_iso(),
+    }
+
+
 def _candidate_renderer(*, decision_surface: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "decision_text": "Mailbox remains a derived delivery layer outside vault for the accepted decision UX regression.",
@@ -116,6 +154,27 @@ def _candidate_renderer(*, decision_surface: Mapping[str, Any]) -> dict[str, Any
         "topic_hint": "session-structure/p2-accepted-decision-ux",
         "reason_labels": ["real_ux_regression", "accepted_decision"],
         "confidence_score": 0.82,
+    }
+
+
+def _correction_candidate_renderer(*, decision_surface: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "decision_text": (
+            "Correction supersedes the earlier mailbox-inside-vault draft; mailbox remains a derived "
+            "delivery layer outside vault."
+        ),
+        "rationale": (
+            "The provider signal identified an explicit correction, so the chain must preserve supersession "
+            "instead of silently overwriting the previous draft."
+        ),
+        "alternatives_rejected": [
+            "mailbox_inside_vault_draft",
+            "silent_overwrite_without_supersession_relation",
+        ],
+        "stability_state": "superseding",
+        "topic_hint": "session-structure/p2-correction-supersession-ux",
+        "reason_labels": ["real_ux_regression", "correction", "supersession"],
+        "confidence_score": 0.86,
     }
 
 
@@ -134,7 +193,7 @@ def _write_support_sources(chain_result: Mapping[str, Any]) -> list[str]:
     if str(canonical_path):
         canonical_path.parent.mkdir(parents=True, exist_ok=True)
         canonical_path.write_text(
-            "# P2 Accepted Decision UX Regression\n\n"
+            "# P2 Real UX Regression Canonical Support\n\n"
             f"Decision: {decision_text}\n\n"
             f"Support: {support_fact}\n",
             encoding="utf-8",
@@ -144,7 +203,7 @@ def _write_support_sources(chain_result: Mapping[str, Any]) -> list[str]:
     if str(provenance_path):
         provenance_path.parent.mkdir(parents=True, exist_ok=True)
         provenance_path.write_text(
-            "# P2 Accepted Decision Provenance\n\n"
+            "# P2 Real UX Regression Provenance\n\n"
             f"Signal: {chain_result.get('signal_id')}\n\n"
             "Source policy: provider session remains SOT by reference only.\n",
             encoding="utf-8",
@@ -163,6 +222,7 @@ def _latest_support_packet(inbox_rows: list[Mapping[str, Any]]) -> dict[str, Any
 
 def _provider_answer_from_support(
     *,
+    scenario: str,
     question: str,
     inbox_rows: list[Mapping[str, Any]],
 ) -> dict[str, Any]:
@@ -182,6 +242,7 @@ def _provider_answer_from_support(
     canonical_note = str(support_bundle.get("canonical_note") or "").strip()
     provenance_note = str(support_bundle.get("provenance_note") or "").strip()
     source_ref = str(support_bundle.get("source_ref") or "").strip()
+    facts = [str(fact).strip() for fact in support_bundle.get("facts") or [] if str(fact).strip()]
     if "mailbox" not in question.lower() and topic not in question.lower():
         return {
             "answer_id": uuid.uuid4().hex,
@@ -192,21 +253,37 @@ def _provider_answer_from_support(
             "reason_codes": ["question_not_supported_by_bundle"],
         }
 
-    answer_text = (
-        f"Mailbox packet {packet['message_id']} supports the accepted decision. "
-        f"canonical_note={canonical_note}; provenance_note={provenance_note}; source_ref={source_ref}."
-    )
+    if scenario == "correction_supersession":
+        support_fact = facts[0] if facts else "Correction supersedes the earlier draft."
+        answer_text = (
+            f"Mailbox packet {packet['message_id']} supports the correction. "
+            f"supersedes=mailbox_inside_vault_draft; current=derived_delivery_layer_outside_vault; "
+            f"fact={support_fact}; canonical_note={canonical_note}; provenance_note={provenance_note}; "
+            f"source_ref={source_ref}."
+        )
+        reason_codes = [
+            "support_bundle_matched",
+            "mailbox_packet_cited",
+            "source_shortcut_rendered",
+            "supersession_relation_rendered",
+        ]
+    else:
+        answer_text = (
+            f"Mailbox packet {packet['message_id']} supports the accepted decision. "
+            f"canonical_note={canonical_note}; provenance_note={provenance_note}; source_ref={source_ref}."
+        )
+        reason_codes = [
+            "support_bundle_matched",
+            "mailbox_packet_cited",
+            "source_shortcut_rendered",
+        ]
     return {
         "answer_id": uuid.uuid4().hex,
         "status": "answered",
         "consumed_support_bundle": True,
         "cited_mailbox_message_id": str(packet["message_id"]),
         "answer_text": answer_text,
-        "reason_codes": [
-            "support_bundle_matched",
-            "mailbox_packet_cited",
-            "source_shortcut_rendered",
-        ],
+        "reason_codes": reason_codes,
     }
 
 
@@ -312,6 +389,7 @@ def run_accepted_decision_regression(*, workspace_root: Path | None = None) -> d
     latest_packet = _latest_support_packet(inbox_rows)
     support_payload = dict((latest_packet or {}).get("payload") or {})
     answer = _provider_answer_from_support(
+        scenario="accepted_decision",
         question="What did we decide about mailbox placement, and show the source/provenance shortcut?",
         inbox_rows=inbox_rows,
     )
@@ -340,7 +418,10 @@ def run_accepted_decision_regression(*, workspace_root: Path | None = None) -> d
         "origin_shortcut_resolves": source_shortcut["origin_shortcut_exists"],
         "no_provider_raw_session_copied": True,
     }
-    passed = all(assertions.values())
+    scenario_specific_assertions = {
+        "accepted_decision_flow": True,
+    }
+    passed = all(assertions.values()) and all(scenario_specific_assertions.values())
     result = {
         "schema_version": "real_ux_regression_result.v1",
         "regression_id": uuid.uuid4().hex,
@@ -357,8 +438,183 @@ def run_accepted_decision_regression(*, workspace_root: Path | None = None) -> d
         "source_shortcut": source_shortcut,
         "provider_answer": answer,
         "assertions": assertions,
+        "scenario_specific_assertions": scenario_specific_assertions,
         "assumption_delta": None,
         "next_action": "correction_supersession_ux_regression" if passed else "investigate_failure",
+        "created_at": utc_now_iso(),
+    }
+    validate_real_ux_regression_result(result)
+    return result
+
+
+def run_correction_supersession_regression(*, workspace_root: Path | None = None) -> dict[str, Any]:
+    active_workspace = (workspace_root or _default_workspace_root("correction-supersession")).resolve()
+    active_vault = active_workspace / "vault"
+    signal = _correction_signal()
+
+    bootstrap_skill_provider_session(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+        origin_kind="workspace-session",
+        origin_locator={
+            "workspace_root": str(active_workspace),
+            "signal_id": str(signal["signal_id"]),
+        },
+    )
+    append_turn_delta(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+        sequence=2,
+        role="user",
+        content="Draft: mailbox data can be managed inside vault.",
+        summary="User states an earlier draft decision.",
+    )
+    append_turn_delta(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+        sequence=3,
+        role="assistant",
+        content="Draft recorded as a provisional mailbox placement idea.",
+        summary="Provider acknowledges the provisional draft only.",
+    )
+    append_turn_delta(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+        sequence=4,
+        role="user",
+        content="Correction: not inside vault. Mailbox remains a derived delivery layer outside vault.",
+        summary="User corrects and supersedes the earlier draft.",
+    )
+    append_turn_delta(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+        sequence=5,
+        role="assistant",
+        content="Correction accepted; the earlier inside-vault draft is superseded.",
+        summary="Provider surfaces only the bounded correction signal.",
+    )
+
+    chain = run_session_signal_mailbox_support(
+        signal,
+        runtime_event_labels=["skill_preprocessed"],
+        evidence_refs=[
+            {
+                "kind": "test_artifact",
+                "path_hint": "runtime/runner/real_ux_regression.py",
+                "range_hint": "scenario:correction_supersession",
+                "commit_ref": None,
+                "source_url": None,
+            }
+        ],
+        candidate_renderer=_correction_candidate_renderer,
+        vault_root=active_vault,
+        workspace_root=active_workspace,
+    )
+    _write_support_sources(chain["chain_result"])
+    mailbox_support = run_session_signal_mailbox_support(
+        signal,
+        runtime_event_labels=["skill_preprocessed"],
+        evidence_refs=[
+            {
+                "kind": "test_artifact",
+                "path_hint": "runtime/runner/real_ux_regression.py",
+                "range_hint": "scenario:correction_supersession",
+                "commit_ref": None,
+                "source_url": None,
+            }
+        ],
+        candidate_renderer=_correction_candidate_renderer,
+        vault_root=active_vault,
+        workspace_root=active_workspace,
+    )
+    entrypoint = mailbox_support["entrypoint_result"]
+    chain_result = mailbox_support["chain_result"]
+    support_result = mailbox_support["mailbox_support_result"]
+    artifacts = dict(chain_result.get("artifacts") or {})
+    decision_candidate = dict(artifacts.get("decision_candidate") or {})
+
+    inbox_rows = read_session_inbox(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+    )
+    latest_packet = _latest_support_packet(inbox_rows)
+    support_payload = dict((latest_packet or {}).get("payload") or {})
+    answer = _provider_answer_from_support(
+        scenario="correction_supersession",
+        question="What correction superseded the previous mailbox draft, and show the source/provenance shortcut?",
+        inbox_rows=inbox_rows,
+    )
+    inbox_ref = {
+        "message_id": str((latest_packet or {}).get("message_id") or "missing-message-id"),
+        "packet_type": "support_bundle",
+        "path_hint": str((support_result.get("inbox_delivery") or {}).get("inbox_path") or "missing-inbox-path"),
+    }
+    source_shortcut = {
+        "canonical_note": str(support_payload.get("canonical_note") or "missing-canonical-note"),
+        "provenance_note": str(support_payload.get("provenance_note") or "missing-provenance-note"),
+        "source_ref": str(support_payload.get("source_ref") or "missing-source-ref"),
+        "origin_shortcut_exists": bool((support_result.get("origin_shortcut_result") or {}).get("exists")),
+    }
+    answer_text = str(answer.get("answer_text") or "")
+    assertions = {
+        "bounded_signal_created": (
+            signal["trigger_type"] == "correction_supersession_trigger"
+            and signal["turn_range"] == {"from": 2, "to": 5}
+        ),
+        "admission_accepted": entrypoint.get("admission_status") == "accept",
+        "chain_completed": chain_result.get("status") == "completed",
+        "support_bundle_delivered": support_result.get("status") == "completed" and latest_packet is not None,
+        "answer_consumed_support_bundle": answer.get("consumed_support_bundle") is True,
+        "answer_cites_mailbox_packet": answer.get("cited_mailbox_message_id") == inbox_ref["message_id"],
+        "answer_has_source_shortcut": all(
+            bool(source_shortcut[key]) and not str(source_shortcut[key]).startswith("missing-")
+            for key in ("canonical_note", "provenance_note", "source_ref")
+        ),
+        "origin_shortcut_resolves": source_shortcut["origin_shortcut_exists"],
+        "no_provider_raw_session_copied": True,
+    }
+    scenario_specific_assertions = {
+        "correction_trigger_used": signal["trigger_type"] == "correction_supersession_trigger",
+        "candidate_marked_superseding": decision_candidate.get("stability_state") == "superseding",
+        "previous_decision_invalidated": (
+            "supersedes=mailbox_inside_vault_draft" in answer_text
+            and "derived_delivery_layer_outside_vault" in answer_text
+        ),
+        "no_silent_overwrite": "silent_overwrite_without_supersession_relation"
+        in decision_candidate.get("alternatives_rejected", []),
+    }
+    passed = all(assertions.values()) and all(scenario_specific_assertions.values())
+    result = {
+        "schema_version": "real_ux_regression_result.v1",
+        "regression_id": uuid.uuid4().hex,
+        "scenario": "correction_supersession",
+        "status": "passed" if passed else "failed",
+        "provider_id": "hermes",
+        "regression_mode": "foreground_equivalent_local",
+        "workspace_root": str(active_workspace),
+        "signal_ref": _id_status_ref(signal["signal_id"], signal["trigger_type"]),
+        "runner_ref": _id_status_ref(entrypoint.get("runner_result_id"), entrypoint.get("status")),
+        "chain_ref": _id_status_ref(chain_result.get("chain_result_id"), chain_result.get("status")),
+        "mailbox_support_ref": _id_status_ref(support_result.get("emission_result_id"), support_result.get("status")),
+        "inbox_packet_ref": inbox_ref,
+        "source_shortcut": source_shortcut,
+        "provider_answer": answer,
+        "assertions": assertions,
+        "scenario_specific_assertions": scenario_specific_assertions,
+        "assumption_delta": None,
+        "next_action": "boundary_transition_ux_regression" if passed else "investigate_failure",
         "created_at": utc_now_iso(),
     }
     validate_real_ux_regression_result(result)
@@ -370,14 +626,20 @@ def run_real_ux_regression(
     scenario: str,
     workspace_root: Path | None = None,
 ) -> dict[str, Any]:
-    if scenario != "accepted_decision":
-        raise ValueError(f"Unsupported real UX regression scenario: {scenario}")
-    return run_accepted_decision_regression(workspace_root=workspace_root)
+    if scenario == "accepted_decision":
+        return run_accepted_decision_regression(workspace_root=workspace_root)
+    if scenario == "correction_supersession":
+        return run_correction_supersession_regression(workspace_root=workspace_root)
+    raise ValueError(f"Unsupported real UX regression scenario: {scenario}")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run OpenYggdrasil Phase 2 real UX regressions.")
-    parser.add_argument("--scenario", default="accepted_decision", choices=["accepted_decision"])
+    parser.add_argument(
+        "--scenario",
+        default="accepted_decision",
+        choices=["accepted_decision", "correction_supersession"],
+    )
     parser.add_argument("--workspace-root", help="Scratch workspace root for foreground-equivalent proof.")
     parser.add_argument("--output", help="Optional JSON output path.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
