@@ -72,6 +72,22 @@ OpenYggdrasil은 아래 방향을 지향하지 않습니다.
 
 문서 작업용 `doc/`, 테스트 표면, 로컬 runtime state, generated provider output은 배포 정본이 아닙니다.
 
+## 현재 릴리스 스모크
+
+새 clone 기준 최소 릴리스 스모크는 코어 런타임 import, provider packaging/bootstrap baseline, runner fallback, Graphify derived snapshot/query guard, typed unavailable path, ignored runtime surface policy를 함께 확인합니다.
+
+```powershell
+$env:PYTHONDONTWRITEBYTECODE='1'; py -3 -m pytest -p no:cacheprovider tests\test_runtime_import_smoke.py tests\test_hermes_provider_packaging_baseline.py tests\test_codex_provider_packaging_baseline.py tests\test_claude_code_provider_packaging_baseline.py tests\test_antigravity_provider_packaging_baseline.py tests\test_provider_packaging_known_limitations_matrix.py tests\test_graphify_snapshot_rebuild.py tests\test_graph_output_guard.py tests\test_graph_snapshot_replacement_guard.py tests\test_graph_query_support_bundle.py tests\test_hermes_foreground_unavailable_contract.py tests\test_hermes_background_unavailable_contract.py tests\test_no_credential_prompt_regression.py tests\test_provider_declined_visibility.py tests\test_dot_runtime_surface_policy.py
+```
+
+현재 릴리스 현실은 아래와 같습니다.
+
+- Hermes live foreground는 아직 실제 live proof가 아니라 `hermes_foreground_unavailable_contract.v1` typed unavailable/fallback으로 노출된다.
+- Graphify/Graphiti 및 graph/wiki/index 출력은 canonical SOT가 아니며, freshness/source-ref guard를 통과한 support hint로만 사용된다.
+- Graphify snapshot output이 없으면 release blocker가 아니라 `graphify_snapshot_rebuild_result.v1` typed unavailable/non-SOT 상태로 처리된다.
+- `.runtime/`, `.yggdrasil/`, `_tmp`는 generated local artifact이며 tracked release evidence가 아니다.
+- `doc/`와 provider raw session output은 배포 정본이 아니다.
+
 ## 왜 중요한가
 
 이 프로젝트가 해결하려는 문제는 “이전 세션이 있었는지”가 아니라 “새로운 세션이 이전 프로젝트 결정을 다시 회수할 수 있는지”입니다.
