@@ -13,3 +13,8 @@ traceability fields and never authorize physical deletion.
 Gardener lifecycle transition request helpers can propose `SUPERSEDED` or
 `STALE` transitions for active records. They preserve archive lineage in a typed
 preview, require later lifecycle review, and do not write canonical vault state.
+
+Cross-provider conflict quarantine helpers detect same-key contradictory or
+ambiguous active records from different providers. They apply an explicit
+discounting rule, route the claim to review/fallback, and do not canonicalize
+ambiguous memory.

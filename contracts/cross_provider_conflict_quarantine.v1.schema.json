@@ -1,0 +1,295 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/cross_provider_conflict_quarantine.v1.schema.json",
+  "title": "OpenYggdrasil Cross Provider Conflict Quarantine v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "quarantine_id",
+    "quarantine_status",
+    "candidate_promotion_request_id",
+    "candidate_provider_id",
+    "candidate_provider_profile",
+    "candidate_session_uid",
+    "candidate_claim",
+    "conflicting_records",
+    "cross_provider_discounting",
+    "review_route",
+    "canonical_authority",
+    "canonical_write_status",
+    "vault_mutation_allowed",
+    "ambiguous_memory_canonicalized",
+    "reason_codes",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cross_provider_conflict_quarantine.v1"
+    },
+    "quarantine_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "quarantine_status": {
+      "const": "quarantined_for_review"
+    },
+    "candidate_promotion_request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_key",
+        "claim_text",
+        "normalized_claim",
+        "confidence_score",
+        "source_refs",
+        "provenance"
+      ],
+      "properties": {
+        "claim_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "normalized_claim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 24,
+          "items": {
+            "type": "object",
+            "minProperties": 1
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "minProperties": 1
+        }
+      }
+    },
+    "conflicting_records": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "lifecycle_record_id",
+          "canonical_record_id",
+          "lifecycle_state",
+          "provider_id",
+          "provider_profile",
+          "claim_key",
+          "normalized_claim",
+          "conflict_kind",
+          "conflict_score",
+          "source_refs",
+          "provenance",
+          "canonical_ref",
+          "archive_trace_refs"
+        ],
+        "properties": {
+          "lifecycle_record_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "canonical_record_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lifecycle_state": {
+            "const": "ACTIVE"
+          },
+          "provider_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "provider_profile": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "claim_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "normalized_claim": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "conflict_kind": {
+            "type": "string",
+            "enum": [
+              "cross_provider_contradiction",
+              "cross_provider_ambiguous_claim"
+            ]
+          },
+          "conflict_score": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          },
+          "source_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 24,
+            "items": {
+              "type": "object",
+              "minProperties": 1
+            }
+          },
+          "provenance": {
+            "type": "object",
+            "minProperties": 1
+          },
+          "canonical_ref": {
+            "type": "object",
+            "minProperties": 1
+          },
+          "archive_trace_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 48,
+            "items": {
+              "type": "object",
+              "minProperties": 1
+            }
+          }
+        }
+      }
+    },
+    "cross_provider_discounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule_id",
+        "rule_summary",
+        "discount_applied",
+        "original_confidence",
+        "discount_factor",
+        "discounted_confidence",
+        "conflict_threshold",
+        "requires_quarantine"
+      ],
+      "properties": {
+        "rule_id": {
+          "const": "cross_provider_conflict_discount_v1"
+        },
+        "rule_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "discount_applied": {
+          "const": true
+        },
+        "original_confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "discount_factor": {
+          "type": "number",
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0
+        },
+        "discounted_confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "conflict_threshold": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "requires_quarantine": {
+          "const": true
+        }
+      }
+    },
+    "review_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_status",
+        "review_owner",
+        "fallback_action"
+      ],
+      "properties": {
+        "review_status": {
+          "const": "pending_conflict_review"
+        },
+        "review_owner": {
+          "type": "string",
+          "enum": [
+            "vault_conflict_review",
+            "gardener_conflict_review"
+          ]
+        },
+        "fallback_action": {
+          "const": "quarantine_until_review"
+        }
+      }
+    },
+    "canonical_authority": {
+      "const": "not_this_contract"
+    },
+    "canonical_write_status": {
+      "const": "not_written"
+    },
+    "vault_mutation_allowed": {
+      "const": false
+    },
+    "ambiguous_memory_canonicalized": {
+      "const": false
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

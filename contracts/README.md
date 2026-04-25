@@ -48,3 +48,4 @@ This directory is reserved for engine-level contracts:
 - explicit vault promotion request contracts
 - vault record lifecycle / soft-delete contracts
 - Gardener lifecycle transition request contracts
+- cross-provider conflict quarantine contracts
