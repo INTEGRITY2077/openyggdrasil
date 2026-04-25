@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/failure_fallback_regression_result.v1.schema.json",
+  "title": "OpenYggdrasil Failure Fallback Regression Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "regression_result_id",
+    "status",
+    "scenario_results",
+    "uncaught_exception_count",
+    "provider_facing_answer_policy",
+    "next_action",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "failure_fallback_regression_result.v1"
+    },
+    "regression_result_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed"
+      ]
+    },
+    "scenario_results": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario",
+          "passed",
+          "expected_outcome",
+          "observed_outcome",
+          "typed_contracts",
+          "reason_codes",
+          "provider_facing_answer",
+          "detail_refs"
+        ],
+        "properties": {
+          "scenario": {
+            "type": "string",
+            "enum": [
+              "missing_provider_background_reasoning",
+              "missing_graphify_snapshot",
+              "stale_mailbox_packet",
+              "unresolved_source_ref"
+            ]
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "expected_outcome": {
+            "type": "string",
+            "enum": [
+              "fallback",
+              "unavailable",
+              "quarantine",
+              "reject"
+            ]
+          },
+          "observed_outcome": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "typed_contracts": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          "reason_codes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          "provider_facing_answer": {
+            "type": "string",
+            "enum": [
+              "typed_fallback_only",
+              "quarantined_before_answer",
+              "rejected_before_answer",
+              "blocked_before_answer",
+              "unsafe_uncaught_exception"
+            ]
+          },
+          "detail_refs": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "ref"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "uncaught_exception_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4
+    },
+    "provider_facing_answer_policy": {
+      "type": "string",
+      "enum": [
+        "never_emit_uncaught_exception_as_answer"
+      ]
+    },
+    "next_action": {
+      "type": "string",
+      "enum": [
+        "same_session_answer_smoke",
+        "investigate_failure"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

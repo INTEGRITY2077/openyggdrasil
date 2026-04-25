@@ -14,6 +14,7 @@ This directory is reserved for engine-level contracts:
 - session signal runner result contracts
 - thin worker chain result contracts
 - mailbox support result contracts
+- failure fallback regression result contracts
 - support bundle contracts
 - mailbox guard result contracts
 - origin shortcut result contracts
