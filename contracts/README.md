@@ -43,3 +43,4 @@ This directory is reserved for engine-level contracts:
 - Hermes background unavailable/declined/timeout/cancel runner-visibility contracts
 - Hermes state metadata-only policy contracts
 - Hermes main foreground context non-accumulation proof contracts
+- provider-declined runner visibility contracts
