@@ -40,7 +40,8 @@
         "accepted_decision",
         "correction_supersession",
         "boundary_transition",
-        "context_pressure"
+        "context_pressure",
+        "irrelevant_decoy"
       ]
     },
     "status": {
@@ -247,6 +248,7 @@
         "boundary_transition_ux_regression",
         "context_pressure_ux_regression",
         "irrelevant_decoy_ux_regression",
+        "follow_up_retrieval_ux_regression",
         "investigate_failure"
       ]
     },

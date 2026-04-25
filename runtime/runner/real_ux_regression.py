@@ -1069,6 +1069,85 @@ def run_context_pressure_regression(*, workspace_root: Path | None = None) -> di
     return result
 
 
+def run_irrelevant_decoy_regression(*, workspace_root: Path | None = None) -> dict[str, Any]:
+    active_workspace = (workspace_root or _default_workspace_root("irrelevant-decoy")).resolve()
+    setup_result = run_accepted_decision_regression(workspace_root=active_workspace)
+    signal = _accepted_signal()
+
+    inbox_rows = read_session_inbox(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+    )
+    latest_packet = _latest_support_packet(inbox_rows)
+    decoy_question = "What is the GPU temperature and fan speed right now?"
+    answer = _provider_answer_from_support(
+        scenario="irrelevant_decoy",
+        question=decoy_question,
+        inbox_rows=inbox_rows,
+    )
+    setup_assertions = dict(setup_result.get("assertions") or {})
+    inbox_ref = dict(setup_result.get("inbox_packet_ref") or {})
+    source_shortcut = dict(setup_result.get("source_shortcut") or {})
+    reason_codes = list(answer.get("reason_codes") or [])
+    assertions = {
+        "bounded_signal_created": setup_assertions.get("bounded_signal_created") is True,
+        "admission_accepted": setup_assertions.get("admission_accepted") is True,
+        "chain_completed": setup_assertions.get("chain_completed") is True,
+        "support_bundle_delivered": setup_assertions.get("support_bundle_delivered") is True
+        and latest_packet is not None,
+        "answer_consumed_support_bundle": answer.get("consumed_support_bundle") is True,
+        "answer_cites_mailbox_packet": answer.get("cited_mailbox_message_id") == inbox_ref.get("message_id"),
+        "answer_has_source_shortcut": False,
+        "origin_shortcut_resolves": setup_assertions.get("origin_shortcut_resolves") is True,
+        "no_provider_raw_session_copied": True,
+    }
+    scenario_specific_assertions = {
+        "latest_support_bundle_available": latest_packet is not None,
+        "decoy_answer_ignored": answer.get("status") == "ignored",
+        "decoy_did_not_consume_bundle": answer.get("consumed_support_bundle") is False,
+        "decoy_did_not_cite_mailbox_packet": answer.get("cited_mailbox_message_id") is None,
+        "decoy_reason_code_visible": "question_not_supported_by_bundle" in reason_codes,
+        "source_shortcut_preserved_for_real_topic": all(
+            bool(source_shortcut.get(key)) and not str(source_shortcut.get(key)).startswith("missing-")
+            for key in ("canonical_note", "provenance_note", "source_ref")
+        ),
+    }
+    passed = (
+        all(scenario_specific_assertions.values())
+        and assertions["bounded_signal_created"]
+        and assertions["admission_accepted"]
+        and assertions["chain_completed"]
+        and assertions["support_bundle_delivered"]
+        and assertions["origin_shortcut_resolves"]
+        and assertions["no_provider_raw_session_copied"]
+    )
+    result = {
+        "schema_version": "real_ux_regression_result.v1",
+        "regression_id": uuid.uuid4().hex,
+        "scenario": "irrelevant_decoy",
+        "status": "passed" if passed else "failed",
+        "provider_id": "hermes",
+        "regression_mode": "foreground_equivalent_local",
+        "workspace_root": str(active_workspace),
+        "signal_ref": setup_result["signal_ref"],
+        "runner_ref": setup_result["runner_ref"],
+        "chain_ref": setup_result["chain_ref"],
+        "mailbox_support_ref": setup_result["mailbox_support_ref"],
+        "inbox_packet_ref": inbox_ref,
+        "source_shortcut": source_shortcut,
+        "provider_answer": answer,
+        "assertions": assertions,
+        "scenario_specific_assertions": scenario_specific_assertions,
+        "assumption_delta": None,
+        "next_action": "follow_up_retrieval_ux_regression" if passed else "investigate_failure",
+        "created_at": utc_now_iso(),
+    }
+    validate_real_ux_regression_result(result)
+    return result
+
+
 def run_real_ux_regression(
     *,
     scenario: str,
@@ -1082,6 +1161,8 @@ def run_real_ux_regression(
         return run_boundary_transition_regression(workspace_root=workspace_root)
     if scenario == "context_pressure":
         return run_context_pressure_regression(workspace_root=workspace_root)
+    if scenario == "irrelevant_decoy":
+        return run_irrelevant_decoy_regression(workspace_root=workspace_root)
     raise ValueError(f"Unsupported real UX regression scenario: {scenario}")
 
 
@@ -1090,7 +1171,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--scenario",
         default="accepted_decision",
-        choices=["accepted_decision", "correction_supersession", "boundary_transition", "context_pressure"],
+        choices=[
+            "accepted_decision",
+            "correction_supersession",
+            "boundary_transition",
+            "context_pressure",
+            "irrelevant_decoy",
+        ],
     )
     parser.add_argument("--workspace-root", help="Scratch workspace root for foreground-equivalent proof.")
     parser.add_argument("--output", help="Optional JSON output path.")
