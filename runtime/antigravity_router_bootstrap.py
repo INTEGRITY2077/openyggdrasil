@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -19,8 +20,21 @@ ANTIGRAVITY_PROVIDER_ID = "antigravity"
 DEFAULT_PROFILE = "default"
 DEFAULT_SESSION_ID = "session-antigravity-bootstrap-001"
 DEFAULT_SKILL_NAME = "openyggdrasil-provider-bootstrap"
-DEFAULT_ANTIGRAVITY_CMD = Path(r"<local-user>\AppData\Local\Programs\Antigravity\bin\antigravity.cmd")
 DEFAULT_ANTIGRAVITY_LOG_ROOT = Path.home() / "AppData" / "Roaming" / "Antigravity" / "logs"
+ANTIGRAVITY_CMD_ENV = "ANTIGRAVITY_CMD"
+
+
+def default_antigravity_cmd() -> Path:
+    configured = os.getenv(ANTIGRAVITY_CMD_ENV)
+    if configured:
+        return Path(configured).expanduser()
+    local_app_data = os.getenv("LOCALAPPDATA")
+    if local_app_data:
+        return Path(local_app_data) / "Programs" / "Antigravity" / "bin" / "antigravity.cmd"
+    return Path("antigravity.cmd")
+
+
+DEFAULT_ANTIGRAVITY_CMD = default_antigravity_cmd()
 
 
 def scaffold_antigravity_workspace(workspace_root: Path) -> Dict[str, Path]:
@@ -336,15 +350,16 @@ def run_antigravity_live_chat_probe(
     workspace_root: Path,
     prompt: str,
     profile: str,
-    antigravity_cmd: Path = DEFAULT_ANTIGRAVITY_CMD,
+    antigravity_cmd: Path | None = None,
     log_root: Path = DEFAULT_ANTIGRAVITY_LOG_ROOT,
     settle_seconds: int = 25,
 ) -> Dict[str, Any]:
     workspace_root = workspace_root.resolve()
+    active_antigravity_cmd = antigravity_cmd or default_antigravity_cmd()
     baseline = time.time()
     result = subprocess.run(
         [
-            str(antigravity_cmd),
+            str(active_antigravity_cmd),
             "chat",
             "--new-window",
             "--profile",

@@ -8,11 +8,19 @@ from pathlib import Path
 from typing import Any
 
 
-DEFAULT_WORKSPACE_ROOT = Path(r"<local-workspace>\testbed")
-os.environ.setdefault("OPENYGGDRASIL_WORKSPACE_ROOT", str(DEFAULT_WORKSPACE_ROOT))
-os.environ.setdefault("OPENYGGDRASIL_VAULT_ROOT", str(DEFAULT_WORKSPACE_ROOT / "vault"))
-
 OPENY_ROOT = Path(__file__).resolve().parents[4]
+DEFAULT_WORKSPACE_ROOT = Path(
+    os.getenv(
+        "OPENYGGDRASIL_WORKSPACE_ROOT",
+        str(OPENY_ROOT / "_tmp" / "live-decision-roundtrip-workspace"),
+    )
+).resolve()
+os.environ.setdefault("OPENYGGDRASIL_WORKSPACE_ROOT", str(DEFAULT_WORKSPACE_ROOT))
+os.environ.setdefault(
+    "OPENYGGDRASIL_VAULT_ROOT",
+    str(Path(os.environ["OPENYGGDRASIL_WORKSPACE_ROOT"]).resolve() / "vault"),
+)
+
 RUNTIME_ROOT = OPENY_ROOT / "runtime"
 if str(OPENY_ROOT) not in sys.path:
     sys.path.insert(0, str(OPENY_ROOT))
