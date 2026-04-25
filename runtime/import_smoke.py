@@ -83,6 +83,7 @@ CANONICAL_RUNTIME_MODULES = [
     "runner.thin_worker_chain",
     "retrieval.graph_freshness",
     "retrieval.cross_provider_memory_consumption",
+    "retrieval.graph_output_guard",
     "retrieval.graphify_snapshot_adapter",
     "retrieval.graphify_snapshot_manifest",
     "retrieval.graphify_snapshot_rebuild",

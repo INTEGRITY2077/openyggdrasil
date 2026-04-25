@@ -8,6 +8,7 @@ Graphify policy:
 - Snapshot adapters must be read-only against vault/SOT files.
 - Snapshot manifests must say that Graphify is not SOT and cannot be the sole answer source.
 - Snapshot rebuild proof must produce either a validated non-SOT manifest or a typed unavailable manifest.
+- Graph output guard must keep graph/wiki/index output freshness-bound, source-ref backed, and limited to support-bundle hints.
 - Provider answers must verify Graphify hints against linked SOT/provenance shortcuts.
 
 Phase 5 lifecycle retrieval policy:
