@@ -4,7 +4,11 @@ import uuid
 from pathlib import Path
 from typing import Any, Mapping
 
-from admission.decision_contracts import validate_admission_verdict, validate_decision_candidate
+from admission.decision_contracts import (
+    validate_admission_verdict,
+    validate_decision_candidate,
+    validate_evaluator_amundsen_handoff,
+)
 from common.map_identity import build_episode_id, build_page_id, build_topic_id
 from harness_common import utc_now_iso
 from admission.amundsen_stub import (
@@ -62,3 +66,23 @@ def admit_decision_candidate(
     }
     validate_admission_verdict(verdict)
     return verdict
+
+
+def admit_evaluator_handoff(
+    *,
+    evaluator_amundsen_handoff: Mapping[str, Any],
+    vault_root: Path | None = None,
+) -> dict[str, Any]:
+    """Admit only candidates that Evaluator explicitly handed to Amundsen."""
+
+    validate_evaluator_amundsen_handoff(evaluator_amundsen_handoff)
+    if evaluator_amundsen_handoff.get("handoff_status") != "ready_for_amundsen":
+        raise ValueError(str(evaluator_amundsen_handoff.get("blocked_reason") or "handoff_not_ready"))
+    if evaluator_amundsen_handoff.get("semantic_worth_authority") != "evaluator_only":
+        raise ValueError("semantic_worth_authority must remain evaluator_only")
+    if evaluator_amundsen_handoff.get("category_authority") != "amundsen_only_after_handoff":
+        raise ValueError("category_authority must be amundsen_only_after_handoff")
+    return admit_decision_candidate(
+        decision_candidate=dict(evaluator_amundsen_handoff["decision_candidate"]),
+        vault_root=vault_root,
+    )

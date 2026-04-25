@@ -4,7 +4,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from admission.admission_stub import admit_decision_candidate
+from admission.admission_stub import admit_evaluator_handoff
 from admission.decision_contracts import (
     validate_cultivated_decision,
     validate_session_signal_runner_result,
@@ -15,6 +15,8 @@ from capture.decision_distiller import finalize_decision_candidate
 from common.map_identity import build_claim_id
 from cultivation.gardener_stub import plan_seed_planting
 from cultivation.nursery_stub import engrave_decision_seed
+from evaluation.evaluator import evaluate_decision_candidate
+from evaluation.evaluator_amundsen_handoff import build_evaluator_amundsen_handoff
 from harness_common import DEFAULT_VAULT, utc_now_iso
 from placement.map_maker_stub import update_map_topography
 from provenance.provenance_store import provenance_relative_path
@@ -185,6 +187,8 @@ def _cultivation_intent(
 def _empty_artifacts() -> dict[str, Any]:
     return {
         "decision_candidate": None,
+        "evaluator_verdict": None,
+        "evaluator_amundsen_handoff": None,
         "admission_verdict": None,
         "engraved_seed": None,
         "planting_decision": None,
@@ -198,8 +202,8 @@ def _artifact_id(role: str, artifacts: Mapping[str, Any]) -> tuple[str | None, s
         artifact = artifacts.get("decision_candidate")
         return "decision_candidate", str(artifact.get("candidate_id")) if isinstance(artifact, Mapping) else None
     if role == "evaluator":
-        artifact = artifacts.get("admission_verdict")
-        return "admission_verdict", str(artifact.get("verdict_id")) if isinstance(artifact, Mapping) else None
+        artifact = artifacts.get("evaluator_verdict")
+        return "evaluator_verdict", str(artifact.get("evaluator_verdict_id")) if isinstance(artifact, Mapping) else None
     if role == "amundsen":
         artifact = artifacts.get("admission_verdict")
         return "topic_route", str(artifact.get("continent_id")) if isinstance(artifact, Mapping) else None
@@ -454,12 +458,25 @@ def run_thin_worker_chain(
         )
         if fallback is not None:
             return fallback
-        admission_verdict = admit_decision_candidate(
+        evaluator_verdict = evaluate_decision_candidate(
             decision_candidate=decision_candidate,
-            vault_root=active_vault_root,
         )
-        artifacts["admission_verdict"] = admission_verdict
+        evaluator_handoff = build_evaluator_amundsen_handoff(
+            decision_candidate=decision_candidate,
+            evaluator_verdict=evaluator_verdict,
+        )
+        artifacts["evaluator_verdict"] = evaluator_verdict
+        artifacts["evaluator_amundsen_handoff"] = evaluator_handoff
         completed_roles.add("evaluator")
+        if evaluator_handoff["handoff_status"] != "ready_for_amundsen":
+            return _stopped_result(
+                signal=signal,
+                runner_result=runner_result,
+                stop_reason=str(evaluator_handoff["blocked_reason"]),
+                blocked_role="amundsen",
+                completed_roles=completed_roles,
+                artifacts=artifacts,
+            )
 
         fallback = _fallback_result_if_requested(
             role="amundsen",
@@ -471,6 +488,11 @@ def run_thin_worker_chain(
         )
         if fallback is not None:
             return fallback
+        admission_verdict = admit_evaluator_handoff(
+            evaluator_amundsen_handoff=evaluator_handoff,
+            vault_root=active_vault_root,
+        )
+        artifacts["admission_verdict"] = admission_verdict
         completed_roles.add("amundsen")
 
         fallback = _fallback_result_if_requested(

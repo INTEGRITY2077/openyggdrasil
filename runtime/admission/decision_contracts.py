@@ -32,6 +32,11 @@ def load_evaluator_verdict_schema() -> Dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
+def load_evaluator_amundsen_handoff_schema() -> Dict[str, Any]:
+    return _load_schema("evaluator_amundsen_handoff.v1.schema.json")
+
+
+@lru_cache(maxsize=1)
 def load_admission_verdict_schema() -> Dict[str, Any]:
     return _load_schema("admission_verdict.v1.schema.json")
 
@@ -106,6 +111,10 @@ def validate_decision_candidate(payload: Mapping[str, Any]) -> None:
 
 def validate_evaluator_verdict(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_evaluator_verdict_schema())
+
+
+def validate_evaluator_amundsen_handoff(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_evaluator_amundsen_handoff_schema())
 
 
 def validate_admission_verdict(payload: Mapping[str, Any]) -> None:

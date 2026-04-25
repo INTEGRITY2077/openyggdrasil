@@ -69,7 +69,7 @@ def build_session_structure_signal(
         "source_ref": {
             "kind": "provider_session",
             "path_hint": str(source_path_hint).strip(),
-            "range_hint": f"turn:{int(turn_start)}-{int(turn_end)}",
+            "range_hint": f"turns:{int(turn_start)}-{int(turn_end)}",
             "symlink_hint": symlink_hint,
         },
         "anchor_hash": anchor_hash,

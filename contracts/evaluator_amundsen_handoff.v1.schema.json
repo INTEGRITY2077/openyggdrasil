@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/evaluator_amundsen_handoff.v1.schema.json",
+  "title": "OpenYggdrasil Evaluator To Amundsen Handoff v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "handoff_id",
+    "candidate_id",
+    "evaluator_verdict_id",
+    "dedup_key",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "turn_start",
+    "turn_end",
+    "handoff_status",
+    "evaluator_status",
+    "amundsen_handoff_allowed",
+    "decision_authority",
+    "semantic_worth_authority",
+    "category_authority",
+    "promotion_authority",
+    "reason_codes",
+    "decision_candidate",
+    "evaluator_verdict",
+    "blocked_reason",
+    "source_ref",
+    "origin_locator",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "evaluator_amundsen_handoff.v1"
+    },
+    "handoff_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evaluator_verdict_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dedup_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "turn_start": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "turn_end": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "handoff_status": {
+      "type": "string",
+      "enum": [
+        "ready_for_amundsen",
+        "blocked_by_evaluator"
+      ]
+    },
+    "evaluator_status": {
+      "type": "string",
+      "enum": [
+        "accept_for_amundsen",
+        "defer",
+        "reject"
+      ]
+    },
+    "amundsen_handoff_allowed": {
+      "type": "boolean"
+    },
+    "decision_authority": {
+      "type": "string",
+      "enum": [
+        "evaluator_prefilter_to_amundsen_category_only"
+      ]
+    },
+    "semantic_worth_authority": {
+      "type": "string",
+      "enum": [
+        "evaluator_only"
+      ]
+    },
+    "category_authority": {
+      "type": "string",
+      "enum": [
+        "amundsen_only_after_handoff"
+      ]
+    },
+    "promotion_authority": {
+      "type": "string",
+      "enum": [
+        "phase_5_postman_after_delivery"
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "decision_candidate": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "evaluator_verdict": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "blocked_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 160
+    },
+    "source_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "origin_locator": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

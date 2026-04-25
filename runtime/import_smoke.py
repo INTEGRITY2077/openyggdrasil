@@ -28,6 +28,8 @@ CANONICAL_RUNTIME_MODULES = [
     "delivery.postman_gateway",
     "delivery.subagent_telemetry",
     "delivery.support_bundle",
+    "evaluation.evaluator",
+    "evaluation.evaluator_amundsen_handoff",
     "evaluation.promotion_worthiness",
     "placement.community_bridge_stub",
     "placement.map_maker_stub",

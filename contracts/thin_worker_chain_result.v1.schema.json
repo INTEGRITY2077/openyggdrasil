@@ -252,6 +252,8 @@
       "additionalProperties": false,
       "required": [
         "decision_candidate",
+        "evaluator_verdict",
+        "evaluator_amundsen_handoff",
         "admission_verdict",
         "engraved_seed",
         "planting_decision",
@@ -260,6 +262,18 @@
       ],
       "properties": {
         "decision_candidate": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "evaluator_verdict": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "evaluator_amundsen_handoff": {
           "type": [
             "object",
             "null"

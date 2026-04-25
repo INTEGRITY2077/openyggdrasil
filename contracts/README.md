@@ -13,6 +13,7 @@ This directory is reserved for engine-level contracts:
 - evaluator verdict contracts
 - evaluator deterministic prefilter and high-reasoning boundary contracts
 - evaluator vault-promotion readiness contracts
+- evaluator to Amundsen handoff contracts
 - provider runtime integrity result contracts
 - session signal runner result contracts
 - thin worker chain result contracts
