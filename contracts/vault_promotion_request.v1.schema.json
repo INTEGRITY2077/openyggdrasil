@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/vault_promotion_request.v1.schema.json",
+  "title": "OpenYggdrasil Vault Promotion Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "promotion_request_id",
+    "request_kind",
+    "request_status",
+    "candidate_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "requested_owner",
+    "source_refs",
+    "mailbox_delivery_ref",
+    "evaluator_verdict_ref",
+    "provenance",
+    "confidence",
+    "effort_metadata",
+    "gate_metadata",
+    "semantic_worth_authority",
+    "delivery_authority",
+    "canonical_authority",
+    "canonical_write_status",
+    "vault_mutation_allowed",
+    "runner_success_is_promotion_gate",
+    "reason_codes",
+    "requested_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "vault_promotion_request.v1"
+    },
+    "promotion_request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "request_kind": {
+      "const": "explicit_vault_promotion_request"
+    },
+    "request_status": {
+      "const": "requested"
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requested_owner": {
+      "type": "string",
+      "enum": [
+        "gardener",
+        "vault_promotion_review"
+      ]
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "minProperties": 1
+      }
+    },
+    "mailbox_delivery_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "delivery_ref_kind",
+        "message_id",
+        "delivery_status"
+      ],
+      "properties": {
+        "delivery_ref_kind": {
+          "const": "mailbox_message"
+        },
+        "message_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "handoff_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "namespace": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 180
+        },
+        "delivery_status": {
+          "const": "completed"
+        },
+        "delivered_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "evaluator_verdict_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluator_verdict_id",
+        "candidate_id",
+        "promotion_recommendation",
+        "promotion_gate",
+        "vault_promotion_readiness",
+        "worthiness_score",
+        "confidence_score",
+        "reason_codes"
+      ],
+      "properties": {
+        "evaluator_verdict_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "promotion_recommendation": {
+          "const": true
+        },
+        "promotion_gate": {
+          "const": "ready"
+        },
+        "vault_promotion_readiness": {
+          "const": "ready_after_delivery"
+        },
+        "worthiness_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "confidence_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 24,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "worthiness_score",
+        "confidence_score"
+      ],
+      "properties": {
+        "worthiness_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "confidence_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        }
+      }
+    },
+    "effort_metadata": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "gate_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluator_promote_gate",
+        "mailbox_delivery_gate",
+        "canonical_write_gate"
+      ],
+      "properties": {
+        "evaluator_promote_gate": {
+          "const": "promote_true_and_ready"
+        },
+        "mailbox_delivery_gate": {
+          "const": "completed_delivery_required"
+        },
+        "canonical_write_gate": {
+          "const": "not_authorized_by_request"
+        }
+      }
+    },
+    "semantic_worth_authority": {
+      "const": "evaluator_only"
+    },
+    "delivery_authority": {
+      "const": "postman_completed_delivery_ref_only"
+    },
+    "canonical_authority": {
+      "const": "not_this_contract"
+    },
+    "canonical_write_status": {
+      "const": "not_written"
+    },
+    "vault_mutation_allowed": {
+      "const": false
+    },
+    "runner_success_is_promotion_gate": {
+      "const": false
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

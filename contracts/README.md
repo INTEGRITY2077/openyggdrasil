@@ -45,3 +45,4 @@ This directory is reserved for engine-level contracts:
 - Hermes main foreground context non-accumulation proof contracts
 - provider-declined runner visibility contracts
 - no credential/API/OAuth prompt regression contracts
+- explicit vault promotion request contracts
