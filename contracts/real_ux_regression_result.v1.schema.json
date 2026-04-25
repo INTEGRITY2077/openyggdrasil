@@ -38,7 +38,8 @@
       "type": "string",
       "enum": [
         "accepted_decision",
-        "correction_supersession"
+        "correction_supersession",
+        "boundary_transition"
       ]
     },
     "status": {
@@ -243,6 +244,7 @@
       "enum": [
         "correction_supersession_ux_regression",
         "boundary_transition_ux_regression",
+        "context_pressure_ux_regression",
         "investigate_failure"
       ]
     },

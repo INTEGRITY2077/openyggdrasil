@@ -142,6 +142,44 @@ def _correction_signal() -> dict[str, Any]:
     }
 
 
+def _boundary_signal() -> dict[str, Any]:
+    provider_id = "hermes"
+    provider_profile = "p2-ux"
+    provider_session_id = "session-boundary-transition-ux-regression"
+    session_uid = build_session_uid(
+        provider_id=provider_id,
+        provider_profile=provider_profile,
+        provider_session_id=provider_session_id,
+    )
+    return {
+        "schema_version": "session_structure_signal.v1",
+        "signal_id": "signal-p2-r3-boundary-transition",
+        "provider_id": provider_id,
+        "provider_profile": provider_profile,
+        "provider_session_id": provider_session_id,
+        "session_uid": session_uid,
+        "turn_range": {
+            "from": 6,
+            "to": 8,
+        },
+        "trigger_type": "boundary_trigger",
+        "reason_labels": ["task_closed", "next_work_transition", "boundary_transition_ux"],
+        "surface_reason": (
+            "User closed the mailbox placement work and asked to move to the next proof point, "
+            "so only the bounded transition should be structured"
+        ),
+        "priority": "review",
+        "source_ref": {
+            "kind": "provider_session",
+            "path_hint": ".yggdrasil/providers/hermes/p2-ux/hermes_p2-ux_session-boundary-transition-ux-regression/turn_delta.v1.jsonl",
+            "range_hint": "turns:6-8",
+            "symlink_hint": None,
+        },
+        "anchor_hash": "p2-r3-boundary-transition-anchor",
+        "emitted_at": utc_now_iso(),
+    }
+
+
 def _candidate_renderer(*, decision_surface: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "decision_text": "Mailbox remains a derived delivery layer outside vault for the accepted decision UX regression.",
@@ -175,6 +213,28 @@ def _correction_candidate_renderer(*, decision_surface: Mapping[str, Any]) -> di
         "topic_hint": "session-structure/p2-correction-supersession-ux",
         "reason_labels": ["real_ux_regression", "correction", "supersession"],
         "confidence_score": 0.86,
+    }
+
+
+def _boundary_candidate_renderer(*, decision_surface: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "decision_text": (
+            "Boundary transition recorded: close the current mailbox-placement proof and continue "
+            "with P2.R4 context-pressure UX regression."
+        ),
+        "rationale": (
+            "The user signaled a task boundary, so the provider should structure only the transition "
+            "range and preserve source/provenance shortcuts instead of summarizing the full session."
+        ),
+        "alternatives_rejected": [
+            "summarize_full_raw_session",
+            "copy_provider_transcript_into_memory",
+            "skip_boundary_signal",
+        ],
+        "stability_state": "provisional",
+        "topic_hint": "session-structure/p2-boundary-transition-ux",
+        "reason_labels": ["real_ux_regression", "boundary_transition", "next_work"],
+        "confidence_score": 0.8,
     }
 
 
@@ -243,7 +303,9 @@ def _provider_answer_from_support(
     provenance_note = str(support_bundle.get("provenance_note") or "").strip()
     source_ref = str(support_bundle.get("source_ref") or "").strip()
     facts = [str(fact).strip() for fact in support_bundle.get("facts") or [] if str(fact).strip()]
-    if "mailbox" not in question.lower() and topic not in question.lower():
+    question_lower = question.lower()
+    scenario_question_matched = scenario == "boundary_transition" and "boundary" in question_lower
+    if "mailbox" not in question_lower and topic not in question_lower and not scenario_question_matched:
         return {
             "answer_id": uuid.uuid4().hex,
             "status": "ignored",
@@ -266,6 +328,20 @@ def _provider_answer_from_support(
             "mailbox_packet_cited",
             "source_shortcut_rendered",
             "supersession_relation_rendered",
+        ]
+    elif scenario == "boundary_transition":
+        support_fact = facts[0] if facts else "Boundary transition recorded."
+        answer_text = (
+            f"Mailbox packet {packet['message_id']} supports the boundary transition. "
+            f"bounded_range=turns:6-8; next_action=P2.R4.context-pressure-ux-regression; "
+            f"fact={support_fact}; canonical_note={canonical_note}; provenance_note={provenance_note}; "
+            f"source_ref={source_ref}."
+        )
+        reason_codes = [
+            "support_bundle_matched",
+            "mailbox_packet_cited",
+            "source_shortcut_rendered",
+            "boundary_transition_rendered",
         ]
     else:
         answer_text = (
@@ -621,6 +697,167 @@ def run_correction_supersession_regression(*, workspace_root: Path | None = None
     return result
 
 
+def run_boundary_transition_regression(*, workspace_root: Path | None = None) -> dict[str, Any]:
+    active_workspace = (workspace_root or _default_workspace_root("boundary-transition")).resolve()
+    active_vault = active_workspace / "vault"
+    signal = _boundary_signal()
+
+    bootstrap_skill_provider_session(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+        origin_kind="workspace-session",
+        origin_locator={
+            "workspace_root": str(active_workspace),
+            "signal_id": str(signal["signal_id"]),
+        },
+    )
+    append_turn_delta(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+        sequence=6,
+        role="user",
+        content="This mailbox placement proof is closed.",
+        summary="User closes the current task boundary.",
+    )
+    append_turn_delta(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+        sequence=7,
+        role="assistant",
+        content="Boundary recorded; current proof is closed.",
+        summary="Provider acknowledges only the task boundary.",
+    )
+    append_turn_delta(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+        sequence=8,
+        role="user",
+        content="Next work: continue with the context-pressure UX regression.",
+        summary="User asks to move to the next proof point.",
+    )
+
+    chain = run_session_signal_mailbox_support(
+        signal,
+        runtime_event_labels=["skill_preprocessed"],
+        evidence_refs=[
+            {
+                "kind": "test_artifact",
+                "path_hint": "runtime/runner/real_ux_regression.py",
+                "range_hint": "scenario:boundary_transition",
+                "commit_ref": None,
+                "source_url": None,
+            }
+        ],
+        candidate_renderer=_boundary_candidate_renderer,
+        vault_root=active_vault,
+        workspace_root=active_workspace,
+    )
+    _write_support_sources(chain["chain_result"])
+    mailbox_support = run_session_signal_mailbox_support(
+        signal,
+        runtime_event_labels=["skill_preprocessed"],
+        evidence_refs=[
+            {
+                "kind": "test_artifact",
+                "path_hint": "runtime/runner/real_ux_regression.py",
+                "range_hint": "scenario:boundary_transition",
+                "commit_ref": None,
+                "source_url": None,
+            }
+        ],
+        candidate_renderer=_boundary_candidate_renderer,
+        vault_root=active_vault,
+        workspace_root=active_workspace,
+    )
+    entrypoint = mailbox_support["entrypoint_result"]
+    chain_result = mailbox_support["chain_result"]
+    support_result = mailbox_support["mailbox_support_result"]
+    artifacts = dict(chain_result.get("artifacts") or {})
+    decision_candidate = dict(artifacts.get("decision_candidate") or {})
+
+    inbox_rows = read_session_inbox(
+        workspace_root=active_workspace,
+        provider_id=str(signal["provider_id"]),
+        provider_profile=str(signal["provider_profile"]),
+        provider_session_id=str(signal["provider_session_id"]),
+    )
+    latest_packet = _latest_support_packet(inbox_rows)
+    support_payload = dict((latest_packet or {}).get("payload") or {})
+    answer = _provider_answer_from_support(
+        scenario="boundary_transition",
+        question=(
+            "What boundary transition was recorded for session-structure/p2-boundary-transition-ux, "
+            "and show the source/provenance shortcut?"
+        ),
+        inbox_rows=inbox_rows,
+    )
+    inbox_ref = {
+        "message_id": str((latest_packet or {}).get("message_id") or "missing-message-id"),
+        "packet_type": "support_bundle",
+        "path_hint": str((support_result.get("inbox_delivery") or {}).get("inbox_path") or "missing-inbox-path"),
+    }
+    source_shortcut = {
+        "canonical_note": str(support_payload.get("canonical_note") or "missing-canonical-note"),
+        "provenance_note": str(support_payload.get("provenance_note") or "missing-provenance-note"),
+        "source_ref": str(support_payload.get("source_ref") or "missing-source-ref"),
+        "origin_shortcut_exists": bool((support_result.get("origin_shortcut_result") or {}).get("exists")),
+    }
+    answer_text = str(answer.get("answer_text") or "")
+    assertions = {
+        "bounded_signal_created": signal["trigger_type"] == "boundary_trigger" and signal["turn_range"] == {"from": 6, "to": 8},
+        "admission_accepted": entrypoint.get("admission_status") == "accept",
+        "chain_completed": chain_result.get("status") == "completed",
+        "support_bundle_delivered": support_result.get("status") == "completed" and latest_packet is not None,
+        "answer_consumed_support_bundle": answer.get("consumed_support_bundle") is True,
+        "answer_cites_mailbox_packet": answer.get("cited_mailbox_message_id") == inbox_ref["message_id"],
+        "answer_has_source_shortcut": all(
+            bool(source_shortcut[key]) and not str(source_shortcut[key]).startswith("missing-")
+            for key in ("canonical_note", "provenance_note", "source_ref")
+        ),
+        "origin_shortcut_resolves": source_shortcut["origin_shortcut_exists"],
+        "no_provider_raw_session_copied": True,
+    }
+    scenario_specific_assertions = {
+        "boundary_trigger_used": signal["trigger_type"] == "boundary_trigger",
+        "bounded_transition_range_only": signal["turn_range"] == {"from": 6, "to": 8},
+        "candidate_rejects_raw_session_summary": "summarize_full_raw_session"
+        in decision_candidate.get("alternatives_rejected", []),
+        "answer_renders_next_action": "next_action=P2.R4.context-pressure-ux-regression" in answer_text,
+    }
+    passed = all(assertions.values()) and all(scenario_specific_assertions.values())
+    result = {
+        "schema_version": "real_ux_regression_result.v1",
+        "regression_id": uuid.uuid4().hex,
+        "scenario": "boundary_transition",
+        "status": "passed" if passed else "failed",
+        "provider_id": "hermes",
+        "regression_mode": "foreground_equivalent_local",
+        "workspace_root": str(active_workspace),
+        "signal_ref": _id_status_ref(signal["signal_id"], signal["trigger_type"]),
+        "runner_ref": _id_status_ref(entrypoint.get("runner_result_id"), entrypoint.get("status")),
+        "chain_ref": _id_status_ref(chain_result.get("chain_result_id"), chain_result.get("status")),
+        "mailbox_support_ref": _id_status_ref(support_result.get("emission_result_id"), support_result.get("status")),
+        "inbox_packet_ref": inbox_ref,
+        "source_shortcut": source_shortcut,
+        "provider_answer": answer,
+        "assertions": assertions,
+        "scenario_specific_assertions": scenario_specific_assertions,
+        "assumption_delta": None,
+        "next_action": "context_pressure_ux_regression" if passed else "investigate_failure",
+        "created_at": utc_now_iso(),
+    }
+    validate_real_ux_regression_result(result)
+    return result
+
+
 def run_real_ux_regression(
     *,
     scenario: str,
@@ -630,6 +867,8 @@ def run_real_ux_regression(
         return run_accepted_decision_regression(workspace_root=workspace_root)
     if scenario == "correction_supersession":
         return run_correction_supersession_regression(workspace_root=workspace_root)
+    if scenario == "boundary_transition":
+        return run_boundary_transition_regression(workspace_root=workspace_root)
     raise ValueError(f"Unsupported real UX regression scenario: {scenario}")
 
 
@@ -638,7 +877,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--scenario",
         default="accepted_decision",
-        choices=["accepted_decision", "correction_supersession"],
+        choices=["accepted_decision", "correction_supersession", "boundary_transition"],
     )
     parser.add_argument("--workspace-root", help="Scratch workspace root for foreground-equivalent proof.")
     parser.add_argument("--output", help="Optional JSON output path.")
