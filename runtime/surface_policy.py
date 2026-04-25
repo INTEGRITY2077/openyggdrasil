@@ -70,10 +70,43 @@ class TmpArtifactSurfaceEvaluation:
         }
 
 
+@dataclass(frozen=True)
+class IgnoredVerificationSurfaceDecision:
+    path: str
+    classification: str
+    cleanup_action: str
+    evidence_policy: str
+
+
+@dataclass(frozen=True)
+class IgnoredVerificationCleanupPlan:
+    schema_version: str
+    total_count: int
+    safe_cleanup_paths: tuple[str, ...]
+    preserved_paths: tuple[str, ...]
+    unknown_paths: tuple[str, ...]
+
+    @property
+    def ok(self) -> bool:
+        return not self.unknown_paths
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "total_count": self.total_count,
+            "safe_cleanup_paths": list(self.safe_cleanup_paths),
+            "preserved_paths": list(self.preserved_paths),
+            "unknown_paths": list(self.unknown_paths),
+            "ok": self.ok,
+        }
+
+
 def _normalize_tracked_path(path: str) -> str:
     normalized = PurePosixPath(path.replace("\\", "/")).as_posix()
     while normalized.startswith("./"):
         normalized = normalized[2:]
+    if normalized.endswith("/") and normalized != "/":
+        normalized = normalized.rstrip("/")
     return normalized
 
 
@@ -172,4 +205,84 @@ def evaluate_tmp_artifact_surface(
         canonical_evidence_policy="never_treat_tmp_artifact_as_sot",
         cleanup_policy="safe_to_delete_when_not_needed_for_active_local_debugging",
         preserved_evidence_policy="promote_needed_summary_to_tracked_history_before_cleanup",
+    )
+
+
+def classify_ignored_verification_surface(path: str) -> IgnoredVerificationSurfaceDecision:
+    normalized = _normalize_tracked_path(path)
+    parts = PurePosixPath(normalized).parts
+    if (
+        _is_dot_runtime_path(normalized)
+        or _path_has_segment(normalized, TMP_ARTIFACT_DIRNAME)
+        or ".pytest_cache" in parts
+        or "__pycache__" in parts
+    ):
+        return IgnoredVerificationSurfaceDecision(
+            path=normalized,
+            classification="generated_verification_artifact",
+            cleanup_action="safe_to_delete_after_history_inventory",
+            evidence_policy="tracked_history_must_record_inventory_before_cleanup",
+        )
+    if (
+        normalized == "doc"
+        or normalized.startswith("doc/")
+        or normalized == ".yggdrasil"
+        or normalized.startswith(".yggdrasil/")
+        or "memories" in parts
+        or "ops" in parts
+        or "_archive" in parts
+        or normalized == "agent-list.ko.md"
+        or normalized.endswith("/graphify-corpus.manifest.json")
+        or normalized.startswith("vault/.obsidian")
+    ):
+        return IgnoredVerificationSurfaceDecision(
+            path=normalized,
+            classification="preserve_local_or_user_sensitive_surface",
+            cleanup_action="preserve_without_explicit_review",
+            evidence_policy="do_not_delete_as_verification_cleanup",
+        )
+    if normalized == "tests" or normalized.startswith("tests/") or "tests" in parts:
+        return IgnoredVerificationSurfaceDecision(
+            path=normalized,
+            classification="local_verification_source",
+            cleanup_action="preserve_until_tracked_or_reviewed",
+            evidence_policy="do_not_delete_without_dedicated_test_surface_review",
+        )
+    return IgnoredVerificationSurfaceDecision(
+        path=normalized,
+        classification="unknown",
+        cleanup_action="requires_review_before_cleanup",
+        evidence_policy="do_not_delete_without_classification",
+    )
+
+
+def ignored_verification_cleanup_plan(paths: Iterable[str]) -> IgnoredVerificationCleanupPlan:
+    decisions = [classify_ignored_verification_surface(path) for path in paths]
+    safe_cleanup_paths = tuple(
+        sorted(
+            decision.path
+            for decision in decisions
+            if decision.cleanup_action == "safe_to_delete_after_history_inventory"
+        )
+    )
+    preserved_paths = tuple(
+        sorted(
+            decision.path
+            for decision in decisions
+            if decision.cleanup_action
+            in {
+                "preserve_without_explicit_review",
+                "preserve_until_tracked_or_reviewed",
+            }
+        )
+    )
+    unknown_paths = tuple(
+        sorted(decision.path for decision in decisions if decision.cleanup_action == "requires_review_before_cleanup")
+    )
+    return IgnoredVerificationCleanupPlan(
+        schema_version="ignored-verification-cleanup-policy.v1",
+        total_count=len(decisions),
+        safe_cleanup_paths=safe_cleanup_paths,
+        preserved_paths=preserved_paths,
+        unknown_paths=unknown_paths,
     )
