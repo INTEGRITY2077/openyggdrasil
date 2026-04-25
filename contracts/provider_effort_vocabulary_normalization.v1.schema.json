@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/provider_effort_vocabulary_normalization.v1.schema.json",
+  "title": "OpenYggdrasil Provider Effort Vocabulary Normalization v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "normalization_id",
+    "provider_ref",
+    "raw_effort_metadata",
+    "normalized_effort",
+    "cross_provider_usage",
+    "safety",
+    "reason_codes",
+    "next_action",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "provider_effort_vocabulary_normalization.v1"
+    },
+    "normalization_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "provider_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_id",
+        "provider_family",
+        "provider_profile",
+        "provider_session_id"
+      ],
+      "properties": {
+        "provider_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "provider_family": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "provider_profile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "provider_session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        }
+      }
+    },
+    "raw_effort_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_kind",
+        "effort_status",
+        "requested_effort",
+        "applied_effort",
+        "actual_effort_estimate",
+        "provider_specific"
+      ],
+      "properties": {
+        "source_kind": {
+          "type": "string",
+          "enum": [
+            "provider_packaging",
+            "promotion_request",
+            "reasoning_lease_result",
+            "helper_output",
+            "unknown"
+          ]
+        },
+        "effort_status": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 180
+        },
+        "requested_effort": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 180
+        },
+        "applied_effort": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 180
+        },
+        "actual_effort_estimate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 180
+        },
+        "provider_specific": {
+          "type": "object"
+        }
+      }
+    },
+    "normalized_effort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested_effort",
+        "applied_effort",
+        "actual_effort_estimate",
+        "gardener_effort_status",
+        "helper_staging_effort_status",
+        "promotion_review_eligible",
+        "helper_staging_eligible",
+        "lossy_normalization",
+        "raw_values_preserved"
+      ],
+      "properties": {
+        "requested_effort": {
+          "$ref": "#/$defs/effortLevel"
+        },
+        "applied_effort": {
+          "$ref": "#/$defs/effortLevel"
+        },
+        "actual_effort_estimate": {
+          "$ref": "#/$defs/effortLevel"
+        },
+        "gardener_effort_status": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "declared",
+            "downgraded",
+            "unavailable",
+            "unknown"
+          ]
+        },
+        "helper_staging_effort_status": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "accepted",
+            "not_stageable",
+            "unknown"
+          ]
+        },
+        "promotion_review_eligible": {
+          "type": "boolean"
+        },
+        "helper_staging_eligible": {
+          "type": "boolean"
+        },
+        "lossy_normalization": {
+          "type": "boolean"
+        },
+        "raw_values_preserved": {
+          "const": true
+        }
+      }
+    },
+    "cross_provider_usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "comparison_level_fields",
+        "status_bridge",
+        "raw_values_for_cross_provider_comparison",
+        "canonical_write_status",
+        "vault_mutation_allowed"
+      ],
+      "properties": {
+        "comparison_level_fields": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "string",
+            "enum": [
+              "requested_effort",
+              "applied_effort",
+              "actual_effort_estimate"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "status_bridge": {
+          "type": "string",
+          "enum": [
+            "gardener_verified_and_helper_verified",
+            "helper_accepted_not_gardener_verified",
+            "declared_not_verified",
+            "downgraded_or_unavailable",
+            "unknown"
+          ]
+        },
+        "raw_values_for_cross_provider_comparison": {
+          "const": false
+        },
+        "canonical_write_status": {
+          "const": "not_written"
+        },
+        "vault_mutation_allowed": {
+          "const": false
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_specific_contract_bypass",
+        "raw_provider_effort_discarded",
+        "helper_accepted_promoted_to_gardener_verified",
+        "global_effort_equivalence_claimed",
+        "phase5_memory_gates_weakened"
+      ],
+      "properties": {
+        "provider_specific_contract_bypass": {
+          "const": false
+        },
+        "raw_provider_effort_discarded": {
+          "const": false
+        },
+        "helper_accepted_promoted_to_gardener_verified": {
+          "const": false
+        },
+        "global_effort_equivalence_claimed": {
+          "const": false
+        },
+        "phase5_memory_gates_weakened": {
+          "const": false
+        }
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "effortLevel": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    }
+  }
+}

@@ -55,6 +55,7 @@ This directory is reserved for engine-level contracts:
 - Gardener lifecycle transition request contracts
 - cross-provider conflict quarantine contracts
 - effort-aware Gardener worthiness gate contracts
+- provider effort vocabulary normalization contracts
 - helper/lease output staging contracts
 - lifecycle candidate lint loop contracts
 - cross-provider memory consumption provenance contracts

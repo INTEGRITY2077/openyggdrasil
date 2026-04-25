@@ -23,6 +23,12 @@ Effort-aware Gardener worthiness helpers gate promotion review on verified
 effort metadata and actual effort estimates. They defer low, unknown, or
 downgraded effort before review and never write canonical vault state.
 
+Provider effort vocabulary normalization helpers preserve raw provider-specific
+effort metadata while mapping it to the common low/medium/high/xhigh and
+verified/declared/downgraded/unavailable vocabularies used across providers.
+They keep helper `accepted` status separate from Gardener `verified` status and
+never authorize canonical vault writes.
+
 Helper output staging helpers accept completed reasoning lease output only after
 effort-aware worthiness is ready. They retain digest/source-ref evidence and a
 bounded preview for later review, while keeping helper output non-canonical.

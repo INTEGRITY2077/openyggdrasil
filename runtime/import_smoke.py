@@ -31,6 +31,7 @@ CANONICAL_RUNTIME_MODULES = [
     "cultivation.lifecycle_candidate_lint_loop",
     "cultivation.nursery_stub",
     "cultivation.nursery_composition_input",
+    "cultivation.provider_effort_vocabulary_normalization",
     "cultivation.seedkeeper",
     "cultivation.vault_record_lifecycle",
     "cultivation.vault_promotion_request",
