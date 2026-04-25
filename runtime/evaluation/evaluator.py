@@ -81,6 +81,16 @@ def _worthiness_score(*, confidence: float, labels: set[str], stability_state: s
     return max(0.0, min(1.0, round(score, 4)))
 
 
+def _prefilter_boundary(*, evaluator_status: str, requires_high_reasoning: bool) -> str:
+    if requires_high_reasoning:
+        return "provider_reasoning_required"
+    if evaluator_status == "accept_for_amundsen":
+        return "deterministic_accept"
+    if evaluator_status == "reject":
+        return "deterministic_reject"
+    return "deterministic_defer"
+
+
 def evaluate_decision_candidate(
     *,
     decision_candidate: Mapping[str, Any],
@@ -113,9 +123,11 @@ def evaluate_decision_candidate(
     elif confidence < 0.35:
         evaluator_status = "reject"
         reason_codes.append("confidence_below_reject_threshold")
-    elif requires_high_reasoning and not high_reasoning_available:
+    elif requires_high_reasoning:
         evaluator_status = "defer"
         reason_codes.append("high_reasoning_required")
+        if high_reasoning_available:
+            reason_codes.append("high_reasoning_available_but_phase_4_not_owned")
     elif "context_pressure" in labels or "context_pressure" in trigger_reason:
         evaluator_status = "defer"
         reason_codes.append("context_pressure_defer")
@@ -146,6 +158,11 @@ def evaluate_decision_candidate(
     elif evaluator_status == "accept_for_amundsen":
         reason_codes.append("category_handoff_only")
 
+    phase4_handoff_recommended = requires_high_reasoning
+    prefilter_boundary = _prefilter_boundary(
+        evaluator_status=evaluator_status,
+        requires_high_reasoning=requires_high_reasoning,
+    )
     verdict = {
         "schema_version": "evaluator_verdict.v1",
         "evaluator_verdict_id": uuid.uuid4().hex,
@@ -164,6 +181,13 @@ def evaluate_decision_candidate(
         "confidence_score": confidence,
         "amundsen_handoff_allowed": amundsen_handoff_allowed,
         "requires_high_reasoning": requires_high_reasoning,
+        "decision_authority": "deterministic_prefilter_only",
+        "prefilter_boundary": prefilter_boundary,
+        "high_reasoning_status": (
+            "needed_deferred_to_phase_4" if requires_high_reasoning else "not_needed"
+        ),
+        "phase4_handoff_recommended": phase4_handoff_recommended,
+        "provider_credential_required": False,
         "reason_codes": reason_codes,
         "verdict_summary": decision_text[:180] or "Decision candidate evaluated.",
         "source_ref": decision_candidate.get("source_ref"),

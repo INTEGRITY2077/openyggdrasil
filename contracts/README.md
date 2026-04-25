@@ -11,6 +11,7 @@ This directory is reserved for engine-level contracts:
 - session structure signal contracts
 - session admission verdict contracts
 - evaluator verdict contracts
+- evaluator deterministic prefilter and high-reasoning boundary contracts
 - provider runtime integrity result contracts
 - session signal runner result contracts
 - thin worker chain result contracts

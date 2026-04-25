@@ -22,6 +22,11 @@
     "confidence_score",
     "amundsen_handoff_allowed",
     "requires_high_reasoning",
+    "decision_authority",
+    "prefilter_boundary",
+    "high_reasoning_status",
+    "phase4_handoff_recommended",
+    "provider_credential_required",
     "reason_codes",
     "verdict_summary",
     "source_ref",
@@ -103,6 +108,34 @@
     },
     "requires_high_reasoning": {
       "type": "boolean"
+    },
+    "decision_authority": {
+      "type": "string",
+      "enum": [
+        "deterministic_prefilter_only"
+      ]
+    },
+    "prefilter_boundary": {
+      "type": "string",
+      "enum": [
+        "deterministic_accept",
+        "deterministic_reject",
+        "deterministic_defer",
+        "provider_reasoning_required"
+      ]
+    },
+    "high_reasoning_status": {
+      "type": "string",
+      "enum": [
+        "not_needed",
+        "needed_deferred_to_phase_4"
+      ]
+    },
+    "phase4_handoff_recommended": {
+      "type": "boolean"
+    },
+    "provider_credential_required": {
+      "const": false
     },
     "reason_codes": {
       "type": "array",
