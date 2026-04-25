@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/gardener_routing_decision.v1.schema.json",
+  "title": "OpenYggdrasil Gardener Routing Decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "routing_id",
+    "planting_id",
+    "seed_id",
+    "candidate_id",
+    "topic_id",
+    "topic_title",
+    "page_id",
+    "forest_route_kind",
+    "canonical_relative_path",
+    "provenance_relative_path",
+    "canonical_note_path",
+    "provenance_note_path",
+    "planting_target_kind",
+    "planting_target_key",
+    "gardener_authority",
+    "semantic_worth_authority",
+    "category_authority",
+    "placement_authority",
+    "route_status",
+    "reason_codes",
+    "routed_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "gardener_routing_decision.v1"
+    },
+    "routing_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "planting_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "seed_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "topic_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "topic_title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "page_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "forest_route_kind": {
+      "type": "string",
+      "enum": [
+        "topic_page_with_provenance"
+      ]
+    },
+    "canonical_relative_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provenance_relative_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "canonical_note_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provenance_note_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "planting_target_kind": {
+      "type": "string",
+      "enum": [
+        "topic_page"
+      ]
+    },
+    "planting_target_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "gardener_authority": {
+      "type": "string",
+      "enum": [
+        "forest_routing_only"
+      ]
+    },
+    "semantic_worth_authority": {
+      "type": "string",
+      "enum": [
+        "not_gardener"
+      ]
+    },
+    "category_authority": {
+      "type": "string",
+      "enum": [
+        "not_gardener"
+      ]
+    },
+    "placement_authority": {
+      "type": "string",
+      "enum": [
+        "not_gardener"
+      ]
+    },
+    "route_status": {
+      "type": "string",
+      "enum": [
+        "ready_for_cultivation"
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "routed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -17,6 +17,7 @@ CANONICAL_RUNTIME_MODULES = [
     "capture.provider_runtime_integrity",
     "capture.session_structure_signal",
     "common.map_identity",
+    "cultivation.gardener_routing",
     "cultivation.gardener_stub",
     "cultivation.nursery_stub",
     "cultivation.nursery_composition_input",

@@ -14,6 +14,7 @@ from admission.decision_contracts import (
 )
 from capture.decision_distiller import finalize_exhaustive_decision_candidates
 from common.map_identity import build_claim_id
+from cultivation.gardener_routing import build_gardener_routing_decision
 from cultivation.gardener_stub import plan_seed_planting
 from cultivation.nursery_composition_input import build_nursery_composition_input
 from cultivation.nursery_stub import engrave_composed_decision_seed
@@ -22,7 +23,6 @@ from evaluation.evaluator import evaluate_decision_candidate
 from evaluation.evaluator_amundsen_handoff import build_evaluator_amundsen_handoff
 from harness_common import DEFAULT_VAULT, utc_now_iso
 from placement.map_maker_stub import update_map_topography
-from provenance.provenance_store import provenance_relative_path
 
 
 ROLE_ORDER = (
@@ -154,12 +154,12 @@ def _cultivation_intent(
     *,
     engraved_seed: Mapping[str, Any],
     planting_decision: Mapping[str, Any],
-    vault_root: Path,
+    gardener_routing_decision: Mapping[str, Any],
 ) -> dict[str, Any]:
     created = utc_now_iso()
     topic_id = str(engraved_seed["topic_id"])
-    canonical_relative_path = str(engraved_seed["canonical_relative_path"])
-    provenance_rel = provenance_relative_path(topic_id=topic_id)
+    canonical_relative_path = str(gardener_routing_decision["canonical_relative_path"])
+    provenance_rel = str(gardener_routing_decision["provenance_relative_path"])
     cultivated = {
         "schema_version": "cultivated_decision.v1",
         "cultivation_id": uuid.uuid4().hex,
@@ -171,8 +171,8 @@ def _cultivation_intent(
         "page_id": str(engraved_seed["page_id"]),
         "canonical_relative_path": canonical_relative_path,
         "provenance_relative_path": provenance_rel,
-        "canonical_note_path": str((vault_root / canonical_relative_path).resolve()),
-        "provenance_note_path": str((vault_root / provenance_rel).resolve()),
+        "canonical_note_path": str(gardener_routing_decision["canonical_note_path"]),
+        "provenance_note_path": str(gardener_routing_decision["provenance_note_path"]),
         "claim_id": build_claim_id(
             topic_id=topic_id,
             claim_key=f"{str(engraved_seed['episode_id'])}:summary",
@@ -200,6 +200,7 @@ def _empty_artifacts() -> dict[str, Any]:
         "nursery_composition_input": None,
         "engraved_seed": None,
         "planting_decision": None,
+        "gardener_routing_decision": None,
         "cultivated_decision": None,
         "map_topography": None,
     }
@@ -225,6 +226,9 @@ def _artifact_id(role: str, artifacts: Mapping[str, Any]) -> tuple[str | None, s
         artifact = artifacts.get("seedkeeper_segment")
         return "seedkeeper_segment", str(artifact.get("segment_id")) if isinstance(artifact, Mapping) else None
     if role == "gardener":
+        artifact = artifacts.get("gardener_routing_decision")
+        if isinstance(artifact, Mapping):
+            return "gardener_routing_decision", str(artifact.get("routing_id"))
         artifact = artifacts.get("planting_decision")
         return "planting_decision", str(artifact.get("planting_id")) if isinstance(artifact, Mapping) else None
     if role == "map_maker":
@@ -257,7 +261,7 @@ def _role_steps(
                 reason_codes.append("source_ref_preserved")
                 reason_codes.append("nursery_boundary_ready")
             elif role == "gardener":
-                reason_codes.append("thin_planting_only")
+                reason_codes.append("forest_routing_only")
         elif role == fallback_role:
             status = "fallback_used"
             reason_codes = [stop_reason or f"{role}_fallback_used"]
@@ -605,10 +609,16 @@ def run_thin_worker_chain(
         artifacts["engraved_seed"] = engraved_seed
         planting_decision = plan_seed_planting(engraved_seed=engraved_seed)
         artifacts["planting_decision"] = planting_decision
-        cultivated_decision = _cultivation_intent(
+        gardener_routing_decision = build_gardener_routing_decision(
             engraved_seed=engraved_seed,
             planting_decision=planting_decision,
             vault_root=active_vault_root,
+        )
+        artifacts["gardener_routing_decision"] = gardener_routing_decision
+        cultivated_decision = _cultivation_intent(
+            engraved_seed=engraved_seed,
+            planting_decision=planting_decision,
+            gardener_routing_decision=gardener_routing_decision,
         )
         artifacts["cultivated_decision"] = cultivated_decision
         completed_roles.add("gardener")

@@ -107,6 +107,11 @@ def load_planting_decision_schema() -> Dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
+def load_gardener_routing_decision_schema() -> Dict[str, Any]:
+    return _load_schema("gardener_routing_decision.v1.schema.json")
+
+
+@lru_cache(maxsize=1)
 def load_cultivated_decision_schema() -> Dict[str, Any]:
     return _load_schema("cultivated_decision.v1.schema.json")
 
@@ -340,6 +345,10 @@ def validate_engraved_seed(payload: Mapping[str, Any]) -> None:
 
 def validate_planting_decision(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_planting_decision_schema())
+
+
+def validate_gardener_routing_decision(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_gardener_routing_decision_schema())
 
 
 def validate_cultivated_decision(payload: Mapping[str, Any]) -> None:

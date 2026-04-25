@@ -262,6 +262,7 @@
         "nursery_composition_input",
         "engraved_seed",
         "planting_decision",
+        "gardener_routing_decision",
         "cultivated_decision",
         "map_topography"
       ],
@@ -321,6 +322,12 @@
           ]
         },
         "planting_decision": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "gardener_routing_decision": {
           "type": [
             "object",
             "null"
