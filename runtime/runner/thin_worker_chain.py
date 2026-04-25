@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from admission.admission_stub import admit_evaluator_handoff
+from admission.amundsen_nursery_handoff import build_amundsen_nursery_handoff
 from admission.decision_contracts import (
     validate_cultivated_decision,
     validate_session_signal_runner_result,
@@ -193,6 +194,7 @@ def _empty_artifacts() -> dict[str, Any]:
         "evaluator_verdict": None,
         "evaluator_amundsen_handoff": None,
         "admission_verdict": None,
+        "amundsen_nursery_handoff": None,
         "seedkeeper_segment": None,
         "engraved_seed": None,
         "planting_decision": None,
@@ -212,6 +214,9 @@ def _artifact_id(role: str, artifacts: Mapping[str, Any]) -> tuple[str | None, s
         artifact = artifacts.get("evaluator_verdict")
         return "evaluator_verdict", str(artifact.get("evaluator_verdict_id")) if isinstance(artifact, Mapping) else None
     if role == "amundsen":
+        artifact = artifacts.get("amundsen_nursery_handoff")
+        if isinstance(artifact, Mapping):
+            return "amundsen_nursery_handoff", str(artifact.get("handoff_id"))
         artifact = artifacts.get("admission_verdict")
         return "topic_route", str(artifact.get("continent_id")) if isinstance(artifact, Mapping) else None
     if role == "seedkeeper":
@@ -245,7 +250,7 @@ def _role_steps(
             if role == "evaluator":
                 reason_codes.append("session_admission_preserved")
             elif role == "amundsen":
-                reason_codes.append("topic_route_placeholder")
+                reason_codes.append("nursery_route_explicit")
             elif role == "seedkeeper":
                 reason_codes.append("source_ref_preserved")
                 reason_codes.append("nursery_boundary_ready")
@@ -529,7 +534,18 @@ def run_thin_worker_chain(
             evaluator_amundsen_handoff=evaluator_handoff,
             vault_root=active_vault_root,
         )
+        amundsen_nursery_handoff = build_amundsen_nursery_handoff(admission_verdict=admission_verdict)
         artifacts["admission_verdict"] = admission_verdict
+        artifacts["amundsen_nursery_handoff"] = amundsen_nursery_handoff
+        if amundsen_nursery_handoff["handoff_status"] != "ready_for_nursery":
+            return _stopped_result(
+                signal=signal,
+                runner_result=runner_result,
+                stop_reason=str(amundsen_nursery_handoff["blocked_reason"]),
+                blocked_role="amundsen",
+                completed_roles=completed_roles,
+                artifacts=artifacts,
+            )
         completed_roles.add("amundsen")
 
         fallback = _fallback_result_if_requested(
@@ -569,6 +585,7 @@ def run_thin_worker_chain(
             admission_verdict=admission_verdict,
             decision_candidate=decision_candidate,
             seedkeeper_segment=seedkeeper_segment,
+            amundsen_nursery_handoff=amundsen_nursery_handoff,
         )
         artifacts["engraved_seed"] = engraved_seed
         planting_decision = plan_seed_planting(engraved_seed=engraved_seed)

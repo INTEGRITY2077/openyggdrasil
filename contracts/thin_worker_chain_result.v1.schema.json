@@ -257,6 +257,7 @@
         "evaluator_verdict",
         "evaluator_amundsen_handoff",
         "admission_verdict",
+        "amundsen_nursery_handoff",
         "seedkeeper_segment",
         "engraved_seed",
         "planting_decision",
@@ -289,6 +290,12 @@
           ]
         },
         "admission_verdict": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "amundsen_nursery_handoff": {
           "type": [
             "object",
             "null"

@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/amundsen_nursery_handoff.v1.schema.json",
+  "title": "OpenYggdrasil Amundsen To Nursery Handoff v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "handoff_id",
+    "verdict_id",
+    "candidate_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "handoff_status",
+    "nursery_route_kind",
+    "admission_status",
+    "topic_route",
+    "continent_route",
+    "route_authority",
+    "semantic_worth_authority",
+    "placement_authority",
+    "nursery_authority",
+    "blocked_reason",
+    "reason_codes",
+    "admission_verdict",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "amundsen_nursery_handoff.v1"
+    },
+    "handoff_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "verdict_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "handoff_status": {
+      "type": "string",
+      "enum": [
+        "ready_for_nursery",
+        "blocked_by_admission"
+      ]
+    },
+    "nursery_route_kind": {
+      "type": "string",
+      "enum": [
+        "existing_continent_route",
+        "new_continent_candidate"
+      ]
+    },
+    "admission_status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "rejected"
+      ]
+    },
+    "topic_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "topic_key",
+        "topic_id",
+        "topic_title",
+        "page_id",
+        "canonical_relative_path",
+        "episode_id"
+      ],
+      "properties": {
+        "topic_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "topic_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "topic_title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "page_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonical_relative_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "episode_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "continent_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "continent_key",
+        "continent_id",
+        "continent_title",
+        "continent_decision",
+        "route_reason"
+      ],
+      "properties": {
+        "continent_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "continent_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "continent_title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "continent_decision": {
+          "type": "string",
+          "enum": [
+            "existing_continent",
+            "new_continent"
+          ]
+        },
+        "route_reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "route_authority": {
+      "type": "string",
+      "enum": [
+        "amundsen_category_decision_only"
+      ]
+    },
+    "semantic_worth_authority": {
+      "type": "string",
+      "enum": [
+        "not_amundsen"
+      ]
+    },
+    "placement_authority": {
+      "type": "string",
+      "enum": [
+        "not_amundsen"
+      ]
+    },
+    "nursery_authority": {
+      "type": "string",
+      "enum": [
+        "seed_composition_after_handoff"
+      ]
+    },
+    "blocked_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 160
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "admission_verdict": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

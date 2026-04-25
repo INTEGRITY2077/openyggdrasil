@@ -42,6 +42,11 @@ def load_evaluator_amundsen_handoff_schema() -> Dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
+def load_amundsen_nursery_handoff_schema() -> Dict[str, Any]:
+    return _load_schema("amundsen_nursery_handoff.v1.schema.json")
+
+
+@lru_cache(maxsize=1)
 def load_seedkeeper_segment_schema() -> Dict[str, Any]:
     return _load_schema("seedkeeper_segment.v1.schema.json")
 
@@ -129,6 +134,10 @@ def validate_evaluator_verdict(payload: Mapping[str, Any]) -> None:
 
 def validate_evaluator_amundsen_handoff(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_evaluator_amundsen_handoff_schema())
+
+
+def validate_amundsen_nursery_handoff(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_amundsen_nursery_handoff_schema())
 
 
 def validate_seedkeeper_segment(payload: Mapping[str, Any]) -> None:

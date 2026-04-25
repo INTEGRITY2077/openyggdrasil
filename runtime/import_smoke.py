@@ -7,6 +7,7 @@ from dataclasses import dataclass
 CANONICAL_RUNTIME_MODULES = [
     "admission.admission_stub",
     "admission.amundsen_stub",
+    "admission.amundsen_nursery_handoff",
     "admission.decision_contracts",
     "admission.session_admission_gate",
     "attachments.bootstrap_contract",
