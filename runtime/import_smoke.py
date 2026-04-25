@@ -19,6 +19,7 @@ CANONICAL_RUNTIME_MODULES = [
     "attachments.provider_attachment",
     "attachments.provider_inbox",
     "attachments.provider_packaging_known_limitations_matrix",
+    "attachments.provider_tooling_classification",
     "capture.decision_distiller",
     "capture.provider_runtime_integrity",
     "capture.session_structure_signal",
