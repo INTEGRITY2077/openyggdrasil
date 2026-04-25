@@ -212,6 +212,7 @@ def run_session_signal_thin_chain(
     duplicate_signal: bool = False,
     privacy_risk_detected: bool = False,
     candidate_renderer: Any = None,
+    role_fallbacks: Mapping[str, str] | None = None,
     vault_root: Path | None = None,
 ) -> dict[str, Any]:
     """Run R1 plus R2 and return both typed results."""
@@ -231,6 +232,7 @@ def run_session_signal_thin_chain(
         signal=signal,
         runner_result=entrypoint_result,
         candidate_renderer=candidate_renderer,
+        role_fallbacks=role_fallbacks,
         vault_root=vault_root,
     )
     return {
@@ -249,6 +251,7 @@ def run_session_signal_mailbox_support(
     duplicate_signal: bool = False,
     privacy_risk_detected: bool = False,
     candidate_renderer: Any = None,
+    role_fallbacks: Mapping[str, str] | None = None,
     vault_root: Path | None = None,
     workspace_root: Path | None = None,
 ) -> dict[str, Any]:
@@ -265,6 +268,7 @@ def run_session_signal_mailbox_support(
         duplicate_signal=duplicate_signal,
         privacy_risk_detected=privacy_risk_detected,
         candidate_renderer=candidate_renderer,
+        role_fallbacks=role_fallbacks,
         vault_root=vault_root,
     )
     support_result = emit_mailbox_support_result(

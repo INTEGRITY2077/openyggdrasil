@@ -107,6 +107,7 @@
             "type": "string",
             "enum": [
               "completed",
+              "fallback_used",
               "ready",
               "skipped",
               "blocked"

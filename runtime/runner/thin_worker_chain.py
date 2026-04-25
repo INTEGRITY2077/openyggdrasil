@@ -30,6 +30,7 @@ ROLE_ORDER = (
 )
 
 ThinCandidateRenderer = Callable[..., Mapping[str, Any]]
+RoleFallbacks = Mapping[str, str]
 
 
 def _string_field(payload: Mapping[str, Any], key: str, fallback: str = "unknown") -> str:
@@ -215,6 +216,7 @@ def _role_steps(
     *,
     completed_roles: set[str],
     blocked_role: str | None,
+    fallback_role: str | None,
     artifacts: Mapping[str, Any],
     stop_reason: str | None,
 ) -> list[dict[str, Any]]:
@@ -230,9 +232,9 @@ def _role_steps(
                 reason_codes.append("topic_route_placeholder")
             elif role == "gardener":
                 reason_codes.append("thin_planting_only")
-        elif role == "postman" and role in completed_roles:
-            status = "ready"
-            reason_codes = ["postman_handoff_ready"]
+        elif role == fallback_role:
+            status = "fallback_used"
+            reason_codes = [stop_reason or f"{role}_fallback_used"]
         elif role == blocked_role:
             status = "blocked"
             reason_codes = [stop_reason or f"{role}_blocked"]
@@ -289,6 +291,7 @@ def _result(
     stop_reason: str | None,
     completed_roles: set[str],
     blocked_role: str | None,
+    fallback_role: str | None = None,
     artifacts: Mapping[str, Any],
     postman_handoff: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
@@ -312,6 +315,7 @@ def _result(
         "role_steps": _role_steps(
             completed_roles=completed_roles,
             blocked_role=blocked_role,
+            fallback_role=fallback_role,
             artifacts=artifacts,
             stop_reason=stop_reason,
         ),
@@ -337,6 +341,7 @@ def _stopped_result(
     runner_result: Mapping[str, Any],
     stop_reason: str,
     blocked_role: str = "distiller",
+    fallback_role: str | None = None,
     completed_roles: set[str] | None = None,
     artifacts: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -347,8 +352,41 @@ def _stopped_result(
         stop_reason=stop_reason,
         completed_roles=completed_roles or set(),
         blocked_role=blocked_role,
+        fallback_role=fallback_role,
         artifacts=artifacts or _empty_artifacts(),
         postman_handoff=None,
+    )
+
+
+def _fallback_reason(role: str, role_fallbacks: RoleFallbacks | None) -> str | None:
+    if role_fallbacks is None:
+        return None
+    reason = str(role_fallbacks.get(role) or "").strip()
+    if not reason:
+        return None
+    return f"{role}_fallback_used:{reason}"
+
+
+def _fallback_result_if_requested(
+    *,
+    role: str,
+    role_fallbacks: RoleFallbacks | None,
+    signal: Mapping[str, Any],
+    runner_result: Mapping[str, Any],
+    completed_roles: set[str],
+    artifacts: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    reason = _fallback_reason(role, role_fallbacks)
+    if reason is None:
+        return None
+    return _stopped_result(
+        signal=signal,
+        runner_result=runner_result,
+        stop_reason=reason,
+        blocked_role=None,
+        fallback_role=role,
+        completed_roles=completed_roles,
+        artifacts=artifacts,
     )
 
 
@@ -357,6 +395,7 @@ def run_thin_worker_chain(
     signal: Mapping[str, Any],
     runner_result: Mapping[str, Any],
     candidate_renderer: ThinCandidateRenderer | None = None,
+    role_fallbacks: RoleFallbacks | None = None,
     vault_root: Path | None = None,
 ) -> dict[str, Any]:
     """Run R2: accepted signal to deterministic role-boundary chain result.
@@ -387,6 +426,16 @@ def run_thin_worker_chain(
     active_vault_root = (vault_root or DEFAULT_VAULT).resolve()
 
     try:
+        fallback = _fallback_result_if_requested(
+            role="distiller",
+            role_fallbacks=role_fallbacks,
+            signal=signal,
+            runner_result=runner_result,
+            completed_roles=completed_roles,
+            artifacts=artifacts,
+        )
+        if fallback is not None:
+            return fallback
         decision_surface = build_decision_surface_from_signal(signal)
         decision_candidate = finalize_decision_candidate(
             decision_surface=decision_surface,
@@ -395,13 +444,45 @@ def run_thin_worker_chain(
         artifacts["decision_candidate"] = decision_candidate
         completed_roles.add("distiller")
 
+        fallback = _fallback_result_if_requested(
+            role="evaluator",
+            role_fallbacks=role_fallbacks,
+            signal=signal,
+            runner_result=runner_result,
+            completed_roles=completed_roles,
+            artifacts=artifacts,
+        )
+        if fallback is not None:
+            return fallback
         admission_verdict = admit_decision_candidate(
             decision_candidate=decision_candidate,
             vault_root=active_vault_root,
         )
         artifacts["admission_verdict"] = admission_verdict
-        completed_roles.update({"evaluator", "amundsen"})
+        completed_roles.add("evaluator")
 
+        fallback = _fallback_result_if_requested(
+            role="amundsen",
+            role_fallbacks=role_fallbacks,
+            signal=signal,
+            runner_result=runner_result,
+            completed_roles=completed_roles,
+            artifacts=artifacts,
+        )
+        if fallback is not None:
+            return fallback
+        completed_roles.add("amundsen")
+
+        fallback = _fallback_result_if_requested(
+            role="gardener",
+            role_fallbacks=role_fallbacks,
+            signal=signal,
+            runner_result=runner_result,
+            completed_roles=completed_roles,
+            artifacts=artifacts,
+        )
+        if fallback is not None:
+            return fallback
         engraved_seed = engrave_decision_seed(
             admission_verdict=admission_verdict,
             decision_candidate=decision_candidate,
@@ -417,6 +498,16 @@ def run_thin_worker_chain(
         artifacts["cultivated_decision"] = cultivated_decision
         completed_roles.add("gardener")
 
+        fallback = _fallback_result_if_requested(
+            role="map_maker",
+            role_fallbacks=role_fallbacks,
+            signal=signal,
+            runner_result=runner_result,
+            completed_roles=completed_roles,
+            artifacts=artifacts,
+        )
+        if fallback is not None:
+            return fallback
         map_topography = update_map_topography(
             planting_decision=planting_decision,
             cultivated_decision=cultivated_decision,
@@ -424,6 +515,16 @@ def run_thin_worker_chain(
         artifacts["map_topography"] = map_topography
         completed_roles.add("map_maker")
 
+        fallback = _fallback_result_if_requested(
+            role="postman",
+            role_fallbacks=role_fallbacks,
+            signal=signal,
+            runner_result=runner_result,
+            completed_roles=completed_roles,
+            artifacts=artifacts,
+        )
+        if fallback is not None:
+            return fallback
         handoff = _postman_handoff(
             admission_verdict=admission_verdict,
             map_topography=map_topography,
@@ -438,6 +539,7 @@ def run_thin_worker_chain(
             stop_reason=None,
             completed_roles=completed_roles,
             blocked_role=None,
+            fallback_role=None,
             artifacts=artifacts,
             postman_handoff=handoff,
         )
