@@ -39,6 +39,7 @@ CANONICAL_RUNTIME_MODULES = [
     "provenance.provenance_store",
     "reasoning.provider_resource_boundary",
     "reasoning.reasoning_lease_contracts",
+    "runner.session_signal_runner",
     "retrieval.graph_freshness",
     "retrieval.graphify_snapshot_adapter",
     "retrieval.graphify_snapshot_manifest",
