@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/real_ux_regression_summary.v1.schema.json",
+  "title": "OpenYggdrasil Real UX Regression Summary v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "summary_id",
+    "result_count",
+    "passed_count",
+    "failed_count",
+    "scenario_statuses",
+    "source_shortcut_matrix",
+    "safety",
+    "next_action",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "real_ux_regression_summary.v1"
+    },
+    "summary_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "result_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 64
+    },
+    "passed_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 64
+    },
+    "failed_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 64
+    },
+    "scenario_statuses": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario",
+          "status",
+          "provider_id",
+          "regression_mode",
+          "next_action",
+          "reason_codes",
+          "assertions_true",
+          "assertions_false",
+          "scenario_assertions_false",
+          "output_path"
+        ],
+        "properties": {
+          "scenario": {
+            "type": "string",
+            "enum": [
+              "accepted_decision",
+              "correction_supersession",
+              "boundary_transition",
+              "context_pressure",
+              "irrelevant_decoy",
+              "follow_up_retrieval"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed"
+            ]
+          },
+          "provider_id": {
+            "const": "hermes"
+          },
+          "regression_mode": {
+            "const": "foreground_equivalent_local"
+          },
+          "next_action": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "reason_codes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 24,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          "assertions_true": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          "assertions_false": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          "scenario_assertions_false": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          "output_path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 700
+          }
+        }
+      }
+    },
+    "source_shortcut_matrix": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario",
+          "has_canonical_note",
+          "has_provenance_note",
+          "has_source_ref",
+          "origin_shortcut_exists"
+        ],
+        "properties": {
+          "scenario": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "has_canonical_note": {
+            "type": "boolean"
+          },
+          "has_provenance_note": {
+            "type": "boolean"
+          },
+          "has_source_ref": {
+            "type": "boolean"
+          },
+          "origin_shortcut_exists": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "no_provider_raw_session_copied_all",
+        "answer_text_excluded",
+        "provider_raw_payload_keys_excluded",
+        "summarized_without_raw_transcript"
+      ],
+      "properties": {
+        "no_provider_raw_session_copied_all": {
+          "type": "boolean"
+        },
+        "answer_text_excluded": {
+          "type": "boolean"
+        },
+        "provider_raw_payload_keys_excluded": {
+          "type": "boolean"
+        },
+        "summarized_without_raw_transcript": {
+          "type": "boolean"
+        }
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "enum": [
+        "phase_close_code_review",
+        "investigate_failure"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
