@@ -1,0 +1,453 @@
+from __future__ import annotations
+
+import uuid
+from pathlib import Path
+from typing import Any, Callable, Mapping
+
+from admission.admission_stub import admit_decision_candidate
+from admission.decision_contracts import (
+    validate_cultivated_decision,
+    validate_session_signal_runner_result,
+    validate_session_structure_signal,
+    validate_thin_worker_chain_result,
+)
+from capture.decision_distiller import finalize_decision_candidate
+from common.map_identity import build_claim_id
+from cultivation.gardener_stub import plan_seed_planting
+from cultivation.nursery_stub import engrave_decision_seed
+from harness_common import DEFAULT_VAULT, utc_now_iso
+from placement.map_maker_stub import update_map_topography
+from provenance.provenance_store import provenance_relative_path
+
+
+ROLE_ORDER = (
+    "distiller",
+    "evaluator",
+    "amundsen",
+    "gardener",
+    "map_maker",
+    "postman",
+)
+
+ThinCandidateRenderer = Callable[..., Mapping[str, Any]]
+
+
+def _string_field(payload: Mapping[str, Any], key: str, fallback: str = "unknown") -> str:
+    value = str(payload.get(key) or "").strip()
+    return value or fallback
+
+
+def _source_refs_from_signal(signal: Mapping[str, Any]) -> list[dict[str, Any]]:
+    source_ref = signal.get("source_ref")
+    if isinstance(source_ref, Mapping):
+        return [
+            {
+                "kind": "provider_session",
+                "path_hint": str(source_ref.get("path_hint") or "missing-source-ref").strip(),
+                "range_hint": source_ref.get("range_hint"),
+                "symlink_hint": source_ref.get("symlink_hint"),
+                "message_id": None,
+            }
+        ]
+    return [
+        {
+            "kind": "provider_session",
+            "path_hint": "missing-source-ref",
+            "range_hint": None,
+            "symlink_hint": None,
+            "message_id": None,
+        }
+    ]
+
+
+def _source_refs(
+    *,
+    signal: Mapping[str, Any],
+    runner_result: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    refs = runner_result.get("source_refs")
+    if isinstance(refs, list) and refs:
+        return [dict(ref) for ref in refs if isinstance(ref, Mapping)]
+    return _source_refs_from_signal(signal)
+
+
+def _source_ref_token(signal: Mapping[str, Any]) -> str:
+    source_ref = signal.get("source_ref")
+    if not isinstance(source_ref, Mapping):
+        return "provider_session:missing-source-ref"
+    path_hint = str(source_ref.get("path_hint") or "missing-source-ref").strip()
+    range_hint = str(source_ref.get("range_hint") or "").strip()
+    return f"provider_session:{path_hint}#{range_hint}" if range_hint else f"provider_session:{path_hint}"
+
+
+def _origin_locator(signal: Mapping[str, Any]) -> dict[str, Any]:
+    source_ref = dict(signal.get("source_ref") or {})
+    return {
+        "signal_id": _string_field(signal, "signal_id", "invalid-signal"),
+        "source_ref_kind": str(source_ref.get("kind") or "provider_session"),
+        "path_hint": str(source_ref.get("path_hint") or "missing-source-ref").strip(),
+        "range_hint": source_ref.get("range_hint"),
+        "symlink_hint": source_ref.get("symlink_hint"),
+        "anchor_hash": signal.get("anchor_hash"),
+    }
+
+
+def build_decision_surface_from_signal(signal: Mapping[str, Any]) -> dict[str, Any]:
+    """Convert a bounded provider signal into the existing decision surface contract.
+
+    The conversation excerpt is synthetic and signal-only; it is not copied provider raw text.
+    """
+
+    validate_session_structure_signal(signal)
+    turn_range = dict(signal["turn_range"])
+    surface_reason = str(signal["surface_reason"]).strip()
+    trigger_type = str(signal["trigger_type"]).strip()
+    reason_labels = [str(label).strip() for label in signal.get("reason_labels") or [] if str(label).strip()]
+    return {
+        "schema_version": "decision_surface.v1",
+        "provider_id": str(signal["provider_id"]),
+        "provider_profile": str(signal["provider_profile"]),
+        "provider_session_id": str(signal["provider_session_id"]),
+        "session_uid": str(signal["session_uid"]),
+        "turn_start": int(turn_range["from"]),
+        "turn_end": int(turn_range["to"]),
+        "surface_summary": surface_reason,
+        "trigger_reason": f"{trigger_type}:{','.join(reason_labels)}",
+        "topic_hint": None,
+        "source_ref": _source_ref_token(signal),
+        "conversation_excerpt": [
+            {
+                "role": "provider_signal",
+                "text": surface_reason,
+            }
+        ],
+        "origin_locator": _origin_locator(signal),
+        "created_at": utc_now_iso(),
+    }
+
+
+def _default_candidate_renderer(*, decision_surface: Mapping[str, Any]) -> Mapping[str, Any]:
+    turn_start = int(decision_surface["turn_start"])
+    turn_end = int(decision_surface["turn_end"])
+    trigger_reason = str(decision_surface["trigger_reason"])
+    surface_summary = str(decision_surface["surface_summary"])
+    trigger_head = trigger_reason.split(":", 1)[0] or "signal"
+    return {
+        "decision_text": f"Structure provider session turns {turn_start}-{turn_end}: {surface_summary}",
+        "rationale": f"Accepted bounded provider signal through {trigger_head}.",
+        "alternatives_rejected": [],
+        "stability_state": "superseding" if trigger_head == "correction_supersession_trigger" else "provisional",
+        "topic_hint": f"session-structure/{trigger_head}",
+        "reason_labels": ["thin_worker_chain", trigger_head],
+        "confidence_score": 0.72,
+    }
+
+
+def _cultivation_intent(
+    *,
+    engraved_seed: Mapping[str, Any],
+    planting_decision: Mapping[str, Any],
+    vault_root: Path,
+) -> dict[str, Any]:
+    created = utc_now_iso()
+    topic_id = str(engraved_seed["topic_id"])
+    canonical_relative_path = str(engraved_seed["canonical_relative_path"])
+    provenance_rel = provenance_relative_path(topic_id=topic_id)
+    cultivated = {
+        "schema_version": "cultivated_decision.v1",
+        "cultivation_id": uuid.uuid4().hex,
+        "planting_id": str(planting_decision["planting_id"]),
+        "seed_id": str(engraved_seed["seed_id"]),
+        "candidate_id": str(engraved_seed["candidate_id"]),
+        "topic_id": topic_id,
+        "topic_title": str(engraved_seed["topic_title"]),
+        "page_id": str(engraved_seed["page_id"]),
+        "canonical_relative_path": canonical_relative_path,
+        "provenance_relative_path": provenance_rel,
+        "canonical_note_path": str((vault_root / canonical_relative_path).resolve()),
+        "provenance_note_path": str((vault_root / provenance_rel).resolve()),
+        "claim_id": build_claim_id(
+            topic_id=topic_id,
+            claim_key=f"{str(engraved_seed['episode_id'])}:summary",
+        ),
+        "decision_text": str(engraved_seed["decision_text"]),
+        "support_fact": str(engraved_seed["decision_text"]),
+        "planting_target_kind": str(planting_decision["planting_target_kind"]),
+        "planting_target_key": str(planting_decision["planting_target_key"]),
+        "source_rel": canonical_relative_path,
+        "cultivated_at": created,
+    }
+    validate_cultivated_decision(cultivated)
+    return cultivated
+
+
+def _empty_artifacts() -> dict[str, Any]:
+    return {
+        "decision_candidate": None,
+        "admission_verdict": None,
+        "engraved_seed": None,
+        "planting_decision": None,
+        "cultivated_decision": None,
+        "map_topography": None,
+    }
+
+
+def _artifact_id(role: str, artifacts: Mapping[str, Any]) -> tuple[str | None, str | None]:
+    if role == "distiller":
+        artifact = artifacts.get("decision_candidate")
+        return "decision_candidate", str(artifact.get("candidate_id")) if isinstance(artifact, Mapping) else None
+    if role == "evaluator":
+        artifact = artifacts.get("admission_verdict")
+        return "admission_verdict", str(artifact.get("verdict_id")) if isinstance(artifact, Mapping) else None
+    if role == "amundsen":
+        artifact = artifacts.get("admission_verdict")
+        return "topic_route", str(artifact.get("continent_id")) if isinstance(artifact, Mapping) else None
+    if role == "gardener":
+        artifact = artifacts.get("planting_decision")
+        return "planting_decision", str(artifact.get("planting_id")) if isinstance(artifact, Mapping) else None
+    if role == "map_maker":
+        artifact = artifacts.get("map_topography")
+        return "map_topography", str(artifact.get("topography_id")) if isinstance(artifact, Mapping) else None
+    return "postman_handoff", None
+
+
+def _role_steps(
+    *,
+    completed_roles: set[str],
+    blocked_role: str | None,
+    artifacts: Mapping[str, Any],
+    stop_reason: str | None,
+) -> list[dict[str, Any]]:
+    steps: list[dict[str, Any]] = []
+    for role in ROLE_ORDER:
+        artifact_kind, artifact_id = _artifact_id(role, artifacts)
+        if role in completed_roles:
+            status = "completed"
+            reason_codes = [f"{role}_completed"]
+            if role == "evaluator":
+                reason_codes.append("session_admission_preserved")
+            elif role == "amundsen":
+                reason_codes.append("topic_route_placeholder")
+            elif role == "gardener":
+                reason_codes.append("thin_planting_only")
+        elif role == "postman" and role in completed_roles:
+            status = "ready"
+            reason_codes = ["postman_handoff_ready"]
+        elif role == blocked_role:
+            status = "blocked"
+            reason_codes = [stop_reason or f"{role}_blocked"]
+        else:
+            status = "skipped"
+            reason_codes = ["not_reached"]
+            artifact_kind = None
+            artifact_id = None
+        if role == "postman" and role in completed_roles:
+            status = "ready"
+            reason_codes = ["postman_handoff_ready", "mailbox_emission_deferred_to_r3"]
+        steps.append(
+            {
+                "role": role,
+                "status": status,
+                "artifact_kind": artifact_kind,
+                "artifact_id": artifact_id,
+                "reason_codes": reason_codes,
+            }
+        )
+    return steps
+
+
+def _postman_handoff(
+    *,
+    admission_verdict: Mapping[str, Any],
+    map_topography: Mapping[str, Any],
+    runner_result: Mapping[str, Any],
+    source_refs: list[dict[str, Any]],
+) -> dict[str, Any]:
+    session_admission = dict(runner_result.get("admission_verdict") or {})
+    return {
+        "handoff_status": "ready_for_mailbox_packet",
+        "message_type": "map_topography",
+        "target": {
+            "provider_id": str(admission_verdict["provider_id"]),
+            "profile": str(admission_verdict["provider_profile"]),
+            "session_id": str(admission_verdict["provider_session_id"]),
+            "topic": str(admission_verdict["topic_key"]),
+            "canonical_relative_path": str(admission_verdict["canonical_relative_path"]),
+            "topography_id": str(map_topography["topography_id"]),
+            "session_admission_verdict_id": session_admission.get("verdict_id"),
+            "source_refs": source_refs,
+        },
+        "reason_codes": ["postman_handoff_ready", "mailbox_mutation_deferred_to_r3"],
+    }
+
+
+def _result(
+    *,
+    signal: Mapping[str, Any],
+    runner_result: Mapping[str, Any],
+    status: str,
+    stop_reason: str | None,
+    completed_roles: set[str],
+    blocked_role: str | None,
+    artifacts: Mapping[str, Any],
+    postman_handoff: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    source_refs = _source_refs(signal=signal, runner_result=runner_result)
+    fallback_reason = stop_reason or None
+    result = {
+        "schema_version": "thin_worker_chain_result.v1",
+        "chain_result_id": uuid.uuid4().hex,
+        "runner_result_id": _string_field(runner_result, "runner_result_id", "missing-runner-result"),
+        "signal_id": _string_field(signal, "signal_id", _string_field(runner_result, "signal_id", "invalid-signal")),
+        "provider_id": _string_field(signal, "provider_id", _string_field(runner_result, "provider_id")),
+        "provider_profile": _string_field(signal, "provider_profile", _string_field(runner_result, "provider_profile")),
+        "provider_session_id": _string_field(
+            signal,
+            "provider_session_id",
+            _string_field(runner_result, "provider_session_id"),
+        ),
+        "session_uid": _string_field(signal, "session_uid", _string_field(runner_result, "session_uid")),
+        "status": status,
+        "stop_reason": stop_reason,
+        "role_steps": _role_steps(
+            completed_roles=completed_roles,
+            blocked_role=blocked_role,
+            artifacts=artifacts,
+            stop_reason=stop_reason,
+        ),
+        "source_refs": source_refs,
+        "mailbox_packet_refs": [],
+        "fallback_state": {
+            "fallback_used": fallback_reason is not None,
+            "fallback_reason": fallback_reason,
+            "quarantine": bool(dict(runner_result.get("fallback_state") or {}).get("quarantine")),
+        },
+        "artifacts": dict(artifacts),
+        "postman_handoff": dict(postman_handoff) if isinstance(postman_handoff, Mapping) else None,
+        "next_action": "emit_mailbox_support_result" if status == "completed" else "stop",
+        "created_at": utc_now_iso(),
+    }
+    validate_thin_worker_chain_result(result)
+    return result
+
+
+def _stopped_result(
+    *,
+    signal: Mapping[str, Any],
+    runner_result: Mapping[str, Any],
+    stop_reason: str,
+    blocked_role: str = "distiller",
+    completed_roles: set[str] | None = None,
+    artifacts: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    return _result(
+        signal=signal,
+        runner_result=runner_result,
+        status="stopped",
+        stop_reason=stop_reason,
+        completed_roles=completed_roles or set(),
+        blocked_role=blocked_role,
+        artifacts=artifacts or _empty_artifacts(),
+        postman_handoff=None,
+    )
+
+
+def run_thin_worker_chain(
+    *,
+    signal: Mapping[str, Any],
+    runner_result: Mapping[str, Any],
+    candidate_renderer: ThinCandidateRenderer | None = None,
+    vault_root: Path | None = None,
+) -> dict[str, Any]:
+    """Run R2: accepted signal to deterministic role-boundary chain result.
+
+    This function never writes mailbox packets and never copies provider raw sessions.
+    """
+
+    try:
+        validate_session_signal_runner_result(runner_result)
+    except Exception as exc:
+        return _stopped_result(
+            signal=signal,
+            runner_result=runner_result,
+            stop_reason=f"runner_result_invalid:{exc.__class__.__name__}",
+            blocked_role="distiller",
+        )
+
+    if runner_result.get("status") != "runner_plan_ready":
+        return _stopped_result(
+            signal=signal,
+            runner_result=runner_result,
+            stop_reason=str(runner_result.get("stop_reason") or "runner_not_ready"),
+            blocked_role="distiller",
+        )
+
+    artifacts = _empty_artifacts()
+    completed_roles: set[str] = set()
+    active_vault_root = (vault_root or DEFAULT_VAULT).resolve()
+
+    try:
+        decision_surface = build_decision_surface_from_signal(signal)
+        decision_candidate = finalize_decision_candidate(
+            decision_surface=decision_surface,
+            raw_candidate=dict((candidate_renderer or _default_candidate_renderer)(decision_surface=decision_surface)),
+        )
+        artifacts["decision_candidate"] = decision_candidate
+        completed_roles.add("distiller")
+
+        admission_verdict = admit_decision_candidate(
+            decision_candidate=decision_candidate,
+            vault_root=active_vault_root,
+        )
+        artifacts["admission_verdict"] = admission_verdict
+        completed_roles.update({"evaluator", "amundsen"})
+
+        engraved_seed = engrave_decision_seed(
+            admission_verdict=admission_verdict,
+            decision_candidate=decision_candidate,
+        )
+        artifacts["engraved_seed"] = engraved_seed
+        planting_decision = plan_seed_planting(engraved_seed=engraved_seed)
+        artifacts["planting_decision"] = planting_decision
+        cultivated_decision = _cultivation_intent(
+            engraved_seed=engraved_seed,
+            planting_decision=planting_decision,
+            vault_root=active_vault_root,
+        )
+        artifacts["cultivated_decision"] = cultivated_decision
+        completed_roles.add("gardener")
+
+        map_topography = update_map_topography(
+            planting_decision=planting_decision,
+            cultivated_decision=cultivated_decision,
+        )
+        artifacts["map_topography"] = map_topography
+        completed_roles.add("map_maker")
+
+        handoff = _postman_handoff(
+            admission_verdict=admission_verdict,
+            map_topography=map_topography,
+            runner_result=runner_result,
+            source_refs=_source_refs(signal=signal, runner_result=runner_result),
+        )
+        completed_roles.add("postman")
+        return _result(
+            signal=signal,
+            runner_result=runner_result,
+            status="completed",
+            stop_reason=None,
+            completed_roles=completed_roles,
+            blocked_role=None,
+            artifacts=artifacts,
+            postman_handoff=handoff,
+        )
+    except Exception as exc:
+        next_role = next((role for role in ROLE_ORDER if role not in completed_roles), "postman")
+        return _stopped_result(
+            signal=signal,
+            runner_result=runner_result,
+            stop_reason=f"{next_role}_failed:{exc.__class__.__name__}",
+            blocked_role=next_role,
+            completed_roles=completed_roles,
+            artifacts=artifacts,
+        )

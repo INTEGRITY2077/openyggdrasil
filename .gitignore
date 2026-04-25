@@ -19,6 +19,7 @@ ops/
 **/state.db-*
 
 # transient runtime dirs
+.runtime/
 .yggdrasil/
 **/.yggdrasil/
 **/sessions/

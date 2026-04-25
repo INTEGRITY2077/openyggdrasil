@@ -1,0 +1,357 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/thin_worker_chain_result.v1.schema.json",
+  "title": "OpenYggdrasil Thin Worker Chain Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "chain_result_id",
+    "runner_result_id",
+    "signal_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "status",
+    "stop_reason",
+    "role_steps",
+    "source_refs",
+    "mailbox_packet_refs",
+    "fallback_state",
+    "artifacts",
+    "postman_handoff",
+    "next_action",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "thin_worker_chain_result.v1"
+    },
+    "chain_result_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "runner_result_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "signal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "stopped"
+      ]
+    },
+    "stop_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 160
+    },
+    "role_steps": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "status",
+          "artifact_kind",
+          "artifact_id",
+          "reason_codes"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "distiller",
+              "evaluator",
+              "amundsen",
+              "gardener",
+              "map_maker",
+              "postman"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "ready",
+              "skipped",
+              "blocked"
+            ]
+          },
+          "artifact_kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80
+          },
+          "artifact_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 160
+          },
+          "reason_codes": {
+            "type": "array",
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          }
+        }
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "path_hint"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "provider_session",
+              "provider_session_source_ref",
+              "provenance",
+              "mailbox_packet",
+              "support_bundle"
+            ]
+          },
+          "path_hint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "range_hint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "symlink_hint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          },
+          "message_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    "mailbox_packet_refs": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "message_id",
+          "packet_type"
+        ],
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "packet_type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "path_hint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "fallback_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fallback_used",
+        "fallback_reason",
+        "quarantine"
+      ],
+      "properties": {
+        "fallback_used": {
+          "type": "boolean"
+        },
+        "fallback_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 160
+        },
+        "quarantine": {
+          "type": "boolean"
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_candidate",
+        "admission_verdict",
+        "engraved_seed",
+        "planting_decision",
+        "cultivated_decision",
+        "map_topography"
+      ],
+      "properties": {
+        "decision_candidate": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "admission_verdict": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "engraved_seed": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "planting_decision": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "cultivated_decision": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "map_topography": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      }
+    },
+    "postman_handoff": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "handoff_status",
+        "message_type",
+        "target",
+        "reason_codes"
+      ],
+      "properties": {
+        "handoff_status": {
+          "type": "string",
+          "enum": [
+            "ready_for_mailbox_packet",
+            "not_ready"
+          ]
+        },
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 80
+        },
+        "target": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          }
+        }
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "enum": [
+        "emit_mailbox_support_result",
+        "stop"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

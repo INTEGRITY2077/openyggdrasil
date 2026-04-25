@@ -40,6 +40,7 @@ CANONICAL_RUNTIME_MODULES = [
     "reasoning.provider_resource_boundary",
     "reasoning.reasoning_lease_contracts",
     "runner.session_signal_runner",
+    "runner.thin_worker_chain",
     "retrieval.graph_freshness",
     "retrieval.graphify_snapshot_adapter",
     "retrieval.graphify_snapshot_manifest",

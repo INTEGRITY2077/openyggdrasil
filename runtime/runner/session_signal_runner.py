@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 from typing import Any, Mapping
 
 from admission.decision_contracts import validate_session_signal_runner_result
@@ -197,3 +198,38 @@ def run_session_signal_entrypoint(
     }
     validate_session_signal_runner_result(result)
     return result
+
+
+def run_session_signal_thin_chain(
+    signal: Mapping[str, Any],
+    *,
+    runtime_event_labels: list[str] | tuple[str, ...] | None = None,
+    evidence_refs: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...] | None = None,
+    source_ref_exists: bool = True,
+    duplicate_signal: bool = False,
+    privacy_risk_detected: bool = False,
+    candidate_renderer: Any = None,
+    vault_root: Path | None = None,
+) -> dict[str, Any]:
+    """Run R1 plus R2 and return both typed results."""
+
+    from runner.thin_worker_chain import run_thin_worker_chain
+
+    entrypoint_result = run_session_signal_entrypoint(
+        signal,
+        runtime_event_labels=runtime_event_labels,
+        evidence_refs=evidence_refs,
+        source_ref_exists=source_ref_exists,
+        duplicate_signal=duplicate_signal,
+        privacy_risk_detected=privacy_risk_detected,
+    )
+    chain_result = run_thin_worker_chain(
+        signal=signal,
+        runner_result=entrypoint_result,
+        candidate_renderer=candidate_renderer,
+        vault_root=vault_root,
+    )
+    return {
+        "entrypoint_result": entrypoint_result,
+        "chain_result": chain_result,
+    }
