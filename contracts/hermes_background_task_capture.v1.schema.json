@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/hermes_background_task_capture.v1.schema.json",
+  "title": "OpenYggdrasil Hermes Background Task Capture v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "capture_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "capture_status",
+    "reason_code",
+    "command",
+    "invocation_surface",
+    "capture_mode",
+    "captured_from",
+    "captured_task_ref",
+    "task_ref_status",
+    "output_sha256",
+    "raw_output_copied",
+    "raw_session_copied",
+    "state_db_result_harvested",
+    "live_provider_invoked",
+    "lease_completion_claimed",
+    "source_refs",
+    "next_action",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "hermes_background_task_capture.v1"
+    },
+    "capture_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capture_status": {
+      "type": "string",
+      "enum": [
+        "captured",
+        "typed_unavailable",
+        "blocked_unsafe_surface"
+      ]
+    },
+    "reason_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "command": {
+      "const": "/background"
+    },
+    "invocation_surface": {
+      "type": "string",
+      "enum": [
+        "provider_owned_command_gateway",
+        "none"
+      ]
+    },
+    "capture_mode": {
+      "type": "string",
+      "enum": [
+        "gateway_output_capture",
+        "not_executed"
+      ]
+    },
+    "captured_from": {
+      "type": "string",
+      "enum": [
+        "provider_owned_command_gateway_output",
+        "none"
+      ]
+    },
+    "captured_task_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^bg_[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "task_ref_status": {
+      "type": "string",
+      "enum": [
+        "captured",
+        "unavailable"
+      ]
+    },
+    "output_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "raw_output_copied": {
+      "const": false
+    },
+    "raw_session_copied": {
+      "const": false
+    },
+    "state_db_result_harvested": {
+      "const": false
+    },
+    "live_provider_invoked": {
+      "type": "boolean"
+    },
+    "lease_completion_claimed": {
+      "const": false
+    },
+    "source_refs": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 700
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
