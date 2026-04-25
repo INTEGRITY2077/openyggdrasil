@@ -128,6 +128,7 @@ COMPATIBILITY_SHIM_MODULES = [
 
 RUNTIME_UTILITY_MODULES = [
     "shim_policy",
+    "surface_policy",
 ]
 
 
