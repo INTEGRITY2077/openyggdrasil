@@ -14,3 +14,4 @@ Phase 5 lifecycle retrieval policy:
 - Pathfinder defaults to active lifecycle records only.
 - `SUPERSEDED` and `STALE` records require explicit historical retrieval mode.
 - Lifecycle retrieval metadata must preserve source refs, provenance, temporal fields, and archive trace refs.
+- Cross-provider memory consumption requires explicit provider/session/source provenance, confidence, and visible lifecycle state; blind global bucket reads are rejected.

@@ -1,0 +1,296 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/cross_provider_memory_consumption_result.v1.schema.json",
+  "title": "OpenYggdrasil Cross Provider Memory Consumption Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "consumption_id",
+    "consumer_provider_id",
+    "consumer_provider_profile",
+    "consumer_session_uid",
+    "status",
+    "stop_reason",
+    "retrieval_result_ref",
+    "consumed_records",
+    "consumption_policy",
+    "blind_global_bucket_read",
+    "reason_codes",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cross_provider_memory_consumption_result.v1"
+    },
+    "consumption_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "consumer_provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "consumer_provider_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "consumer_session_uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "stopped"
+      ]
+    },
+    "stop_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 180
+    },
+    "retrieval_result_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "retrieval_result_id",
+        "query_text",
+        "lifecycle_filter_mode",
+        "source_ref_authority"
+      ],
+      "properties": {
+        "retrieval_result_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "query_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lifecycle_filter_mode": {
+          "type": "string",
+          "enum": [
+            "active_only",
+            "historical_including_inactive"
+          ]
+        },
+        "source_ref_authority": {
+          "const": "required_forward_only"
+        }
+      }
+    },
+    "consumed_records": {
+      "type": "array",
+      "maxItems": 48,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "lifecycle_record_id",
+          "canonical_record_id",
+          "lifecycle_state",
+          "canonical_ref",
+          "provider_provenance",
+          "confidence",
+          "source_refs",
+          "valid_from",
+          "valid_until",
+          "archive_trace_refs"
+        ],
+        "properties": {
+          "lifecycle_record_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "canonical_record_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lifecycle_state": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "SUPERSEDED",
+              "STALE"
+            ]
+          },
+          "canonical_ref": {
+            "type": "object",
+            "minProperties": 1
+          },
+          "provider_provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "provider_id",
+              "provider_profile",
+              "provider_session_id",
+              "session_uid",
+              "source_provenance"
+            ],
+            "properties": {
+              "provider_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "provider_profile": {
+                "type": "string",
+                "minLength": 1
+              },
+              "provider_session_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "session_uid": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_provenance": {
+                "type": "object",
+                "minProperties": 1
+              }
+            }
+          },
+          "confidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "confidence_score",
+              "confidence_source"
+            ],
+            "properties": {
+              "confidence_score": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0
+              },
+              "confidence_source": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "source_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 24,
+            "items": {
+              "type": "object",
+              "minProperties": 1
+            }
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "valid_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "archive_trace_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 48,
+            "items": {
+              "type": "object",
+              "minProperties": 1
+            }
+          }
+        }
+      }
+    },
+    "consumption_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_boundary",
+        "source_ref_policy",
+        "confidence_policy",
+        "lifecycle_policy",
+        "blind_global_bucket_policy"
+      ],
+      "properties": {
+        "provider_boundary": {
+          "const": "cross_provider_only_with_explicit_provenance"
+        },
+        "source_ref_policy": {
+          "const": "required_forward_only"
+        },
+        "confidence_policy": {
+          "const": "required_at_retrieval_time"
+        },
+        "lifecycle_policy": {
+          "const": "visible_at_retrieval_time"
+        },
+        "blind_global_bucket_policy": {
+          "const": "rejected"
+        }
+      }
+    },
+    "blind_global_bucket_read": {
+      "const": false
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "completed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "stop_reason": {
+            "const": null
+          },
+          "consumed_records": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "stopped"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "stop_reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  ]
+}

@@ -67,6 +67,7 @@ CANONICAL_RUNTIME_MODULES = [
     "runner.session_signal_runner",
     "runner.thin_worker_chain",
     "retrieval.graph_freshness",
+    "retrieval.cross_provider_memory_consumption",
     "retrieval.graphify_snapshot_adapter",
     "retrieval.graphify_snapshot_manifest",
     "retrieval.origin_shortcut_roundtrip",
