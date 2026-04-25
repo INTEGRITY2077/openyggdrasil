@@ -26,6 +26,12 @@ RAW_PAYLOAD_KEYS = {
 }
 
 STALE_GRAPH_STATUSES = {"expired", "stale"}
+CATEGORY_INDEX_HINT_TYPES = {
+    "graph_hint",
+    "map_topography",
+    "community_topography",
+}
+CANONICAL_WRITE_STATUS_ALLOWED_FOR_HINTS = {"", "not_written"}
 
 
 @dataclass(frozen=True)
@@ -135,6 +141,41 @@ def _graph_freshness_stale(payload: Mapping[str, Any]) -> bool:
     return status in STALE_GRAPH_STATUSES
 
 
+def _is_category_index_hint(message: Mapping[str, Any]) -> bool:
+    return str(message.get("message_type") or "") in CATEGORY_INDEX_HINT_TYPES
+
+
+def _category_index_unauthorized_codes(message: Mapping[str, Any]) -> list[str]:
+    if not _is_category_index_hint(message):
+        return []
+    payload = _message_payload(message)
+    reason_codes: list[str] = []
+    if message.get("kind") != "packet":
+        reason_codes.append("category_index_wrong_kind")
+    if payload.get("vault_mutation_allowed") is True:
+        reason_codes.append("category_index_canonical_write_unauthorized")
+    canonical_write_status = str(payload.get("canonical_write_status") or "").strip()
+    if canonical_write_status not in CANONICAL_WRITE_STATUS_ALLOWED_FOR_HINTS:
+        reason_codes.append("category_index_canonical_write_unauthorized")
+    canonical_authority = str(payload.get("canonical_authority") or "").strip()
+    if canonical_authority and canonical_authority != "not_this_contract":
+        reason_codes.append("category_index_canonical_authority_unauthorized")
+    if payload.get("ambiguous_memory_canonicalized") is True:
+        reason_codes.append("category_index_ambiguous_memory_canonicalized")
+    return reason_codes
+
+
+def _category_index_hint_reason_codes(message: Mapping[str, Any]) -> list[str]:
+    if not _is_category_index_hint(message):
+        return []
+    return [
+        "category_index_hint_only",
+        "promotion_request_required",
+        "gate_review_required_before_canonical_write",
+        "canonical_write_not_authorized",
+    ]
+
+
 def _delivery_mismatches_scope(message: Mapping[str, Any]) -> list[str]:
     scope = _message_scope(message)
     delivery = _delivery_payload(message)
@@ -214,6 +255,8 @@ def guard_mailbox_message(
     if _contains_raw_payload_key(payload):
         reject_codes.append("payload_contains_raw_session")
 
+    reject_codes.extend(_category_index_unauthorized_codes(message))
+
     if active_policy.allowed_message_types and str(message.get("message_type") or "") not in active_policy.allowed_message_types:
         quarantine_codes.append("message_type_not_allowed")
 
@@ -272,7 +315,7 @@ def guard_mailbox_message(
     return _result(
         message=message,
         verdict="accept",
-        reason_codes=reason_codes + ["mailbox_safe"],
+        reason_codes=reason_codes + ["mailbox_safe"] + _category_index_hint_reason_codes(message),
         checked_at=checked_at,
     )
 
