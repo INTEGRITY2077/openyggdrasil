@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/lifecycle_candidate_lint_loop.v1.schema.json",
+  "title": "OpenYggdrasil Lifecycle Candidate Lint Loop v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lint_loop_id",
+    "loop_status",
+    "active_record_ref",
+    "candidate_results",
+    "loop_policy",
+    "lint_authority",
+    "simplicity_authority",
+    "lifecycle_review_required",
+    "canonical_authority",
+    "canonical_write_status",
+    "direct_canonical_mutation_status",
+    "vault_mutation_allowed",
+    "physical_delete_allowed",
+    "reason_codes",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "lifecycle_candidate_lint_loop.v1"
+    },
+    "lint_loop_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "loop_status": {
+      "const": "candidates_proposed_for_review"
+    },
+    "active_record_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lifecycle_record_id",
+        "canonical_record_id",
+        "lifecycle_state",
+        "canonical_ref",
+        "source_refs",
+        "provenance"
+      ],
+      "properties": {
+        "lifecycle_record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonical_record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lifecycle_state": {
+          "const": "ACTIVE"
+        },
+        "canonical_ref": {
+          "type": "object",
+          "minProperties": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 24,
+          "items": {
+            "type": "object",
+            "minProperties": 1
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "minProperties": 1
+        }
+      }
+    },
+    "candidate_results": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_kind",
+          "candidate_id",
+          "candidate_status",
+          "target_lifecycle_state",
+          "transition_request",
+          "candidate_authority",
+          "lifecycle_review_required",
+          "canonical_write_status",
+          "direct_canonical_mutation_status",
+          "vault_mutation_allowed",
+          "physical_delete_allowed"
+        ],
+        "properties": {
+          "candidate_kind": {
+            "type": "string",
+            "enum": [
+              "lint",
+              "simplicity"
+            ]
+          },
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "candidate_status": {
+            "const": "proposed"
+          },
+          "target_lifecycle_state": {
+            "type": "string",
+            "enum": [
+              "STALE",
+              "SUPERSEDED"
+            ]
+          },
+          "transition_request": {
+            "type": "object",
+            "minProperties": 1
+          },
+          "candidate_authority": {
+            "const": "proposal_only"
+          },
+          "lifecycle_review_required": {
+            "const": true
+          },
+          "canonical_write_status": {
+            "const": "not_written"
+          },
+          "direct_canonical_mutation_status": {
+            "const": "not_mutated"
+          },
+          "vault_mutation_allowed": {
+            "const": false
+          },
+          "physical_delete_allowed": {
+            "const": false
+          }
+        }
+      }
+    },
+    "loop_policy": {
+      "const": "proposal_only"
+    },
+    "lint_authority": {
+      "const": "candidate_proposal_only"
+    },
+    "simplicity_authority": {
+      "const": "candidate_proposal_only"
+    },
+    "lifecycle_review_required": {
+      "const": true
+    },
+    "canonical_authority": {
+      "const": "not_this_contract"
+    },
+    "canonical_write_status": {
+      "const": "not_written"
+    },
+    "direct_canonical_mutation_status": {
+      "const": "not_mutated"
+    },
+    "vault_mutation_allowed": {
+      "const": false
+    },
+    "physical_delete_allowed": {
+      "const": false
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

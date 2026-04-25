@@ -26,3 +26,7 @@ downgraded effort before review and never write canonical vault state.
 Helper output staging helpers accept completed reasoning lease output only after
 effort-aware worthiness is ready. They retain digest/source-ref evidence and a
 bounded preview for later review, while keeping helper output non-canonical.
+
+Lifecycle candidate lint loop helpers turn Gardener lint and Simplicity
+Criterion findings into typed stale/supersession transition requests. The loop
+is proposal-only and never mutates canonical vault records directly.

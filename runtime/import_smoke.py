@@ -23,6 +23,7 @@ CANONICAL_RUNTIME_MODULES = [
     "cultivation.gardener_routing",
     "cultivation.helper_output_staging",
     "cultivation.gardener_stub",
+    "cultivation.lifecycle_candidate_lint_loop",
     "cultivation.nursery_stub",
     "cultivation.nursery_composition_input",
     "cultivation.seedkeeper",
