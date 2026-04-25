@@ -124,6 +124,7 @@
         "seedkeeper_source_ref_only",
         "nursery_composed_input_ready",
         "gardener_forest_routing_only",
+        "map_maker_placement_only",
         "postman_delivery_ready"
       ],
       "properties": {
@@ -143,6 +144,9 @@
           "type": "boolean"
         },
         "gardener_forest_routing_only": {
+          "type": "boolean"
+        },
+        "map_maker_placement_only": {
           "type": "boolean"
         },
         "postman_delivery_ready": {

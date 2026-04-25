@@ -636,6 +636,8 @@ def run_thin_worker_chain(
         map_topography = update_map_topography(
             planting_decision=planting_decision,
             cultivated_decision=cultivated_decision,
+            amundsen_nursery_handoff=amundsen_nursery_handoff,
+            gardener_routing_decision=gardener_routing_decision,
         )
         artifacts["map_topography"] = map_topography
         completed_roles.add("map_maker")

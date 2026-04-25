@@ -20,6 +20,16 @@
     "planting_target_key",
     "routing_mode",
     "topography_status",
+    "map_maker_authority",
+    "semantic_worth_authority",
+    "category_authority",
+    "bridge_topology_authority",
+    "category_source",
+    "placement_source",
+    "category_integrity_status",
+    "bridge_creation_allowed",
+    "amundsen_handoff_id",
+    "gardener_routing_id",
     "adjacency_keys",
     "bridge_count",
     "map_updated_at"
@@ -88,15 +98,78 @@
         "aligned"
       ]
     },
+    "map_maker_authority": {
+      "type": "string",
+      "enum": [
+        "placement_only"
+      ]
+    },
+    "semantic_worth_authority": {
+      "type": "string",
+      "enum": [
+        "not_map_maker"
+      ]
+    },
+    "category_authority": {
+      "type": "string",
+      "enum": [
+        "not_map_maker"
+      ]
+    },
+    "bridge_topology_authority": {
+      "type": "string",
+      "enum": [
+        "not_map_maker"
+      ]
+    },
+    "category_source": {
+      "type": "string",
+      "enum": [
+        "amundsen_nursery_handoff",
+        "planting_decision"
+      ]
+    },
+    "placement_source": {
+      "type": "string",
+      "enum": [
+        "gardener_routing_decision",
+        "cultivated_decision"
+      ]
+    },
+    "category_integrity_status": {
+      "type": "string",
+      "enum": [
+        "verified_against_amundsen_handoff",
+        "legacy_planting_source_unverified"
+      ]
+    },
+    "bridge_creation_allowed": {
+      "const": false
+    },
+    "amundsen_handoff_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "gardener_routing_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
     "adjacency_keys": {
       "type": "array",
+      "maxItems": 0,
       "items": {
         "type": "string"
       }
     },
     "bridge_count": {
       "type": "integer",
-      "minimum": 0
+      "const": 0
     },
     "map_updated_at": {
       "type": "string",

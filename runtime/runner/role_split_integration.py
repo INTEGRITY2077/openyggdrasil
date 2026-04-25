@@ -64,6 +64,7 @@ def inspect_role_split_integration(*, chain_result: Mapping[str, Any]) -> dict[s
     seedkeeper_segment = dict(artifacts.get("seedkeeper_segment") or {})
     nursery_input = dict(artifacts.get("nursery_composition_input") or {})
     gardener_route = dict(artifacts.get("gardener_routing_decision") or {})
+    map_topography = dict(artifacts.get("map_topography") or {})
     postman_handoff = dict(chain_result.get("postman_handoff") or {})
 
     required_artifacts = {key: _artifact_present(artifacts, key) for key in REQUIRED_ARTIFACTS}
@@ -95,6 +96,18 @@ def inspect_role_split_integration(*, chain_result: Mapping[str, Any]) -> dict[s
             and gardener_route.get("semantic_worth_authority") == "not_gardener"
             and gardener_route.get("category_authority") == "not_gardener"
             and gardener_route.get("placement_authority") == "not_gardener"
+        ),
+        "map_maker_placement_only": (
+            map_topography.get("map_maker_authority") == "placement_only"
+            and map_topography.get("semantic_worth_authority") == "not_map_maker"
+            and map_topography.get("category_authority") == "not_map_maker"
+            and map_topography.get("bridge_topology_authority") == "not_map_maker"
+            and map_topography.get("category_source") == "amundsen_nursery_handoff"
+            and map_topography.get("placement_source") == "gardener_routing_decision"
+            and map_topography.get("category_integrity_status") == "verified_against_amundsen_handoff"
+            and map_topography.get("bridge_creation_allowed") is False
+            and map_topography.get("bridge_count") == 0
+            and map_topography.get("adjacency_keys") == []
         ),
         "postman_delivery_ready": postman_handoff.get("handoff_status") == "ready_for_mailbox_packet",
     }
