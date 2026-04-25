@@ -18,3 +18,7 @@ Cross-provider conflict quarantine helpers detect same-key contradictory or
 ambiguous active records from different providers. They apply an explicit
 discounting rule, route the claim to review/fallback, and do not canonicalize
 ambiguous memory.
+
+Effort-aware Gardener worthiness helpers gate promotion review on verified
+effort metadata and actual effort estimates. They defer low, unknown, or
+downgraded effort before review and never write canonical vault state.

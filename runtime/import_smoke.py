@@ -18,6 +18,7 @@ CANONICAL_RUNTIME_MODULES = [
     "capture.session_structure_signal",
     "common.map_identity",
     "cultivation.cross_provider_conflict_quarantine",
+    "cultivation.effort_aware_gardener_worthiness",
     "cultivation.gardener_lifecycle_transition_request",
     "cultivation.gardener_routing",
     "cultivation.gardener_stub",

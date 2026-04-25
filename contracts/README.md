@@ -49,4 +49,5 @@ This directory is reserved for engine-level contracts:
 - vault record lifecycle / soft-delete contracts
 - Gardener lifecycle transition request contracts
 - cross-provider conflict quarantine contracts
+- effort-aware Gardener worthiness gate contracts
 - cross-provider memory consumption provenance contracts
