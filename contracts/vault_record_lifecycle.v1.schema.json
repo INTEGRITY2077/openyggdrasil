@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/vault_record_lifecycle.v1.schema.json",
+  "title": "OpenYggdrasil Vault Record Lifecycle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lifecycle_record_id",
+    "canonical_record_id",
+    "lifecycle_state",
+    "canonical_ref",
+    "source_promotion_request_id",
+    "source_refs",
+    "provenance",
+    "valid_from",
+    "valid_until",
+    "invalidated_by",
+    "superseded_by",
+    "superseded_at",
+    "supersession_reason",
+    "archive_trace_refs",
+    "deletion_policy",
+    "physical_delete_allowed",
+    "traceability_preserved",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "vault_record_lifecycle.v1"
+    },
+    "lifecycle_record_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "canonical_record_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "lifecycle_state": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "SUPERSEDED",
+        "STALE"
+      ]
+    },
+    "canonical_ref": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "source_promotion_request_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 48,
+      "items": {
+        "type": "object",
+        "minProperties": 1
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "valid_from": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "valid_until": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "invalidated_by": {
+      "anyOf": [
+        {
+          "type": "object",
+          "minProperties": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "superseded_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 180
+    },
+    "superseded_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "supersession_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 240
+    },
+    "archive_trace_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "minProperties": 1
+      }
+    },
+    "deletion_policy": {
+      "const": "soft_delete_only"
+    },
+    "physical_delete_allowed": {
+      "const": false
+    },
+    "traceability_preserved": {
+      "const": true
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "lifecycle_state": {
+            "const": "ACTIVE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "valid_until": {
+            "type": "null"
+          },
+          "invalidated_by": {
+            "type": "null"
+          },
+          "superseded_by": {
+            "type": "null"
+          },
+          "superseded_at": {
+            "type": "null"
+          },
+          "supersession_reason": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lifecycle_state": {
+            "const": "SUPERSEDED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "valid_until": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "invalidated_by": {
+            "type": "object",
+            "minProperties": 1
+          },
+          "superseded_by": {
+            "type": "string",
+            "minLength": 1
+          },
+          "superseded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "supersession_reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lifecycle_state": {
+            "const": "STALE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "valid_until": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "invalidated_by": {
+            "type": "object",
+            "minProperties": 1
+          },
+          "superseded_by": {
+            "type": "null"
+          },
+          "superseded_at": {
+            "type": "null"
+          },
+          "supersession_reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  ]
+}

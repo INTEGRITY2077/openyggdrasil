@@ -22,6 +22,7 @@ CANONICAL_RUNTIME_MODULES = [
     "cultivation.nursery_stub",
     "cultivation.nursery_composition_input",
     "cultivation.seedkeeper",
+    "cultivation.vault_record_lifecycle",
     "cultivation.vault_promotion_request",
     "delivery.mailbox_schema",
     "delivery.mailbox_contamination_guard",
