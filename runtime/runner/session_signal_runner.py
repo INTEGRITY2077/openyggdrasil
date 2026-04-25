@@ -142,6 +142,7 @@ def run_session_signal_entrypoint(
     runtime_event_labels: list[str] | tuple[str, ...] | None = None,
     evidence_refs: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...] | None = None,
     source_ref_exists: bool = True,
+    source_ref_unavailable: bool = False,
     duplicate_signal: bool = False,
     privacy_risk_detected: bool = False,
 ) -> dict[str, Any]:
@@ -152,6 +153,7 @@ def run_session_signal_entrypoint(
         runtime_event_labels=runtime_event_labels,
         evidence_refs=evidence_refs,
         source_ref_exists=source_ref_exists,
+        source_ref_unavailable=source_ref_unavailable,
         duplicate_signal=duplicate_signal,
         privacy_risk_detected=privacy_risk_detected,
     )
@@ -206,6 +208,7 @@ def run_session_signal_thin_chain(
     runtime_event_labels: list[str] | tuple[str, ...] | None = None,
     evidence_refs: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...] | None = None,
     source_ref_exists: bool = True,
+    source_ref_unavailable: bool = False,
     duplicate_signal: bool = False,
     privacy_risk_detected: bool = False,
     candidate_renderer: Any = None,
@@ -220,6 +223,7 @@ def run_session_signal_thin_chain(
         runtime_event_labels=runtime_event_labels,
         evidence_refs=evidence_refs,
         source_ref_exists=source_ref_exists,
+        source_ref_unavailable=source_ref_unavailable,
         duplicate_signal=duplicate_signal,
         privacy_risk_detected=privacy_risk_detected,
     )
@@ -241,6 +245,7 @@ def run_session_signal_mailbox_support(
     runtime_event_labels: list[str] | tuple[str, ...] | None = None,
     evidence_refs: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...] | None = None,
     source_ref_exists: bool = True,
+    source_ref_unavailable: bool = False,
     duplicate_signal: bool = False,
     privacy_risk_detected: bool = False,
     candidate_renderer: Any = None,
@@ -256,6 +261,7 @@ def run_session_signal_mailbox_support(
         runtime_event_labels=runtime_event_labels,
         evidence_refs=evidence_refs,
         source_ref_exists=source_ref_exists,
+        source_ref_unavailable=source_ref_unavailable,
         duplicate_signal=duplicate_signal,
         privacy_risk_detected=privacy_risk_detected,
         candidate_renderer=candidate_renderer,

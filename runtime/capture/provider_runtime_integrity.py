@@ -252,6 +252,7 @@ def evaluate_integrity_then_admission(
     runtime_event_labels: list[str] | tuple[str, ...] | None = None,
     evidence_refs: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...] | None = None,
     source_ref_exists: bool = True,
+    source_ref_unavailable: bool = False,
     duplicate_signal: bool = False,
     privacy_risk_detected: bool = False,
 ) -> dict[str, Any]:
@@ -270,6 +271,7 @@ def evaluate_integrity_then_admission(
         "admission_verdict": evaluate_session_structure_signal(
             signal,
             source_ref_exists=source_ref_exists,
+            source_ref_unavailable=source_ref_unavailable,
             duplicate_signal=duplicate_signal,
             privacy_risk_detected=privacy_risk_detected,
         ),

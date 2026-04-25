@@ -42,6 +42,11 @@ def load_session_admission_verdict_schema() -> Dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
+def load_source_ref_resolution_result_schema() -> Dict[str, Any]:
+    return _load_schema("source_ref_resolution_result.v1.schema.json")
+
+
+@lru_cache(maxsize=1)
 def load_provider_runtime_integrity_result_schema() -> Dict[str, Any]:
     return _load_schema("provider_runtime_integrity_result.v1.schema.json")
 
@@ -166,6 +171,10 @@ def validate_session_structure_signal(payload: Mapping[str, Any]) -> None:
 
 def validate_session_admission_verdict(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_session_admission_verdict_schema())
+
+
+def validate_source_ref_resolution_result(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(instance=dict(payload), schema=load_source_ref_resolution_result_schema())
 
 
 def validate_provider_runtime_integrity_result(payload: Mapping[str, Any]) -> None:
