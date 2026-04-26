@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/worker_chain_quant_checklist.v1.schema.json",
+  "title": "OpenYggdrasil Worker Chain Quant Checklist v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "job_chain_id",
+    "readiness_state",
+    "worker_count",
+    "average_overall_score",
+    "live_proven_count",
+    "contract_only_or_below_count",
+    "sandbox_required_count",
+    "sandbox_proven_count",
+    "mailbox_required_count",
+    "mailbox_proven_count",
+    "graphify_required_count",
+    "graphify_proven_count",
+    "blocking_gaps",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "worker_chain_quant_checklist.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "job_chain_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "readiness_state": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "not_ready"
+      ]
+    },
+    "worker_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "average_overall_score": {
+      "$ref": "#/$defs/score"
+    },
+    "live_proven_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "contract_only_or_below_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sandbox_required_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sandbox_proven_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "mailbox_required_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "mailbox_proven_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "graphify_required_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "graphify_proven_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "blocking_gaps": {
+      "type": "array",
+      "maxItems": 80,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "checked_at": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    }
+  },
+  "$defs": {
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}

@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/worker_chain_quant_logger_event.v1.schema.json",
+  "title": "OpenYggdrasil Worker Chain Quant Logger Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "event_id",
+    "worker_id",
+    "job_chain_id",
+    "job_stage",
+    "owner_module",
+    "chain_role",
+    "implementation_state",
+    "reasoning_effort_required",
+    "reasoning_lease_required",
+    "sandbox_required",
+    "sandbox_runtime",
+    "mailbox_required",
+    "graphify_required",
+    "contract_score",
+    "test_score",
+    "runtime_score",
+    "live_score",
+    "sandbox_score",
+    "mailbox_score",
+    "graphify_score",
+    "overall_score",
+    "evidence_refs",
+    "blocking_gaps",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "worker_chain_quant_logger_event.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 220
+    },
+    "worker_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "job_chain_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "job_stage": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "owner_module": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "chain_role": {
+      "type": "string",
+      "enum": [
+        "distiller",
+        "evaluator",
+        "amundsen",
+        "pathfinder",
+        "gardener",
+        "postman_mailbox",
+        "graphify",
+        "hermes_consumer",
+        "reasoning_lease_worker"
+      ]
+    },
+    "implementation_state": {
+      "type": "string",
+      "enum": [
+        "missing",
+        "contract_only",
+        "tested_contract",
+        "runtime_implemented",
+        "live_proven"
+      ]
+    },
+    "reasoning_effort_required": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    "reasoning_lease_required": {
+      "type": "boolean"
+    },
+    "sandbox_required": {
+      "type": "boolean"
+    },
+    "sandbox_runtime": {
+      "type": "string",
+      "enum": [
+        "none",
+        "bubblewrap_wsl2_linux",
+        "typed_unavailable"
+      ]
+    },
+    "mailbox_required": {
+      "type": "boolean"
+    },
+    "graphify_required": {
+      "type": "boolean"
+    },
+    "contract_score": {
+      "$ref": "#/$defs/score"
+    },
+    "test_score": {
+      "$ref": "#/$defs/score"
+    },
+    "runtime_score": {
+      "$ref": "#/$defs/score"
+    },
+    "live_score": {
+      "$ref": "#/$defs/score"
+    },
+    "sandbox_score": {
+      "$ref": "#/$defs/score"
+    },
+    "mailbox_score": {
+      "$ref": "#/$defs/score"
+    },
+    "graphify_score": {
+      "$ref": "#/$defs/score"
+    },
+    "overall_score": {
+      "$ref": "#/$defs/score"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      }
+    },
+    "blocking_gaps": {
+      "type": "array",
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "checked_at": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    }
+  },
+  "$defs": {
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}

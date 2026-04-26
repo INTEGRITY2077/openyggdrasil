@@ -58,6 +58,7 @@ CANONICAL_RUNTIME_MODULES = [
     "evaluation.production_poc_report",
     "evaluation.promotion_worthiness",
     "evaluation.why_remembered_answer",
+    "evaluation.worker_chain_quant_logger",
     "placement.community_bridge_stub",
     "placement.map_maker_stub",
     "placement.topic_episode_placement",
