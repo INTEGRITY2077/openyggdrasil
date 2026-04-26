@@ -163,7 +163,7 @@ def _provenance_coverage(response: Mapping[str, Any]) -> float | str:
     if not used_memory_refs:
         return "not_applicable"
     safe_pointers = _non_empty_list(response.get("safe_evidence_pointers"))
-    return 1.0 if safe_pointers else 0.0
+    return _ratio(min(len(safe_pointers), len(used_memory_refs)), len(used_memory_refs))
 
 
 def _safe_evidence_pointer_coverage(
