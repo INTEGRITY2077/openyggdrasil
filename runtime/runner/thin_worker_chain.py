@@ -38,6 +38,12 @@ ROLE_ORDER = (
 
 ThinCandidateRenderer = Callable[..., Mapping[str, Any] | Sequence[Mapping[str, Any]]]
 RoleFallbacks = Mapping[str, str]
+TRIGGER_CONFIDENCE_BONUS = {
+    "correction_supersession_trigger": 0.14,
+    "hard_trigger": 0.08,
+    "boundary_trigger": 0.07,
+    "retrieval_need_trigger": 0.04,
+}
 
 
 def _string_field(payload: Mapping[str, Any], key: str, fallback: str = "unknown") -> str:
@@ -86,6 +92,29 @@ def _source_ref_token(signal: Mapping[str, Any]) -> str:
     path_hint = str(source_ref.get("path_hint") or "missing-source-ref").strip()
     range_hint = str(source_ref.get("range_hint") or "").strip()
     return f"provider_session:{path_hint}#{range_hint}" if range_hint else f"provider_session:{path_hint}"
+
+
+def _trigger_parts(trigger_reason: str) -> tuple[str, list[str]]:
+    trigger_head, _, raw_labels = trigger_reason.partition(":")
+    labels = [label.strip() for label in raw_labels.split(",") if label.strip()]
+    return trigger_head.strip(), labels
+
+
+def compute_rule_based_candidate_confidence(*, decision_surface: Mapping[str, Any]) -> float:
+    trigger_head, labels = _trigger_parts(str(decision_surface.get("trigger_reason") or ""))
+    score = 0.50
+    score += TRIGGER_CONFIDENCE_BONUS.get(trigger_head, 0.0)
+    score += min(len(labels) * 0.04, 0.12)
+    source_ref = str(decision_surface.get("source_ref") or "")
+    if source_ref and "missing-source-ref" not in source_ref:
+        score += 0.08
+    try:
+        turn_count = int(decision_surface["turn_end"]) - int(decision_surface["turn_start"]) + 1
+    except Exception:
+        turn_count = 0
+    if 1 <= turn_count <= 8:
+        score += 0.02
+    return round(max(0.0, min(1.0, score)), 2)
 
 
 def _origin_locator(signal: Mapping[str, Any]) -> dict[str, Any]:
@@ -139,7 +168,8 @@ def _default_candidate_renderer(*, decision_surface: Mapping[str, Any]) -> Mappi
     turn_end = int(decision_surface["turn_end"])
     trigger_reason = str(decision_surface["trigger_reason"])
     surface_summary = str(decision_surface["surface_summary"])
-    trigger_head = trigger_reason.split(":", 1)[0] or "signal"
+    trigger_head, _labels = _trigger_parts(trigger_reason)
+    trigger_head = trigger_head or "signal"
     return {
         "decision_text": f"Structure provider session turns {turn_start}-{turn_end}: {surface_summary}",
         "rationale": f"Accepted bounded provider signal through {trigger_head}.",
@@ -147,7 +177,7 @@ def _default_candidate_renderer(*, decision_surface: Mapping[str, Any]) -> Mappi
         "stability_state": "superseding" if trigger_head == "correction_supersession_trigger" else "provisional",
         "topic_hint": f"session-structure/{trigger_head}",
         "reason_labels": ["thin_worker_chain", trigger_head],
-        "confidence_score": 0.72,
+        "confidence_score": compute_rule_based_candidate_confidence(decision_surface=decision_surface),
     }
 
 
