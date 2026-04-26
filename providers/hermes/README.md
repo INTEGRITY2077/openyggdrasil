@@ -32,8 +32,8 @@
   - `%OPENYGGDRASIL_ROOT%\runtime`
 - canonical vault:
   - `%OPENYGGDRASIL_ROOT%\vault`
-- core graphify project:
-  - `%OPENYGGDRASIL_ROOT%\projects\graphify-poc`
+- Hermes graphify project:
+  - `%OPENYGGDRASIL_ROOT%\providers\hermes\projects\graphify-poc`
 
 ## Phase 6 Packaging Baseline
 

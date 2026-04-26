@@ -18,7 +18,14 @@ from postman_gateway import submit_packet
 QUERY_WRAPPER = Path(
     os.getenv(
         "GRAPHIFY_QUERY_WRAPPER",
-        str(OPENYGGDRASIL_ROOT / "projects" / "graphify-poc" / "query_graphify.py"),
+        str(
+            OPENYGGDRASIL_ROOT
+            / "providers"
+            / "hermes"
+            / "projects"
+            / "graphify-poc"
+            / "query_graphify.py"
+        ),
     )
 )
 SANDBOX_ROOT = DEFAULT_GRAPHIFY_SANDBOX

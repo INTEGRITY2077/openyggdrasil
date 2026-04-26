@@ -52,6 +52,7 @@ Thumbs.db
 **/memories/MEMORY.md
 **/memories/USER.md
 **/*.lock
+/projects/
 projects/**/_archive/
 **/vault/raw/transcripts/
 **/vault/.obsidian/
@@ -68,6 +69,3 @@ projects/**/_archive/
 .cursor/
 .windsurf/
 GEMINI.md
-
-# provider compat should not carry duplicate canonical graphify data
-providers/*/projects/graphify-poc/graphify-corpus.manifest.json

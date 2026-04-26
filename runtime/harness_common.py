@@ -53,7 +53,14 @@ DEFAULT_GRAPHIFY_MANIFEST = (
     Path(
         os.getenv(
             "GRAPHIFY_MANIFEST_PATH",
-            str(OPENYGGDRASIL_ROOT / "projects" / "graphify-poc" / "graphify-corpus.manifest.json"),
+            str(
+                OPENYGGDRASIL_ROOT
+                / "providers"
+                / "hermes"
+                / "projects"
+                / "graphify-poc"
+                / "graphify-corpus.manifest.json"
+            ),
         )
     )
 )

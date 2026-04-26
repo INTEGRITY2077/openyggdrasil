@@ -13,8 +13,9 @@ This subtree keeps Hermes-specific adapter projects.
 - `wiki-promotion`
   - Hermes raw transcript promotion entrypoint
 
-## Moved To OpenYggdrasil Root
+## Provider Projects
 
 - `graphify-poc`
-  - canonical location:
-    - `%OPENYGGDRASIL_ROOT%\projects\graphify-poc`
+  - Hermes-facing Graphify derivation stack.
+  - Canonical location:
+    - `%OPENYGGDRASIL_ROOT%\providers\hermes\projects\graphify-poc`
