@@ -60,6 +60,7 @@ CANONICAL_RUNTIME_MODULES = [
     "evaluation.knowledge_forest_delta_from_live_session",
     "evaluation.live_e2e_environment_preconditions",
     "evaluation.live_e2e_readiness_gate",
+    "evaluation.live_e2e_safe_run_bundle_launcher",
     "evaluation.mailbox_delivery_hermes_consumption",
     "evaluation.physical_multiturn_session_artifact",
     "evaluation.production_report_evidence_lineage",
