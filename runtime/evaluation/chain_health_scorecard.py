@@ -9,6 +9,7 @@ from typing import Any, Mapping
 import jsonschema
 
 from harness_common import utc_now_iso
+from reasoning.typed_availability_metrics import measure_typed_availability_ux_metrics
 
 
 OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
@@ -41,6 +42,8 @@ FORBIDDEN_OWNERSHIP_KEYS = {
     "mailbox_mutation",
     "sot_write",
 }
+
+CHAIN_TIMEOUT_SURFACE = "chain_timeout"
 
 
 @lru_cache(maxsize=1)
@@ -331,3 +334,101 @@ def build_chain_health_scorecard(
     }
     validate_chain_health_scorecard(scorecard)
     return scorecard
+
+
+def build_chain_timeout_typed_unavailable(
+    *,
+    stage: str,
+    timeout_ms: int | float,
+    timeout_budget_ms: int | float,
+    retry_count: int,
+    retry_budget: int,
+    provider_comment: str | None = None,
+    user_help: str | None = None,
+) -> dict[str, Any]:
+    """Build a typed unavailable payload for a timed-out chain stage."""
+
+    stage_name = str(stage or "").strip() or "unknown_stage"
+    payload = {
+        "schema_version": "chain_timeout_typed_unavailable.v1",
+        "status": "unavailable",
+        "unavailable_kind": "chain_timeout",
+        "check_id": f"chain_timeout:{stage_name}",
+        "reason_code": "chain_stage_timeout",
+        "failed_check_ids": ["chain_timeout", f"stage:{stage_name}"],
+        "runner_outcome": "typed_unavailable",
+        "fault_domain": "thin_worker_chain",
+        "category": "chain_timeout",
+        "stage": stage_name,
+        "timeout_ms": float(timeout_ms),
+        "timeout_budget_ms": float(timeout_budget_ms),
+        "retry_count": int(retry_count),
+        "retry_budget": int(retry_budget),
+        "provider_comment": provider_comment
+        or f"Chain stage '{stage_name}' exceeded its runtime budget and no answer was inferred from the timeout.",
+        "user_help": user_help
+        or "Rerun after reducing workload, increasing the chain timeout budget, or inspecting the timed-out stage logs.",
+        "chain_timeout_untyped_count": 0,
+        "created_at": utc_now_iso(),
+    }
+    validate_chain_timeout_typed_unavailable(payload)
+    return payload
+
+
+def validate_chain_timeout_typed_unavailable(payload: Mapping[str, Any]) -> None:
+    if payload.get("schema_version") != "chain_timeout_typed_unavailable.v1":
+        raise ValueError("Invalid chain timeout typed unavailable schema_version")
+    if payload.get("status") != "unavailable":
+        raise ValueError("Chain timeout status must be unavailable")
+    if payload.get("unavailable_kind") != "chain_timeout":
+        raise ValueError("Chain timeout unavailable_kind is invalid")
+    for key in ("check_id", "reason_code", "runner_outcome", "fault_domain", "provider_comment", "user_help"):
+        if not str(payload.get(key) or "").strip():
+            raise ValueError(f"Chain timeout payload missing typed field: {key}")
+    failed_check_ids = payload.get("failed_check_ids")
+    if not isinstance(failed_check_ids, list) or not failed_check_ids:
+        raise ValueError("Chain timeout payload requires failed_check_ids")
+    if int(payload.get("chain_timeout_untyped_count") or 0) != 0:
+        raise ValueError("Typed chain timeout payload must not count as untyped")
+
+
+def measure_chain_timeout_typed_unavailable_metrics(
+    timeout_payload: Mapping[str, Any],
+    *,
+    unsupported_claim_count: int = 0,
+) -> dict[str, Any]:
+    """Measure P9-S17 timeout visibility without inferring a confident answer."""
+
+    typed_metrics = measure_typed_availability_ux_metrics(
+        expected_surfaces=[CHAIN_TIMEOUT_SURFACE],
+        surface_payloads={CHAIN_TIMEOUT_SURFACE: timeout_payload},
+        unsupported_claim_count=unsupported_claim_count,
+    )
+    typed_coverage = typed_metrics["typed_unavailable_coverage"]
+    chain_timeout_untyped_count = 0 if typed_coverage == 1.0 else 1
+    provider_comment_present = bool(str(timeout_payload.get("provider_comment") or "").strip())
+    user_help_present = bool(str(timeout_payload.get("user_help") or "").strip())
+
+    failing_metrics: list[str] = []
+    if typed_coverage != 1.0:
+        failing_metrics.append("typed_unavailable_coverage")
+    if chain_timeout_untyped_count:
+        failing_metrics.append("chain_timeout_untyped_count")
+    if unsupported_claim_count:
+        failing_metrics.append("unsupported_claim_count")
+    if not provider_comment_present:
+        failing_metrics.append("provider_comment_present")
+    if not user_help_present:
+        failing_metrics.append("user_help_present")
+
+    return {
+        "surface_id": "UX-FS-03",
+        "scenario_id": "P9-S17",
+        "typed_unavailable_coverage": typed_coverage,
+        "chain_timeout_untyped_count": chain_timeout_untyped_count,
+        "unsupported_claim_count": int(unsupported_claim_count),
+        "provider_comment_present": provider_comment_present,
+        "user_help_present": user_help_present,
+        "failing_metrics": failing_metrics,
+        "decision": "green_passed" if not failing_metrics else "red_captured",
+    }
