@@ -14,6 +14,24 @@ from delivery.mailbox_schema import validate_message
 from harness_common import utc_now_iso
 
 
+RAW_TRANSCRIPT_PAYLOAD_KEYS = {
+    "conversation_excerpt",
+    "raw_provider_output",
+    "raw_session",
+    "raw_text",
+    "raw_transcript",
+    "session_dump",
+    "transcript",
+}
+SAFE_EVIDENCE_POINTER_KEYS = {
+    "evidence_pointer",
+    "safe_evidence_pointer",
+    "source_ref",
+    "source_refs",
+    "source_paths",
+}
+
+
 def build_postman_delivery_handoff(
     *,
     admission_verdict: Mapping[str, Any],
@@ -56,6 +74,79 @@ def build_postman_delivery_handoff(
     }
     validate_postman_delivery_handoff(handoff)
     return handoff
+
+
+def _walk_surface(value: Any) -> list[tuple[str | None, Any]]:
+    rows: list[tuple[str | None, Any]] = []
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            rows.append((str(key), child))
+            rows.extend(_walk_surface(child))
+    elif isinstance(value, list | tuple):
+        for child in value:
+            rows.extend(_walk_surface(child))
+    return rows
+
+
+def _looks_like_raw_transcript_text(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    text = value.strip()
+    if not text:
+        return False
+    upper = text.upper()
+    has_dialogue_markers = "USER:" in upper and ("ASSISTANT:" in upper or "SYSTEM:" in upper)
+    has_raw_session_marker = "RAW TRANSCRIPT" in upper or "RAW_SESSION" in upper
+    return has_dialogue_markers or has_raw_session_marker
+
+
+def measure_raw_transcript_leak_ux_metrics(
+    *,
+    surfaces: Mapping[str, Any],
+    supported_claim_count: int = 0,
+) -> dict[str, Any]:
+    """Measure UX-FS-01 raw transcript leakage and safe evidence pointers."""
+
+    raw_leaks: list[dict[str, str]] = []
+    safe_pointer_count = 0
+    for surface_name, surface in surfaces.items():
+        for key, value in _walk_surface(surface):
+            if key in RAW_TRANSCRIPT_PAYLOAD_KEYS and value:
+                raw_leaks.append({"surface": str(surface_name), "reason": f"raw_key:{key}"})
+                continue
+            if _looks_like_raw_transcript_text(value):
+                raw_leaks.append({"surface": str(surface_name), "reason": "raw_dialogue_text"})
+                continue
+            if key in SAFE_EVIDENCE_POINTER_KEYS and value:
+                safe_pointer_count += 1
+
+    if supported_claim_count > 0:
+        safe_evidence_pointer_coverage: float | str = min(
+            safe_pointer_count,
+            supported_claim_count,
+        ) / supported_claim_count
+    else:
+        safe_evidence_pointer_coverage = "not_applicable"
+
+    raw_transcript_leak_count = len(raw_leaks)
+    decision = (
+        "green_passed"
+        if raw_transcript_leak_count == 0
+        and (
+            safe_evidence_pointer_coverage == 1.0
+            or safe_evidence_pointer_coverage == "not_applicable"
+        )
+        else "red_captured"
+    )
+    return {
+        "surface_id": "UX-FS-01",
+        "raw_transcript_leak_count": raw_transcript_leak_count,
+        "safe_evidence_pointer_coverage": safe_evidence_pointer_coverage,
+        "supported_claim_count": int(supported_claim_count),
+        "safe_evidence_pointer_count": safe_pointer_count,
+        "raw_leak_reasons": raw_leaks,
+        "decision": decision,
+    }
 
 
 def _message_scope(message: Mapping[str, Any]) -> Mapping[str, Any]:
