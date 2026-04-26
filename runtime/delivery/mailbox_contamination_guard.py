@@ -320,6 +320,58 @@ def guard_mailbox_message(
     )
 
 
+def measure_decoy_support_bundle_ux_metrics(
+    *,
+    decoy_guard_results: Sequence[Mapping[str, Any]],
+    irrelevant_memory_citation_count: int = 0,
+) -> dict[str, Any]:
+    """Measure UX-FS-08 decoy support bundle false accepts."""
+
+    decoy_count = len(decoy_guard_results)
+    false_accepts: list[str] = []
+    rejected_with_reason = 0
+    rejected_or_quarantined = 0
+    for result in decoy_guard_results:
+        validate_mailbox_guard_result(result)
+        verdict = str(result.get("verdict") or "")
+        message_id = str(result.get("message_id") or "")
+        reason_codes = result.get("reason_codes")
+        if verdict == "accept":
+            false_accepts.append(message_id)
+            continue
+        rejected_or_quarantined += 1
+        if isinstance(reason_codes, list) and any(str(code).strip() for code in reason_codes):
+            rejected_with_reason += 1
+
+    if rejected_or_quarantined:
+        rejection_reason_coverage: float | str = rejected_with_reason / rejected_or_quarantined
+    else:
+        rejection_reason_coverage = "not_applicable" if decoy_count == 0 else 0.0
+
+    decoy_false_accept_count = len(false_accepts)
+    decision = (
+        "green_passed"
+        if (
+            decoy_false_accept_count == 0
+            and int(irrelevant_memory_citation_count) == 0
+            and (
+                rejection_reason_coverage == 1.0
+                or rejection_reason_coverage == "not_applicable"
+            )
+        )
+        else "red_captured"
+    )
+    return {
+        "surface_id": "UX-FS-08",
+        "decoy_candidate_count": decoy_count,
+        "decoy_false_accept_count": decoy_false_accept_count,
+        "irrelevant_memory_citation_count": int(irrelevant_memory_citation_count),
+        "decoy_rejection_reason_coverage": rejection_reason_coverage,
+        "accepted_decoy_message_ids": false_accepts,
+        "decision": decision,
+    }
+
+
 def ensure_mailbox_message_accepted(
     message: Mapping[str, Any],
     *,
