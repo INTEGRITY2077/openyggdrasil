@@ -79,6 +79,11 @@
         "high"
       ]
     },
+    "time_budget_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3600
+    },
     "inference_mode": {
       "type": "string",
       "enum": [

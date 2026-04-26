@@ -68,6 +68,7 @@ def build_provider_headless_lease_request(
     objective: str,
     input_refs: Mapping[str, Any],
     priority: str = "medium",
+    time_budget_seconds: int = 300,
     fallback_policy: str = "deterministic_base_path",
     expected_output_schema: str | None = None,
     reasoning_depth_requirement: Mapping[str, Any] | None = None,
@@ -84,6 +85,7 @@ def build_provider_headless_lease_request(
         "capability": "background_reasoning",
         "job_type": job_type,
         "priority": priority,
+        "time_budget_seconds": int(time_budget_seconds),
         "inference_mode": inference_mode,
         "reasoning_depth_requirement": dict(reasoning_depth_requirement)
         if reasoning_depth_requirement is not None
