@@ -74,6 +74,7 @@ CANONICAL_RUNTIME_MODULES = [
     "reasoning.provider_reasoning_gate",
     "reasoning.process_sandbox_policy",
     "reasoning.reasoning_lease_contracts",
+    "reasoning.typed_availability_metrics",
     "reasoning.worker_hardening_policy",
     "runner.failure_fallback_regression",
     "runner.mailbox_support_emission",
