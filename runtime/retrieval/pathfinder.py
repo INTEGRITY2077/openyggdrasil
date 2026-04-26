@@ -465,6 +465,104 @@ def measure_lifecycle_rejection_ux_metrics(
     }
 
 
+def measure_historical_intent_discriminator_metrics(
+    lifecycle_records: Sequence[Mapping[str, Any]] | None,
+    *,
+    historical_intent: bool,
+    selected_lifecycle_records: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Measure whether inactive memory is used only for historical-intent retrieval."""
+
+    source_records: list[Mapping[str, Any]] = []
+    for record in lifecycle_records or []:
+        validate_vault_record_lifecycle(record)
+        source_records.append(record)
+
+    if selected_lifecycle_records is None:
+        selected_records, _ = filter_lifecycle_records_for_retrieval(
+            source_records,
+            include_historical=historical_intent,
+        )
+    else:
+        selected_records = [dict(record) for record in selected_lifecycle_records]
+
+    candidate_inactive_ids = {
+        str(record.get("canonical_record_id") or "")
+        for record in source_records
+        if str(record.get("lifecycle_state") or "") in EXCLUDED_RETRIEVAL_LIFECYCLE_STATES
+    }
+    selected_inactive_records = [
+        record
+        for record in selected_records
+        if str(record.get("lifecycle_state") or "") in EXCLUDED_RETRIEVAL_LIFECYCLE_STATES
+    ]
+    selected_inactive_ids = {
+        str(record.get("canonical_record_id") or "")
+        for record in selected_inactive_records
+    }
+    stale_selected_count = sum(
+        1 for record in selected_inactive_records if str(record.get("lifecycle_state") or "") == "STALE"
+    )
+    superseded_selected_count = sum(
+        1 for record in selected_inactive_records if str(record.get("lifecycle_state") or "") == "SUPERSEDED"
+    )
+    stale_false_accept_count = 0 if historical_intent else stale_selected_count
+    superseded_false_accept_count = 0 if historical_intent else superseded_selected_count
+    historical_records_included = len(selected_inactive_records) if historical_intent else 0
+    historical_context_missing_count = (
+        max(0, len(candidate_inactive_ids - selected_inactive_ids))
+        if historical_intent
+        else 0
+    )
+    inactive_records_filtered = len(candidate_inactive_ids - selected_inactive_ids)
+
+    if historical_records_included:
+        visible_historical_records = sum(
+            1
+            for record in selected_inactive_records
+            if record.get("source_refs") and record.get("provenance")
+        )
+        historical_evidence_visibility: float | str = visible_historical_records / historical_records_included
+    else:
+        historical_evidence_visibility = "not_applicable"
+
+    if historical_intent:
+        decision = (
+            "green_passed"
+            if (
+                stale_false_accept_count == 0
+                and superseded_false_accept_count == 0
+                and historical_context_missing_count == 0
+                and (
+                    historical_evidence_visibility == 1.0
+                    or historical_evidence_visibility == "not_applicable"
+                )
+            )
+            else "red_captured"
+        )
+    else:
+        decision = (
+            "green_passed"
+            if stale_false_accept_count == 0 and superseded_false_accept_count == 0
+            else "red_captured"
+        )
+
+    return {
+        "surface_id": "UX-FS-04",
+        "scenario_id": "P9-S08",
+        "intent_mode": "historical" if historical_intent else "current_truth",
+        "historical_intent": historical_intent,
+        "inactive_candidate_count": len(candidate_inactive_ids),
+        "historical_records_included": historical_records_included,
+        "historical_context_missing_count": historical_context_missing_count,
+        "inactive_records_filtered": inactive_records_filtered,
+        "stale_false_accept_count": stale_false_accept_count,
+        "superseded_false_accept_count": superseded_false_accept_count,
+        "historical_evidence_visibility": historical_evidence_visibility,
+        "decision": decision,
+    }
+
+
 def _pathfinder_bundle_from_mailbox_support(
     *,
     support_bundle: Mapping[str, Any],
