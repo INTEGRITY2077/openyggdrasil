@@ -17,6 +17,7 @@ CANONICAL_RUNTIME_MODULES = [
     "attachments.hermes_foreground_unavailable_contract",
     "attachments.hermes_provider_packaging_baseline",
     "attachments.provider_attachment",
+    "attachments.provider_cold_start_healthcheck",
     "attachments.provider_inbox",
     "attachments.provider_packaging_known_limitations_matrix",
     "attachments.provider_tooling_classification",

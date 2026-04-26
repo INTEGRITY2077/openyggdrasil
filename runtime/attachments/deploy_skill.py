@@ -19,6 +19,7 @@ SKILL_DESCRIPTION = (
 )
 REFERENCE_PATHS = {
     "canonical_skill": Path("SKILL.md"),
+    "cold_start_healthcheck": Path("runtime/attachments/provider_cold_start_healthcheck.py"),
     "validator": Path("runtime/attachments/validate_attachment.py"),
     "repair": Path("runtime/attachments/repair_attachment.py"),
 }
@@ -90,6 +91,7 @@ This is a provider-native deployed view of the canonical OpenYggdrasil skill.
 Use this skill when the current session needs:
 
 - workspace-local attachment bootstrap
+- cold-start environment healthcheck
 - attachment repair
 - session-bound inbox access
 - durable memory without collapsing provenance
@@ -97,6 +99,7 @@ Use this skill when the current session needs:
 Core rules:
 
 - stay in the current workspace
+- run the cold-start healthcheck on first install or when forced by the operator
 - preserve provider/profile/session boundaries
 - never use a global inbox
 - keep `vault/` canonical
@@ -124,6 +127,7 @@ session-bound inbox access.
 Core rules:
 
 - stay in the current workspace
+- run the cold-start healthcheck on first install or when forced by the operator
 - preserve provider/profile/session boundaries
 - never use a global inbox
 - keep `vault/` canonical
@@ -152,6 +156,7 @@ surface.
 Rules:
 
 - stay in the current workspace
+- run the cold-start healthcheck on first install or when forced by the operator
 - preserve provider/profile/session boundaries
 - never use a global inbox
 - keep `vault/` canonical

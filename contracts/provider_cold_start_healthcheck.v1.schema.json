@@ -1,0 +1,425 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/provider_cold_start_healthcheck.v1.schema.json",
+  "title": "OpenYggdrasil Provider Cold Start Healthcheck v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "healthcheck_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "workspace_root",
+    "install_surface",
+    "run_mode",
+    "status",
+    "admission_allowed",
+    "check_results",
+    "retry_summary",
+    "run_once",
+    "sandbox_policy",
+    "provider_comment",
+    "user_help_required",
+    "user_help",
+    "next_action",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "provider_cold_start_healthcheck.v1"
+    },
+    "healthcheck_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "provider_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "provider_session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "session_uid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "workspace_root": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 700
+    },
+    "install_surface": {
+      "type": "string",
+      "enum": [
+        "provider_native_skill",
+        "hermes_profile_skill",
+        "manual_repo_runtime"
+      ]
+    },
+    "run_mode": {
+      "type": "string",
+      "enum": [
+        "first_install",
+        "forced_recheck",
+        "cached"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "degraded",
+        "not_ready"
+      ]
+    },
+    "admission_allowed": {
+      "type": "boolean"
+    },
+    "check_results": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check_id",
+          "label",
+          "status",
+          "blocking",
+          "attempts",
+          "reason_codes",
+          "comment",
+          "user_help_required",
+          "user_help",
+          "evidence_refs"
+        ],
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "skipped"
+            ]
+          },
+          "blocking": {
+            "type": "boolean"
+          },
+          "attempts": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "route_id",
+                "attempt_index",
+                "max_attempts",
+                "status",
+                "reason_code",
+                "comment",
+                "evidence_refs"
+              ],
+              "properties": {
+                "route_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "attempt_index": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8
+                },
+                "max_attempts": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pass",
+                    "fail",
+                    "skipped"
+                  ]
+                },
+                "reason_code": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "comment": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 700
+                },
+                "evidence_refs": {
+                  "type": "array",
+                  "maxItems": 8,
+                  "items": {
+                    "$ref": "#/$defs/evidence_ref"
+                  }
+                }
+              }
+            }
+          },
+          "reason_codes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 12,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          "comment": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 900
+          },
+          "user_help_required": {
+            "type": "boolean"
+          },
+          "user_help": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "$ref": "#/$defs/user_help"
+            }
+          },
+          "evidence_refs": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "$ref": "#/$defs/evidence_ref"
+            }
+          }
+        }
+      }
+    },
+    "retry_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_attempts",
+        "max_attempts_per_check",
+        "alternate_routes_tried",
+        "failed_check_ids",
+        "user_help_required",
+        "final_failure_comment"
+      ],
+      "properties": {
+        "total_attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "max_attempts_per_check": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "alternate_routes_tried": {
+          "type": "boolean"
+        },
+        "failed_check_ids": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          }
+        },
+        "user_help_required": {
+          "type": "boolean"
+        },
+        "final_failure_comment": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 900
+        }
+      }
+    },
+    "run_once": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "marker_path",
+        "marker_written",
+        "previous_marker_found"
+      ],
+      "properties": {
+        "marker_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 700
+        },
+        "marker_written": {
+          "type": "boolean"
+        },
+        "previous_marker_found": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sandbox_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_environment",
+        "required_for_reasoning",
+        "backend_preference"
+      ],
+      "properties": {
+        "target_environment": {
+          "type": "string",
+          "enum": [
+            "wsl2_linux",
+            "linux",
+            "macos",
+            "native_windows_deferred"
+          ]
+        },
+        "required_for_reasoning": {
+          "type": "boolean"
+        },
+        "backend_preference": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          }
+        }
+      }
+    },
+    "provider_comment": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1200
+    },
+    "user_help_required": {
+      "type": "boolean"
+    },
+    "user_help": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/user_help"
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "enum": [
+        "start_attachment_bootstrap",
+        "run_attachment_repair",
+        "install_missing_dependency",
+        "fix_workspace_permissions",
+        "manual_user_action",
+        "stop_not_supported"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "path_hint"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "local_file",
+            "runtime_probe",
+            "test_artifact",
+            "provider_surface",
+            "command_output"
+          ]
+        },
+        "path_hint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 700
+        },
+        "detail": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 700
+        }
+      }
+    },
+    "user_help": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reason_code",
+        "action",
+        "why_user_needed"
+      ],
+      "properties": {
+        "reason_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 700
+        },
+        "why_user_needed": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 700
+        }
+      }
+    }
+  }
+}

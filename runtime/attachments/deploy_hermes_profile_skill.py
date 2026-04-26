@@ -28,6 +28,7 @@ description: Attaches the current Hermes foreground session to the shared OpenYg
 Use this skill when the current Hermes foreground session must:
 
 - attach itself to OpenYggdrasil inside the current workspace
+- run the cold-start healthcheck on first install or forced recheck
 - create canonical `.yggdrasil/providers/...` artifacts
 - keep the inbox session-bound
 - append valid `turn_delta.v1` rows across resumed turns
@@ -49,6 +50,8 @@ Core rules:
 - never use a global inbox
 - never create flat `.yggdrasil` root files
 - validate JSON and JSONL with a real parser before finishing
+- if the cold-start healthcheck returns degraded or not_ready, report its
+  `provider_comment`, `failed_check_ids`, and `user_help` instead of guessing
 
 Support consumption rule:
 
@@ -62,6 +65,7 @@ Support consumption rule:
 
 Use repo-owned validation/repair tooling when needed:
 
+- `runtime/attachments/provider_cold_start_healthcheck.py`
 - `runtime/attachments/validate_attachment.py`
 - `runtime/attachments/repair_attachment.py`
 
