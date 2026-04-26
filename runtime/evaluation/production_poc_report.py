@@ -69,6 +69,47 @@ def _live_provider_readiness(foreground_live_comparison: Mapping[str, Any]) -> s
     return "not_claimable"
 
 
+def _live_provider_rerun_condition(
+    *,
+    live_readiness: str,
+    live_provider_probe_status: Mapping[str, Any] | None,
+) -> str | None:
+    if live_readiness == "live_proven":
+        return None
+    probe_status = live_provider_probe_status or {}
+    condition = str(probe_status.get("rerun_condition") or "").strip()
+    if condition:
+        return condition
+    if live_readiness == "typed_unavailable_not_live_proven":
+        return "provide_live_probe_artifact_ref"
+    return None
+
+
+def _live_provider_evidence_required(
+    *,
+    live_readiness: str,
+    live_provider_probe_status: Mapping[str, Any] | None,
+) -> list[str]:
+    if live_readiness == "live_proven":
+        return []
+    probe_status = live_provider_probe_status or {}
+    evidence = []
+    seen = set()
+    for item in probe_status.get("evidence_required") or []:
+        evidence_item = str(item).strip()
+        if evidence_item and evidence_item not in seen:
+            evidence.append(evidence_item)
+            seen.add(evidence_item)
+    if evidence:
+        return evidence
+    if live_readiness == "typed_unavailable_not_live_proven":
+        return [
+            "physical_probe_exists_true",
+            "live_probe_artifact_ref_non_empty",
+        ]
+    return []
+
+
 def _readiness_state(failing_metrics: list[str]) -> str:
     blockers = {
         "raw_provider_session_copy_count",
@@ -91,6 +132,7 @@ def build_production_poc_report(
     doc_or_ignored_artifact_dependency_count: int,
     history_core_public_track_hygiene_state: str,
     residual_risks: Sequence[str],
+    live_provider_probe_status: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the P9 production POC report without hiding remaining gaps."""
 
@@ -106,6 +148,14 @@ def build_production_poc_report(
     dependency_count = _int_value(doc_or_ignored_artifact_dependency_count)
     history_state = str(history_core_public_track_hygiene_state or "not_checked")
     live_readiness = _live_provider_readiness(foreground_live_comparison)
+    live_rerun_condition = _live_provider_rerun_condition(
+        live_readiness=live_readiness,
+        live_provider_probe_status=live_provider_probe_status,
+    )
+    live_evidence_required = _live_provider_evidence_required(
+        live_readiness=live_readiness,
+        live_provider_probe_status=live_provider_probe_status,
+    )
 
     failing: list[str] = []
     if scenario_count < 20:
@@ -150,6 +200,8 @@ def build_production_poc_report(
         "doc_or_ignored_artifact_dependency_count": dependency_count,
         "history_core_public_track_hygiene_state": history_state,
         "live_provider_readiness": live_readiness,
+        "live_provider_rerun_condition": live_rerun_condition,
+        "live_provider_evidence_required": live_evidence_required,
         "ux_trust_decision": str(ux_trust_report.get("decision") or "red_captured"),
         "foreground_live_comparison_decision": str(
             foreground_live_comparison.get("decision") or "red_captured"

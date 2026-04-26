@@ -20,6 +20,8 @@
     "doc_or_ignored_artifact_dependency_count",
     "history_core_public_track_hygiene_state",
     "live_provider_readiness",
+    "live_provider_rerun_condition",
+    "live_provider_evidence_required",
     "ux_trust_decision",
     "foreground_live_comparison_decision",
     "failing_metrics",
@@ -105,6 +107,26 @@
         "not_implemented",
         "not_claimable"
       ]
+    },
+    "live_provider_rerun_condition": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "live_provider_evidence_required": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
     },
     "ux_trust_decision": {
       "type": "string",
