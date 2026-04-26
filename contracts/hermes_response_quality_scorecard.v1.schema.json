@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/hermes_response_quality_scorecard.v1.schema.json",
+  "title": "OpenYggdrasil Hermes Response Quality Scorecard v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scorecard_id",
+    "decision",
+    "score",
+    "claim_count",
+    "supported_claim_count",
+    "unsupported_claim_count",
+    "raw_transcript_leak_count",
+    "live_mislabel_count",
+    "derived_as_sot_count",
+    "provenance_coverage",
+    "safe_evidence_pointer_coverage",
+    "typed_unavailable_coverage",
+    "rejection_reason_coverage",
+    "failing_metrics",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "hermes_response_quality_scorecard.v1"
+    },
+    "scorecard_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "green_passed",
+        "red_captured"
+      ]
+    },
+    "score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "claim_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "supported_claim_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unsupported_claim_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "raw_transcript_leak_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "live_mislabel_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "derived_as_sot_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "provenance_coverage": {
+      "oneOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "const": "not_applicable"
+        }
+      ]
+    },
+    "safe_evidence_pointer_coverage": {
+      "oneOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "const": "not_applicable"
+        }
+      ]
+    },
+    "typed_unavailable_coverage": {
+      "oneOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "const": "not_applicable"
+        }
+      ]
+    },
+    "rejection_reason_coverage": {
+      "oneOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "const": "not_applicable"
+        }
+      ]
+    },
+    "failing_metrics": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
