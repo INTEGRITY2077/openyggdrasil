@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/why_remembered_answer.v1.schema.json",
+  "title": "OpenYggdrasil Why Remembered Answer v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "answer_id",
+    "decision",
+    "answer_text",
+    "used_memory_refs",
+    "safe_evidence_pointers",
+    "selection_reasons",
+    "provenance_coverage",
+    "safe_evidence_pointer_coverage",
+    "selection_reason_coverage",
+    "selection_reason_present",
+    "raw_transcript_leak_count",
+    "failing_metrics",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "why_remembered_answer.v1"
+    },
+    "answer_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "green_passed",
+        "red_captured"
+      ]
+    },
+    "answer_text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1200
+    },
+    "used_memory_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      }
+    },
+    "safe_evidence_pointers": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 320
+      }
+    },
+    "selection_reasons": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "memory_ref",
+          "reason"
+        ],
+        "properties": {
+          "memory_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "provenance_coverage": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "safe_evidence_pointer_coverage": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "selection_reason_coverage": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "selection_reason_present": {
+      "type": "boolean"
+    },
+    "raw_transcript_leak_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failing_metrics": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
