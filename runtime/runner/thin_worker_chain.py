@@ -44,6 +44,7 @@ TRIGGER_CONFIDENCE_BONUS = {
     "boundary_trigger": 0.07,
     "retrieval_need_trigger": 0.04,
 }
+IDEMPOTENCY_WRITE_OWNER = "thin_worker_chain"
 
 
 def _string_field(payload: Mapping[str, Any], key: str, fallback: str = "unknown") -> str:
@@ -115,6 +116,57 @@ def compute_rule_based_candidate_confidence(*, decision_surface: Mapping[str, An
     if 1 <= turn_count <= 8:
         score += 0.02
     return round(max(0.0, min(1.0, score)), 2)
+
+
+def build_duplicate_signal_idempotency_decision(
+    *,
+    signal_id: str,
+    processed_signal_ids: Sequence[str],
+    duplicate_side_effect_count: int = 0,
+    write_owner: str = IDEMPOTENCY_WRITE_OWNER,
+) -> dict[str, Any]:
+    """Classify duplicate signal handling before chain side effects are allowed."""
+
+    normalized_signal_id = str(signal_id or "").strip()
+    processed = {
+        str(candidate or "").strip()
+        for candidate in processed_signal_ids
+        if str(candidate or "").strip()
+    }
+    duplicate_detected = bool(normalized_signal_id and normalized_signal_id in processed)
+    side_effect_count = max(0, int(duplicate_side_effect_count or 0))
+    normalized_owner = str(write_owner or "").strip() or "unknown"
+
+    failing_metrics: list[str] = []
+    if not normalized_signal_id:
+        failing_metrics.append("signal_id")
+    if normalized_owner != IDEMPOTENCY_WRITE_OWNER:
+        failing_metrics.append("write_owner")
+    if duplicate_detected and side_effect_count:
+        failing_metrics.append("duplicate_side_effect_count")
+
+    if duplicate_detected and side_effect_count:
+        idempotency_decision = "duplicate_side_effect_detected"
+    elif duplicate_detected:
+        idempotency_decision = "skip_duplicate"
+    else:
+        idempotency_decision = "process_new"
+
+    return {
+        "schema_version": "duplicate_signal_idempotency_decision.v1",
+        "surface_id": "UX-FS-05",
+        "scenario_id": "P9-S16",
+        "signal_id": normalized_signal_id or "invalid-signal",
+        "write_owner": normalized_owner,
+        "processed_signal_id_count": len(processed),
+        "duplicate_detected": duplicate_detected,
+        "idempotency_decision": idempotency_decision,
+        "duplicate_side_effect_count": side_effect_count if duplicate_detected else 0,
+        "failing_metrics": failing_metrics,
+        "decision": "green_passed" if not failing_metrics else "red_captured",
+        "counter_sot": "The thin worker chain owns the pre-side-effect duplicate gate; durable storage remains a future runner-state proof.",
+        "checked_at": utc_now_iso(),
+    }
 
 
 def _origin_locator(signal: Mapping[str, Any]) -> dict[str, Any]:
