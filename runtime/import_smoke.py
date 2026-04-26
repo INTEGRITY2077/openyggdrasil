@@ -57,6 +57,7 @@ CANONICAL_RUNTIME_MODULES = [
     "evaluation.foreground_live_comparison",
     "evaluation.graphify_snapshot_from_live_delta",
     "evaluation.knowledge_forest_delta_from_live_session",
+    "evaluation.mailbox_delivery_hermes_consumption",
     "evaluation.physical_multiturn_session_artifact",
     "evaluation.production_poc_report",
     "evaluation.provider_job_alignment_logger",
