@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/chain_health_scorecard.v1.schema.json",
+  "title": "OpenYggdrasil Chain Health Scorecard v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scorecard_id",
+    "runner_result_id",
+    "chain_result_id",
+    "decision",
+    "stage_artifact_coverage",
+    "completed_stage_count",
+    "total_stage_count",
+    "handoff_digest_coverage",
+    "handoff_digest_count",
+    "total_handoff_count",
+    "role_ownership_violation_count",
+    "typed_fallback_visibility",
+    "source_ref_preservation",
+    "latency_budget_status",
+    "retry_error_budget_status",
+    "last_known_good_comparison",
+    "failing_metrics",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "chain_health_scorecard.v1"
+    },
+    "scorecard_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "runner_result_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "chain_result_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "green_passed",
+        "red_captured"
+      ]
+    },
+    "stage_artifact_coverage": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "completed_stage_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_stage_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "handoff_digest_coverage": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "handoff_digest_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_handoff_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "role_ownership_violation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "typed_fallback_visibility": {
+      "oneOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "const": "not_applicable"
+        }
+      ]
+    },
+    "source_ref_preservation": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "latency_budget_status": {
+      "type": "string",
+      "enum": [
+        "within_budget",
+        "exceeded",
+        "not_provided"
+      ]
+    },
+    "retry_error_budget_status": {
+      "type": "string",
+      "enum": [
+        "within_budget",
+        "exceeded",
+        "not_provided"
+      ]
+    },
+    "last_known_good_comparison": {
+      "type": "string",
+      "enum": [
+        "same_or_better",
+        "regressed",
+        "not_available",
+        "not_provided"
+      ]
+    },
+    "failing_metrics": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

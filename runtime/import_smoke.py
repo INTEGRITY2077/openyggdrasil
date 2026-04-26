@@ -52,6 +52,7 @@ CANONICAL_RUNTIME_MODULES = [
     "delivery.support_bundle",
     "evaluation.evaluator",
     "evaluation.evaluator_amundsen_handoff",
+    "evaluation.chain_health_scorecard",
     "evaluation.promotion_worthiness",
     "placement.community_bridge_stub",
     "placement.map_maker_stub",
