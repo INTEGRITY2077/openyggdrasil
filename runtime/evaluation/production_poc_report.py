@@ -130,6 +130,8 @@ def build_production_poc_report(
         failing.append("ux_trust_decision")
     if str(foreground_live_comparison.get("decision") or "") != "green_passed":
         failing.append("foreground_live_comparison_decision")
+    if live_readiness != "live_proven":
+        failing.append("live_provider_readiness")
 
     failing_metrics = sorted(set(failing))
     report = {
