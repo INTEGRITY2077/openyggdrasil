@@ -29,6 +29,15 @@ LIVE_MISLABEL_MARKERS = (
     "real live foreground proof",
     "live foreground confirmed",
 )
+CONFLICT_VISIBILITY_MARKERS = (
+    "conflict",
+    "conflicting",
+    "contradiction",
+    "contradictory",
+    "correction",
+    "corrected",
+    "superseded",
+)
 SUPPORTED_CONFIDENCE_VALUES = {"supported", "confident", "asserted"}
 
 
@@ -70,6 +79,10 @@ def _rejected_memory(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     return [row for row in response.get("rejected_memory") or [] if isinstance(row, Mapping)]
 
 
+def _conflicting_memory(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    return [row for row in response.get("conflicting_memory") or [] if isinstance(row, Mapping)]
+
+
 def _claim_text(claim: Mapping[str, Any]) -> str:
     return str(claim.get("text") or "")
 
@@ -84,6 +97,29 @@ def _claim_has_evidence(claim: Mapping[str, Any]) -> bool:
 
 def _unsupported_claim_count(claims: Sequence[Mapping[str, Any]]) -> int:
     return sum(1 for claim in claims if _claim_is_supported(claim) and not _claim_has_evidence(claim))
+
+
+def _silent_conflict_count(
+    *,
+    response: Mapping[str, Any],
+    claims: Sequence[Mapping[str, Any]],
+) -> int:
+    conflicting_rows = _conflicting_memory(response)
+    if not conflicting_rows:
+        return 0
+    visible_text = " ".join(
+        [
+            str(response.get("answer_text") or ""),
+            *[_claim_text(claim) for claim in claims],
+        ]
+    ).lower()
+    has_visible_conflict_signal = any(marker in visible_text for marker in CONFLICT_VISIBILITY_MARKERS)
+    silent = 0
+    for row in conflicting_rows:
+        has_reason = bool(_non_empty_list(row.get("reason_codes")))
+        if not has_reason or not has_visible_conflict_signal:
+            silent += 1
+    return silent
 
 
 def _raw_transcript_leak_count(response: Mapping[str, Any]) -> int:
@@ -153,6 +189,7 @@ def _rejection_reason_coverage(response: Mapping[str, Any]) -> float | str:
 def _failing_metrics(
     *,
     unsupported_claim_count: int,
+    silent_conflict_count: int,
     raw_transcript_leak_count: int,
     live_mislabel_count: int,
     derived_as_sot_count: int,
@@ -164,6 +201,8 @@ def _failing_metrics(
     failing: list[str] = []
     if unsupported_claim_count > 0:
         failing.append("unsupported_claim_count")
+    if silent_conflict_count > 0:
+        failing.append("silent_conflict_count")
     if raw_transcript_leak_count > 0:
         failing.append("raw_transcript_leak_count")
     if live_mislabel_count > 0:
@@ -185,6 +224,7 @@ def _score(failing_metrics: Sequence[str]) -> int:
     score = max(0, 5 - len(failing_metrics))
     zero_tolerance = {
         "unsupported_claim_count",
+        "silent_conflict_count",
         "raw_transcript_leak_count",
         "live_mislabel_count",
         "derived_as_sot_count",
@@ -203,6 +243,7 @@ def build_hermes_response_quality_scorecard(
 
     claims = _claims(response)
     unsupported = _unsupported_claim_count(claims)
+    silent_conflicts = _silent_conflict_count(response=response, claims=claims)
     raw_leaks = _raw_transcript_leak_count(response)
     live_mislabels = _live_mislabel_count(
         response=response,
@@ -219,6 +260,7 @@ def build_hermes_response_quality_scorecard(
     rejection_coverage = _rejection_reason_coverage(response)
     failing = _failing_metrics(
         unsupported_claim_count=unsupported,
+        silent_conflict_count=silent_conflicts,
         raw_transcript_leak_count=raw_leaks,
         live_mislabel_count=live_mislabels,
         derived_as_sot_count=derived_count,
@@ -235,6 +277,7 @@ def build_hermes_response_quality_scorecard(
         "claim_count": len(claims),
         "supported_claim_count": sum(1 for claim in claims if _claim_is_supported(claim)),
         "unsupported_claim_count": unsupported,
+        "silent_conflict_count": silent_conflicts,
         "raw_transcript_leak_count": raw_leaks,
         "live_mislabel_count": live_mislabels,
         "derived_as_sot_count": derived_count,

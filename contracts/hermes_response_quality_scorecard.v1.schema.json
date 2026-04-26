@@ -12,6 +12,7 @@
     "claim_count",
     "supported_claim_count",
     "unsupported_claim_count",
+    "silent_conflict_count",
     "raw_transcript_leak_count",
     "live_mislabel_count",
     "derived_as_sot_count",
@@ -52,6 +53,10 @@
       "minimum": 0
     },
     "unsupported_claim_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "silent_conflict_count": {
       "type": "integer",
       "minimum": 0
     },
