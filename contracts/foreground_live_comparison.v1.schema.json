@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/foreground_live_comparison.v1.schema.json",
+  "title": "OpenYggdrasil Foreground Live Comparison v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "comparison_id",
+    "scenario_id",
+    "decision",
+    "claim_scope",
+    "lane_order",
+    "no_memory_state",
+    "foreground_equivalent_state",
+    "live_provider_state",
+    "raw_transcript_leak_count",
+    "live_mislabel_count",
+    "safe_evidence_pointer_count",
+    "failing_metrics",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "foreground_live_comparison.v1"
+    },
+    "comparison_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "green_passed",
+        "red_captured"
+      ]
+    },
+    "claim_scope": {
+      "type": "string",
+      "enum": [
+        "live_provider_proven",
+        "foreground_equivalent_with_typed_live_unavailable",
+        "foreground_equivalent_only",
+        "not_claimable"
+      ]
+    },
+    "lane_order": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "string",
+        "enum": [
+          "no_memory",
+          "foreground_equivalent",
+          "live_provider"
+        ]
+      }
+    },
+    "no_memory_state": {
+      "type": "string",
+      "enum": [
+        "green_passed",
+        "red_captured",
+        "typed_unavailable",
+        "not_implemented"
+      ]
+    },
+    "foreground_equivalent_state": {
+      "type": "string",
+      "enum": [
+        "green_passed",
+        "red_captured",
+        "typed_unavailable",
+        "not_implemented"
+      ]
+    },
+    "live_provider_state": {
+      "type": "string",
+      "enum": [
+        "live_proven",
+        "typed_unavailable",
+        "red_captured",
+        "not_implemented"
+      ]
+    },
+    "raw_transcript_leak_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "live_mislabel_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "safe_evidence_pointer_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failing_metrics": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
