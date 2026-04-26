@@ -16,11 +16,11 @@ OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS_ROOT = OPENYGGDRASIL_ROOT / "contracts"
 
 COMMON_RESULT_EVALUATION_REF = (
-    "D:\\0_PROJECT\\codex\\automation\\2026-04-25-6\\"
+    "private-dev:testbed/automation/2026-04-25-6/"
     "phase-4-common-result-sot-evaluation.md"
 )
 HERMES_BACKGROUND_DESCRIPTOR_REF = (
-    "D:\\0_PROJECT\\openyggdrasil\\history\\core\\2026-04-25\\"
+    "private-evidence://core/2026-04-25/"
     "2026-04-25_phase-4-hermes-background-capability-descriptor.md"
 )
 

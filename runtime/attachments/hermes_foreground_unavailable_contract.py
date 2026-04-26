@@ -15,15 +15,15 @@ OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS_ROOT = OPENYGGDRASIL_ROOT / "contracts"
 
 P6_H1_EVIDENCE_REF = (
-    "D:\\0_PROJECT\\openyggdrasil\\history\\core\\2026-04-26\\"
+    "private-evidence://core/2026-04-26/"
     "2026-04-26_phase-6-hermes-live-foreground-bootstrap-smoke.md"
 )
 P6_H2_EVIDENCE_REF = (
-    "D:\\0_PROJECT\\openyggdrasil\\history\\core\\2026-04-26\\"
+    "private-evidence://core/2026-04-26/"
     "2026-04-26_phase-6-hermes-live-foreground-memory-roundtrip.md"
 )
 MISSING_PROVIDER_HARNESS_PROBE_REF = (
-    "D:\\0_PROJECT\\openyggdrasil\\providers\\hermes\\projects\\harness\\"
+    "openyggdrasil:providers/hermes/projects/harness/"
     "hermes_foreground_probe.py"
 )
 P6_P1_ACTION = "P6.P1.hermes-provider-packaging-baseline"
@@ -150,14 +150,16 @@ def build_live_foreground_probe_typed_unavailable_reproof(
     helper only proves the live-provider surface is not currently executable.
     """
 
-    live_probe_path = live_probe_path or Path(MISSING_PROVIDER_HARNESS_PROBE_REF)
+    live_probe_path = live_probe_path or (
+        OPENYGGDRASIL_ROOT / "providers" / "hermes" / "projects" / "harness" / "hermes_foreground_probe.py"
+    )
     if live_probe_path.exists():
         raise RuntimeError(
             "live foreground probe exists; run the live probe instead of emitting missing-harness reproof"
         )
     return build_hermes_foreground_unavailable_contract(
         unavailable_kind="provider_harness_dependency_missing",
-        missing_dependency_refs=[str(live_probe_path)],
+        missing_dependency_refs=[MISSING_PROVIDER_HARNESS_PROBE_REF],
         next_action=P9_R1_ACTION,
     )
 

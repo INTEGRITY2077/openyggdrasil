@@ -6,12 +6,17 @@ This subtree keeps Hermes-specific adapter projects.
 
 - `harness`
   - Hermes-facing orchestration, mailbox, worker, and answer-support adapter code
+
+Operator-only project bundles are private development capital and are not
+published in this repository:
+
 - `secret-manager`
-  - provider bootstrap and probe utilities
 - `transcript-capture`
-  - Hermes session capture and transcript extraction
 - `wiki-promotion`
-  - Hermes raw transcript promotion entrypoint
+
+Canonical private location:
+
+- `private-provider-bundle:testbed/provider-native-bundles/hermes/projects/`
 
 ## Provider Projects
 

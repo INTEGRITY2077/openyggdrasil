@@ -1,0 +1,41 @@
+{
+  "schema_version": "hermes_skill_bundle_public_manifest.v1",
+  "provider_id": "hermes",
+  "bundle_publication_status": "private_bundle_required",
+  "public_surface": "boundary_manifest_only",
+  "private_bundle_ref": "private-provider-bundle:testbed/provider-native-bundles/hermes/skills/",
+  "removed_public_categories": [
+    "apple",
+    "autonomous-ai-agents",
+    "creative",
+    "data-science",
+    "devops",
+    "diagramming",
+    "dogfood",
+    "domain",
+    "email",
+    "feeds",
+    "gaming",
+    "gifs",
+    "github",
+    "inference-sh",
+    "leisure",
+    "mcp",
+    "media",
+    "mlops",
+    "note-taking",
+    "productivity",
+    "red-teaming",
+    "research",
+    "smart-home",
+    "social-media",
+    "software-development"
+  ],
+  "public_forbidden": [
+    "raw_skill_implementations",
+    "red_team_templates",
+    "provider_credential_helpers",
+    "private_workflow_prompts",
+    "bundled_third_party_operational_material"
+  ]
+}

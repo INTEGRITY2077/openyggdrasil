@@ -13,11 +13,12 @@
 - provider-local assets currently live here:
   - `projects`
   - `policy` (public pointer only)
-  - `skills`
   - `memories`
   - `hooks`
-- local-only provider documentation is centralized at:
-  - `%OPENYGGDRASIL_ROOT%\doc\providers\hermes\policy`
+- `skills` is a public boundary/manifest only; the full provider-native bundle
+  is private development capital
+- local-only provider documentation is centralized in the private development
+  repository, not under this public repo
 - runtime `ops` artifacts remain provider-local at execution time but are not tracked in git
 - core runtime, contracts, canonical vault, and Graphify derivation now live at the OpenYggdrasil root
 
@@ -26,8 +27,10 @@
   - `%OPENYGGDRASIL_ROOT%\providers\hermes`
 - Hermes ingress:
   - `%HERMES_ROOT%`
-- local policy documentation:
-  - `%OPENYGGDRASIL_ROOT%\doc\providers\hermes\policy`
+- private policy documentation:
+  - `private-provider-bundle:provider-policy/hermes`
+- private Hermes skill bundle:
+  - `private-provider-bundle:testbed/provider-native-bundles/hermes/skills`
 - core runtime:
   - `%OPENYGGDRASIL_ROOT%\runtime`
 - canonical vault:

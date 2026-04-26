@@ -16,7 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS_ROOT = PROJECT_ROOT / "contracts"
 
 HERMES_BACKGROUND_UNAVAILABLE_CONTRACT_REF = (
-    "D:\\0_PROJECT\\openyggdrasil\\history\\core\\2026-04-25\\"
+    "private-evidence://core/2026-04-25/"
     "2026-04-25_phase-4-hermes-background-unavailable-contract.md"
 )
 
