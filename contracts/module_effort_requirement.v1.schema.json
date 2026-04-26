@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/module_effort_requirement.v1.schema.json",
+  "title": "OpenYggdrasil Module Effort Requirement v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "module_id",
+    "requires_reasoning",
+    "min_effort",
+    "preferred_effort",
+    "max_useful_effort",
+    "reasoning_depth_area",
+    "lease_group",
+    "sandbox_required",
+    "plain_text_effort_allowed",
+    "effort_justification_code",
+    "target_runtime_module",
+    "reason_codes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "module_effort_requirement.v1"
+    },
+    "module_id": {
+      "type": "string",
+      "enum": [
+        "distiller",
+        "evaluator",
+        "amundsen",
+        "pathfinder",
+        "seedkeeper",
+        "map_maker",
+        "gardener",
+        "postman"
+      ]
+    },
+    "requires_reasoning": {
+      "type": "boolean"
+    },
+    "min_effort": {
+      "$ref": "#/$defs/moduleEffortLevel"
+    },
+    "preferred_effort": {
+      "$ref": "#/$defs/moduleEffortLevel"
+    },
+    "max_useful_effort": {
+      "$ref": "#/$defs/moduleEffortLevel"
+    },
+    "reasoning_depth_area": {
+      "type": "string",
+      "enum": [
+        "response_quality",
+        "retrieval_relevance",
+        "evidence_pointer",
+        "typed_availability",
+        "general_background_reasoning",
+        "none"
+      ]
+    },
+    "lease_group": {
+      "type": "string",
+      "enum": [
+        "deep_reasoning",
+        "semantic_routing",
+        "deterministic"
+      ]
+    },
+    "sandbox_required": {
+      "type": "boolean"
+    },
+    "plain_text_effort_allowed": {
+      "const": false
+    },
+    "effort_justification_code": {
+      "type": "string",
+      "enum": [
+        "long_context_distillation",
+        "semantic_worthiness_review",
+        "synonym_typo_resolution",
+        "semantic_pathfinding",
+        "deterministic_structure_only",
+        "deterministic_vault_io",
+        "deterministic_map_update",
+        "deterministic_delivery_formatting"
+      ]
+    },
+    "target_runtime_module": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    }
+  },
+  "$defs": {
+    "moduleEffortLevel": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    }
+  }
+}

@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/module_effort_plan.v1.schema.json",
+  "title": "OpenYggdrasil Module Effort Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_id",
+    "chain_id",
+    "target_platform_policy",
+    "plain_text_effort_allowed",
+    "reasoning_modules",
+    "deterministic_modules",
+    "lease_groups",
+    "chain_min_effort",
+    "chain_preferred_effort",
+    "reasoning_module_count",
+    "deterministic_module_count",
+    "reason_codes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "module_effort_plan.v1"
+    },
+    "plan_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "chain_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "target_platform_policy": {
+      "const": "wsl2_linux_first_native_windows_deferred"
+    },
+    "plain_text_effort_allowed": {
+      "const": false
+    },
+    "reasoning_modules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/moduleRequirement"
+      }
+    },
+    "deterministic_modules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/moduleRequirement"
+      }
+    },
+    "lease_groups": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "lease_group",
+          "module_ids",
+          "required_effort",
+          "preferred_effort",
+          "inference_mode",
+          "sandbox_required",
+          "sandbox_backend_policy"
+        ],
+        "properties": {
+          "lease_group": {
+            "type": "string",
+            "enum": [
+              "deep_reasoning",
+              "semantic_routing"
+            ]
+          },
+          "module_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "distiller",
+                "evaluator",
+                "amundsen",
+                "pathfinder"
+              ]
+            }
+          },
+          "required_effort": {
+            "$ref": "#/$defs/moduleEffortLevel"
+          },
+          "preferred_effort": {
+            "$ref": "#/$defs/moduleEffortLevel"
+          },
+          "inference_mode": {
+            "type": "string",
+            "enum": [
+              "provider_headless",
+              "local_worker",
+              "manual_review"
+            ]
+          },
+          "sandbox_required": {
+            "const": true
+          },
+          "sandbox_backend_policy": {
+            "const": "sandbox-runtime:bubblewrap_on_wsl2_linux"
+          }
+        }
+      }
+    },
+    "chain_min_effort": {
+      "$ref": "#/$defs/moduleEffortLevel"
+    },
+    "chain_preferred_effort": {
+      "$ref": "#/$defs/moduleEffortLevel"
+    },
+    "reasoning_module_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8
+    },
+    "deterministic_module_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    }
+  },
+  "$defs": {
+    "moduleEffortLevel": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    "moduleRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "module_id",
+        "requires_reasoning",
+        "min_effort",
+        "preferred_effort",
+        "max_useful_effort",
+        "reasoning_depth_area",
+        "lease_group",
+        "sandbox_required",
+        "plain_text_effort_allowed",
+        "effort_justification_code",
+        "target_runtime_module",
+        "reason_codes"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "module_effort_requirement.v1"
+        },
+        "module_id": {
+          "type": "string",
+          "enum": [
+            "distiller",
+            "evaluator",
+            "amundsen",
+            "pathfinder",
+            "seedkeeper",
+            "map_maker",
+            "gardener",
+            "postman"
+          ]
+        },
+        "requires_reasoning": {
+          "type": "boolean"
+        },
+        "min_effort": {
+          "$ref": "#/$defs/moduleEffortLevel"
+        },
+        "preferred_effort": {
+          "$ref": "#/$defs/moduleEffortLevel"
+        },
+        "max_useful_effort": {
+          "$ref": "#/$defs/moduleEffortLevel"
+        },
+        "reasoning_depth_area": {
+          "type": "string"
+        },
+        "lease_group": {
+          "type": "string",
+          "enum": [
+            "deep_reasoning",
+            "semantic_routing",
+            "deterministic"
+          ]
+        },
+        "sandbox_required": {
+          "type": "boolean"
+        },
+        "plain_text_effort_allowed": {
+          "const": false
+        },
+        "effort_justification_code": {
+          "type": "string"
+        },
+        "target_runtime_module": {
+          "type": "string"
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
