@@ -149,6 +149,11 @@ def build_live_probe_missing_boundary_payload(
         or "Physical Hermes foreground probe is not available.",
         "user_help": user_help
         or "Install or enable the live foreground probe harness before claiming live proof.",
+        "rerun_condition": "provide_live_probe_artifact_ref",
+        "evidence_required": [
+            "physical_probe_exists_true",
+            "live_probe_artifact_ref_non_empty",
+        ],
         "physical_probe_exists": False,
         "live_probe_artifact_ref": None,
         "raw_transcript_leak_count": 0,
