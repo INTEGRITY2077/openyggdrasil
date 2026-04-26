@@ -55,6 +55,7 @@ CANONICAL_RUNTIME_MODULES = [
     "evaluation.evaluator_amundsen_handoff",
     "evaluation.chain_health_scorecard",
     "evaluation.foreground_live_comparison",
+    "evaluation.production_poc_report",
     "evaluation.promotion_worthiness",
     "placement.community_bridge_stub",
     "placement.map_maker_stub",
