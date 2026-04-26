@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from harness_common import utc_now_iso
+from reasoning.typed_availability_metrics import measure_typed_availability_ux_metrics
 from retrieval.graphify_snapshot_manifest import validate_graphify_snapshot_manifest
 
 
@@ -199,3 +200,117 @@ def validate_graph_output_guard_result(payload: Mapping[str, Any]) -> None:
     requested_use = str(payload.get("requested_use") or "")
     if requested_use in ANSWER_REQUESTED_USES and "graph_only_answer_forbidden" not in reason_codes:
         raise ValueError("Answer requests must be blocked from graph-only output")
+
+
+def _first_graph_unavailable_reason(reason_codes: Sequence[Any]) -> str:
+    preferred = (
+        "graph_snapshot_unavailable",
+        "graph_freshness_not_trusted",
+        "sot_provenance_shortcut_missing",
+        "graph_manifest_not_non_sot",
+    )
+    normalized = [str(code).strip() for code in reason_codes if str(code).strip()]
+    for code in preferred:
+        if code in normalized:
+            return code
+    return normalized[0] if normalized else "graph_output_unavailable"
+
+
+def build_graph_unavailable_typed_fallback(
+    *,
+    graph_guard_result: Mapping[str, Any],
+    provider_comment: str | None = None,
+    user_help: str | None = None,
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    """Convert unavailable graph output into a typed non-SOT fallback payload."""
+
+    validate_graph_output_guard_result(graph_guard_result)
+    reason_codes = [str(code) for code in graph_guard_result.get("reason_codes") or []]
+    reason_code = _first_graph_unavailable_reason(reason_codes)
+    payload = {
+        "schema_version": "graph_unavailable_typed_fallback.v1",
+        "status": "unavailable",
+        "unavailable_kind": "graph_output_unavailable",
+        "check_id": "graph_output_guard",
+        "reason_code": reason_code,
+        "failed_check_ids": reason_codes or [reason_code],
+        "runner_outcome": "typed_unavailable",
+        "fault_domain": "derived_graph_visibility",
+        "category": "graph_unavailable_fallback",
+        "provider_comment": provider_comment
+        or "Graph output is unavailable or not trustworthy enough to use as an answer source.",
+        "user_help": user_help
+        or "Regenerate the Graphify snapshot or continue with vault/mailbox evidence only.",
+        "derived_as_sot_count": 0,
+        "graph_only_answer_allowed": False,
+        "canonical_output_allowed": False,
+        "authoritative_use_allowed": False,
+        "source_role": SOURCE_ROLE,
+        "canonicality": CANONICALITY,
+        "manifest_id": graph_guard_result.get("manifest_id"),
+        "manifest_status": graph_guard_result.get("manifest_status"),
+        "created_at": generated_at or utc_now_iso(),
+    }
+    validate_graph_unavailable_typed_fallback(payload)
+    return payload
+
+
+def validate_graph_unavailable_typed_fallback(payload: Mapping[str, Any]) -> None:
+    if payload.get("schema_version") != "graph_unavailable_typed_fallback.v1":
+        raise ValueError("Invalid graph unavailable fallback schema_version")
+    if payload.get("status") != "unavailable":
+        raise ValueError("Graph fallback status must be unavailable")
+    if payload.get("unavailable_kind") != "graph_output_unavailable":
+        raise ValueError("Graph fallback unavailable_kind is invalid")
+    for key in ("reason_code", "runner_outcome", "fault_domain", "provider_comment", "user_help"):
+        if not str(payload.get(key) or "").strip():
+            raise ValueError(f"Graph fallback missing typed field: {key}")
+    failed_check_ids = payload.get("failed_check_ids")
+    if not isinstance(failed_check_ids, list) or not failed_check_ids:
+        raise ValueError("Graph fallback requires failed_check_ids")
+    for flag in ("graph_only_answer_allowed", "canonical_output_allowed", "authoritative_use_allowed"):
+        if payload.get(flag) is not False:
+            raise ValueError(f"Graph fallback flag must be false: {flag}")
+    if int(payload.get("derived_as_sot_count") or 0) < 0:
+        raise ValueError("Graph fallback derived_as_sot_count must be non-negative")
+
+
+def measure_graph_unavailable_typed_fallback_metrics(
+    fallback_payload: Mapping[str, Any],
+    *,
+    unsupported_claim_count: int = 0,
+) -> dict[str, Any]:
+    """Measure UX-FS-03/09 graph unavailable fallback visibility."""
+
+    validate_graph_unavailable_typed_fallback(fallback_payload)
+    typed_metrics = measure_typed_availability_ux_metrics(
+        expected_surfaces=["graph_output"],
+        surface_payloads={"graph_output": fallback_payload},
+        unsupported_claim_count=unsupported_claim_count,
+    )
+    derived_as_sot_count = int(fallback_payload.get("derived_as_sot_count") or 0)
+    graph_only_answer_allowed = bool(fallback_payload.get("graph_only_answer_allowed"))
+    failing_metrics: list[str] = []
+    if typed_metrics["typed_unavailable_coverage"] != 1.0:
+        failing_metrics.append("typed_unavailable_coverage")
+    if unsupported_claim_count:
+        failing_metrics.append("unsupported_claim_count")
+    if derived_as_sot_count:
+        failing_metrics.append("derived_as_sot_count")
+    if graph_only_answer_allowed:
+        failing_metrics.append("graph_only_answer_allowed")
+
+    return {
+        "surface_id": "UX-FS-03",
+        "secondary_surface_id": "UX-FS-09",
+        "scenario_id": "P9-S10",
+        "typed_unavailable_coverage": typed_metrics["typed_unavailable_coverage"],
+        "unsupported_claim_count": int(unsupported_claim_count),
+        "derived_as_sot_count": derived_as_sot_count,
+        "graph_only_answer_allowed": graph_only_answer_allowed,
+        "provider_comment_present": bool(str(fallback_payload.get("provider_comment") or "").strip()),
+        "user_help_present": bool(str(fallback_payload.get("user_help") or "").strip()),
+        "failing_metrics": failing_metrics,
+        "decision": "green_passed" if not failing_metrics else "red_captured",
+    }
