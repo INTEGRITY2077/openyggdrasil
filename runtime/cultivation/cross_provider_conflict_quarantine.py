@@ -36,6 +36,127 @@ def validate_cross_provider_conflict_quarantine(payload: Mapping[str, Any]) -> N
     )
 
 
+def _has_safe_evidence_pointer(ref: Any) -> bool:
+    if not isinstance(ref, Mapping):
+        return False
+    for key in ("path_hint", "path", "ref", "uri", "url"):
+        if str(ref.get(key) or "").strip():
+            return True
+    canonical_ref = ref.get("canonical_ref")
+    if isinstance(canonical_ref, Mapping):
+        return _has_safe_evidence_pointer(canonical_ref)
+    return False
+
+
+def _has_provenanced_source_refs(value: Any) -> bool:
+    if not isinstance(value, Mapping):
+        return False
+    source_refs = value.get("source_refs")
+    return isinstance(source_refs, Sequence) and not isinstance(source_refs, (str, bytes)) and any(
+        _has_safe_evidence_pointer(ref) for ref in source_refs
+    ) and isinstance(value.get("provenance"), Mapping)
+
+
+def _walk_raw_transcript_leaks(value: Any) -> int:
+    leak_keys = {
+        "raw_text",
+        "raw_transcript",
+        "raw_session",
+        "session_dump",
+        "transcript",
+        "transcript_text",
+        "conversation_excerpt",
+        "provider_response_raw",
+    }
+    if isinstance(value, Mapping):
+        count = 0
+        for key, child in value.items():
+            key_text = str(key).lower()
+            if key_text in leak_keys:
+                count += 1
+            count += _walk_raw_transcript_leaks(child)
+        return count
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return sum(_walk_raw_transcript_leaks(child) for child in value)
+    if isinstance(value, str):
+        normalized = value.lower()
+        if ("user:" in normalized and "assistant:" in normalized) or "raw transcript" in normalized:
+            return 1
+    return 0
+
+
+def measure_cross_provider_provenance_metrics(
+    quarantine: Mapping[str, Any],
+    *,
+    validate_contract: bool = True,
+) -> dict[str, Any]:
+    """Measure P9-S19 UX proof that cross-provider conflicts expose safe provenance only."""
+    if validate_contract:
+        validate_cross_provider_conflict_quarantine(quarantine)
+
+    candidate_claim = quarantine.get("candidate_claim")
+    candidate = dict(candidate_claim) if isinstance(candidate_claim, Mapping) else {}
+    conflicting_records = [
+        dict(record) for record in quarantine.get("conflicting_records") or [] if isinstance(record, Mapping)
+    ]
+    expected_groups = 1 + len(conflicting_records)
+
+    covered_groups = int(_has_provenanced_source_refs(candidate))
+    covered_groups += sum(int(_has_provenanced_source_refs(record)) for record in conflicting_records)
+    provenance_coverage = round(covered_groups / expected_groups, 6) if expected_groups else 1.0
+
+    safe_pointer_groups = int(
+        isinstance(candidate.get("source_refs"), Sequence)
+        and not isinstance(candidate.get("source_refs"), (str, bytes))
+        and any(_has_safe_evidence_pointer(ref) for ref in candidate.get("source_refs", []))
+    )
+    for record in conflicting_records:
+        source_refs = record.get("source_refs")
+        if isinstance(source_refs, Sequence) and not isinstance(source_refs, (str, bytes)):
+            safe_pointer_groups += int(any(_has_safe_evidence_pointer(ref) for ref in source_refs))
+    safe_evidence_pointer_coverage = round(safe_pointer_groups / expected_groups, 6) if expected_groups else 1.0
+
+    reason_codes = {
+        str(code)
+        for code in quarantine.get("reason_codes") or []
+        if isinstance(code, str) and code.strip()
+    }
+    review_route = quarantine.get("review_route") if isinstance(quarantine.get("review_route"), Mapping) else {}
+    conflict_boundary_visible = (
+        bool(conflicting_records)
+        and review_route.get("fallback_action") == "quarantine_until_review"
+        and quarantine.get("canonical_write_status") == "not_written"
+        and quarantine.get("vault_mutation_allowed") is False
+        and quarantine.get("ambiguous_memory_canonicalized") is False
+        and "cross_provider_conflict_detected" in reason_codes
+    )
+    silent_conflict_count = 0 if conflict_boundary_visible else max(1, len(conflicting_records))
+    raw_transcript_leak_count = _walk_raw_transcript_leaks(quarantine)
+
+    failing_metrics: list[str] = []
+    if provenance_coverage < 1.0:
+        failing_metrics.append("provenance_coverage")
+    if safe_evidence_pointer_coverage < 1.0:
+        failing_metrics.append("safe_evidence_pointer_coverage")
+    if silent_conflict_count:
+        failing_metrics.append("silent_conflict_count")
+    if raw_transcript_leak_count:
+        failing_metrics.append("raw_transcript_leak_count")
+
+    return {
+        "scenario_id": "P9-S19",
+        "surface_id": "UX-FS-05",
+        "secondary_surface_id": "UX-FS-06",
+        "provenance_coverage": provenance_coverage,
+        "safe_evidence_pointer_coverage": safe_evidence_pointer_coverage,
+        "silent_conflict_count": silent_conflict_count,
+        "raw_transcript_leak_count": raw_transcript_leak_count,
+        "conflict_record_count": len(conflicting_records),
+        "failing_metrics": failing_metrics,
+        "decision": "green_passed" if not failing_metrics else "red_captured",
+    }
+
+
 def _normalize_claim_text(value: Any) -> str:
     text = re.sub(r"\s+", " ", str(value or "").strip().lower())
     if not text:
