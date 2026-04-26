@@ -36,7 +36,9 @@ def _int_metric(payload: Mapping[str, Any], key: str) -> int:
 def _state_for_lane(payload: Mapping[str, Any], *, live_provider: bool = False) -> str:
     status = str(payload.get("status") or "not_implemented")
     if live_provider and status == "green_passed":
-        return "live_proven"
+        physical_probe_exists = payload.get("physical_probe_exists") is True
+        live_probe_artifact_ref = str(payload.get("live_probe_artifact_ref") or "").strip()
+        return "live_proven" if physical_probe_exists and live_probe_artifact_ref else "red_captured"
     allowed = {"green_passed", "red_captured", "typed_unavailable", "not_implemented"}
     return status if status in allowed else "not_implemented"
 
@@ -93,6 +95,11 @@ def build_foreground_live_comparison(
         failing.append("foreground_equivalent_state")
     if live_provider_state == "red_captured":
         failing.append("live_provider_state")
+    if (
+        str(live_provider.get("status") or "") == "green_passed"
+        and live_provider_state != "live_proven"
+    ):
+        failing.append("live_provider_physical_probe_missing")
     if foreground_equivalent_state == "green_passed" and safe_pointers <= 0:
         failing.append("safe_evidence_pointer_count")
     failing_metrics = sorted(set(failing))
@@ -118,3 +125,33 @@ def build_foreground_live_comparison(
     }
     validate_foreground_live_comparison(comparison)
     return comparison
+
+
+def build_live_probe_missing_boundary_payload(
+    *,
+    scenario_id: str,
+    reason_code: str = "physical_live_probe_missing",
+    provider_comment: str | None = None,
+    user_help: str | None = None,
+) -> dict[str, Any]:
+    """Return a live-provider lane payload that cannot be mistaken for live proof."""
+
+    return {
+        "lane_id": f"{scenario_id}:live-provider",
+        "lane_type": "live_provider",
+        "status": "typed_unavailable",
+        "answer_summary": "Physical live foreground probe is unavailable.",
+        "unavailable_kind": "live_foreground_probe_unavailable",
+        "reason_code": reason_code,
+        "runner_outcome": "typed_unavailable",
+        "fault_domain": "live_provider_probe",
+        "provider_comment": provider_comment
+        or "Physical Hermes foreground probe is not available.",
+        "user_help": user_help
+        or "Install or enable the live foreground probe harness before claiming live proof.",
+        "physical_probe_exists": False,
+        "live_probe_artifact_ref": None,
+        "raw_transcript_leak_count": 0,
+        "live_mislabel_count": 0,
+        "safe_evidence_pointer_count": 1,
+    }
