@@ -8,6 +8,11 @@ from typing import Any, Mapping, Sequence
 
 import jsonschema
 
+from evaluation.hermes_live_e2e_witness_logger import validate_hermes_live_e2e_witness_event
+from evaluation.production_report_evidence_lineage import (
+    REQUIRED_LINEAGE_LANES,
+    validate_production_report_evidence_lineage,
+)
 from harness_common import utc_now_iso
 
 
@@ -110,6 +115,101 @@ def _live_provider_evidence_required(
     return []
 
 
+def _validation_error_text(exc: Exception) -> str:
+    return f"{exc.__class__.__name__}: {str(exc).splitlines()[0]}"[:500]
+
+
+def _evidence_lineage_summary(evidence_lineage: Mapping[str, Any] | None) -> dict[str, Any]:
+    if evidence_lineage is None:
+        return {
+            "evidence_lineage_id": None,
+            "evidence_lineage_status": "not_supplied",
+            "evidence_lineage_readiness": "not_ready",
+            "evidence_lineage_required_lane_ids": list(REQUIRED_LINEAGE_LANES),
+            "evidence_lineage_present_lane_ids": [],
+            "evidence_lineage_missing_lane_ids": [],
+            "evidence_lineage_validation_error": None,
+        }
+
+    validation_error = None
+    try:
+        validate_production_report_evidence_lineage(evidence_lineage)
+    except (ValueError, jsonschema.exceptions.ValidationError) as exc:
+        validation_error = _validation_error_text(exc)
+
+    status = str(evidence_lineage.get("lineage_status") or "invalid")
+    if validation_error:
+        status = "invalid" if status not in {"incomplete_minimum_lineage", "typed_unavailable"} else status
+    return {
+        "evidence_lineage_id": evidence_lineage.get("lineage_id"),
+        "evidence_lineage_status": status,
+        "evidence_lineage_readiness": str(evidence_lineage.get("readiness_state") or "not_ready"),
+        "evidence_lineage_required_lane_ids": [
+            str(lane) for lane in evidence_lineage.get("required_lane_ids") or []
+        ],
+        "evidence_lineage_present_lane_ids": [
+            str(lane) for lane in evidence_lineage.get("present_lane_ids") or []
+        ],
+        "evidence_lineage_missing_lane_ids": [
+            str(lane) for lane in evidence_lineage.get("missing_lane_ids") or []
+        ],
+        "evidence_lineage_validation_error": validation_error,
+    }
+
+
+def _evidence_lineage_ready(summary: Mapping[str, Any]) -> bool:
+    return (
+        summary.get("evidence_lineage_validation_error") is None
+        and summary.get("evidence_lineage_status") == "complete_minimum_lineage"
+        and summary.get("evidence_lineage_readiness") == "ready_for_report_rebuild"
+        and summary.get("evidence_lineage_required_lane_ids") == list(REQUIRED_LINEAGE_LANES)
+        and summary.get("evidence_lineage_present_lane_ids") == list(REQUIRED_LINEAGE_LANES)
+        and summary.get("evidence_lineage_missing_lane_ids") == []
+    )
+
+
+def _same_run_witness_summary(hermes_live_e2e_witness: Mapping[str, Any] | None) -> dict[str, Any]:
+    if hermes_live_e2e_witness is None:
+        return {
+            "same_run_witness_decision": "not_supplied",
+            "same_run_witness_readiness": "not_ready",
+            "same_run_witness_claim_scope": None,
+            "same_run_witness_validation_error": None,
+            "fixture_only_artifacts_present": False,
+        }
+
+    validation_error = None
+    try:
+        validate_hermes_live_e2e_witness_event(hermes_live_e2e_witness)
+    except (ValueError, jsonschema.exceptions.ValidationError) as exc:
+        validation_error = _validation_error_text(exc)
+
+    decision = str(hermes_live_e2e_witness.get("decision") or "invalid")
+    if validation_error and not decision:
+        decision = "invalid"
+    readiness = str(hermes_live_e2e_witness.get("readiness_state") or "not_ready")
+    return {
+        "same_run_witness_decision": decision,
+        "same_run_witness_readiness": readiness,
+        "same_run_witness_claim_scope": hermes_live_e2e_witness.get("claim_scope"),
+        "same_run_witness_validation_error": validation_error,
+        "fixture_only_artifacts_present": hermes_live_e2e_witness.get(
+            "fixture_only_artifacts_present"
+        )
+        is True,
+    }
+
+
+def _same_run_witness_ready(summary: Mapping[str, Any]) -> bool:
+    return (
+        summary.get("same_run_witness_validation_error") is None
+        and summary.get("same_run_witness_decision") == "live_equivalent_ready_for_e2e5"
+        and summary.get("same_run_witness_readiness") == "ready_for_e2e5"
+        and summary.get("same_run_witness_claim_scope") == "hermes_live_witness_ready_for_e2e5"
+        and summary.get("fixture_only_artifacts_present") is False
+    )
+
+
 def _readiness_state(failing_metrics: list[str]) -> str:
     blockers = {
         "raw_provider_session_copy_count",
@@ -133,6 +233,8 @@ def build_production_poc_report(
     history_core_public_track_hygiene_state: str,
     residual_risks: Sequence[str],
     live_provider_probe_status: Mapping[str, Any] | None = None,
+    evidence_lineage: Mapping[str, Any] | None = None,
+    hermes_live_e2e_witness: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the P9 production POC report without hiding remaining gaps."""
 
@@ -156,6 +258,8 @@ def build_production_poc_report(
         live_readiness=live_readiness,
         live_provider_probe_status=live_provider_probe_status,
     )
+    lineage_summary = _evidence_lineage_summary(evidence_lineage)
+    witness_summary = _same_run_witness_summary(hermes_live_e2e_witness)
 
     failing: list[str] = []
     if scenario_count < 20:
@@ -182,6 +286,12 @@ def build_production_poc_report(
         failing.append("foreground_live_comparison_decision")
     if live_readiness != "live_proven":
         failing.append("live_provider_readiness")
+    if not _evidence_lineage_ready(lineage_summary):
+        failing.append("production_report_evidence_lineage")
+    if not _same_run_witness_ready(witness_summary):
+        failing.append("same_run_hermes_live_e2e_witness")
+    if witness_summary["fixture_only_artifacts_present"]:
+        failing.append("fixture_only_artifacts_present")
 
     failing_metrics = sorted(set(failing))
     report = {
@@ -206,6 +316,9 @@ def build_production_poc_report(
         "foreground_live_comparison_decision": str(
             foreground_live_comparison.get("decision") or "red_captured"
         ),
+        **lineage_summary,
+        **witness_summary,
+        "may_claim_91_percent_readiness": not failing_metrics,
         "failing_metrics": failing_metrics,
         "residual_risks": [str(risk) for risk in residual_risks],
         "checked_at": utc_now_iso(),

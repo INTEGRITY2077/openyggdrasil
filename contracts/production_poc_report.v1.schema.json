@@ -24,6 +24,19 @@
     "live_provider_evidence_required",
     "ux_trust_decision",
     "foreground_live_comparison_decision",
+    "evidence_lineage_id",
+    "evidence_lineage_status",
+    "evidence_lineage_readiness",
+    "evidence_lineage_required_lane_ids",
+    "evidence_lineage_present_lane_ids",
+    "evidence_lineage_missing_lane_ids",
+    "evidence_lineage_validation_error",
+    "same_run_witness_decision",
+    "same_run_witness_readiness",
+    "same_run_witness_claim_scope",
+    "same_run_witness_validation_error",
+    "fixture_only_artifacts_present",
+    "may_claim_91_percent_readiness",
     "failing_metrics",
     "residual_risks",
     "checked_at"
@@ -142,9 +155,91 @@
         "red_captured"
       ]
     },
+    "evidence_lineage_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "evidence_lineage_status": {
+      "type": "string",
+      "enum": [
+        "complete_minimum_lineage",
+        "incomplete_minimum_lineage",
+        "typed_unavailable",
+        "not_supplied",
+        "invalid"
+      ]
+    },
+    "evidence_lineage_readiness": {
+      "type": "string",
+      "enum": [
+        "ready_for_report_rebuild",
+        "not_ready"
+      ]
+    },
+    "evidence_lineage_required_lane_ids": {
+      "$ref": "#/$defs/e2e_lineage_lane_ids"
+    },
+    "evidence_lineage_present_lane_ids": {
+      "$ref": "#/$defs/e2e_lineage_lane_ids"
+    },
+    "evidence_lineage_missing_lane_ids": {
+      "$ref": "#/$defs/e2e_lineage_lane_ids"
+    },
+    "evidence_lineage_validation_error": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "same_run_witness_decision": {
+      "type": "string",
+      "enum": [
+        "live_equivalent_ready_for_e2e5",
+        "historical_session_witness_not_live_equivalent",
+        "typed_unavailable_not_live_proven",
+        "not_supplied",
+        "invalid"
+      ]
+    },
+    "same_run_witness_readiness": {
+      "type": "string",
+      "enum": [
+        "ready_for_e2e5",
+        "not_ready"
+      ]
+    },
+    "same_run_witness_claim_scope": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "same_run_witness_validation_error": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "fixture_only_artifacts_present": {
+      "type": "boolean"
+    },
+    "may_claim_91_percent_readiness": {
+      "type": "boolean"
+    },
     "failing_metrics": {
       "type": "array",
-      "maxItems": 32,
+      "maxItems": 40,
       "uniqueItems": true,
       "items": {
         "type": "string",
@@ -165,6 +260,23 @@
     "checked_at": {
       "type": "string",
       "format": "date-time"
+    }
+  },
+  "$defs": {
+    "e2e_lineage_lane_ids": {
+      "type": "array",
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "e2e1_physical_session",
+          "e2e2_knowledge_forest_delta",
+          "e2e3_graphify_snapshot",
+          "e2e4_mailbox_consumption",
+          "e2e5b_reasoning_lease_isolation"
+        ]
+      }
     }
   }
 }
