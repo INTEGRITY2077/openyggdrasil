@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/mailbox_quality_scorecard.v1.schema.json",
+  "title": "OpenYggdrasil Mailbox Quality Scorecard v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scorecard_id",
+    "decision",
+    "score",
+    "bundle_size",
+    "declared_limit",
+    "candidate_count",
+    "accepted_count",
+    "rejected_count",
+    "mailbox_noise_ratio",
+    "relevance_rationale_coverage",
+    "provenance_coverage",
+    "rejection_reason_coverage",
+    "stale_false_accept_count",
+    "superseded_false_accept_count",
+    "conflict_false_accept_count",
+    "decoy_false_accept_count",
+    "irrelevant_memory_citation_count",
+    "derived_as_sot_count",
+    "failing_metrics",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mailbox_quality_scorecard.v1"
+    },
+    "scorecard_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "green_passed",
+        "red_captured"
+      ]
+    },
+    "score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "bundle_size": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "declared_limit": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "candidate_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "accepted_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rejected_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "mailbox_noise_ratio": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "relevance_rationale_coverage": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "provenance_coverage": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "rejection_reason_coverage": {
+      "oneOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "const": "not_applicable"
+        }
+      ]
+    },
+    "stale_false_accept_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "superseded_false_accept_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "conflict_false_accept_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "decoy_false_accept_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "irrelevant_memory_citation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "derived_as_sot_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failing_metrics": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
