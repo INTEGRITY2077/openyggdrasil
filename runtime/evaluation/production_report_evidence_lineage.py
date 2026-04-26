@@ -37,6 +37,7 @@ RAW_TRANSCRIPT_MARKERS = (
     "provider_session_copy",
     "transcript.txt",
 )
+NON_SAME_RUN_SOURCE_KINDS = {"contract_artifact", "typed_unavailable"}
 
 
 @lru_cache(maxsize=1)
@@ -79,6 +80,17 @@ def _assert_safe_ref(value: Any, *, field_name: str) -> str:
     return ref
 
 
+def _optional_same_run_id(value: Any, *, field_name: str) -> str | None:
+    if value is None:
+        return None
+    same_run_id = str(value).strip()
+    if not same_run_id:
+        return None
+    if not re.fullmatch(r"^[A-Za-z0-9._:-]{1,128}$", same_run_id):
+        raise ValueError(f"{field_name} must be a stable same-run id")
+    return same_run_id
+
+
 def _ordered_lanes(lanes: set[str]) -> list[str]:
     return [lane for lane in REQUIRED_LINEAGE_LANES if lane in lanes]
 
@@ -109,6 +121,20 @@ def _normalize_artifact(entry: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError(f"{lane_id} contains_raw_transcript must be false")
 
     source_kind = str(entry.get("source_kind") or "").strip()
+    same_run_id = _optional_same_run_id(entry.get("same_run_id"), field_name=f"{lane_id}.same_run_id")
+    same_run_witness_ref = entry.get("same_run_witness_ref")
+    if same_run_witness_ref is not None:
+        same_run_witness_ref = _assert_safe_ref(
+            same_run_witness_ref,
+            field_name=f"{lane_id}.same_run_witness_ref",
+        )
+    if same_run_id and not same_run_witness_ref:
+        raise ValueError(f"{lane_id} same-run artifact requires same_run_witness_ref")
+    if same_run_witness_ref and not same_run_id:
+        raise ValueError(f"{lane_id} same_run_witness_ref requires same_run_id")
+    if source_kind in NON_SAME_RUN_SOURCE_KINDS and same_run_id:
+        raise ValueError(f"{lane_id} {source_kind} cannot carry same-run evidence")
+
     if artifact_status == "present":
         artifact_ref = _assert_safe_ref(entry.get("artifact_ref"), field_name=f"{lane_id}.artifact_ref")
         sha256 = str(entry.get("sha256") or "").strip()
@@ -131,8 +157,10 @@ def _normalize_artifact(entry: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError(f"{lane_id} typed unavailable artifact requires a reason")
         if source_kind != "typed_unavailable":
             raise ValueError(f"{lane_id} typed unavailable artifact requires source_kind=typed_unavailable")
+        if same_run_id or same_run_witness_ref:
+            raise ValueError(f"{lane_id} typed unavailable artifact cannot carry same-run evidence")
 
-    return {
+    normalized = {
         "lane_id": lane_id,
         "artifact_status": artifact_status,
         "artifact_ref": artifact_ref,
@@ -144,6 +172,10 @@ def _normalize_artifact(entry: Mapping[str, Any]) -> dict[str, Any]:
         "safe_evidence_refs": safe_evidence_refs,
         "contains_raw_transcript": False,
     }
+    if same_run_id is not None:
+        normalized["same_run_id"] = same_run_id
+        normalized["same_run_witness_ref"] = same_run_witness_ref
+    return normalized
 
 
 def _normalized_artifact_chain(artifact_chain: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -155,6 +187,31 @@ def _normalized_artifact_chain(artifact_chain: Sequence[Mapping[str, Any]]) -> l
             raise ValueError(f"duplicate lineage lane: {lane_id}")
         seen.add(lane_id)
     return sorted(normalized, key=lambda entry: REQUIRED_LINEAGE_LANES.index(entry["lane_id"]))
+
+
+def _same_run_fields(artifact_chain: Sequence[Mapping[str, Any]]) -> tuple[str | None, str | None]:
+    present = [
+        entry
+        for entry in artifact_chain
+        if str(entry.get("artifact_status")) == "present"
+    ]
+    if len(present) != len(REQUIRED_LINEAGE_LANES):
+        return None, None
+    if any(str(entry.get("source_kind")) in NON_SAME_RUN_SOURCE_KINDS for entry in present):
+        return None, None
+    same_run_ids = {
+        str(entry.get("same_run_id") or "").strip()
+        for entry in present
+        if str(entry.get("same_run_id") or "").strip()
+    }
+    witness_refs = {
+        str(entry.get("same_run_witness_ref") or "").strip()
+        for entry in present
+        if str(entry.get("same_run_witness_ref") or "").strip()
+    }
+    if len(same_run_ids) == 1 and len(witness_refs) == 1:
+        return next(iter(same_run_ids)), next(iter(witness_refs))
+    return None, None
 
 
 def _derive_lineage_fields(
@@ -176,9 +233,15 @@ def _derive_lineage_fields(
     typed_unavailable_lane_ids = _ordered_lanes(typed_unavailable)
     missing_lane_ids = _ordered_lanes(missing)
 
+    same_run_id, same_run_witness_ref = _same_run_fields(artifact_chain)
+
     if not missing_lane_ids:
         lineage_status = "complete_minimum_lineage"
-        readiness_state = "ready_for_report_rebuild"
+        readiness_state = (
+            "ready_for_report_rebuild"
+            if same_run_id and same_run_witness_ref
+            else "not_ready"
+        )
     elif typed_unavailable_lane_ids:
         lineage_status = "typed_unavailable"
         readiness_state = "not_ready"
@@ -187,6 +250,8 @@ def _derive_lineage_fields(
         readiness_state = "not_ready"
 
     reason_codes = ["full_provenance_archive_deferred"]
+    if not missing_lane_ids and not (same_run_id and same_run_witness_ref):
+        reason_codes.append("same_run_lineage_required")
     for lane_id in missing_lane_ids:
         if lane_id in typed_unavailable:
             reason_codes.append(f"typed_unavailable_{lane_id}")
@@ -218,6 +283,7 @@ def build_production_report_evidence_lineage(
     """
 
     normalized_chain = _normalized_artifact_chain(artifact_chain)
+    same_run_id, same_run_witness_ref = _same_run_fields(normalized_chain)
     (
         present_lane_ids,
         typed_unavailable_lane_ids,
@@ -245,6 +311,9 @@ def build_production_report_evidence_lineage(
         "reason_codes": reason_codes,
         "checked_at": checked_at or utc_now_iso(),
     }
+    if same_run_id and same_run_witness_ref:
+        payload["same_run_id"] = same_run_id
+        payload["same_run_witness_ref"] = same_run_witness_ref
     validate_production_report_evidence_lineage(payload)
     return payload
 
@@ -267,6 +336,7 @@ def validate_production_report_evidence_lineage(payload: Mapping[str, Any]) -> N
     _assert_timestamp(payload.get("checked_at"), field_name="checked_at")
 
     normalized_chain = _normalized_artifact_chain(payload.get("artifact_chain") or [])
+    same_run_id, same_run_witness_ref = _same_run_fields(normalized_chain)
     (
         present_lane_ids,
         typed_unavailable_lane_ids,
@@ -287,10 +357,22 @@ def validate_production_report_evidence_lineage(payload: Mapping[str, Any]) -> N
     for field_name, expected_value in expected.items():
         if payload.get(field_name) != expected_value:
             raise ValueError(f"{field_name} does not match artifact_chain")
+    if same_run_id and same_run_witness_ref:
+        if payload.get("same_run_id") != same_run_id:
+            raise ValueError("same_run_id does not match artifact_chain")
+        if payload.get("same_run_witness_ref") != same_run_witness_ref:
+            raise ValueError("same_run_witness_ref does not match artifact_chain")
+    else:
+        if payload.get("same_run_id") is not None or payload.get("same_run_witness_ref") is not None:
+            raise ValueError("same-run fields do not match artifact_chain")
 
 
 def prepare_lineage_for_production_report_rebuild(payload: Mapping[str, Any]) -> dict[str, Any]:
     validate_production_report_evidence_lineage(payload)
     if str(payload.get("lineage_status")) != "complete_minimum_lineage":
         raise ValueError("production report rebuild requires complete minimum lineage")
+    if str(payload.get("readiness_state")) != "ready_for_report_rebuild":
+        raise ValueError("production report rebuild requires same-run lineage")
+    if not payload.get("same_run_id") or not payload.get("same_run_witness_ref"):
+        raise ValueError("production report rebuild requires same-run lineage")
     return dict(payload)
