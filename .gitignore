@@ -2,6 +2,7 @@
 
 # repo-managed documentation is not a deploy/runtime dependency
 /doc/
+/private-history/
 /README.ko.md
 /agent-list.ko.md
 README.ko.md
