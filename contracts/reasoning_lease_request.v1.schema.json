@@ -12,6 +12,7 @@
     "job_type",
     "priority",
     "inference_mode",
+    "reasoning_depth_requirement",
     "objective",
     "input_refs",
     "fallback_policy",
@@ -85,6 +86,130 @@
         "local_worker",
         "manual_review"
       ]
+    },
+    "reasoning_depth_requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "area",
+        "minimum_depth",
+        "requested_depth",
+        "depth_status",
+        "plain_text_depth_request_allowed",
+        "reasoning_energy_source",
+        "escalation_policy",
+        "downgrade_policy",
+        "evidence_required"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "reasoning_depth_requirement.v1"
+        },
+        "area": {
+          "type": "string",
+          "enum": [
+            "foreground_truth",
+            "typed_availability",
+            "privacy_leak",
+            "freshness_lifecycle",
+            "conflict_correction",
+            "retrieval_relevance",
+            "mailbox_quality",
+            "graph_cache_authority",
+            "response_quality",
+            "evidence_pointer",
+            "reasoning_lease",
+            "provider_resource_boundary",
+            "general_background_reasoning"
+          ]
+        },
+        "minimum_depth": {
+          "type": "string",
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ]
+        },
+        "requested_depth": {
+          "type": "string",
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ]
+        },
+        "depth_status": {
+          "type": "string",
+          "enum": [
+            "required",
+            "verified",
+            "downgraded",
+            "unavailable"
+          ]
+        },
+        "plain_text_depth_request_allowed": {
+          "const": false
+        },
+        "reasoning_energy_source": {
+          "type": "string",
+          "enum": [
+            "deterministic_contract",
+            "codex_development_loop",
+            "provider_headless",
+            "local_worker",
+            "manual_review"
+          ]
+        },
+        "escalation_policy": {
+          "type": "string",
+          "enum": [
+            "fail_closed",
+            "manual_review",
+            "deterministic_fallback",
+            "lease_required"
+          ]
+        },
+        "downgrade_policy": {
+          "type": "string",
+          "enum": [
+            "forbid",
+            "allow_with_reason",
+            "manual_review_required"
+          ]
+        },
+        "evidence_required": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "enum": [
+              "schema_valid_request",
+              "red_green_proof",
+              "typed_unavailable",
+              "run_record",
+              "scorecard_metric",
+              "provider_descriptor",
+              "sandbox_decision"
+            ]
+          }
+        },
+        "reason_codes": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180
+          }
+        }
+      }
     },
     "objective": {
       "type": "string",

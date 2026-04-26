@@ -5,6 +5,7 @@ from typing import Iterable
 
 
 SANDBOX_RUNTIME_CANDIDATE = "sandbox-runtime"
+TARGET_PLATFORM_POLICY = "wsl2_linux_first_native_windows_deferred"
 DOCKER_FALLBACK_POLICY = "fallback_or_stronger_isolation_only"
 LEASE_SECURITY_UNAVAILABLE = "lease_security_unavailable"
 
@@ -20,6 +21,7 @@ OFFICIAL_SANDBOX_SOT_REFS = (
 @dataclass(frozen=True)
 class ProcessSandboxRuntimeDecision:
     schema_version: str
+    target_platform_policy: str
     first_candidate: str
     docker_policy: str
     platform: str
@@ -45,6 +47,7 @@ class ProcessSandboxRuntimeDecision:
     def as_dict(self) -> dict[str, object]:
         return {
             "schema_version": self.schema_version,
+            "target_platform_policy": self.target_platform_policy,
             "first_candidate": self.first_candidate,
             "docker_policy": self.docker_policy,
             "platform": self.platform,
@@ -141,6 +144,7 @@ def build_process_sandbox_runtime_decision(
 
     return ProcessSandboxRuntimeDecision(
         schema_version="process_sandbox_runtime_decision.v1",
+        target_platform_policy=TARGET_PLATFORM_POLICY,
         first_candidate=SANDBOX_RUNTIME_CANDIDATE,
         docker_policy=DOCKER_FALLBACK_POLICY,
         platform=normalized_platform,

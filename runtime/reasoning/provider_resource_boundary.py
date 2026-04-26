@@ -5,6 +5,7 @@ from typing import Any, Mapping
 
 from harness_common import utc_now_iso
 from reasoning.reasoning_lease_contracts import (
+    build_reasoning_depth_requirement,
     provider_supports_background_reasoning,
     validate_reasoning_lease_request,
     validate_reasoning_lease_result,
@@ -18,6 +19,47 @@ def _session_uid(provider_descriptor: Mapping[str, Any]) -> str | None:
     return str(value) if value else None
 
 
+JOB_TYPE_REASONING_DEPTH: dict[str, tuple[str, str]] = {
+    "decision_distillation": ("response_quality", "high"),
+    "provenance_review": ("evidence_pointer", "high"),
+    "duplicate_review": ("retrieval_relevance", "medium"),
+    "category_discovery": ("retrieval_relevance", "high"),
+    "pathfinding_review": ("retrieval_relevance", "high"),
+}
+
+
+def _reasoning_energy_source(inference_mode: str) -> str:
+    if inference_mode in {"provider_headless", "local_worker", "manual_review"}:
+        return inference_mode
+    return "deterministic_contract"
+
+
+def _default_reasoning_depth_requirement(
+    *,
+    job_type: str,
+    inference_mode: str,
+) -> dict[str, Any]:
+    area, minimum_depth = JOB_TYPE_REASONING_DEPTH.get(
+        job_type,
+        ("general_background_reasoning", "medium"),
+    )
+    return build_reasoning_depth_requirement(
+        area=area,
+        minimum_depth=minimum_depth,
+        requested_depth=minimum_depth,
+        reasoning_energy_source=_reasoning_energy_source(inference_mode),
+        evidence_required=(
+            "schema_valid_request",
+            "provider_descriptor",
+            "run_record",
+        ),
+        reason_codes=(
+            "structured_reasoning_depth_required",
+            f"job_type_{job_type}",
+        ),
+    )
+
+
 def build_provider_headless_lease_request(
     *,
     provider_descriptor: Mapping[str, Any],
@@ -28,7 +70,9 @@ def build_provider_headless_lease_request(
     priority: str = "medium",
     fallback_policy: str = "deterministic_base_path",
     expected_output_schema: str | None = None,
+    reasoning_depth_requirement: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    inference_mode = "provider_headless"
     request = {
         "schema_version": "reasoning_lease_request.v1",
         "lease_request_id": uuid.uuid4().hex,
@@ -40,7 +84,13 @@ def build_provider_headless_lease_request(
         "capability": "background_reasoning",
         "job_type": job_type,
         "priority": priority,
-        "inference_mode": "provider_headless",
+        "inference_mode": inference_mode,
+        "reasoning_depth_requirement": dict(reasoning_depth_requirement)
+        if reasoning_depth_requirement is not None
+        else _default_reasoning_depth_requirement(
+            job_type=job_type,
+            inference_mode=inference_mode,
+        ),
         "objective": objective,
         "input_refs": dict(input_refs),
         "constraints": worker_hardening_constraints(
