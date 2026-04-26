@@ -56,6 +56,7 @@ CANONICAL_RUNTIME_MODULES = [
     "evaluation.chain_health_scorecard",
     "evaluation.foreground_live_comparison",
     "evaluation.production_poc_report",
+    "evaluation.provider_job_alignment_logger",
     "evaluation.promotion_worthiness",
     "evaluation.why_remembered_answer",
     "evaluation.worker_chain_quant_logger",

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/provider_job_alignment_report.v1.schema.json",
+  "title": "OpenYggdrasil Provider Job Alignment Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "evaluation_type",
+    "readiness_state",
+    "event_count",
+    "average_overall_alignment_score",
+    "aligned_count",
+    "partial_count",
+    "red_count",
+    "production_evidence_gap_count",
+    "blocking_gaps",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "provider_job_alignment_report.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "evaluation_type": {
+      "const": "north_star_provider_issue_alignment"
+    },
+    "readiness_state": {
+      "type": "string",
+      "enum": [
+        "red",
+        "partial",
+        "aligned"
+      ]
+    },
+    "event_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "average_overall_alignment_score": {
+      "$ref": "#/$defs/score"
+    },
+    "aligned_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "partial_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "red_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "production_evidence_gap_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "blocking_gaps": {
+      "type": "array",
+      "maxItems": 80,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "checked_at": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    }
+  },
+  "$defs": {
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}
