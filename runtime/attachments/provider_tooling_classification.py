@@ -24,7 +24,7 @@ class ProviderToolingSummary:
     total_count: int
     vendored_skill_pack_count: int
     provider_harness_count: int
-    graphify_poc_count: int
+    graphify_support_stack_count: int
     provider_project_count: int
     provider_profile_surface_count: int
     provider_packaging_doc_count: int
@@ -41,7 +41,7 @@ class ProviderToolingSummary:
             "total_count": self.total_count,
             "vendored_skill_pack_count": self.vendored_skill_pack_count,
             "provider_harness_count": self.provider_harness_count,
-            "graphify_poc_count": self.graphify_poc_count,
+            "graphify_support_stack_count": self.graphify_support_stack_count,
             "provider_project_count": self.provider_project_count,
             "provider_profile_surface_count": self.provider_profile_surface_count,
             "provider_packaging_doc_count": self.provider_packaging_doc_count,
@@ -76,10 +76,10 @@ def classify_provider_tooling_path(path: str) -> ProviderToolingDecision:
             release_smoke_policy="do_not_treat_provider_harness_as_deploy_runtime",
             next_action=None,
         )
-    if normalized.startswith("common/graphify-poc/"):
+    if normalized.startswith("common/graphify/"):
         return ProviderToolingDecision(
             path=normalized,
-            classification="graphify_poc_project_tooling",
+            classification="graphify_common_support_stack",
             runtime_status=NON_RUNTIME_STATUS,
             release_smoke_policy="exclude_from_core_runtime_release_smoke_until_phase_8",
             next_action="Phase 8 derived graph safety/release smoke",
@@ -140,7 +140,9 @@ def provider_tooling_summary(paths: Iterable[str]) -> ProviderToolingSummary:
     provider_harness_count = sum(
         1 for decision in decisions if decision.classification == "provider_harness_reference_tooling"
     )
-    graphify_poc_count = sum(1 for decision in decisions if decision.classification == "graphify_poc_project_tooling")
+    graphify_support_stack_count = sum(
+        1 for decision in decisions if decision.classification == "graphify_common_support_stack"
+    )
     provider_project_count = sum(1 for decision in decisions if decision.classification == "provider_project_tooling")
     provider_profile_surface_count = sum(
         1 for decision in decisions if decision.classification == "provider_profile_surface"
@@ -156,7 +158,7 @@ def provider_tooling_summary(paths: Iterable[str]) -> ProviderToolingSummary:
         total_count=len(decisions),
         vendored_skill_pack_count=vendored_skill_pack_count,
         provider_harness_count=provider_harness_count,
-        graphify_poc_count=graphify_poc_count,
+        graphify_support_stack_count=graphify_support_stack_count,
         provider_project_count=provider_project_count,
         provider_profile_surface_count=provider_profile_surface_count,
         provider_packaging_doc_count=provider_packaging_doc_count,

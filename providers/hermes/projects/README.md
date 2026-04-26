@@ -22,4 +22,4 @@ Canonical private location:
 
 Graphify is not owned here. The canonical provider-neutral stack lives at:
 
-- `%OPENYGGDRASIL_ROOT%\common\graphify-poc`
+- `%OPENYGGDRASIL_ROOT%\common\graphify`

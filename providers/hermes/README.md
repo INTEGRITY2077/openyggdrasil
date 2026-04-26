@@ -35,8 +35,8 @@
   - `%OPENYGGDRASIL_ROOT%\runtime`
 - canonical vault:
   - `%OPENYGGDRASIL_ROOT%\vault`
-- common graphify project:
-  - `%OPENYGGDRASIL_ROOT%\common\graphify-poc`
+- common Graphify support stack:
+  - `%OPENYGGDRASIL_ROOT%\common\graphify`
 
 ## Phase 6 Packaging Baseline
 

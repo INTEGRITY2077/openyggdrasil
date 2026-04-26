@@ -175,7 +175,7 @@ py -3 %HERMES_ROOT%\projects\harness\mailbox_select.py `
 ## Notes
 
 - `promotion` uses the existing canonical script under `projects/wiki-promotion`
-- `graph_rebuild` uses the existing canonical wrapper under `common/graphify-poc`
+- `graph_rebuild` uses the existing canonical wrapper under `common/graphify`
 - `graph_rebuild` runs inside WSL `ubuntu-agent` with `%GRAPHIFY_SANDBOX_ROOT%\.venv-wsl`
 - enqueue operations use a queue lock so duplicate checks are safe under concurrent requests
 - discovery only considers sessions without an existing canonical transcript

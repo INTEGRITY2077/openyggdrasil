@@ -21,7 +21,7 @@ QUERY_WRAPPER = Path(
         str(
             OPENYGGDRASIL_ROOT
             / "common"
-            / "graphify-poc"
+            / "graphify"
             / "query_graphify.py"
         ),
     )

@@ -13,13 +13,13 @@ provider surface.
 ## Canonical Paths
 
 - manifest:
-  - `%OPENYGGDRASIL_ROOT%\common\graphify-poc\graphify-corpus.manifest.json`
+  - `%OPENYGGDRASIL_ROOT%\common\graphify\graphify-corpus.manifest.json`
 - query wrapper:
-  - `%OPENYGGDRASIL_ROOT%\common\graphify-poc\query_graphify.py`
+  - `%OPENYGGDRASIL_ROOT%\common\graphify\query_graphify.py`
 - pipeline wrapper:
-  - `%OPENYGGDRASIL_ROOT%\common\graphify-poc\run_graphify_pipeline.py`
+  - `%OPENYGGDRASIL_ROOT%\common\graphify\run_graphify_pipeline.py`
 - implementation:
-  - `%OPENYGGDRASIL_ROOT%\common\graphify-poc\*.py`
+  - `%OPENYGGDRASIL_ROOT%\common\graphify\*.py`
 
 ## Boundary
 

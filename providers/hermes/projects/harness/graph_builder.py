@@ -5,12 +5,11 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from graph_freshness import DEFAULT_GRAPH_SUMMARY_PATH, mark_graph_rebuild
-from harness_common import file_lock
+from harness_common import OPENYGGDRASIL_ROOT, file_lock
 from worker_runtime import record_worker_event
 
 
-PROJECTS_ROOT = Path(__file__).resolve().parents[1]
-GRAPHIFY_SCRIPT = PROJECTS_ROOT / "graphify-poc" / "run_graphify_pipeline.py"
+GRAPHIFY_SCRIPT = OPENYGGDRASIL_ROOT / "common" / "graphify" / "run_graphify_pipeline.py"
 WSL_DISTRO = "ubuntu-agent"
 
 

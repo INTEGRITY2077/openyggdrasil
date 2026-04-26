@@ -47,7 +47,7 @@ JOBS_PATH = QUEUE_ROOT / "jobs.jsonl"
 EVENTS_PATH = QUEUE_ROOT / "worker-events.jsonl"
 
 DEFAULT_GRAPHIFY_SANDBOX = Path(
-    os.getenv("GRAPHIFY_SANDBOX_ROOT", str(OPENYGGDRASIL_ROOT / ".runtime" / "graphify-poc"))
+    os.getenv("GRAPHIFY_SANDBOX_ROOT", str(OPENYGGDRASIL_ROOT / ".runtime" / "graphify"))
 )
 DEFAULT_GRAPHIFY_MANIFEST = (
     Path(
@@ -56,7 +56,7 @@ DEFAULT_GRAPHIFY_MANIFEST = (
             str(
                 OPENYGGDRASIL_ROOT
                 / "common"
-                / "graphify-poc"
+                / "graphify"
                 / "graphify-corpus.manifest.json"
             ),
         )

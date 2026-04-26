@@ -14,6 +14,7 @@ from subagent_telemetry import TELEMETRY_EVENTS_PATH
 
 
 CENTRAL_ROOT = Path(__file__).resolve().parents[2]
+OPENYGGDRASIL_ROOT = CENTRAL_ROOT.parents[1]
 
 
 def read_jsonl(path: Path) -> list[dict]:
@@ -68,8 +69,8 @@ def main() -> int:
         "parent_question_id": parent_question_id,
         "payload": {
             "vault": CENTRAL_ROOT / "vault",
-            "sandbox_root": CENTRAL_ROOT.parent / "workspace" / "sandbox" / "graphify-poc",
-            "manifest": CENTRAL_ROOT / "projects" / "graphify-poc" / "graphify-corpus.manifest.json",
+            "sandbox_root": OPENYGGDRASIL_ROOT / ".runtime" / "graphify",
+            "manifest": OPENYGGDRASIL_ROOT / "common" / "graphify" / "graphify-corpus.manifest.json",
             "refresh_semantic": False,
             "directed": False,
         },

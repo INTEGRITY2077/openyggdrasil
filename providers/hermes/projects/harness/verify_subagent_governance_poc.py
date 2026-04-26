@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from harness_common import CENTRAL_ROOT, DEFAULT_HERMES_BIN, HERMES_HOME_WIN
+from harness_common import CENTRAL_ROOT, DEFAULT_HERMES_BIN, HERMES_HOME_WIN, OPENYGGDRASIL_ROOT
 
 
 CENTRAL_POLICY = CENTRAL_ROOT / "policy" / "system-rule" / "HERMES_SUBAGENT_GOVERNANCE.md"
@@ -17,7 +17,7 @@ CENTRAL_SKILL = (
     CENTRAL_ROOT / "skills" / "software-development" / "subagent-governance" / "SKILL.md"
 )
 MAILBOX_SCHEMA = CENTRAL_ROOT / "projects" / "harness" / "mailbox.v1.schema.json"
-GRAPHIFY_SEMANTIC = CENTRAL_ROOT / "projects" / "graphify-poc" / "extract_graphify_semantic.py"
+GRAPHIFY_SEMANTIC = OPENYGGDRASIL_ROOT / "common" / "graphify" / "extract_graphify_semantic.py"
 RUNTIME_SKILL = (
     HERMES_HOME_WIN / "skills" / "software-development" / "subagent-governance" / "SKILL.md"
 )

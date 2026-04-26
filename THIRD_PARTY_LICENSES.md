@@ -35,7 +35,7 @@ Canonical OpenYggdrasil memory remains in:
 
 OpenYggdrasil runtime wrappers currently live in:
 
-- `projects/graphify-poc/`
+- `common/graphify/`
 - `providers/hermes/projects/harness/`
 
 ### Upstream copyright and license notice
