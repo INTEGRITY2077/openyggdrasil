@@ -59,6 +59,7 @@ CANONICAL_RUNTIME_MODULES = [
     "evaluation.hermes_live_e2e_witness_logger",
     "evaluation.knowledge_forest_delta_from_live_session",
     "evaluation.live_e2e_environment_preconditions",
+    "evaluation.live_e2e_physical_hermes_launcher",
     "evaluation.live_e2e_readiness_gate",
     "evaluation.live_e2e_safe_run_bundle_launcher",
     "evaluation.mailbox_delivery_hermes_consumption",
