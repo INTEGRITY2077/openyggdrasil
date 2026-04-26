@@ -80,8 +80,85 @@ def support_bundle_dedup_fingerprint(payload: Mapping[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _support_bundle_size_bytes(payload: Mapping[str, Any]) -> int:
+    encoded = json.dumps(
+        dict(payload),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return len(encoded)
+
+
 def _non_empty_strings(values: Iterable[Any]) -> list[str]:
     return [str(item).strip() for item in values if str(item).strip()]
+
+
+def _normalized_pointer_set(paths: Iterable[Any]) -> set[str]:
+    return {str(path).strip().replace("\\", "/") for path in paths if str(path).strip()}
+
+
+def _support_bundle_evidence_pointers(payload: Mapping[str, Any]) -> set[str]:
+    pointers = _normalized_pointer_set(payload.get("source_paths") or [])
+    pathfinder_bundle = payload.get("pathfinder_bundle")
+    if isinstance(pathfinder_bundle, Mapping):
+        pointers.update(_normalized_pointer_set(pathfinder_bundle.get("source_paths") or []))
+    for key in ("canonical_note", "provenance_note", "source_ref"):
+        value = str(payload.get(key) or "").strip()
+        if value:
+            pointers.add(value.replace("\\", "/"))
+    return pointers
+
+
+def _is_provenance_pointer(path_value: str) -> bool:
+    lowered = path_value.lower()
+    return "/provenance/" in lowered or lowered.startswith("vault/provenance/")
+
+
+def measure_context_pressure_retained_provenance_metrics(
+    support_bundle: Mapping[str, Any],
+    *,
+    declared_limit_bytes: int,
+    required_provenance_paths: Iterable[str] | None = None,
+) -> dict[str, Any]:
+    """Measure whether context trimming kept size bounded and provenance visible."""
+
+    validate_support_bundle(support_bundle)
+    pointers = _support_bundle_evidence_pointers(support_bundle)
+    if required_provenance_paths is None:
+        required = {pointer for pointer in pointers if _is_provenance_pointer(pointer)}
+    else:
+        required = _normalized_pointer_set(required_provenance_paths)
+    retained = sorted(required & pointers)
+    missing = sorted(required - pointers)
+    if required:
+        provenance_coverage: float | str = len(retained) / len(required)
+    else:
+        provenance_coverage = "not_applicable"
+
+    bundle_size = _support_bundle_size_bytes(support_bundle)
+    failing_metrics: list[str] = []
+    if bundle_size > declared_limit_bytes:
+        failing_metrics.append("bundle_size")
+    if provenance_coverage != "not_applicable" and provenance_coverage < 1.0:
+        failing_metrics.append("provenance_coverage")
+
+    return {
+        "surface_id": "UX-FS-10",
+        "secondary_surface_id": "UX-FS-11",
+        "scenario_id": "P9-S09",
+        "bundle_size": bundle_size,
+        "declared_limit": declared_limit_bytes,
+        "over_limit_bytes": max(0, bundle_size - declared_limit_bytes),
+        "required_provenance_count": len(required),
+        "retained_provenance_count": len(retained),
+        "provenance_coverage": provenance_coverage,
+        "safe_evidence_pointer_coverage": provenance_coverage,
+        "retained_provenance_paths": retained,
+        "missing_provenance_paths": missing,
+        "failing_metrics": failing_metrics,
+        "decision": "green_passed" if not failing_metrics else "red_captured",
+    }
 
 
 def _workspace_relative_path(path_value: str, *, workspace_root: Path) -> str:
