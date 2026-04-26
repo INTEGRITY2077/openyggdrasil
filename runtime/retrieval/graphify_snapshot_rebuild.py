@@ -52,7 +52,7 @@ def build_graphify_rebuild_command(
     command = [
         "py",
         "-3",
-        "providers/hermes/projects/graphify-poc/run_graphify_pipeline.py",
+        "common/graphify-poc/run_graphify_pipeline.py",
         "--vault",
         str(vault_root),
         "--sandbox-root",

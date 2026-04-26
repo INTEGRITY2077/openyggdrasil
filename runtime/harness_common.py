@@ -55,9 +55,7 @@ DEFAULT_GRAPHIFY_MANIFEST = (
             "GRAPHIFY_MANIFEST_PATH",
             str(
                 OPENYGGDRASIL_ROOT
-                / "providers"
-                / "hermes"
-                / "projects"
+                / "common"
                 / "graphify-poc"
                 / "graphify-corpus.manifest.json"
             ),

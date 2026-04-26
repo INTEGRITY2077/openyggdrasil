@@ -15,7 +15,6 @@ This subtree keeps Hermes-specific adapter projects.
 
 ## Provider Projects
 
-- `graphify-poc`
-  - Hermes-facing Graphify derivation stack.
-  - Canonical location:
-    - `%OPENYGGDRASIL_ROOT%\providers\hermes\projects\graphify-poc`
+Graphify is not owned here. The canonical provider-neutral stack lives at:
+
+- `%OPENYGGDRASIL_ROOT%\common\graphify-poc`

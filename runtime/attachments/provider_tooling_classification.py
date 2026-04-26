@@ -76,13 +76,21 @@ def classify_provider_tooling_path(path: str) -> ProviderToolingDecision:
             release_smoke_policy="do_not_treat_provider_harness_as_deploy_runtime",
             next_action=None,
         )
-    if normalized.startswith("providers/hermes/projects/graphify-poc/"):
+    if normalized.startswith("common/graphify-poc/"):
         return ProviderToolingDecision(
             path=normalized,
             classification="graphify_poc_project_tooling",
             runtime_status=NON_RUNTIME_STATUS,
             release_smoke_policy="exclude_from_core_runtime_release_smoke_until_phase_8",
             next_action="Phase 8 derived graph safety/release smoke",
+        )
+    if normalized == "common/README.md":
+        return ProviderToolingDecision(
+            path=normalized,
+            classification="common_support_stack_documentation",
+            runtime_status=NON_RUNTIME_STATUS,
+            release_smoke_policy="documentation_only",
+            next_action=None,
         )
     if normalized.startswith("providers/hermes/projects/"):
         return ProviderToolingDecision(

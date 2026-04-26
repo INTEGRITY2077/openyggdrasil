@@ -20,9 +20,7 @@ QUERY_WRAPPER = Path(
         "GRAPHIFY_QUERY_WRAPPER",
         str(
             OPENYGGDRASIL_ROOT
-            / "providers"
-            / "hermes"
-            / "projects"
+            / "common"
             / "graphify-poc"
             / "query_graphify.py"
         ),

@@ -1,0 +1,18 @@
+{
+  "name": "canonical-promoted-notes",
+  "description": "Graphify corpus for promoted canonical wiki notes only.",
+  "core_files": [
+    "SCHEMA.md",
+    "index.md",
+    "log.md"
+  ],
+  "include_globs": [
+    "queries/*.md",
+    "concepts/*.md",
+    "entities/*.md",
+    "comparisons/*.md"
+    ,
+    "_meta/provenance/*.md"
+  ],
+  "exclude_globs": []
+}
