@@ -1,11 +1,15 @@
 # Runtime Provenance
 
-This family owns provider-neutral provenance and semantic trace helpers.
+`runtime/provenance/` owns provider-neutral provenance and temporal semantic
+trace helpers.
 
-Scope:
+## Responsibilities
 
-- provenance page rendering
-- provenance record parsing
-- provenance path helpers
-- semantic trace persistence support
-- temporal semantic edge contract helpers
+- persist provenance records
+- render and parse provenance pages
+- preserve provider/session/source identity
+- maintain semantic edge and temporal semantic edge artifacts
+- keep source references attached to retrieval and lifecycle outputs
+
+Provenance is the reason memory can be inspected later. A support bundle without
+source/provenance evidence should be treated as weak or unavailable.

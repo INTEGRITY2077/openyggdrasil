@@ -1,19 +1,26 @@
 # Runtime Attachments
 
-This family owns provider-neutral attachment runtime modules.
+`runtime/attachments/` owns provider-neutral attachment and bootstrap helpers.
 
-Scope:
+## Responsibilities
 
-- provider/session attachment scaffolding
-- session-bound inbox binding
-- turn delta append/read helpers
-- generated provider session discovery
-- provider-native skill deployment hooks
-- attachment validation helpers
-- provider bootstrap contract smoke helpers
-- Antigravity/Gemini provider packaging baseline helpers
-- Claude Code provider packaging baseline helpers
-- Codex provider packaging degrade/baseline helpers
-- Hermes provider packaging baseline helpers
-- Hermes live foreground typed-unavailable packaging helpers
-- provider packaging known limitations matrix helpers
+- create, validate, and repair provider/session attachment artifacts
+- bind provider sessions to session-scoped inbox paths
+- append and read turn-delta artifacts
+- run provider cold-start health checks
+- deploy provider-native skill/bootstrap files where a provider supports them
+- emit provider packaging baselines and known limitation matrices
+
+## Public Boundary
+
+Attachment helpers may create workspace-local `.yggdrasil/` artifacts, but they
+must not copy raw provider transcripts into the public repository and must not
+request provider credentials.
+
+## Main Entry Points
+
+- `validate_attachment.py`
+- `repair_attachment.py`
+- `provider_cold_start_healthcheck.py`
+- `deploy_skill.py`
+- `deploy_hermes_profile_skill.py`

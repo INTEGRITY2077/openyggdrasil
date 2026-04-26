@@ -1,21 +1,20 @@
 # Runtime Retrieval
 
-This family owns Pathfinder and related retrieval/runtime traversal logic.
+`runtime/retrieval/` owns Pathfinder and derived retrieval support.
 
-Graphify policy:
+## Responsibilities
 
-- Graphify output is a derived query surface, not SOT.
-- Snapshot adapters must be read-only against vault/SOT files.
-- Snapshot manifests must say that Graphify is not SOT and cannot be the sole answer source.
-- Snapshot rebuild proof must produce either a validated non-SOT manifest or a typed unavailable manifest.
-- Graph output guard must keep graph/wiki/index output freshness-bound, source-ref backed, and limited to support-bundle hints.
-- Graph query support bundles must preserve freshness/source refs and remain bounded support material, not answers.
-- Snapshot replacement guard must record lineage/count deltas and block unexplained major shrink before replacement.
-- Provider answers must verify Graphify hints against linked SOT/provenance shortcuts.
+- retrieve lifecycle-aware support material
+- prefer active canonical records by default
+- require explicit historical mode for `SUPERSEDED` or `STALE` records
+- preserve source refs, provenance, temporal fields, archive refs, and provider
+  boundaries
+- build and validate Graphify snapshot manifests
+- guard graph output freshness, source refs, lineage, and shrink behavior
+- turn graph query results into bounded support bundles, not final answers
 
-Phase 5 lifecycle retrieval policy:
+## Graphify Boundary
 
-- Pathfinder defaults to active lifecycle records only.
-- `SUPERSEDED` and `STALE` records require explicit historical retrieval mode.
-- Lifecycle retrieval metadata must preserve source refs, provenance, temporal fields, and archive trace refs.
-- Cross-provider memory consumption requires explicit provider/session/source provenance, confidence, and visible lifecycle state; blind global bucket reads are rejected.
+Graphify output is derived navigation material. It can help Pathfinder find
+relationships, but provider answers must verify graph hints against canonical
+vault/provenance records before using them as memory.

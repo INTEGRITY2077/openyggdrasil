@@ -1,59 +1,31 @@
 # Antigravity Provider
 
-`antigravity` is the OpenYggdrasil provider surface for Antigravity workspace
-attachment and the Gemini / Antigravity provider-family packaging path.
+`providers/antigravity/` documents the Antigravity and Gemini-family attachment
+baseline.
 
-OpenYggdrasil does not require a pre-bundled static adapter here. The current
-repo-owned baseline combines:
+OpenYggdrasil does not ship a static Antigravity runtime bundle here. The
+public baseline is generated from provider-neutral attachment contracts and
+repo-owned bootstrap helpers.
 
-- `runtime\antigravity_router_bootstrap.py` for Antigravity workspace scaffold
-  and local attachment bootstrap;
-- `runtime\attachments\deploy_skill.py` for the Gemini-family `GEMINI.md`
-  generated file target.
+## Public Baseline
 
-When the OpenYggdrasil skill is used inside Antigravity, the active provider
-attachment is expected to be generated inside the workspace-local:
+- generated workspace artifacts: `.yggdrasil/providers/antigravity/...`
+- generated Gemini-family file target: `GEMINI.md`
+- deploy/helper surface: `runtime/attachments/deploy_skill.py`
+- machine-readable baseline:
+  `contracts/antigravity_provider_packaging_baseline.v1.schema.json`
 
-- `.yggdrasil/providers/antigravity/...`
+## Required Contracts
 
-## Phase 6 Packaging Baseline
+- `provider_descriptor.v1`
+- `session_attachment.v1`
+- `inbox_binding.v1`
+- `turn_delta.v1`
 
-Antigravity workspace scaffold paths:
+## Boundary
 
-```text
-.agents/skills/openyggdrasil-provider-bootstrap/SKILL.md
-.agents/rules/openyggdrasil-attachment-discipline.md
-.agents/workflows/emit-openyggdrasil-bootstrap.md
-```
-
-Gemini-family generated file target:
-
-```text
-GEMINI.md
-```
-
-Contract baseline:
-
-- provider descriptor: `provider_descriptor.v1`
-- session attachment: `session_attachment.v1`
-- inbox binding: `inbox_binding.v1`
-- turn delta: `turn_delta.v1`
-- machine-readable baseline: `antigravity_provider_packaging_baseline.v1`
-
-Expected workspace-local tree:
-
-```text
-.yggdrasil/providers/antigravity/<provider_profile>/<session_component>/provider_descriptor.v1.json
-.yggdrasil/providers/antigravity/<provider_profile>/<session_component>/session_attachment.v1.json
-.yggdrasil/providers/antigravity/<provider_profile>/<session_component>/inbox_binding.v1.json
-.yggdrasil/providers/antigravity/<provider_profile>/<session_component>/turn_delta.v1.jsonl
-.yggdrasil/inbox/antigravity/<provider_profile>/<session_component>.jsonl
-```
-
-Safety boundary:
-
-- this baseline proves repo-owned Gemini file generation and Antigravity
-  workspace scaffold behavior, not current product behavior;
-- Antigravity provider identity remains distinct from the Gemini file target;
-- raw Gemini or Antigravity sessions and transcripts are not copied;
-- the inbox remains session-bound; no global inbox is allowed.
+- Antigravity identity remains distinct from the Gemini generated file target.
+- Raw Gemini or Antigravity sessions are not copied into OpenYggdrasil.
+- The inbox is session-bound; no global inbox is allowed.
+- This public folder is a documentation and packaging anchor, not a private
+  provider bundle.

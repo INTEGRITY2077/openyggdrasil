@@ -1,91 +1,54 @@
-# Hermes
+# Hermes Provider
 
-`hermes` is the Hermes-specific provider adapter under `OpenYggdrasil`.
+`providers/hermes/` is the public Hermes adapter boundary.
 
-## Role
-- binds Hermes session ingress to the OpenYggdrasil memory/search structure
-- owns the current Hermes-facing runtime surface
-- remains reachable through:
-  - `%HERMES_ROOT%`
+Hermes is the most developed provider surface in this repository, but the
+public repo still treats live foreground support conservatively: foreground
+proof must be explicit, and foreground-equivalent fallback must not be relabeled
+as live provider support.
 
-## Current Shape
-- this subtree is still the active provider workspace
-- provider-local assets currently live here:
-  - `projects`
-  - `policy` (public pointer only)
-  - `memories`
-  - `hooks`
-- `skills` is a public boundary/manifest only; the full provider-native bundle
-  is private development capital
-- local-only provider documentation is centralized in the private development
-  repository, not under this public repo
-- runtime `ops` artifacts remain provider-local at execution time but are not tracked in git
-- core runtime, contracts, canonical vault, and Graphify derivation now live at the OpenYggdrasil root
+## Public Shape
 
-## Canonical Paths
-- provider workspace:
-  - `%OPENYGGDRASIL_ROOT%\providers\hermes`
-- Hermes ingress:
-  - `%HERMES_ROOT%`
-- private policy documentation:
-  - `private-provider-bundle:provider-policy/hermes`
-- private Hermes skill bundle:
-  - `private-provider-bundle:testbed/provider-native-bundles/hermes/skills`
-- core runtime:
-  - `%OPENYGGDRASIL_ROOT%\runtime`
-- canonical vault:
-  - `%OPENYGGDRASIL_ROOT%\vault`
-- common Graphify support stack:
-  - `%OPENYGGDRASIL_ROOT%\common\graphify`
+| Path | Role |
+| --- | --- |
+| `skills/` | Sanitized public manifest and boundary for the private provider-native skill bundle. |
+| `projects/harness/` | Legacy Hermes harness compatibility surface currently still tracked in public. |
+| `hooks/` | Public pointer for hook boundary documentation. |
+| `memories/` | Public pointer for provider memory boundary documentation. |
+| `policy/` | Public policy pointer, not the full internal policy corpus. |
+| `vault/` | Compatibility pointer to the root `vault/`. |
 
-## Phase 6 Packaging Baseline
+Core runtime, contracts, canonical vault, and Graphify derivation live at the
+repository root:
 
-Hermes is the strongest Phase 6 provider baseline, but its live foreground
-surface is still typed unavailable. Treat the profile skill and workspace-local
-attachment contracts as the deployable baseline, not as a live foreground proof.
+- `runtime/`
+- `contracts/`
+- `vault/`
+- `common/graphify/`
 
-Install path:
+## Attachment Baseline
 
-```text
-~/.hermes/profiles/<provider_profile>/skills/autonomous-ai-agents/openyggdrasil-foreground-probe/SKILL.md
-```
+- generated workspace artifacts: `.yggdrasil/providers/hermes/...`
+- session inbox: `.yggdrasil/inbox/hermes/...`
+- profile deployment helper:
+  `runtime/attachments/deploy_hermes_profile_skill.py`
+- machine-readable baseline:
+  `contracts/hermes_provider_packaging_baseline.v1.schema.json`
 
-Default activation:
+Required contracts:
 
-```text
-Hermes profile skill `openyggdrasil-foreground-probe`
-```
+- `provider_descriptor.v1`
+- `session_attachment.v1`
+- `inbox_binding.v1`
+- `turn_delta.v1`
+- `hermes_foreground_unavailable_contract.v1`
 
-Repo-owned sync surface:
+## Current Limitations
 
-```text
-runtime\attachments\deploy_hermes_profile_skill.py
-```
-
-Contract baseline:
-
-- provider descriptor: `provider_descriptor.v1`
-- session attachment: `session_attachment.v1`
-- inbox binding: `inbox_binding.v1`
-- turn delta: `turn_delta.v1`
-- live foreground limitation: `hermes_foreground_unavailable_contract.v1`
-- machine-readable baseline: `hermes_provider_packaging_baseline.v1`
-
-Expected workspace-local tree:
-
-```text
-.yggdrasil/providers/hermes/<provider_profile>/<session_component>/provider_descriptor.v1.json
-.yggdrasil/providers/hermes/<provider_profile>/<session_component>/session_attachment.v1.json
-.yggdrasil/providers/hermes/<provider_profile>/<session_component>/inbox_binding.v1.json
-.yggdrasil/providers/hermes/<provider_profile>/<session_component>/turn_delta.v1.jsonl
-.yggdrasil/inbox/hermes/<provider_profile>/<session_component>.jsonl
-```
-
-Known limitations:
-
-- `providers\hermes\projects\harness\hermes_foreground_probe.py` is absent, so
-  Phase 6 records live foreground as typed unavailable.
-- Foreground-equivalent bootstrap and memory roundtrip proofs must not be
-  relabeled as live foreground proof.
+- Live foreground support is recorded as typed unavailable until a checked
+  foreground proof surface exists.
+- Hermes background reasoning is typed and gated; an invocation marker alone is
+  not a completed reasoning lease result.
 - Provider raw sessions and transcripts are not copied into OpenYggdrasil.
 - The inbox remains session-bound; no global inbox is allowed.
+- Provider-native private bundles are not published in this public repository.

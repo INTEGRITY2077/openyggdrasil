@@ -1,9 +1,14 @@
-# Central Memories
+# Hermes Memories Boundary
 
-This directory is the canonical Windows-visible source of truth for Hermes memory documents.
+This directory is a public documentation anchor for Hermes provider memory
+files.
 
-Intended canonical paths:
-- %HERMES_ROOT%\memories\MEMORY.md
-- %HERMES_ROOT%\memories\USER.md
+Provider-native memory files are not the OpenYggdrasil source of truth. Durable
+provider-neutral memory belongs in the root `vault/` only after promotion and
+provenance review.
 
-WSL runtime copies may exist under $HERMES_HOME/memories, but they are not the source of truth.
+## Rule
+
+- Keep Hermes raw/provider memory near Hermes.
+- Reference provider memory through source refs or origin locators when needed.
+- Promote only durable, provider-neutral knowledge into `vault/`.

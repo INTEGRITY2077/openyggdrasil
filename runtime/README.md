@@ -1,31 +1,37 @@
 # Runtime
 
-This directory is reserved for core OpenYggdrasil runtime modules.
+`runtime/` contains provider-neutral OpenYggdrasil implementation modules.
 
-Expected future occupants:
-- Amundsen family
-- Gardener family
-- Map Maker family
-- Pathfinder family
-- Tree Keeper family
+The runtime is split by role so that no single module can capture a provider
+signal, promote canonical memory, query stale material, and deliver support to a
+provider session without passing typed boundaries.
 
-Current occupants:
-- common identity and runtime utilities
-- provider-neutral decision capture, provider runtime integrity, and Decision Distiller runtime
-- optional reasoning lease contract runtime
-- promotion worthiness and placement runtime
-- provenance and semantic edge runtime
-- thin runner orchestration entrypoints
-- pathfinder runtime and PTC MVP substrate
-- skill-generated provider attachment runtime
-- provider/session-bound reverse inbox runtime
+## Packages
 
-## Runtime Surface Policy
+| Package | Role |
+| --- | --- |
+| `attachments/` | Provider cold-start, attachment validation/repair, provider packaging baselines, and session-bound inbox scaffolding. |
+| `capture/` | Provider runtime integrity checks and Decision Distiller normalization. |
+| `admission/` | Admission and Amundsen/Nursery handoff boundaries. |
+| `evaluation/` | Candidate worthiness, promotion readiness, chain health, and evaluator handoffs. |
+| `cultivation/` | Seedkeeper/Nursery/Gardener helpers, lifecycle requests, conflict quarantine, and effort-aware worthiness. |
+| `placement/` | Topic, episode, community, and Map Maker placement helpers. |
+| `provenance/` | Provenance records and temporal semantic edge helpers. |
+| `retrieval/` | Pathfinder, Graphify snapshot support, graph freshness guards, and source shortcut retrieval. |
+| `delivery/` | Postman, mailbox, support bundle, packet scoring, and contamination guards. |
+| `reasoning/` | Optional Reasoning Lease contracts, provider reasoning gates, effort plans, sandbox/resource boundaries, and typed unavailable results. |
+| `runner/` | Thin orchestration and regression/proof entrypoints across role boundaries. |
+| `common/` | Small shared utilities such as identity, JSONL, and WSL runner helpers. |
 
-Canonical implementations live under domain packages such as `runtime/admission/`, `runtime/delivery/`, `runtime/retrieval/`, and `runtime/attachments/`.
+## Compatibility Policy
 
-Same-name top-level modules are compatibility shims for legacy scripts, tests, and provider harnesses. They stay until provider imports migrate to canonical package paths and `runtime/import_smoke.py` confirms both surfaces remain importable.
+Some top-level `runtime/*.py` modules remain as compatibility shims or proof
+entrypoints while package imports stabilize. Canonical package locations are
+tracked by `runtime/shim_policy.py`, and `runtime/import_smoke.py` verifies that
+both current and compatibility surfaces remain importable.
 
-Top-level modules without package counterparts are runtime utilities or proof entrypoints. They require an explicit policy decision before move/delete work.
+## Verification
 
-See `runtime/shim_policy.py` for the executable mapping between compatibility shims and canonical targets.
+```powershell
+py -3 runtime/import_smoke.py
+```

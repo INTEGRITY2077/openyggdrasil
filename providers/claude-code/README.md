@@ -1,65 +1,31 @@
 # Claude Code Provider
 
-`claude-code` is the OpenYggdrasil provider surface for Claude Code and
-Claude-compatible skill attachment.
+`providers/claude-code/` documents the Claude Code attachment and packaging
+baseline.
 
-OpenYggdrasil does not require a pre-bundled static adapter here. The
-provider-facing surface is generated from repo-owned skill packaging and the
-shared provider/session attachment contracts.
+The public repository owns the OpenYggdrasil attachment contract and skill
+deployment target. It does not copy, vendor, translate, or mechanically port
+Claude Code implementation source.
 
-When the OpenYggdrasil skill is used inside Claude Code, the active provider
-attachment is expected to be generated inside the workspace-local:
+## Public Baseline
 
-- `.yggdrasil/providers/claude-code/...`
+- generated workspace artifacts: `.yggdrasil/providers/claude-code/...`
+- provider-native skill target: `.claude/skills/openyggdrasil/SKILL.md`
+- deploy/helper surface: `runtime/attachments/deploy_skill.py`
+- machine-readable baseline:
+  `contracts/claude_code_provider_packaging_baseline.v1.schema.json`
 
-## Phase 6 Packaging Baseline
+## Required Contracts
 
-Claude Code has a provider-native file deployment target in the repo-owned
-skill deployer:
+- `provider_descriptor.v1`
+- `session_attachment.v1`
+- `inbox_binding.v1`
+- `turn_delta.v1`
 
-```text
-.claude/skills/openyggdrasil/SKILL.md
-```
+## Clean-Room Boundary
 
-Repo-owned deploy surface:
-
-```text
-runtime\attachments\deploy_skill.py
-```
-
-Activation path:
-
-```text
-.claude/skills/openyggdrasil/SKILL.md
-```
-
-Contract baseline:
-
-- provider descriptor: `provider_descriptor.v1`
-- session attachment: `session_attachment.v1`
-- inbox binding: `inbox_binding.v1`
-- turn delta: `turn_delta.v1`
-- machine-readable baseline: `claude_code_provider_packaging_baseline.v1`
-
-Expected workspace-local tree:
-
-```text
-.yggdrasil/providers/claude-code/<provider_profile>/<session_component>/provider_descriptor.v1.json
-.yggdrasil/providers/claude-code/<provider_profile>/<session_component>/session_attachment.v1.json
-.yggdrasil/providers/claude-code/<provider_profile>/<session_component>/inbox_binding.v1.json
-.yggdrasil/providers/claude-code/<provider_profile>/<session_component>/turn_delta.v1.jsonl
-.yggdrasil/inbox/claude-code/<provider_profile>/<session_component>.jsonl
-```
-
-Clean-room boundary:
-
-- reference behavior and repo-owned packaging patterns only;
-- do not copy, vendor, translate, or mechanically port local Claude Code
-  implementation source;
-- raw Claude Code sessions and transcripts are not copied into OpenYggdrasil;
-- the inbox remains session-bound; no global inbox is allowed.
-
-Known limitation:
-
-- this baseline proves repo-owned provider-native file deployment and local
-  attachment contracts, not current Claude Code product behavior.
+- Public docs and contracts may reference product-level behavior.
+- Private/reference source may inform behavior only through clean-room notes and
+  independently designed OpenYggdrasil contracts.
+- Raw Claude Code sessions and transcripts are not copied into OpenYggdrasil.
+- The inbox is session-bound; no global inbox is allowed.

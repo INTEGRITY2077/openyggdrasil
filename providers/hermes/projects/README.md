@@ -1,25 +1,15 @@
 # Hermes Projects
 
-This subtree keeps Hermes-specific adapter projects.
+`providers/hermes/projects/` contains Hermes-specific public adapter projects.
 
-## Provider-local project entries
+The only public project currently kept here is `harness/`, a legacy compatibility
+surface for Hermes-facing orchestration and mailbox experiments.
 
-- `harness`
-  - Hermes-facing orchestration, mailbox, worker, and answer-support adapter code
+## Boundary
 
-Operator-only project bundles are private development capital and are not
-published in this repository:
+Operator-only project bundles are not published in this repository. That
+includes credential helpers, transcript capture, private wiki-promotion flows,
+and raw provider workflow material.
 
-- `secret-manager`
-- `transcript-capture`
-- `wiki-promotion`
-
-Canonical private location:
-
-- `private-provider-bundle:testbed/provider-native-bundles/hermes/projects/`
-
-## Provider Projects
-
-Graphify is not owned here. The canonical provider-neutral stack lives at:
-
-- `%OPENYGGDRASIL_ROOT%\common\graphify`
+Graphify is not owned by this provider subtree. The provider-neutral Graphify
+stack lives at `common/graphify/`.

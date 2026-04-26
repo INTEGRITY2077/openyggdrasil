@@ -1,38 +1,18 @@
 # Runtime Cultivation
 
-This family owns deterministic Seedkeeper preservation plus Gardener-style forest and community maintenance logic.
+`runtime/cultivation/` owns memory gardening after a candidate has passed
+capture, admission, and evaluation boundaries.
 
-It also hosts the Phase 5 explicit vault promotion request builder. That builder
-records Evaluator and mailbox-delivery gates for later review, but it does not
-write canonical vault state.
+## Responsibilities
 
-Phase 5 lifecycle helpers define soft-delete state for promoted/canonical vault
-records. They mark records `ACTIVE`, `SUPERSEDED`, or `STALE` with temporal
-traceability fields and never authorize physical deletion.
+- preserve accepted material through Seedkeeper/Nursery-style helpers
+- build explicit vault promotion requests without directly writing canonical
+  vault state
+- propose lifecycle transitions such as `ACTIVE`, `SUPERSEDED`, and `STALE`
+- quarantine contradictory cross-provider claims
+- normalize provider effort vocabulary and gate worthiness on verified effort
+- stage helper output only after worthiness and evidence checks pass
+- turn lint/simplicity findings into typed lifecycle proposals
 
-Gardener lifecycle transition request helpers can propose `SUPERSEDED` or
-`STALE` transitions for active records. They preserve archive lineage in a typed
-preview, require later lifecycle review, and do not write canonical vault state.
-
-Cross-provider conflict quarantine helpers detect same-key contradictory or
-ambiguous active records from different providers. They apply an explicit
-discounting rule, route the claim to review/fallback, and do not canonicalize
-ambiguous memory.
-
-Effort-aware Gardener worthiness helpers gate promotion review on verified
-effort metadata and actual effort estimates. They defer low, unknown, or
-downgraded effort before review and never write canonical vault state.
-
-Provider effort vocabulary normalization helpers preserve raw provider-specific
-effort metadata while mapping it to the common low/medium/high/xhigh and
-verified/declared/downgraded/unavailable vocabularies used across providers.
-They keep helper `accepted` status separate from Gardener `verified` status and
-never authorize canonical vault writes.
-
-Helper output staging helpers accept completed reasoning lease output only after
-effort-aware worthiness is ready. They retain digest/source-ref evidence and a
-bounded preview for later review, while keeping helper output non-canonical.
-
-Lifecycle candidate lint loop helpers turn Gardener lint and Simplicity
-Criterion findings into typed stale/supersession transition requests. The loop
-is proposal-only and never mutates canonical vault records directly.
+Cultivation is proposal-oriented. It must not silently mutate canonical vault
+records or delete history without an explicit lifecycle artifact.

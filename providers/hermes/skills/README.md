@@ -1,18 +1,22 @@
 # Hermes Skill Bundle Boundary
 
-The full Hermes provider-native skill bundle is private development capital and
-is not published in this repository.
+This directory is the public boundary for the Hermes provider-native skill
+bundle.
 
-Public repository content in this directory is limited to:
+The full provider-native bundle is private development capital and is not
+published in this repository.
 
-- a sanitized bundle boundary;
-- a public manifest contract;
-- installer/runtime code that can consume a private bundle supplied out of band.
+## Public Contents
 
-Canonical private bundle location:
+- sanitized boundary README
+- `public_manifest.v1.json`
+- runtime code elsewhere that can consume a private bundle supplied out of band
 
-- `private-provider-bundle:testbed/provider-native-bundles/hermes/skills/`
+## Forbidden Public Contents
 
-The public repository must not include raw skill implementations, red-team
-templates, provider credential helpers, private workflow prompts, or bundled
-third-party operational material under this directory.
+- raw skill implementations
+- red-team templates
+- credential helpers
+- private workflow prompts
+- bundled third-party operational material
+- provider raw sessions or transcripts

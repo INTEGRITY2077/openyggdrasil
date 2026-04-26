@@ -1,24 +1,25 @@
 ---
-title: What does automatic session discovery do in the external harness? Answer in exactly two concise sentences.
+title: What does automatic session discovery do in the external harness?
 created: 2026-04-21
-updated: 2026-04-21
+updated: 2026-04-26
 type: query
-tags: [query, hermes, transcript-promotion]
-sources: [raw/transcripts/2026/2026-04-21-20260421_190321_f97e86.md]
+tags: [query, harness, public-example]
+sources: [providers/hermes/projects/harness/README.md]
 ---
 
-# What does automatic session discovery do in the external harness? Answer in exactly two concise sentences.
+# What does automatic session discovery do in the external harness?
 
 ## Question
 
-What does automatic session discovery do in the external harness? Answer in exactly two concise sentences.
+What does automatic session discovery do in the external harness?
 
 ## Answer
 
-I couldn’t locate any references to “automatic session discovery” or “external harness” in the files I was able to search here. Based on this session alone, I can’t answer reliably without the relevant repo or documentation path.
+Automatic session discovery looks for provider sessions that can be considered
+for bounded processing without manually naming each session. In the current
+public architecture, that behavior belongs to legacy harness compatibility or a
+future root runtime migration, not to canonical vault writes by itself.
 
 ## Related
 
-- raw source: `raw/transcripts/2026/2026-04-21-20260421_190321_f97e86.md`
-- session_id: `20260421_190321_f97e86`
-- profile: `graph`
+- [[concepts/memory-architecture]]

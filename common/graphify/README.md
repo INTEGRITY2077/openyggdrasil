@@ -1,28 +1,33 @@
-# Common Graphify Derivation
+# Common Graphify
 
-This directory contains the provider-neutral Graphify derivation stack for
-OpenYggdrasil. Graphify is a common support stack, not a Hermes-specific
-provider surface.
+`common/graphify/` is the provider-neutral Graphify derivation stack.
+
+Graphify is part of the preferred retrieval experience because it can expose
+graph, path, wiki, and index views over canonical memory. It is still a derived
+support surface, not source of truth.
 
 ## Role
 
-- stage canonical notes from `%OPENYGGDRASIL_ROOT%\vault`
-- derive structural graph artifacts with Graphify
-- expose query, path, and explain wrappers over derived graph output
+- read canonical material from `vault/`
+- build or validate Graphify-derived snapshots
+- expose query/path/explain helpers for retrieval support
+- record freshness, lineage, and source-ref evidence
+- fail closed with typed unavailable output when the graph layer is missing or
+  stale
 
-## Canonical Paths
+## Important Files
 
-- manifest:
-  - `%OPENYGGDRASIL_ROOT%\common\graphify\graphify-corpus.manifest.json`
-- query wrapper:
-  - `%OPENYGGDRASIL_ROOT%\common\graphify\query_graphify.py`
-- pipeline wrapper:
-  - `%OPENYGGDRASIL_ROOT%\common\graphify\run_graphify_pipeline.py`
-- implementation:
-  - `%OPENYGGDRASIL_ROOT%\common\graphify\*.py`
+- `graphify-corpus.manifest.json`: public manifest for the current derived
+  corpus surface.
+- `run_graphify_pipeline.py`: wrapper for rebuilding the derived graph surface.
+- `query_graphify.py`: query helper over derived graph output.
+- `validate_graphify_install.py`: installation and runtime availability check.
 
 ## Boundary
 
-Graphify output is derived navigation/reporting material, not SOT. Providers
-must verify answers against canonical vault/source references before using graph
-output in a response.
+- `vault/` remains canonical.
+- Graphify output can suggest support-bundle hints.
+- Provider answers must verify Graphify hints against linked SOT/provenance
+  records before presenting them as memory.
+- Graphify failure may degrade retrieval quality, but it must not block core
+  attachment, capture, lifecycle, or mailbox delivery.

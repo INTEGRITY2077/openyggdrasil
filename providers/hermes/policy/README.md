@@ -1,21 +1,16 @@
-# Hermes Policy
+# Hermes Policy Boundary
 
-This directory is now a public pointer, not the full policy corpus.
+This directory is a public policy pointer, not the full Hermes policy corpus.
 
-## Role
-- keep a stable public path for provider policy references
-- point operators to the local-only documentation workspace
-- avoid shipping the full internal policy tree in the public repo
+## Public Role
 
-## Local Documentation Root
-- `%OPENYGGDRASIL_ROOT%\\doc\\providers\\hermes\\policy`
+- preserve a stable public path for safe Hermes policy summaries
+- document which behavior is safe to depend on from the public repo
+- avoid publishing internal policy trees, operator runbooks, raw sessions, or
+  private workflow prompts
 
-That local `doc/` tree is intentionally gitignored and may contain:
-- working declarations
-- operational runbooks
-- historical update reports
-- internal request plans
+## Rule
 
-## Public Rule
-- public code and public docs must not depend on files inside the gitignored `doc/` tree
-- if a policy concept is required for public understanding, summarize it in tracked public docs under `%OPENYGGDRASIL_ROOT%\\docs`
+Public code and public docs must not depend on gitignored local policy files.
+If a policy concept is required for public understanding, summarize it in a
+tracked public README or schema instead of linking to private material.

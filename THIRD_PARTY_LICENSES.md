@@ -1,12 +1,10 @@
 # Third-Party Licenses
 
-## Purpose
+This file records public third-party license notice for companion dependencies
+that are intentionally part of the OpenYggdrasil distribution surface.
 
-This file records public third-party license notice for companion dependencies that are intentionally part of the OpenYggdrasil distribution surface.
-
-This file currently documents the direct Graphify companion notice.
-
-It does not yet claim to be a complete SBOM or a complete transitive dependency notice set.
+It currently documents the direct Graphify companion notice. It is not a
+complete SBOM and does not claim full transitive dependency coverage.
 
 ## Direct Third-Party Notice
 
@@ -17,28 +15,21 @@ It does not yet claim to be a complete SBOM or a complete transitive dependency 
 - Reviewed upstream reference: `v4`
 - Upstream package name: `graphifyy`
 - Upstream license: MIT
-- OpenYggdrasil usage: default-installed companion graph/query layer over the canonical vault
+- OpenYggdrasil usage: default companion graph/query layer over canonical
+  `vault/` material
 
-### OpenYggdrasil integration boundary
+### OpenYggdrasil Integration Boundary
 
-Graphify is currently used as a companion engine for:
+Graphify is used for:
 
-- graph derivation
-- graph query execution
-- graph explain/path/query surface
+- graph derivation;
+- graph query execution;
+- graph explain/path/query support.
 
-Graphify is not treated as the OpenYggdrasil source of truth.
+Graphify is not the OpenYggdrasil source of truth. Canonical memory remains in
+`vault/`, and public wrappers live under `common/graphify/`.
 
-Canonical OpenYggdrasil memory remains in:
-
-- `vault/`
-
-OpenYggdrasil runtime wrappers currently live in:
-
-- `common/graphify/`
-- `providers/hermes/projects/harness/`
-
-### Upstream copyright and license notice
+### Upstream Copyright And License Notice
 
 Source: <https://github.com/safishamsi/graphify/blob/v4/LICENSE>
 
@@ -68,16 +59,19 @@ SOFTWARE.
 
 ## Scope Clarification
 
-This notice covers the direct Graphify project notice that OpenYggdrasil must surface because Graphify is part of the intended default-installed companion path.
+This notice covers the direct Graphify project notice that OpenYggdrasil must
+surface because Graphify is part of the intended default companion path.
 
 This file does not yet enumerate:
 
-- every transitive package used by Graphify
-- every optional extra dependency
-- every runtime CDN or external API surface
+- every transitive package used by Graphify;
+- every optional extra dependency;
+- every runtime CDN or external API surface.
 
 Those remain separate review and packaging tasks.
 
 ## Packaging Rule
 
-Any public OpenYggdrasil distribution that installs or bundles Graphify should preserve this notice or an equivalent notice carrying the same upstream attribution and license text.
+Any public OpenYggdrasil distribution that installs or bundles Graphify should
+preserve this notice or an equivalent notice carrying the same upstream
+attribution and license text.

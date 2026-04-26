@@ -1,24 +1,27 @@
 ---
-title: Without using tools, answer in exactly two concise sentences: Why should the external harness own transcript promotion and Graphify rebuild instead of Hermes core?
+title: Why should the external harness own transcript promotion and Graphify rebuild instead of Hermes core?
 created: 2026-04-21
-updated: 2026-04-21
+updated: 2026-04-26
 type: query
-tags: [query, hermes, transcript-promotion]
-sources: [raw/transcripts/2026/2026-04-21-20260421_191840_0a17f8.md]
+tags: [query, harness, graphify, public-example]
+sources: [providers/hermes/projects/harness/README.md, common/graphify/README.md]
 ---
 
-# Without using tools, answer in exactly two concise sentences: Why should the external harness own transcript promotion and Graphify rebuild instead of Hermes core?
+# Why should the external harness own transcript promotion and Graphify rebuild instead of Hermes core?
 
 ## Question
 
-Without using tools, answer in exactly two concise sentences: Why should the external harness own transcript promotion and Graphify rebuild instead of Hermes core?
+Why should the external harness own transcript promotion and Graphify rebuild
+instead of Hermes core?
 
 ## Answer
 
-Because transcript promotion and Graphify rebuild are boundary-management tasks that belong to the outer orchestration layer, which has the right visibility into session lifecycle, approvals, and publication policy. Keeping them out of Hermes core preserves a smaller, more stable runtime while letting the harness evolve ingestion and rebuild workflows independently.
+Promotion and graph rebuild are boundary-management tasks that need source
+policy, lifecycle review, and publication rules. Keeping them outside provider
+core preserves a smaller provider runtime while OpenYggdrasil migrates durable
+behavior into root contracts, runtime modules, and Graphify support surfaces.
 
 ## Related
 
-- raw source: `raw/transcripts/2026/2026-04-21-20260421_191840_0a17f8.md`
-- session_id: `20260421_191840_0a17f8`
-- profile: `graph`
+- [[concepts/memory-architecture]]
+- [[concepts/llm-wiki-pattern]]
