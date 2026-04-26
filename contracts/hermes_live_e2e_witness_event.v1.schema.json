@@ -1,0 +1,361 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/hermes_live_e2e_witness_event.v1.schema.json",
+  "title": "OpenYggdrasil Hermes Live E2E Witness Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "witness_id",
+    "run_id",
+    "provider_name",
+    "provider_profile",
+    "provider_session_id",
+    "execution_kind",
+    "witness_scope",
+    "session_process",
+    "artifact_chain",
+    "stale_decoy_probe",
+    "artifact_hashes_verified",
+    "fixture_only_artifacts_present",
+    "foreground_equivalent_only",
+    "raw_transcript_included",
+    "raw_transcript_path",
+    "safe_evidence_pointer_count",
+    "typed_unavailable_surfaces",
+    "rerun_condition",
+    "evidence_required",
+    "claim_scope",
+    "decision",
+    "readiness_state",
+    "blocking_gaps",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "hermes_live_e2e_witness_event.v1"
+    },
+    "witness_id": {
+      "$ref": "#/$defs/id"
+    },
+    "run_id": {
+      "$ref": "#/$defs/id"
+    },
+    "provider_name": {
+      "const": "hermes"
+    },
+    "provider_profile": {
+      "$ref": "#/$defs/id"
+    },
+    "provider_session_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/id"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "execution_kind": {
+      "enum": [
+        "physical_live_hermes_session",
+        "foreground_equivalent",
+        "fixture_only",
+        "typed_unavailable_not_live_proven"
+      ]
+    },
+    "witness_scope": {
+      "enum": [
+        "e2e1_to_e2e4_live_equivalence",
+        "e2e5_reasoning_lease_isolation",
+        "full_live_e2e"
+      ]
+    },
+    "session_process": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/sessionProcess"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "artifact_chain": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/artifactWitness"
+      }
+    },
+    "stale_decoy_probe": {
+      "$ref": "#/$defs/staleDecoyProbe"
+    },
+    "artifact_hashes_verified": {
+      "type": "boolean"
+    },
+    "fixture_only_artifacts_present": {
+      "type": "boolean"
+    },
+    "foreground_equivalent_only": {
+      "type": "boolean"
+    },
+    "raw_transcript_included": {
+      "const": false
+    },
+    "raw_transcript_path": {
+      "type": "null"
+    },
+    "safe_evidence_pointer_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "typed_unavailable_surfaces": {
+      "type": "array",
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/surface"
+      }
+    },
+    "rerun_condition": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evidence_required": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "claim_scope": {
+      "enum": [
+        "hermes_live_witness_ready_for_e2e5",
+        "historical_session_witness_not_live_equivalent",
+        "typed_unavailable_not_live_proven",
+        "full_live_e2e_candidate",
+        "not_claimable"
+      ]
+    },
+    "decision": {
+      "enum": [
+        "live_equivalent_ready_for_e2e5",
+        "historical_session_witness_not_live_equivalent",
+        "typed_unavailable_not_live_proven",
+        "red_captured"
+      ]
+    },
+    "readiness_state": {
+      "enum": [
+        "ready_for_e2e5",
+        "not_ready"
+      ]
+    },
+    "blocking_gaps": {
+      "type": "array",
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 520
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "surface": {
+      "enum": [
+        "live_hermes_process_witness",
+        "same_run_artifact_chain",
+        "stale_decoy_probe",
+        "reasoning_lease_isolation"
+      ]
+    },
+    "sessionProcess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "exit_code",
+        "process_id",
+        "runtime_platform",
+        "session_id_from_provider",
+        "started_at",
+        "finished_at"
+      ],
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "exit_code": {
+          "type": "integer"
+        },
+        "process_id": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runtime_platform": {
+          "enum": [
+            "wsl2_linux",
+            "linux",
+            "windows_native",
+            "unknown"
+          ]
+        },
+        "session_id_from_provider": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "artifactWitness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_role",
+        "ref",
+        "sha256",
+        "source_kind",
+        "produced_by_run",
+        "contains_raw_transcript"
+      ],
+      "properties": {
+        "artifact_role": {
+          "enum": [
+            "hermes_run_json",
+            "hermes_verdict_json",
+            "e2e1_session_artifact",
+            "e2e2_knowledge_delta",
+            "e2e3_graphify_snapshot",
+            "e2e4_mailbox_consumption",
+            "e2e5_reasoning_lease_isolation"
+          ]
+        },
+        "ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_kind": {
+          "enum": [
+            "runtime_output",
+            "hermes_run_artifact",
+            "contract_fixture",
+            "derived_safe_fixture"
+          ]
+        },
+        "produced_by_run": {
+          "type": "boolean"
+        },
+        "contains_raw_transcript": {
+          "const": false
+        }
+      }
+    },
+    "staleDecoyProbe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stale_memory_injected",
+        "decoy_memory_injected",
+        "stale_memory_rejected",
+        "decoy_memory_rejected",
+        "rejection_reason_refs"
+      ],
+      "properties": {
+        "stale_memory_injected": {
+          "type": "boolean"
+        },
+        "decoy_memory_injected": {
+          "type": "boolean"
+        },
+        "stale_memory_rejected": {
+          "type": "boolean"
+        },
+        "decoy_memory_rejected": {
+          "type": "boolean"
+        },
+        "rejection_reason_refs": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        }
+      }
+    }
+  }
+}
