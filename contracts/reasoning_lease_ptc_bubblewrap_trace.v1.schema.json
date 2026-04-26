@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/reasoning_lease_ptc_bubblewrap_trace.v1.schema.json",
+  "title": "OpenYggdrasil Reasoning Lease PTC Bubblewrap Trace v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "trace_id",
+    "lease_request_id",
+    "ptc_worker_ref",
+    "trace_scope",
+    "platform",
+    "sandbox_backend",
+    "execution_decision",
+    "isolation_status",
+    "isolation_proven",
+    "command",
+    "exit_code",
+    "intrusion_attempts",
+    "safe_evidence_refs",
+    "raw_transcript_copied",
+    "foreground_context_appended",
+    "live_provider_readiness_claimed",
+    "reason_codes",
+    "started_at",
+    "completed_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "reasoning_lease_ptc_bubblewrap_trace.v1"
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lease_request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ptc_worker_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trace_scope": {
+      "const": "e2e5b_ptc_bubblewrap_isolation"
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "linux",
+        "wsl2",
+        "windows",
+        "macos",
+        "unknown"
+      ]
+    },
+    "sandbox_backend": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "bubblewrap",
+        "seatbelt",
+        null
+      ]
+    },
+    "execution_decision": {
+      "type": "string",
+      "enum": [
+        "allow_sandboxed",
+        "fail_closed",
+        "optional_sandbox_unavailable"
+      ]
+    },
+    "isolation_status": {
+      "type": "string",
+      "enum": [
+        "bubblewrap_isolation_proven",
+        "typed_unavailable",
+        "fail_closed"
+      ]
+    },
+    "isolation_proven": {
+      "type": "boolean"
+    },
+    "command": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "exit_code": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "intrusion_attempts": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempt_type",
+          "status",
+          "evidence_ref"
+        ],
+        "properties": {
+          "attempt_type": {
+            "type": "string",
+            "enum": [
+              "workspace_escape",
+              "network_escape",
+              "process_escape"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "blocked",
+              "typed_unavailable",
+              "not_run"
+            ]
+          },
+          "evidence_ref": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "safe_evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "raw_transcript_copied": {
+      "const": false
+    },
+    "foreground_context_appended": {
+      "const": false
+    },
+    "live_provider_readiness_claimed": {
+      "const": false
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 180
+      }
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

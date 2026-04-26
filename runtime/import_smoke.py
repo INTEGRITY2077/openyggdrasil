@@ -81,6 +81,7 @@ CANONICAL_RUNTIME_MODULES = [
     "reasoning.hermes_state_metadata_policy",
     "reasoning.lease_executor",
     "reasoning.module_effort_requirements",
+    "reasoning.ptc_bubblewrap_isolation_trace",
     "reasoning.provider_capability_descriptor",
     "reasoning.provider_resource_boundary",
     "reasoning.provider_reasoning_gate",
