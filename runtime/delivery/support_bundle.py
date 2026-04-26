@@ -161,6 +161,112 @@ def measure_context_pressure_retained_provenance_metrics(
     }
 
 
+def _required_safe_evidence_pointers(
+    support_bundle: Mapping[str, Any],
+    required_safe_evidence_paths: Iterable[str] | None,
+) -> set[str]:
+    if required_safe_evidence_paths is not None:
+        return _normalized_pointer_set(required_safe_evidence_paths)
+    return {pointer for pointer in _support_bundle_evidence_pointers(support_bundle) if _is_provenance_pointer(pointer)}
+
+
+def _set_trimmed_facts(trimmed: dict[str, Any], facts: list[str]) -> None:
+    trimmed["facts"] = facts
+    pathfinder_bundle = trimmed.get("pathfinder_bundle")
+    if isinstance(pathfinder_bundle, dict) and isinstance(pathfinder_bundle.get("support_facts"), list):
+        pathfinder_bundle["support_facts"] = facts[: len(pathfinder_bundle["support_facts"])] or facts[:1]
+
+
+def trim_oversized_support_bundle(
+    support_bundle: Mapping[str, Any],
+    *,
+    declared_limit_bytes: int,
+    required_provenance_paths: Iterable[str] | None = None,
+) -> dict[str, Any]:
+    """Trim low-priority fact rows while preserving safe evidence pointers."""
+
+    validate_support_bundle(support_bundle)
+    declared_limit = int(declared_limit_bytes)
+    trimmed = dict(support_bundle)
+    if isinstance(support_bundle.get("pathfinder_bundle"), Mapping):
+        trimmed["pathfinder_bundle"] = dict(support_bundle["pathfinder_bundle"])
+
+    original_facts = _non_empty_strings(support_bundle.get("facts") or [])
+    facts = list(original_facts)
+    original_size = _support_bundle_size_bytes(trimmed)
+    removed_fact_count = 0
+
+    while len(facts) > 1 and _support_bundle_size_bytes(trimmed) > declared_limit:
+        facts.pop()
+        removed_fact_count += 1
+        _set_trimmed_facts(trimmed, facts)
+
+    if _support_bundle_size_bytes(trimmed) > declared_limit and facts:
+        budget_fact = "trimmed support fact"
+        if facts[0] != budget_fact:
+            facts[0] = budget_fact
+            _set_trimmed_facts(trimmed, facts)
+
+    validate_support_bundle(trimmed)
+    required = _required_safe_evidence_pointers(trimmed, required_provenance_paths)
+    retained = sorted(required & _support_bundle_evidence_pointers(trimmed))
+    missing = sorted(required - set(retained))
+    coverage: float | str = len(retained) / len(required) if required else "not_applicable"
+    trimmed_size = _support_bundle_size_bytes(trimmed)
+    return {
+        "schema_version": "oversized_packet_trim_result.v1",
+        "surface_id": "UX-FS-10",
+        "secondary_surface_id": "UX-FS-11",
+        "scenario_id": "P9-S18",
+        "declared_limit": declared_limit,
+        "original_bundle_size": original_size,
+        "trimmed_bundle_size": trimmed_size,
+        "over_limit_bytes": max(0, trimmed_size - declared_limit),
+        "trim_applied": trimmed_size < original_size,
+        "original_fact_count": len(original_facts),
+        "retained_fact_count": len(facts),
+        "removed_fact_count": removed_fact_count,
+        "required_safe_evidence_pointer_count": len(required),
+        "retained_safe_evidence_pointer_count": len(retained),
+        "safe_evidence_pointer_coverage": coverage,
+        "retained_safe_evidence_pointers": retained,
+        "missing_safe_evidence_pointers": missing,
+        "trimmed_bundle": trimmed,
+    }
+
+
+def measure_oversized_packet_trim_metrics(trim_result: Mapping[str, Any]) -> dict[str, Any]:
+    """Measure whether P9-S18 trimming kept size bounded and pointers visible."""
+
+    trimmed_bundle = trim_result.get("trimmed_bundle")
+    if isinstance(trimmed_bundle, Mapping):
+        validate_support_bundle(trimmed_bundle)
+
+    coverage = trim_result.get("safe_evidence_pointer_coverage")
+    trimmed_size = int(trim_result.get("trimmed_bundle_size") or 0)
+    declared_limit = int(trim_result.get("declared_limit") or 0)
+    missing = [str(path) for path in trim_result.get("missing_safe_evidence_pointers") or []]
+    failing_metrics: list[str] = []
+    if declared_limit <= 0 or trimmed_size > declared_limit:
+        failing_metrics.append("bundle_size")
+    if coverage != "not_applicable" and coverage < 1.0:
+        failing_metrics.append("safe_evidence_pointer_coverage")
+
+    return {
+        "surface_id": "UX-FS-10",
+        "secondary_surface_id": "UX-FS-11",
+        "scenario_id": "P9-S18",
+        "bundle_size": trimmed_size,
+        "declared_limit": declared_limit,
+        "over_limit_bytes": max(0, trimmed_size - declared_limit),
+        "safe_evidence_pointer_coverage": coverage,
+        "missing_safe_evidence_pointers": missing,
+        "removed_fact_count": int(trim_result.get("removed_fact_count") or 0),
+        "failing_metrics": failing_metrics,
+        "decision": "green_passed" if not failing_metrics else "red_captured",
+    }
+
+
 def _workspace_relative_path(path_value: str, *, workspace_root: Path) -> str:
     path = Path(path_value)
     try:
