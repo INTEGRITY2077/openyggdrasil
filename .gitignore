@@ -1,7 +1,8 @@
 # canonical repo ignores
 
-# repo-managed documentation is not a deploy/runtime dependency
+# repo-managed documentation/history is not a deploy/runtime dependency
 /doc/
+/history/
 /private-history/
 /README.ko.md
 /agent-list.ko.md
