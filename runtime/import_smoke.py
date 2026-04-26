@@ -58,6 +58,7 @@ CANONICAL_RUNTIME_MODULES = [
     "evaluation.graphify_snapshot_from_live_delta",
     "evaluation.hermes_live_e2e_witness_logger",
     "evaluation.knowledge_forest_delta_from_live_session",
+    "evaluation.live_e2e_environment_preconditions",
     "evaluation.live_e2e_readiness_gate",
     "evaluation.mailbox_delivery_hermes_consumption",
     "evaluation.physical_multiturn_session_artifact",

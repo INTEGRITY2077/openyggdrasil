@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/live_e2e_environment_preconditions.v1.schema.json",
+  "title": "OpenYggdrasil Live E2E Environment Preconditions v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "probe_id",
+    "phase_id",
+    "precondition_scope",
+    "preconditions",
+    "required_precondition_ids",
+    "satisfied_precondition_ids",
+    "missing_precondition_ids",
+    "typed_unavailable_precondition_ids",
+    "invalid_precondition_ids",
+    "readiness_preconditions_ready",
+    "raw_transcript_included",
+    "may_claim_live_ready",
+    "may_claim_91_percent_readiness",
+    "reason_codes",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "live_e2e_environment_preconditions.v1"
+    },
+    "probe_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "phase_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "precondition_scope": {
+      "const": "p9_physical_same_run_hermes_live_e2e_environment"
+    },
+    "preconditions": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "$ref": "#/$defs/precondition"
+      }
+    },
+    "required_precondition_ids": {
+      "$ref": "#/$defs/precondition_ids"
+    },
+    "satisfied_precondition_ids": {
+      "$ref": "#/$defs/precondition_ids"
+    },
+    "missing_precondition_ids": {
+      "$ref": "#/$defs/precondition_ids"
+    },
+    "typed_unavailable_precondition_ids": {
+      "$ref": "#/$defs/precondition_ids"
+    },
+    "invalid_precondition_ids": {
+      "$ref": "#/$defs/precondition_ids"
+    },
+    "readiness_preconditions_ready": {
+      "type": "boolean"
+    },
+    "raw_transcript_included": {
+      "const": false
+    },
+    "may_claim_live_ready": {
+      "const": false
+    },
+    "may_claim_91_percent_readiness": {
+      "const": false
+    },
+    "reason_codes": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "precondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "precondition_id",
+        "status",
+        "source_kind",
+        "artifact_ref",
+        "reason_code",
+        "safe_evidence_refs",
+        "contains_raw_transcript"
+      ],
+      "properties": {
+        "precondition_id": {
+          "type": "string",
+          "enum": [
+            "run_lock_held",
+            "hermes_binary_available",
+            "provider_profile_available",
+            "live_artifact_root_available",
+            "safe_capture_policy_available",
+            "raw_transcript_filter_enabled",
+            "stale_decoy_probe_plan_available",
+            "wsl2_bubblewrap_available",
+            "schema_contracts_available"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "present",
+            "typed_unavailable",
+            "missing",
+            "invalid"
+          ]
+        },
+        "source_kind": {
+          "type": "string",
+          "enum": [
+            "runtime_check",
+            "operator_declared",
+            "contract_surface",
+            "typed_unavailable",
+            "not_supplied"
+          ]
+        },
+        "artifact_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 240
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason_code": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "safe_evidence_refs": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        },
+        "contains_raw_transcript": {
+          "const": false
+        }
+      }
+    },
+    "precondition_ids": {
+      "type": "array",
+      "maxItems": 9,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "run_lock_held",
+          "hermes_binary_available",
+          "provider_profile_available",
+          "live_artifact_root_available",
+          "safe_capture_policy_available",
+          "raw_transcript_filter_enabled",
+          "stale_decoy_probe_plan_available",
+          "wsl2_bubblewrap_available",
+          "schema_contracts_available"
+        ]
+      }
+    }
+  }
+}
