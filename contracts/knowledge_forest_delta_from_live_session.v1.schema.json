@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/knowledge_forest_delta_from_live_session.v1.schema.json",
+  "title": "OpenYggdrasil Knowledge Forest Delta From Live Session v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "delta_id",
+    "source_artifact_bundle_id",
+    "provider_name",
+    "provider_profile",
+    "session_ref",
+    "source_session_kind",
+    "delta_kind",
+    "durability_state",
+    "canonicality",
+    "mutation_scope",
+    "canonical_refs",
+    "provenance_refs",
+    "lifecycle_refs",
+    "source_turn_refs",
+    "safe_evidence_pointer_count",
+    "raw_transcript_included",
+    "graphify_snapshot_refs",
+    "mailbox_receipt_refs",
+    "reasoning_lease_isolation_refs",
+    "typed_unavailable_surfaces",
+    "rerun_condition",
+    "evidence_required",
+    "claim_scope",
+    "decision",
+    "readiness_state",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "knowledge_forest_delta_from_live_session.v1"
+    },
+    "delta_id": {
+      "$ref": "#/$defs/id"
+    },
+    "source_artifact_bundle_id": {
+      "$ref": "#/$defs/id"
+    },
+    "provider_name": {
+      "const": "hermes"
+    },
+    "provider_profile": {
+      "$ref": "#/$defs/id"
+    },
+    "session_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "source_session_kind": {
+      "type": "string",
+      "enum": [
+        "physical_live",
+        "typed_unavailable_not_live_proven"
+      ]
+    },
+    "delta_kind": {
+      "const": "knowledge_forest_delta"
+    },
+    "durability_state": {
+      "type": "string",
+      "enum": [
+        "durable",
+        "typed_unavailable_not_live_proven"
+      ]
+    },
+    "canonicality": {
+      "type": "string",
+      "enum": [
+        "sot",
+        "not_available"
+      ]
+    },
+    "mutation_scope": {
+      "type": "string",
+      "enum": [
+        "vault_topic_page_with_provenance",
+        "not_available"
+      ]
+    },
+    "canonical_refs": {
+      "$ref": "#/$defs/artifactRefs"
+    },
+    "provenance_refs": {
+      "$ref": "#/$defs/artifactRefs"
+    },
+    "lifecycle_refs": {
+      "$ref": "#/$defs/artifactRefs"
+    },
+    "source_turn_refs": {
+      "$ref": "#/$defs/stringRefs"
+    },
+    "safe_evidence_pointer_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "raw_transcript_included": {
+      "const": false
+    },
+    "graphify_snapshot_refs": {
+      "$ref": "#/$defs/stringRefs"
+    },
+    "mailbox_receipt_refs": {
+      "$ref": "#/$defs/stringRefs"
+    },
+    "reasoning_lease_isolation_refs": {
+      "$ref": "#/$defs/stringRefs"
+    },
+    "typed_unavailable_surfaces": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/surface"
+      }
+    },
+    "rerun_condition": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evidence_required": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 140,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "claim_scope": {
+      "type": "string",
+      "enum": [
+        "e2e2_knowledge_forest_delta_only",
+        "full_live_e2e_delta_candidate",
+        "typed_unavailable_not_live_proven",
+        "not_claimable"
+      ]
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "e2e2_knowledge_forest_delta_valid",
+        "typed_unavailable_not_live_proven",
+        "red_captured"
+      ]
+    },
+    "readiness_state": {
+      "type": "string",
+      "enum": [
+        "ready_for_e2e3",
+        "not_ready"
+      ]
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 420
+    },
+    "artifactRefs": {
+      "type": "array",
+      "maxItems": 48,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "path",
+          "status"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "path": {
+            "$ref": "#/$defs/ref"
+          },
+          "status": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "state": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          }
+        }
+      }
+    },
+    "stringRefs": {
+      "type": "array",
+      "maxItems": 48,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "surface": {
+      "type": "string",
+      "enum": [
+        "knowledge_forest_delta",
+        "graphify_snapshot",
+        "mailbox_receipt",
+        "reasoning_lease_isolation"
+      ]
+    }
+  }
+}
