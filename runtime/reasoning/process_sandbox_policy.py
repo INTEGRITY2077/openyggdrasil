@@ -1,13 +1,23 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
-from typing import Iterable
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, Iterable, Mapping
+
+import jsonschema
 
 
 SANDBOX_RUNTIME_CANDIDATE = "sandbox-runtime"
 TARGET_PLATFORM_POLICY = "wsl2_linux_first_native_windows_deferred"
 DOCKER_FALLBACK_POLICY = "fallback_or_stronger_isolation_only"
 LEASE_SECURITY_UNAVAILABLE = "lease_security_unavailable"
+OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
+CONTRACTS_ROOT = OPENYGGDRASIL_ROOT / "contracts"
+PROCESS_SANDBOX_RUNTIME_DECISION_SCHEMA_PATH = (
+    CONTRACTS_ROOT / "process_sandbox_runtime_decision.v1.schema.json"
+)
 
 OFFICIAL_SANDBOX_SOT_REFS = (
     "https://code.claude.com/docs/en/sandboxing",
@@ -16,6 +26,18 @@ OFFICIAL_SANDBOX_SOT_REFS = (
     "https://www.npmjs.com/package/@anthropic-ai/sandbox-runtime",
     "https://github.com/containers/bubblewrap",
 )
+
+
+@lru_cache(maxsize=1)
+def load_process_sandbox_runtime_decision_schema() -> dict[str, Any]:
+    return json.loads(PROCESS_SANDBOX_RUNTIME_DECISION_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
+def validate_process_sandbox_runtime_decision(payload: Mapping[str, Any]) -> None:
+    jsonschema.validate(
+        instance=dict(payload),
+        schema=load_process_sandbox_runtime_decision_schema(),
+    )
 
 
 @dataclass(frozen=True)
@@ -142,7 +164,7 @@ def build_process_sandbox_runtime_decision(
         typed_unavailable_status = "sandbox_unavailable"
         reason_code = "sandbox_unavailable_optional"
 
-    return ProcessSandboxRuntimeDecision(
+    decision = ProcessSandboxRuntimeDecision(
         schema_version="process_sandbox_runtime_decision.v1",
         target_platform_policy=TARGET_PLATFORM_POLICY,
         first_candidate=SANDBOX_RUNTIME_CANDIDATE,
@@ -167,3 +189,5 @@ def build_process_sandbox_runtime_decision(
         reason_code=reason_code,
         official_sot_refs=OFFICIAL_SANDBOX_SOT_REFS,
     )
+    validate_process_sandbox_runtime_decision(decision.as_dict())
+    return decision

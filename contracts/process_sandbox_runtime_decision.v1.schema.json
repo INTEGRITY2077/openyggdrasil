@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/process_sandbox_runtime_decision.v1.schema.json",
+  "title": "OpenYggdrasil Process Sandbox Runtime Decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "target_platform_policy",
+    "first_candidate",
+    "docker_policy",
+    "platform",
+    "platform_support_status",
+    "sandbox_required",
+    "sandbox_runtime_available",
+    "dependencies_available",
+    "native_windows_support_assumed",
+    "sandbox_backend",
+    "filesystem_policy",
+    "network_policy",
+    "allowed_domains",
+    "allow_all_unix_sockets",
+    "enable_weaker_network_isolation",
+    "unix_socket_policy",
+    "weaker_network_isolation_policy",
+    "silent_unsandboxed_fallback_allowed",
+    "execution_decision",
+    "typed_unavailable_status",
+    "reason_code",
+    "official_sot_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "process_sandbox_runtime_decision.v1"
+    },
+    "target_platform_policy": {
+      "const": "wsl2_linux_first_native_windows_deferred"
+    },
+    "first_candidate": {
+      "const": "sandbox-runtime"
+    },
+    "docker_policy": {
+      "const": "fallback_or_stronger_isolation_only"
+    },
+    "platform": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "platform_support_status": {
+      "type": "string",
+      "enum": [
+        "supported",
+        "unsupported_native_windows",
+        "unknown_platform"
+      ]
+    },
+    "sandbox_required": {
+      "type": "boolean"
+    },
+    "sandbox_runtime_available": {
+      "type": "boolean"
+    },
+    "dependencies_available": {
+      "type": "boolean"
+    },
+    "native_windows_support_assumed": {
+      "const": false
+    },
+    "sandbox_backend": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "bubblewrap",
+        "seatbelt",
+        null
+      ]
+    },
+    "filesystem_policy": {
+      "const": "allow_write_workspace_only_with_explicit_extra_paths"
+    },
+    "network_policy": {
+      "type": "string",
+      "enum": [
+        "no_network_by_default",
+        "explicit_domain_allowlist"
+      ]
+    },
+    "allowed_domains": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 253,
+        "pattern": "^[A-Za-z0-9.-]+$"
+      }
+    },
+    "allow_all_unix_sockets": {
+      "type": "boolean"
+    },
+    "enable_weaker_network_isolation": {
+      "type": "boolean"
+    },
+    "unix_socket_policy": {
+      "const": "deny_broad_unix_socket_escape_by_default"
+    },
+    "weaker_network_isolation_policy": {
+      "const": "deny_weakened_nested_or_network_isolation_by_default"
+    },
+    "silent_unsandboxed_fallback_allowed": {
+      "const": false
+    },
+    "execution_decision": {
+      "type": "string",
+      "enum": [
+        "allow_sandboxed",
+        "fail_closed",
+        "optional_sandbox_unavailable"
+      ]
+    },
+    "typed_unavailable_status": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "lease_security_unavailable",
+        "sandbox_unavailable",
+        null
+      ]
+    },
+    "reason_code": {
+      "type": "string",
+      "enum": [
+        "sandbox_runtime_available",
+        "sandbox_unavailable",
+        "sandbox_unavailable_optional",
+        "sandbox_escape_route_requested"
+      ]
+    },
+    "official_sot_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 700
+      }
+    }
+  }
+}
