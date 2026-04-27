@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/deviation_decision_record.v1.schema.json",
+  "title": "OpenYggdrasil Deviation Decision Record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "deviation_decision_id",
+    "decision_status",
+    "deviation_kind",
+    "deviation_summary",
+    "affected_gap_ids",
+    "evidence_refs",
+    "correction_automation",
+    "execution_policy",
+    "reason_codes",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "deviation_decision_record.v1"
+    },
+    "deviation_decision_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "decision_status": {
+      "const": "recorded_for_correction"
+    },
+    "deviation_kind": {
+      "type": "string",
+      "enum": [
+        "runtime_contract_gap",
+        "governance_gap",
+        "heartbeat_contamination",
+        "safety_overclaim",
+        "evidence_mismatch"
+      ]
+    },
+    "deviation_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "affected_gap_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[A-Z][A-Za-z0-9._:-]*$"
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
+    "correction_automation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "automation_status",
+        "correction_task_id",
+        "affected_gap_ids",
+        "evidence_refs",
+        "raw_provider_material_included",
+        "local_filesystem_path_included",
+        "live_readiness_claimed",
+        "full_roadmap_completion_claimed"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "deviation_correction_automation.v1"
+        },
+        "automation_status": {
+          "const": "correction_required"
+        },
+        "correction_task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "affected_gap_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[A-Z][A-Za-z0-9._:-]*$"
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 24,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "raw_provider_material_included": {
+          "const": false
+        },
+        "local_filesystem_path_included": {
+          "const": false
+        },
+        "live_readiness_claimed": {
+          "const": false
+        },
+        "full_roadmap_completion_claimed": {
+          "const": false
+        }
+      }
+    },
+    "execution_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_record_required",
+        "correction_automation_required",
+        "raw_provider_material_included",
+        "local_filesystem_path_included",
+        "live_readiness_claimed",
+        "full_roadmap_completion_claimed"
+      ],
+      "properties": {
+        "decision_record_required": {
+          "const": true
+        },
+        "correction_automation_required": {
+          "const": true
+        },
+        "raw_provider_material_included": {
+          "const": false
+        },
+        "local_filesystem_path_included": {
+          "const": false
+        },
+        "live_readiness_claimed": {
+          "const": false
+        },
+        "full_roadmap_completion_claimed": {
+          "const": false
+        }
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "safe_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\s]+$",
+      "not": {
+        "pattern": "^(?:file|[A-Za-z]):"
+      }
+    }
+  }
+}

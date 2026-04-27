@@ -85,7 +85,15 @@ def validate_pathfinder_bundle(bundle: Mapping[str, Any]) -> None:
 
 
 def validate_pathfinder_retrieval_result(payload: Mapping[str, Any]) -> None:
-    jsonschema.validate(instance=dict(payload), schema=load_pathfinder_retrieval_result_schema())
+    result = dict(payload)
+    jsonschema.validate(instance=result, schema=load_pathfinder_retrieval_result_schema())
+    default_product_route = result.get("default_product_route")
+    if result.get("status") == "completed":
+        if not isinstance(default_product_route, Mapping):
+            raise ValueError("completed Pathfinder retrieval requires default_product_route")
+        validate_pathfinder_product_route_result(default_product_route)
+    elif default_product_route is not None:
+        raise ValueError("stopped Pathfinder retrieval must not include default_product_route")
 
 
 def validate_pathfinder_product_route_result(payload: Mapping[str, Any]) -> None:
@@ -659,6 +667,7 @@ def _pathfinder_retrieval_result(
     support_bundle_shortcuts: Mapping[str, Any],
     origin_shortcut_result: Mapping[str, Any] | None,
     pathfinder_bundle: Mapping[str, Any] | None,
+    default_product_route: Mapping[str, Any] | None = None,
     lifecycle_records: list[dict[str, Any]],
     lifecycle_filter_mode: str,
     lifecycle_inactive_records_filtered: int,
@@ -680,6 +689,9 @@ def _pathfinder_retrieval_result(
         "support_bundle_shortcuts": dict(support_bundle_shortcuts),
         "origin_shortcut_result": dict(origin_shortcut_result) if isinstance(origin_shortcut_result, Mapping) else None,
         "pathfinder_bundle": dict(pathfinder_bundle) if isinstance(pathfinder_bundle, Mapping) else None,
+        "default_product_route": (
+            dict(default_product_route) if isinstance(default_product_route, Mapping) else None
+        ),
         "lifecycle_filter_mode": lifecycle_filter_mode,
         "lifecycle_records": lifecycle_records,
         "lifecycle_inactive_records_filtered": lifecycle_inactive_records_filtered,
@@ -831,6 +843,9 @@ def build_pathfinder_retrieval_result(
         support_bundle=support_bundle,
         origin_shortcut_result=origin_result,
     )
+    default_product_route = build_pathfinder_product_route_result(
+        query_text=str(support_bundle["query_text"]),
+    )
     return _pathfinder_retrieval_result(
         query_text=str(support_bundle["query_text"]),
         status="completed",
@@ -840,6 +855,7 @@ def build_pathfinder_retrieval_result(
         support_bundle_shortcuts=shortcuts,
         origin_shortcut_result=origin_result,
         pathfinder_bundle=bundle,
+        default_product_route=default_product_route,
         lifecycle_records=selected_lifecycle_records,
         lifecycle_filter_mode=lifecycle_filter_mode,
         lifecycle_inactive_records_filtered=inactive_filtered,
@@ -847,6 +863,7 @@ def build_pathfinder_retrieval_result(
             "mailbox_support_consumed",
             "origin_shortcut_resolved",
             "source_refs_forwarded",
+            "pathfinder_product_route_default_connected",
         ],
     )
 

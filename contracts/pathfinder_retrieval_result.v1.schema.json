@@ -15,6 +15,7 @@
     "support_bundle_shortcuts",
     "origin_shortcut_result",
     "pathfinder_bundle",
+    "default_product_route",
     "lifecycle_filter_mode",
     "lifecycle_records",
     "lifecycle_inactive_records_filtered",
@@ -184,6 +185,12 @@
       ]
     },
     "pathfinder_bundle": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "default_product_route": {
       "type": [
         "object",
         "null"
