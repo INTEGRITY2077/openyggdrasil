@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+
+STRUCTURAL_ANCHOR_FALLBACK_REASON_CODE = "structural_anchor_fallback_without_hermes"
+
 
 def render_default_pathfinder_program(*, recent_limit: int) -> str:
     return (
@@ -24,4 +29,22 @@ def render_default_pathfinder_program(*, recent_limit: int) -> str:
     )
 
 
-__all__ = ["render_default_pathfinder_program"]
+def structural_anchor_fallback_evaluator(
+    *,
+    query_text: str,
+    existing_topics: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
+    _ = query_text
+    _ = existing_topics
+    return {
+        "topic_key": None,
+        "reason_labels": [STRUCTURAL_ANCHOR_FALLBACK_REASON_CODE],
+        "summary": "PTC structural path did not use Hermes; returning an unanchored fallback.",
+    }
+
+
+__all__ = [
+    "STRUCTURAL_ANCHOR_FALLBACK_REASON_CODE",
+    "render_default_pathfinder_program",
+    "structural_anchor_fallback_evaluator",
+]

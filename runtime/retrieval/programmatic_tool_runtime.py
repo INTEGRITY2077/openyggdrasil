@@ -12,6 +12,10 @@ from typing import Any, Callable, Mapping, Sequence
 import jsonschema
 
 from harness_common import DEFAULT_VAULT, RUNTIME_STATE_ROOT, utc_now_iso
+from ptc.engine import (
+    STRUCTURAL_ANCHOR_FALLBACK_REASON_CODE,
+    structural_anchor_fallback_evaluator,
+)
 from retrieval.pathfinder import validate_pathfinder_bundle
 from retrieval.pathfinder_tools import (
     build_support_bundle,
@@ -338,6 +342,7 @@ class ProgrammaticToolRuntime:
         program_source: str | None = None,
         final_result_kind: str = "pathfinder_bundle",
         same_run_context: Mapping[str, Any] | None = None,
+        extra_reason_codes: Sequence[str] | None = None,
     ) -> dict[str, Any]:
         if program_source is not None:
             raise ProgrammaticToolRuntimeError(
@@ -472,6 +477,19 @@ class ProgrammaticToolRuntime:
         final_result_ref = run_dir / "final_result.json"
         _write_json(final_result_ref, final_result)
         final_sha256 = _sha256_payload(final_result)
+        reason_codes = [
+            "bounded_programmatic_tool_contract_executed",
+            "json_plan_no_dynamic_code_execution",
+            "pathfinder_bundle_final_gate_validated",
+            (
+                "same_run_context_accepted_from_upstream"
+                if same_run_context_status == SAME_RUN_CONTEXT_ACCEPTED
+                else "same_run_context_absent_structural_trace"
+            ),
+        ]
+        for reason_code in list(extra_reason_codes or []) + runtime_reason_codes:
+            if reason_code not in reason_codes:
+                reason_codes.append(str(reason_code))
 
         trace = {
             "schema_version": SCHEMA_VERSION,
@@ -516,17 +534,7 @@ class ProgrammaticToolRuntime:
                 "same_run_context_fabricated": False,
                 "historical_fixture_or_contract_only_trace_accepted": False,
             },
-            "reason_codes": [
-                "bounded_programmatic_tool_contract_executed",
-                "json_plan_no_dynamic_code_execution",
-                "pathfinder_bundle_final_gate_validated",
-                (
-                    "same_run_context_accepted_from_upstream"
-                    if same_run_context_status == SAME_RUN_CONTEXT_ACCEPTED
-                    else "same_run_context_absent_structural_trace"
-                ),
-                *runtime_reason_codes,
-            ],
+            "reason_codes": reason_codes,
             "generated_at": utc_now_iso(),
         }
         validate_programmatic_tool_runtime_trace(trace)
@@ -628,10 +636,12 @@ def build_pathfinder_bundle_via_programmatic_tool_runtime(
     program_source: str | None = None,
     same_run_context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    structural_anchor_fallback_used = anchor_evaluator is None
+    active_anchor_evaluator = anchor_evaluator or structural_anchor_fallback_evaluator
     runtime = ProgrammaticToolRuntime(
         capabilities=build_pathfinder_capabilities(
             vault_root=vault_root,
-            anchor_evaluator=anchor_evaluator,
+            anchor_evaluator=active_anchor_evaluator,
         ),
         scratch_root=scratch_root,
     )
@@ -642,4 +652,9 @@ def build_pathfinder_bundle_via_programmatic_tool_runtime(
         final_step_id="bundle",
         program_source=program_source,
         same_run_context=same_run_context,
+        extra_reason_codes=(
+            [STRUCTURAL_ANCHOR_FALLBACK_REASON_CODE]
+            if structural_anchor_fallback_used
+            else None
+        ),
     )

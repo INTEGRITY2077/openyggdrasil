@@ -16,7 +16,10 @@ from retrieval.pathfinder_tools import (
     get_raw_sources,
     get_recent_episodes,
 )
-from ptc.engine import render_default_pathfinder_program
+from ptc.engine import (
+    structural_anchor_fallback_evaluator,
+    render_default_pathfinder_program,
+)
 
 
 OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
@@ -51,7 +54,8 @@ class PathfinderPTCMVPRuntime:
     ) -> None:
         self.vault_root = vault_root
         self.scratch_root = scratch_root
-        self.anchor_evaluator = anchor_evaluator
+        self.structural_anchor_fallback_used = anchor_evaluator is None
+        self.anchor_evaluator = anchor_evaluator or structural_anchor_fallback_evaluator
         self.result_gate = PathfinderPTCResultGate()
 
     def _tool_surface(self, transcript: list[dict[str, Any]]) -> dict[str, Callable[..., Any]]:
@@ -171,6 +175,12 @@ class PathfinderPTCMVPRuntime:
             "runtime_mode": "ptc-inspired-deterministic-tool-plan",
             "query_text": query_text,
             "recent_limit": recent_limit,
+            "claim_scope": "structural_readiness_only",
+            "anchor_evaluator_status": (
+                "structural_fallback_used"
+                if self.structural_anchor_fallback_used
+                else "caller_supplied"
+            ),
             "program_path": str(program_path),
             "program_source_status": "deterministic_plan_not_executed_as_code",
             "tool_calls_path": str(tool_calls_path),
