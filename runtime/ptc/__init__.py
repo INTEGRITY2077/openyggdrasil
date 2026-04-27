@@ -9,14 +9,18 @@ from __future__ import annotations
 
 from .compat import (
     CLAIM_SCOPE,
+    EXTRACTED_SURFACES,
     LEGACY_IMPORT_SURFACES,
     PACKAGE_STATUS,
     compatibility_policy,
 )
+from .engine import render_default_pathfinder_program
 
 __all__ = [
     "CLAIM_SCOPE",
+    "EXTRACTED_SURFACES",
     "LEGACY_IMPORT_SURFACES",
     "PACKAGE_STATUS",
     "compatibility_policy",
+    "render_default_pathfinder_program",
 ]

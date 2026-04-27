@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 CLAIM_SCOPE = "structural_readiness_only"
-PACKAGE_STATUS = "skeleton_no_behavior_change"
+PACKAGE_STATUS = "smallest_surface_extracted"
+EXTRACTED_SURFACES = ("render_default_pathfinder_program",)
 
 LEGACY_IMPORT_SURFACES = (
     "retrieval.programmatic_tool_runtime",
@@ -27,6 +28,7 @@ def compatibility_policy() -> dict[str, object]:
     return {
         "claim_scope": CLAIM_SCOPE,
         "package_status": PACKAGE_STATUS,
+        "extracted_surfaces": list(EXTRACTED_SURFACES),
         "legacy_import_surfaces": list(LEGACY_IMPORT_SURFACES),
         "future_ptc_modules": list(FUTURE_PTC_MODULES),
         "dynamic_program_source_enabled": False,
@@ -36,6 +38,7 @@ def compatibility_policy() -> dict[str, object]:
 
 __all__ = [
     "CLAIM_SCOPE",
+    "EXTRACTED_SURFACES",
     "FUTURE_PTC_MODULES",
     "LEGACY_IMPORT_SURFACES",
     "PACKAGE_STATUS",
