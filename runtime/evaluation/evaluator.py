@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import uuid
 from functools import lru_cache
@@ -9,7 +10,14 @@ from typing import Any, Mapping
 import jsonschema
 
 from admission.decision_contracts import validate_decision_candidate
+from delivery.support_bundle import validate_support_bundle
 from harness_common import utc_now_iso
+from evaluation.why_remembered_answer import validate_why_remembered_answer
+from reasoning.lease_executor import (
+    build_reasoning_lease_mailbox_job,
+    validate_reasoning_lease_mailbox_job,
+)
+from reasoning.module_effort_requirements import build_high_effort_reasoning_lease_request
 
 
 OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
@@ -43,6 +51,31 @@ HIGH_REASONING_LABELS = {
     "cross_provider_conflict",
     "needs_high_reasoning",
 }
+IDENTITY_FIELDS = (
+    "candidate_id",
+    "dedup_key",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "session_uid",
+    "turn_start",
+    "turn_end",
+)
+DOWNSTREAM_EVIDENCE_KINDS = [
+    "decision_candidate",
+    "evaluator_verdict",
+    "support_bundle",
+    "answer_verdict",
+]
+UNSAFE_DOWNSTREAM_TOKENS = (
+    "d:/",
+    "c:/",
+    "file://",
+    "raw_transcript",
+    "raw transcript",
+    "transcript.txt",
+    "api_key",
+)
 
 
 @lru_cache(maxsize=1)
@@ -214,3 +247,339 @@ def evaluate_decision_candidate(
     }
     validate_evaluator_verdict(verdict)
     return verdict
+
+
+def _assert_candidate_verdict_identity(
+    *,
+    decision_candidate: Mapping[str, Any],
+    evaluator_verdict: Mapping[str, Any],
+) -> None:
+    for field in IDENTITY_FIELDS:
+        if decision_candidate.get(field) != evaluator_verdict.get(field):
+            raise ValueError(f"evaluator downstream identity mismatch: {field}")
+
+
+def _fingerprint(payload: Mapping[str, Any]) -> str:
+    encoded = json.dumps(dict(payload), sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _safe_ref(prefix: str, payload: Mapping[str, Any]) -> str:
+    return f"{prefix}://openyggdrasil/{_fingerprint(payload)[:32]}"
+
+
+def _unsafe_downstream_tokens(payload: Mapping[str, Any]) -> list[str]:
+    serialized = json.dumps(payload, sort_keys=True, default=str).replace("\\", "/").lower()
+    return [token for token in UNSAFE_DOWNSTREAM_TOKENS if token in serialized]
+
+
+def _candidate_verdict_summary(
+    *,
+    decision_candidate: Mapping[str, Any],
+    evaluator_verdict: Mapping[str, Any],
+) -> dict[str, Any]:
+    return {
+        "candidate_id": str(decision_candidate["candidate_id"]),
+        "dedup_key": str(decision_candidate["dedup_key"]),
+        "evaluator_verdict_id": str(evaluator_verdict["evaluator_verdict_id"]),
+        "evaluator_status": str(evaluator_verdict["evaluator_status"]),
+        "promotion_gate": str(evaluator_verdict["promotion_gate"]),
+        "amundsen_handoff_allowed": bool(evaluator_verdict["amundsen_handoff_allowed"]),
+        "requires_high_reasoning": bool(evaluator_verdict["requires_high_reasoning"]),
+        "downstream_decision_evidence_ref": _safe_ref(
+            "decision-candidate-ref",
+            {
+                "candidate_id": decision_candidate["candidate_id"],
+                "evaluator_verdict_id": evaluator_verdict["evaluator_verdict_id"],
+            },
+        ),
+    }
+
+
+def _support_bundle_verdict(
+    *,
+    support_bundle: Mapping[str, Any],
+    decision_candidate: Mapping[str, Any],
+) -> dict[str, Any]:
+    bundle = dict(support_bundle)
+    validate_support_bundle(bundle)
+    facts = [str(fact).strip() for fact in bundle.get("facts") or [] if str(fact).strip()]
+    source_paths = [
+        str(path).strip()
+        for path in bundle.get("source_paths") or []
+        if str(path).strip()
+    ]
+    if not facts:
+        raise ValueError("support bundle verdict requires facts")
+    if not source_paths:
+        raise ValueError("support bundle verdict requires source paths")
+    decision_key = bundle.get("decision_key")
+    if decision_key and decision_key != decision_candidate.get("dedup_key"):
+        raise ValueError("support bundle decision_key must match candidate dedup_key")
+    return {
+        "verdict_status": "usable_for_downstream_decision",
+        "support_bundle_ref": _safe_ref("support-bundle-ref", bundle),
+        "source_packet_id": str(bundle["source_packet_id"]),
+        "fact_count": len(facts),
+        "source_path_count": len(source_paths),
+        "decision_key": decision_key,
+        "raw_provider_material_included": False,
+        "local_filesystem_path_included": False,
+    }
+
+
+def _answer_verdict_summary(answer_verdict: Mapping[str, Any]) -> dict[str, Any]:
+    answer = dict(answer_verdict)
+    validate_why_remembered_answer(answer)
+    if answer.get("decision") != "green_passed":
+        raise ValueError("answer verdict must be green_passed")
+    if int(answer.get("raw_transcript_leak_count") or 0) != 0:
+        raise ValueError("answer verdict must not include raw transcript leaks")
+    if float(answer.get("provenance_coverage") or 0.0) < 1.0:
+        raise ValueError("answer verdict must have full provenance coverage")
+    return {
+        "answer_verdict_ref": _safe_ref("answer-verdict-ref", answer),
+        "answer_id": str(answer["answer_id"]),
+        "decision": str(answer["decision"]),
+        "provenance_coverage": float(answer["provenance_coverage"]),
+        "safe_evidence_pointer_coverage": float(answer["safe_evidence_pointer_coverage"]),
+        "selection_reason_coverage": float(answer["selection_reason_coverage"]),
+        "transcript_leak_count": int(answer["raw_transcript_leak_count"]),
+    }
+
+
+def _evidence_refs(
+    *,
+    candidate_verdict: Mapping[str, Any],
+    bundle_verdict: Mapping[str, Any],
+    answer_verdict: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "evidence_kind": "decision_candidate",
+            "evidence_ref": str(candidate_verdict["downstream_decision_evidence_ref"]),
+        },
+        {
+            "evidence_kind": "evaluator_verdict",
+            "evidence_ref": _safe_ref(
+                "evaluator-verdict-ref",
+                {"evaluator_verdict_id": candidate_verdict["evaluator_verdict_id"]},
+            ),
+        },
+        {
+            "evidence_kind": "support_bundle",
+            "evidence_ref": str(bundle_verdict["support_bundle_ref"]),
+        },
+        {
+            "evidence_kind": "answer_verdict",
+            "evidence_ref": str(answer_verdict["answer_verdict_ref"]),
+        },
+    ]
+
+
+def _lease_route(
+    *,
+    module_id: str,
+    mailbox_job: Mapping[str, Any],
+) -> dict[str, Any]:
+    validate_reasoning_lease_mailbox_job(mailbox_job)
+    payload = dict(mailbox_job["payload"])
+    if payload.get("lease_result_claimed") is not False:
+        raise ValueError("lease result must not be claimed by queued route")
+    return {
+        "module_id": module_id,
+        "delegated_through_reasoning_lease_executor": True,
+        "lease_request_id": str(payload["lease_request_id"]),
+        "lease_request_ref": str(payload["lease_request_ref"]),
+        "mailbox_message_id": str(mailbox_job["message_id"]),
+        "required_effort": str(payload["required_effort"]),
+        "preferred_effort": str(payload["preferred_effort"]),
+        "lease_group": str(payload["lease_group"]),
+        "sandbox_required": bool(payload["sandbox_required"]),
+        "synchronous_worker_called": bool(payload["synchronous_worker_called"]),
+        "lease_result_claimed": bool(payload["lease_result_claimed"]),
+        "mailbox_job": dict(mailbox_job),
+    }
+
+
+def validate_evaluator_downstream_decision_evidence(payload: Mapping[str, Any]) -> None:
+    result = dict(payload)
+    required = {
+        "schema_version",
+        "evidence_id",
+        "connection_status",
+        "connected_downstream_decision_evidence",
+        "candidate_verdict",
+        "bundle_verdict",
+        "answer_verdict",
+        "downstream_evidence_kinds",
+        "downstream_decision_evidence",
+        "lease_route_count",
+        "lease_routes",
+        "execution_policy",
+        "reason_codes",
+        "created_at",
+    }
+    missing = sorted(required - set(result))
+    if missing:
+        raise ValueError(f"evaluator downstream evidence is missing: {', '.join(missing)}")
+    if result["schema_version"] != "evaluator_downstream_decision_evidence.v1":
+        raise ValueError("invalid evaluator downstream evidence schema_version")
+    if result["connection_status"] != "downstream_decision_evidence_connected":
+        raise ValueError("downstream decision evidence must be connected")
+    if result["connected_downstream_decision_evidence"] is not True:
+        raise ValueError("downstream decision evidence must be connected")
+    if result["downstream_evidence_kinds"] != DOWNSTREAM_EVIDENCE_KINDS:
+        raise ValueError("downstream evidence kinds are incomplete")
+
+    bundle_verdict = dict(result["bundle_verdict"])
+    if bundle_verdict.get("verdict_status") != "usable_for_downstream_decision":
+        raise ValueError("bundle verdict must be usable for downstream decision")
+    if int(bundle_verdict.get("fact_count") or 0) <= 0:
+        raise ValueError("bundle verdict requires facts")
+    if int(bundle_verdict.get("source_path_count") or 0) <= 0:
+        raise ValueError("bundle verdict requires source paths")
+    if bundle_verdict.get("raw_provider_material_included") is not False:
+        raise ValueError("raw provider material is not allowed")
+    if bundle_verdict.get("local_filesystem_path_included") is not False:
+        raise ValueError("local filesystem paths are not allowed")
+
+    answer_verdict = dict(result["answer_verdict"])
+    if answer_verdict.get("decision") != "green_passed":
+        raise ValueError("answer verdict must be green_passed")
+    if int(answer_verdict.get("transcript_leak_count") or 0) != 0:
+        raise ValueError("answer verdict must not include raw transcript leaks")
+    if float(answer_verdict.get("provenance_coverage") or 0.0) < 1.0:
+        raise ValueError("answer verdict must have full provenance coverage")
+
+    policy = dict(result["execution_policy"])
+    if policy.get("high_effort_lease_delegation_required") is not True:
+        raise ValueError("high-effort lease delegation is required")
+    if policy.get("distiller_and_evaluator_delegated") is not True:
+        raise ValueError("distiller and evaluator must be delegated")
+    if policy.get("synchronous_worker_called") is not False:
+        raise ValueError("synchronous worker must not be called")
+    if policy.get("lease_result_claimed") is not False:
+        raise ValueError("lease result must not be claimed")
+    if policy.get("raw_provider_material_included") is not False:
+        raise ValueError("raw provider material is not allowed")
+    if policy.get("local_filesystem_path_included") is not False:
+        raise ValueError("local filesystem paths are not allowed")
+
+    lease_routes = [dict(route) for route in result["lease_routes"]]
+    if int(result["lease_route_count"]) != len(lease_routes):
+        raise ValueError("lease_route_count mismatch")
+    route_modules = {route.get("module_id") for route in lease_routes}
+    if route_modules != {"distiller", "evaluator"}:
+        raise ValueError("distiller and evaluator lease routes are required")
+    for route in lease_routes:
+        if route.get("delegated_through_reasoning_lease_executor") is not True:
+            raise ValueError("route must delegate through reasoning lease executor")
+        if route.get("required_effort") != "high":
+            raise ValueError("route must require high effort")
+        if route.get("lease_group") != "deep_reasoning":
+            raise ValueError("route must use deep_reasoning lease group")
+        if route.get("synchronous_worker_called") is not False:
+            raise ValueError("synchronous worker must not be called")
+        if route.get("lease_result_claimed") is not False:
+            raise ValueError("lease result must not be claimed")
+        mailbox_job = route.get("mailbox_job")
+        if not isinstance(mailbox_job, Mapping):
+            raise ValueError("lease route requires mailbox_job")
+        validate_reasoning_lease_mailbox_job(mailbox_job)
+
+    unsafe = _unsafe_downstream_tokens(result)
+    if unsafe:
+        raise ValueError(f"unsafe downstream evidence material included: {', '.join(unsafe)}")
+
+
+def build_evaluator_downstream_decision_evidence(
+    *,
+    decision_candidate: Mapping[str, Any],
+    evaluator_verdict: Mapping[str, Any],
+    support_bundle: Mapping[str, Any],
+    answer_verdict: Mapping[str, Any],
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    """Connect Evaluator verdicts to downstream evidence and lease routing."""
+
+    candidate = dict(decision_candidate)
+    verdict = dict(evaluator_verdict)
+    validate_decision_candidate(candidate)
+    validate_evaluator_verdict(verdict)
+    _assert_candidate_verdict_identity(
+        decision_candidate=candidate,
+        evaluator_verdict=verdict,
+    )
+    created = created_at or utc_now_iso()
+    candidate_verdict = _candidate_verdict_summary(
+        decision_candidate=candidate,
+        evaluator_verdict=verdict,
+    )
+    bundle_verdict = _support_bundle_verdict(
+        support_bundle=support_bundle,
+        decision_candidate=candidate,
+    )
+    answer_summary = _answer_verdict_summary(answer_verdict)
+    evidence_refs = _evidence_refs(
+        candidate_verdict=candidate_verdict,
+        bundle_verdict=bundle_verdict,
+        answer_verdict=answer_summary,
+    )
+    input_refs = {
+        item["evidence_kind"]: item["evidence_ref"]
+        for item in evidence_refs
+    }
+
+    lease_routes: list[dict[str, Any]] = []
+    for module_id in ("distiller", "evaluator"):
+        lease_request = build_high_effort_reasoning_lease_request(
+            module_id=module_id,
+            input_refs=input_refs,
+            provider_id=str(candidate["provider_id"]),
+            provider_profile=str(candidate["provider_profile"]),
+            provider_session_id=str(candidate["provider_session_id"]),
+            session_uid=str(candidate["session_uid"]),
+            requested_at=created,
+            objective=(
+                f"Review downstream decision evidence for {module_id} using safe evidence refs."
+            ),
+        )
+        mailbox_job = build_reasoning_lease_mailbox_job(
+            lease_request,
+            created_at=created,
+            producer_role="evaluator_downstream_decision_evidence",
+        )
+        lease_routes.append(_lease_route(module_id=module_id, mailbox_job=mailbox_job))
+
+    result = {
+        "schema_version": "evaluator_downstream_decision_evidence.v1",
+        "evidence_id": uuid.uuid4().hex,
+        "connection_status": "downstream_decision_evidence_connected",
+        "connected_downstream_decision_evidence": True,
+        "candidate_verdict": candidate_verdict,
+        "bundle_verdict": bundle_verdict,
+        "answer_verdict": answer_summary,
+        "downstream_evidence_kinds": DOWNSTREAM_EVIDENCE_KINDS,
+        "downstream_decision_evidence": evidence_refs,
+        "lease_route_count": len(lease_routes),
+        "lease_routes": lease_routes,
+        "execution_policy": {
+            "high_effort_lease_delegation_required": True,
+            "distiller_and_evaluator_delegated": True,
+            "synchronous_worker_called": False,
+            "lease_result_claimed": False,
+            "raw_provider_material_included": False,
+            "local_filesystem_path_included": False,
+        },
+        "reason_codes": [
+            "candidate_bundle_answer_verdicts_connected",
+            "distiller_high_effort_delegated_to_reasoning_lease",
+            "evaluator_high_effort_delegated_to_reasoning_lease",
+            "downstream_decision_evidence_refs_only",
+            "raw_provider_material_not_copied",
+        ],
+        "created_at": created,
+    }
+    validate_evaluator_downstream_decision_evidence(result)
+    return result

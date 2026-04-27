@@ -8,6 +8,12 @@ from typing import Any, Mapping, Sequence
 
 import jsonschema
 
+from harness_common import utc_now_iso
+from reasoning.reasoning_lease_contracts import (
+    build_reasoning_depth_requirement,
+    validate_reasoning_lease_request,
+)
+
 
 OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS_ROOT = OPENYGGDRASIL_ROOT / "contracts"
@@ -31,6 +37,20 @@ DEFAULT_CHAIN_MODULES = (
 )
 TARGET_PLATFORM_POLICY = "wsl2_linux_first_native_windows_deferred"
 SANDBOX_BACKEND_POLICY = "sandbox-runtime:bubblewrap_on_wsl2_linux"
+HIGH_EFFORT_LEASE_MODULES = {"distiller", "evaluator"}
+HIGH_EFFORT_LEASE_JOB_TYPES = {
+    "distiller": "decision_distillation",
+    "evaluator": "provenance_review",
+}
+UNSAFE_LEASE_MATERIAL_TOKENS = (
+    "d:/",
+    "c:/",
+    "file://",
+    "raw_transcript",
+    "raw transcript",
+    "transcript.txt",
+    "api_key",
+)
 
 MODULE_EFFORT_DEFAULTS: dict[str, dict[str, Any]] = {
     "distiller": {
@@ -146,6 +166,17 @@ def validate_module_effort_plan(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_module_effort_plan_schema())
 
 
+def _normalize_module_id(value: Any) -> str:
+    return str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def _reject_unsafe_lease_material(value: Any) -> None:
+    serialized = json.dumps(value, sort_keys=True, default=str).replace("\\", "/").lower()
+    for token in UNSAFE_LEASE_MATERIAL_TOKENS:
+        if token in serialized:
+            raise ValueError("high-effort reasoning lease input_refs include unsafe material")
+
+
 def _assert_effort_order(requirement: Mapping[str, Any]) -> None:
     minimum = str(requirement["min_effort"])
     preferred = str(requirement["preferred_effort"])
@@ -238,3 +269,96 @@ def build_module_effort_plan(
     }
     validate_module_effort_plan(plan)
     return plan
+
+
+def validate_high_effort_reasoning_lease_request(payload: Mapping[str, Any]) -> None:
+    request = dict(payload)
+    validate_reasoning_lease_request(request)
+    module_id = _normalize_module_id(request.get("requested_by_role"))
+    if module_id not in HIGH_EFFORT_LEASE_MODULES:
+        raise ValueError("module is not eligible for high-effort reasoning lease routing")
+    requirement = build_module_effort_requirement(module_id)
+    if not requirement["requires_reasoning"] or requirement["lease_group"] != "deep_reasoning":
+        raise ValueError("module is not eligible for high-effort reasoning lease routing")
+    if EFFORT_ORDER[str(requirement["min_effort"])] < EFFORT_ORDER["high"]:
+        raise ValueError("module is not eligible for high-effort reasoning lease routing")
+    depth_requirement = dict(request["reasoning_depth_requirement"])
+    if EFFORT_ORDER[str(depth_requirement["requested_depth"])] < EFFORT_ORDER["high"]:
+        raise ValueError("high-effort reasoning lease requires high requested depth")
+    if depth_requirement.get("plain_text_depth_request_allowed") is not False:
+        raise ValueError("plain text reasoning depth request is not allowed")
+    input_refs = request.get("input_refs")
+    if not isinstance(input_refs, Mapping) or not dict(input_refs):
+        raise ValueError("high-effort reasoning lease input_refs are required")
+    _reject_unsafe_lease_material(input_refs)
+
+
+def build_high_effort_reasoning_lease_request(
+    *,
+    module_id: str,
+    input_refs: Mapping[str, Any],
+    provider_id: str | None = None,
+    provider_profile: str | None = None,
+    provider_session_id: str | None = None,
+    session_uid: str | None = None,
+    lease_request_id: str | None = None,
+    job_type: str | None = None,
+    objective: str | None = None,
+    priority: str = "high",
+    time_budget_seconds: int = 300,
+    requested_at: str | None = None,
+) -> dict[str, Any]:
+    """Build a schema-valid Reasoning Lease request for high-effort modules."""
+
+    normalized = _normalize_module_id(module_id)
+    if normalized not in HIGH_EFFORT_LEASE_MODULES:
+        raise ValueError("module is not eligible for high-effort reasoning lease routing")
+    requirement = build_module_effort_requirement(normalized)
+    if not requirement["requires_reasoning"] or requirement["lease_group"] != "deep_reasoning":
+        raise ValueError("module is not eligible for high-effort reasoning lease routing")
+    safe_refs = dict(input_refs)
+    if not safe_refs:
+        raise ValueError("high-effort reasoning lease input_refs are required")
+    _reject_unsafe_lease_material(safe_refs)
+    request = {
+        "schema_version": "reasoning_lease_request.v1",
+        "lease_request_id": str(lease_request_id or f"lease-{normalized}-{uuid.uuid4().hex}"),
+        "requested_by_role": normalized,
+        "provider_id": provider_id,
+        "provider_profile": provider_profile,
+        "provider_session_id": provider_session_id,
+        "session_uid": session_uid,
+        "capability": "background_reasoning",
+        "job_type": job_type or HIGH_EFFORT_LEASE_JOB_TYPES[normalized],
+        "priority": priority,
+        "time_budget_seconds": int(time_budget_seconds),
+        "inference_mode": "provider_headless",
+        "reasoning_depth_requirement": build_reasoning_depth_requirement(
+            area=str(requirement["reasoning_depth_area"]),
+            minimum_depth=str(requirement["min_effort"]),
+            requested_depth=str(requirement["preferred_effort"]),
+            reasoning_energy_source="provider_headless",
+            escalation_policy="lease_required",
+            downgrade_policy="forbid",
+            evidence_required=("schema_valid_request", "run_record"),
+            reason_codes=(
+                "structured_reasoning_depth_required",
+                f"module:{normalized}",
+                "high_effort_lease_required",
+            ),
+        ),
+        "objective": str(
+            objective
+            or f"Route high-effort {normalized} work through Reasoning Lease using safe evidence refs."
+        ),
+        "input_refs": safe_refs,
+        "constraints": [
+            "do_not_copy_raw_provider_material",
+            "do_not_execute_in_deterministic_evaluator_path",
+        ],
+        "expected_output_schema": "downstream_decision_evidence",
+        "fallback_policy": "manual_review",
+        "requested_at": requested_at or utc_now_iso(),
+    }
+    validate_high_effort_reasoning_lease_request(request)
+    return request
