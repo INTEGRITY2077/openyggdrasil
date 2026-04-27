@@ -72,6 +72,12 @@ def _evidence_set(payload: Mapping[str, Any]) -> set[str]:
     return {str(item).strip() for item in payload.get("evidence_required") or [] if str(item).strip()}
 
 
+def _require_evidence_requirement(payload: Mapping[str, Any], surface: str) -> None:
+    required = EVIDENCE_REQUIREMENTS[surface]
+    if required not in _evidence_set(payload):
+        raise ValueError(f"missing evidence_required entry: {required}")
+
+
 def _artifact_rows(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     return [row for row in payload.get("artifact_chain") or [] if isinstance(row, Mapping)]
 
@@ -113,7 +119,7 @@ def _require_process_live(payload: Mapping[str, Any]) -> None:
     if process.get("exit_code") != 0:
         raise ValueError("live-equivalent session_process.exit_code must be 0")
     if process.get("process_id") is None:
-        raise ValueError("live-equivalent session_process.process_id is required")
+        _require_evidence_requirement(payload, "live_hermes_process_witness")
     if process.get("session_id_from_provider") != payload.get("provider_session_id"):
         raise ValueError("session_process.session_id_from_provider must match provider_session_id")
     if not process.get("started_at") or not process.get("finished_at"):
@@ -141,9 +147,7 @@ def _require_later_lane_boundary(payload: Mapping[str, Any]) -> None:
     typed = _typed_surfaces(payload)
     if "reasoning_lease_isolation" not in typed:
         raise ValueError("typed_unavailable_surfaces must include reasoning_lease_isolation")
-    evidence = _evidence_set(payload)
-    if EVIDENCE_REQUIREMENTS["reasoning_lease_isolation"] not in evidence:
-        raise ValueError("missing evidence_required entry: reasoning_lease_isolation_ref_non_empty")
+    _require_evidence_requirement(payload, "reasoning_lease_isolation")
 
 
 def _require_live_equivalent_rules(payload: Mapping[str, Any]) -> None:
@@ -166,6 +170,7 @@ def _require_live_equivalent_rules(payload: Mapping[str, Any]) -> None:
     if not REQUIRED_LIVE_ROLES.issubset(_artifact_roles(payload)):
         missing = sorted(REQUIRED_LIVE_ROLES - _artifact_roles(payload))
         raise ValueError(f"live-equivalent witness missing artifact roles: {', '.join(missing)}")
+    _require_evidence_requirement(payload, "same_run_artifact_chain")
 
     for row in _artifact_rows(payload):
         role = str(row.get("artifact_role") or "")
@@ -299,7 +304,11 @@ def build_hermes_live_e2e_witness_event(
         "safe_evidence_pointer_count": int(safe_evidence_pointer_count),
         "typed_unavailable_surfaces": ["reasoning_lease_isolation"],
         "rerun_condition": "provide_reasoning_lease_isolation_artifacts",
-        "evidence_required": [EVIDENCE_REQUIREMENTS["reasoning_lease_isolation"]],
+        "evidence_required": [
+            EVIDENCE_REQUIREMENTS["live_hermes_process_witness"],
+            EVIDENCE_REQUIREMENTS["same_run_artifact_chain"],
+            EVIDENCE_REQUIREMENTS["reasoning_lease_isolation"],
+        ],
         "claim_scope": "hermes_live_witness_ready_for_e2e5",
         "decision": "live_equivalent_ready_for_e2e5",
         "readiness_state": "ready_for_e2e5",
