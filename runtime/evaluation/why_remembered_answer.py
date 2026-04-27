@@ -23,6 +23,15 @@ RAW_LEAK_MARKERS = (
     "user:",
     "assistant:",
 )
+UNSAFE_FEEDBACK_TOKENS = (
+    "d:/",
+    "c:/",
+    "file://",
+    "raw_transcript",
+    "raw transcript",
+    "transcript.txt",
+    "api_key",
+)
 
 
 @lru_cache(maxsize=1)
@@ -122,3 +131,109 @@ def build_why_remembered_answer(
     }
     validate_why_remembered_answer(answer)
     return answer
+
+
+def _unsafe_feedback_tokens(payload: Mapping[str, Any]) -> list[str]:
+    serialized = json.dumps(payload, sort_keys=True, default=str).replace("\\", "/").lower()
+    return [token for token in UNSAFE_FEEDBACK_TOKENS if token in serialized]
+
+
+def validate_product_visible_answer_feedback_item(payload: Mapping[str, Any]) -> None:
+    item = dict(payload)
+    required = {
+        "schema_version",
+        "feedback_item_id",
+        "item_status",
+        "product_visible",
+        "product_surface_id",
+        "why_answer_id",
+        "why_answer_decision",
+        "answer_display_text",
+        "used_memory_refs",
+        "safe_evidence_pointers",
+        "selection_reasons",
+        "memory_ref_count",
+        "safe_evidence_pointer_count",
+        "selection_reason_count",
+        "provenance_coverage",
+        "safe_evidence_pointer_coverage",
+        "selection_reason_coverage",
+        "transcript_leak_count",
+        "raw_provider_material_included",
+        "local_filesystem_path_included",
+        "created_at",
+    }
+    missing = sorted(required - set(item))
+    if missing:
+        raise ValueError(f"product visible feedback item is missing: {', '.join(missing)}")
+    if item["schema_version"] != "product_visible_answer_feedback_item.v1":
+        raise ValueError("invalid product visible feedback item schema_version")
+    if item["item_status"] != "product_visible_feedback_ready":
+        raise ValueError("feedback item must be ready for product visible routing")
+    if item["product_visible"] is not True:
+        raise ValueError("feedback item must be product visible")
+    if not str(item["product_surface_id"]).strip():
+        raise ValueError("product_surface_id is required")
+    if item["why_answer_decision"] != "green_passed":
+        raise ValueError("why remembered answer must be green_passed")
+    if int(item["memory_ref_count"]) < 1:
+        raise ValueError("feedback item requires memory refs")
+    if int(item["safe_evidence_pointer_count"]) < 1:
+        raise ValueError("feedback item requires safe evidence pointers")
+    if int(item["selection_reason_count"]) < 1:
+        raise ValueError("feedback item requires selection reasons")
+    if float(item["provenance_coverage"]) < 1.0:
+        raise ValueError("feedback item requires full provenance coverage")
+    if float(item["safe_evidence_pointer_coverage"]) < 1.0:
+        raise ValueError("feedback item requires full safe evidence coverage")
+    if float(item["selection_reason_coverage"]) < 1.0:
+        raise ValueError("feedback item requires full selection reason coverage")
+    if int(item["transcript_leak_count"]) != 0:
+        raise ValueError("feedback item must not include transcript leaks")
+    if item["raw_provider_material_included"] is not False:
+        raise ValueError("feedback item must not include raw provider material")
+    if item["local_filesystem_path_included"] is not False:
+        raise ValueError("feedback item must not include local filesystem paths")
+    unsafe = _unsafe_feedback_tokens(item)
+    if unsafe:
+        raise ValueError(f"unsafe feedback item material included: {', '.join(unsafe)}")
+
+
+def build_product_visible_answer_feedback_item(
+    *,
+    why_remembered_answer: Mapping[str, Any],
+    product_surface_id: str,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    """Convert a safe why-remembered answer into a product-visible item."""
+
+    answer = dict(why_remembered_answer)
+    validate_why_remembered_answer(answer)
+    product_surface = str(product_surface_id or "").strip()
+    if not product_surface:
+        raise ValueError("product_surface_id is required")
+    item = {
+        "schema_version": "product_visible_answer_feedback_item.v1",
+        "feedback_item_id": uuid.uuid4().hex,
+        "item_status": "product_visible_feedback_ready",
+        "product_visible": True,
+        "product_surface_id": product_surface,
+        "why_answer_id": str(answer["answer_id"]),
+        "why_answer_decision": str(answer["decision"]),
+        "answer_display_text": str(answer["answer_text"]),
+        "used_memory_refs": [str(ref) for ref in answer["used_memory_refs"]],
+        "safe_evidence_pointers": [str(ref) for ref in answer["safe_evidence_pointers"]],
+        "selection_reasons": [dict(reason) for reason in answer["selection_reasons"]],
+        "memory_ref_count": len(answer["used_memory_refs"]),
+        "safe_evidence_pointer_count": len(answer["safe_evidence_pointers"]),
+        "selection_reason_count": len(answer["selection_reasons"]),
+        "provenance_coverage": float(answer["provenance_coverage"]),
+        "safe_evidence_pointer_coverage": float(answer["safe_evidence_pointer_coverage"]),
+        "selection_reason_coverage": float(answer["selection_reason_coverage"]),
+        "transcript_leak_count": int(answer["raw_transcript_leak_count"]),
+        "raw_provider_material_included": False,
+        "local_filesystem_path_included": False,
+        "created_at": created_at or utc_now_iso(),
+    }
+    validate_product_visible_answer_feedback_item(item)
+    return item

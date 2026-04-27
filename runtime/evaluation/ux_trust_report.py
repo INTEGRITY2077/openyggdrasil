@@ -8,6 +8,7 @@ from typing import Any, Mapping
 
 import jsonschema
 
+from evaluation.why_remembered_answer import validate_product_visible_answer_feedback_item
 from harness_common import utc_now_iso
 
 
@@ -21,6 +22,21 @@ LIVE_FOREGROUND_STATUSES = {
     "foreground_equivalent",
     "not_proven",
 }
+PROVIDER_ANSWER_FEEDBACK_EVIDENCE_KINDS = {
+    "decision_candidate",
+    "evaluator_verdict",
+    "support_bundle",
+    "answer_verdict",
+}
+UNSAFE_FEEDBACK_ROUTE_TOKENS = (
+    "d:/",
+    "c:/",
+    "file://",
+    "raw_transcript",
+    "raw transcript",
+    "transcript.txt",
+    "api_key",
+)
 
 
 @lru_cache(maxsize=1)
@@ -234,3 +250,180 @@ def build_ux_trust_report(
     }
     validate_ux_trust_report(report)
     return report
+
+
+def _unsafe_feedback_route_tokens(payload: Mapping[str, Any]) -> list[str]:
+    serialized = json.dumps(payload, sort_keys=True, default=str).replace("\\", "/").lower()
+    return [token for token in UNSAFE_FEEDBACK_ROUTE_TOKENS if token in serialized]
+
+
+def _downstream_evidence_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
+    evidence = dict(payload)
+    if evidence.get("connection_status") != "downstream_decision_evidence_connected":
+        raise ValueError("downstream evidence must be connected")
+    if evidence.get("connected_downstream_decision_evidence") is not True:
+        raise ValueError("downstream evidence must be connected")
+    kinds = {
+        str(kind)
+        for kind in evidence.get("downstream_evidence_kinds") or []
+        if str(kind).strip()
+    }
+    if not PROVIDER_ANSWER_FEEDBACK_EVIDENCE_KINDS.issubset(kinds):
+        raise ValueError("downstream evidence is missing provider answer feedback evidence kinds")
+    policy = dict(evidence.get("execution_policy") or {})
+    if policy.get("raw_provider_material_included") is not False:
+        raise ValueError("downstream evidence must not include raw provider material")
+    if policy.get("local_filesystem_path_included") is not False:
+        raise ValueError("downstream evidence must not include local filesystem paths")
+    refs = [
+        dict(ref)
+        for ref in evidence.get("downstream_decision_evidence") or []
+        if isinstance(ref, Mapping) and dict(ref)
+    ]
+    if not refs:
+        raise ValueError("downstream evidence refs are required")
+    return {
+        "evidence_id": str(evidence.get("evidence_id") or ""),
+        "connected_downstream_decision_evidence": True,
+        "evidence_kind_count": len(kinds),
+        "evidence_ref_count": len(refs),
+        "raw_provider_material_included": False,
+        "local_filesystem_path_included": False,
+    }
+
+
+def _ux_trust_summary(ux_trust_report: Mapping[str, Any]) -> dict[str, Any]:
+    report = dict(ux_trust_report)
+    validate_ux_trust_report(report)
+    if report.get("decision") != "green_passed":
+        raise ValueError("UX trust report must be green_passed for product-visible routing")
+    if report.get("zero_tolerance_failures"):
+        raise ValueError("UX trust report must not have zero-tolerance failures")
+    return {
+        "report_id": str(report["report_id"]),
+        "decision": str(report["decision"]),
+        "ux_trust_score": float(report["ux_trust_score"]),
+        "memory_visibility_score": int(report["memory_visibility_score"]),
+        "diagnosability_score": int(report["diagnosability_score"]),
+        "live_foreground_status": str(report["live_foreground_status"]),
+        "live_readiness_claimed": False,
+    }
+
+
+def validate_provider_answer_feedback_route(payload: Mapping[str, Any]) -> None:
+    route = dict(payload)
+    required = {
+        "schema_version",
+        "route_id",
+        "route_status",
+        "product_visible",
+        "product_surface_id",
+        "memory_evidence_workflow_connected",
+        "feedback_item",
+        "ux_trust_summary",
+        "downstream_evidence_summary",
+        "routing_policy",
+        "reason_codes",
+        "created_at",
+    }
+    missing = sorted(required - set(route))
+    if missing:
+        raise ValueError(f"provider answer feedback route is missing: {', '.join(missing)}")
+    if route["schema_version"] != "provider_answer_feedback_route.v1":
+        raise ValueError("invalid provider answer feedback route schema_version")
+    if route["route_status"] != "product_visible_feedback_routed":
+        raise ValueError("provider answer feedback route must be product visible")
+    if route["product_visible"] is not True:
+        raise ValueError("provider answer feedback route must be product visible")
+    if route["memory_evidence_workflow_connected"] is not True:
+        raise ValueError("memory evidence workflow must be connected")
+    if not str(route["product_surface_id"]).strip():
+        raise ValueError("product_surface_id is required")
+
+    feedback_item = dict(route["feedback_item"])
+    validate_product_visible_answer_feedback_item(feedback_item)
+    if feedback_item.get("product_surface_id") != route["product_surface_id"]:
+        raise ValueError("feedback item product surface mismatch")
+
+    summary = dict(route["ux_trust_summary"])
+    if summary.get("decision") != "green_passed":
+        raise ValueError("UX trust summary must be green_passed")
+    if summary.get("live_readiness_claimed") is not False:
+        raise ValueError("live readiness must not be claimed")
+
+    downstream = dict(route["downstream_evidence_summary"])
+    if downstream.get("connected_downstream_decision_evidence") is not True:
+        raise ValueError("downstream evidence must be connected")
+    if downstream.get("raw_provider_material_included") is not False:
+        raise ValueError("raw provider material is not allowed")
+    if downstream.get("local_filesystem_path_included") is not False:
+        raise ValueError("local filesystem paths are not allowed")
+
+    policy = dict(route["routing_policy"])
+    if policy.get("product_visible_feedback_required") is not True:
+        raise ValueError("product visible feedback is required")
+    if policy.get("memory_evidence_workflow_required") is not True:
+        raise ValueError("memory evidence workflow is required")
+    if policy.get("safe_evidence_pointers_required") is not True:
+        raise ValueError("safe evidence pointers are required")
+    if policy.get("selection_reasons_required") is not True:
+        raise ValueError("selection reasons are required")
+    if policy.get("raw_provider_material_included") is not False:
+        raise ValueError("raw provider material is not allowed")
+    if policy.get("local_filesystem_path_included") is not False:
+        raise ValueError("local filesystem paths are not allowed")
+    if policy.get("live_readiness_claimed") is not False:
+        raise ValueError("live readiness must not be claimed")
+
+    unsafe = _unsafe_feedback_route_tokens(route)
+    if unsafe:
+        raise ValueError(f"unsafe feedback route material included: {', '.join(unsafe)}")
+
+
+def build_provider_answer_feedback_route(
+    *,
+    feedback_item: Mapping[str, Any],
+    ux_trust_report: Mapping[str, Any],
+    downstream_decision_evidence: Mapping[str, Any],
+    product_surface_id: str,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    """Route safe answer feedback into a product-visible memory/evidence workflow."""
+
+    item = dict(feedback_item)
+    validate_product_visible_answer_feedback_item(item)
+    product_surface = str(product_surface_id or "").strip()
+    if not product_surface:
+        raise ValueError("product_surface_id is required")
+    if item.get("product_surface_id") != product_surface:
+        raise ValueError("feedback item product surface mismatch")
+    route = {
+        "schema_version": "provider_answer_feedback_route.v1",
+        "route_id": uuid.uuid4().hex,
+        "route_status": "product_visible_feedback_routed",
+        "product_visible": True,
+        "product_surface_id": product_surface,
+        "memory_evidence_workflow_connected": True,
+        "feedback_item": item,
+        "ux_trust_summary": _ux_trust_summary(ux_trust_report),
+        "downstream_evidence_summary": _downstream_evidence_summary(downstream_decision_evidence),
+        "routing_policy": {
+            "product_visible_feedback_required": True,
+            "memory_evidence_workflow_required": True,
+            "safe_evidence_pointers_required": True,
+            "selection_reasons_required": True,
+            "raw_provider_material_included": False,
+            "local_filesystem_path_included": False,
+            "live_readiness_claimed": False,
+        },
+        "reason_codes": [
+            "provider_answer_feedback_routed",
+            "why_remembered_answer_product_visible",
+            "memory_evidence_workflow_connected",
+            "raw_provider_material_not_copied",
+            "live_readiness_not_claimed",
+        ],
+        "created_at": created_at or utc_now_iso(),
+    }
+    validate_provider_answer_feedback_route(route)
+    return route
