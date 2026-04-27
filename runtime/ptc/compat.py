@@ -4,7 +4,12 @@ from __future__ import annotations
 
 CLAIM_SCOPE = "structural_readiness_only"
 PACKAGE_STATUS = "smallest_surface_extracted"
-EXTRACTED_SURFACES = ("render_default_pathfinder_program",)
+EXTRACTED_SURFACES = (
+    "render_default_pathfinder_program",
+    "build_query_adaptive_pathfinder_plan",
+    "render_query_adaptive_pathfinder_program",
+    "validate_query_adaptive_pathfinder_plan",
+)
 
 LEGACY_IMPORT_SURFACES = (
     "retrieval.programmatic_tool_runtime",
@@ -32,6 +37,7 @@ def compatibility_policy() -> dict[str, object]:
         "legacy_import_surfaces": list(LEGACY_IMPORT_SURFACES),
         "future_ptc_modules": list(FUTURE_PTC_MODULES),
         "dynamic_program_source_enabled": False,
+        "query_adaptive_bounded_plan_hook_enabled": True,
         "live_readiness_claimed": False,
     }
 

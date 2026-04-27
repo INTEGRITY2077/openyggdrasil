@@ -14,7 +14,12 @@ from .compat import (
     PACKAGE_STATUS,
     compatibility_policy,
 )
-from .engine import render_default_pathfinder_program
+from .engine import (
+    build_query_adaptive_pathfinder_plan,
+    render_default_pathfinder_program,
+    render_query_adaptive_pathfinder_program,
+    validate_query_adaptive_pathfinder_plan,
+)
 
 __all__ = [
     "CLAIM_SCOPE",
@@ -22,5 +27,8 @@ __all__ = [
     "LEGACY_IMPORT_SURFACES",
     "PACKAGE_STATUS",
     "compatibility_policy",
+    "build_query_adaptive_pathfinder_plan",
     "render_default_pathfinder_program",
+    "render_query_adaptive_pathfinder_program",
+    "validate_query_adaptive_pathfinder_plan",
 ]
