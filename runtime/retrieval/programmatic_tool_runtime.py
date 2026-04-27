@@ -51,6 +51,7 @@ SAME_RUN_CONTEXT_ALLOWED_KEYS = frozenset(
 )
 SAME_RUN_CONTEXT_SOURCE_KIND = "physical_live_same_run"
 SAME_RUN_CONTEXT_VERIFIED_STATUS = "upstream_verified"
+UNANCHORED_BRANCH_REASON_CODE = "unanchored_anchor_early_result"
 
 
 class ProgrammaticToolRuntimeError(RuntimeError):
@@ -149,6 +150,13 @@ def _normalize_same_run_context(
             "same_run_context.evidence_chain_status must be upstream_verified"
         )
     return SAME_RUN_CONTEXT_ACCEPTED, normalized
+
+
+def _is_unanchored_anchor_result(result: Any) -> bool:
+    if not isinstance(result, Mapping):
+        return False
+    anchor_type = str(result.get("anchor_type") or "").strip().lower()
+    return anchor_type == "none" or result.get("topic_id") is None
 
 
 def _resolve_path(value: Any, path: Sequence[str]) -> Any:
@@ -356,6 +364,7 @@ class ProgrammaticToolRuntime:
         step_results: dict[str, Any] = {}
         program_rows: list[dict[str, Any]] = []
         calls: list[dict[str, Any]] = []
+        runtime_reason_codes: list[str] = []
         seen_steps: set[str] = set()
 
         for index, raw_step in enumerate(program, start=1):
@@ -402,6 +411,54 @@ class ProgrammaticToolRuntime:
                     "result_ref": str(result_ref),
                 }
             )
+            if (
+                step_id == "anchor"
+                and _is_unanchored_anchor_result(result)
+                and final_result_kind == "pathfinder_bundle"
+                and (final_step_id is None or final_step_id == "bundle")
+                and "bundle" not in seen_steps
+            ):
+                unanchored_capability_id = "assemble_unanchored_bundle"
+                unanchored_capability = self.capabilities.get(unanchored_capability_id)
+                if unanchored_capability is None:
+                    raise ProgrammaticToolRuntimeError(
+                        "unanchored branch requires assemble_unanchored_bundle"
+                    )
+                if not unanchored_capability.read_only:
+                    raise ProgrammaticToolRuntimeError(
+                        f"write capability forbidden: {unanchored_capability_id}"
+                    )
+                step_id = "bundle"
+                seen_steps.add(step_id)
+                raw_input = {"query_text": {"from_context": "query_text"}}
+                resolved_input = {"query_text": query_text}
+                unanchored_capability.validate_input(resolved_input)
+                result = unanchored_capability.handler(**resolved_input)
+                result_ref = run_dir / f"{len(calls) + 1:02d}_{step_id}.json"
+                _write_json(result_ref, result)
+                result_sha256 = _sha256_payload(result)
+                step_results[step_id] = result
+                program_rows.append(
+                    {
+                        "step_id": step_id,
+                        "capability_id": unanchored_capability_id,
+                        "input_binding_keys": sorted(str(key) for key in raw_input.keys()),
+                    }
+                )
+                calls.append(
+                    {
+                        "step_id": step_id,
+                        "capability_id": unanchored_capability_id,
+                        "status": "completed",
+                        "read_only": True,
+                        "input_keys": sorted(resolved_input.keys()),
+                        "output_kind": unanchored_capability.output_kind,
+                        "result_sha256": result_sha256,
+                        "result_ref": str(result_ref),
+                    }
+                )
+                runtime_reason_codes.append(UNANCHORED_BRANCH_REASON_CODE)
+                break
 
         final_id = final_step_id or program_rows[-1]["step_id"]
         if final_id not in step_results:
@@ -468,6 +525,7 @@ class ProgrammaticToolRuntime:
                     if same_run_context_status == SAME_RUN_CONTEXT_ACCEPTED
                     else "same_run_context_absent_structural_trace"
                 ),
+                *runtime_reason_codes,
             ],
             "generated_at": utc_now_iso(),
         }
