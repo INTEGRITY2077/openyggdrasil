@@ -11,6 +11,7 @@ from typing import Any, Callable, Mapping
 
 from harness_common import DEFAULT_VAULT, record_event, utc_now_iso
 from common.map_identity import build_episode_id, build_page_id, build_topic_id, normalize_key
+from admission.decision_contracts import validate_map_topography
 from evaluation.promotion_worthiness import (
     DEFAULT_RETRIES,
     DEFAULT_RETRY_DELAY_SECONDS,
@@ -20,6 +21,11 @@ from evaluation.promotion_worthiness import (
     load_session_json,
 )
 from placement.topic_episode_placement import validate_placement_verdict
+
+
+STRUCTURAL_PLACEMENT_SCHEMA_VERSION = "map_maker_structural_placement_result.v1"
+STRUCTURAL_PLACEMENT_STATUS = "structural_placement_proven"
+STRUCTURAL_EVIDENCE_MODE = "topic_episode_page_topography"
 
 
 def _session_episode_key(session: Mapping[str, Any], *, session_id: str) -> str:
@@ -34,6 +40,226 @@ def _session_episode_key(session: Mapping[str, Any], *, session_id: str) -> str:
 
 def _title_from_topic_key(topic_key: str) -> str:
     return " ".join(part.capitalize() for part in normalize_key(topic_key).replace("/", " ").replace("_", " ").split("-"))
+
+
+def _topic_key_from_topic_id(topic_id: str) -> str:
+    if not topic_id.startswith("topic:"):
+        raise ValueError("topic_id must start with topic:")
+    return normalize_key(topic_id.split(":", 1)[1])
+
+
+def _episode_parts(episode_id: str) -> tuple[str, str]:
+    if not episode_id.startswith("episode:"):
+        raise ValueError("episode_id must start with episode:")
+    body = episode_id.split(":", 1)[1]
+    if ":" not in body:
+        raise ValueError("episode_id must include topic key and episode key")
+    topic_key, episode_key = body.rsplit(":", 1)
+    return normalize_key(topic_key), normalize_key(episode_key)
+
+
+def _expected_topic_key_from_path(canonical_relative_path: str) -> str:
+    path = canonical_relative_path.strip()
+    if not path.startswith("queries/") or not path.endswith(".md"):
+        raise ValueError("canonical_relative_path must be a query markdown path")
+    return normalize_key(path[len("queries/") : -len(".md")])
+
+
+def _safe_authority_boundary(map_topography: Mapping[str, Any] | None) -> dict[str, Any]:
+    if map_topography is None:
+        return {
+            "map_maker_authority": "placement_only",
+            "semantic_worth_authority": "not_map_maker",
+            "category_authority": "not_map_maker",
+            "bridge_topology_authority": "not_map_maker",
+            "graphify_is_sot": False,
+            "bridge_creation_allowed": False,
+        }
+    return {
+        "map_maker_authority": str(map_topography.get("map_maker_authority") or ""),
+        "semantic_worth_authority": str(map_topography.get("semantic_worth_authority") or ""),
+        "category_authority": str(map_topography.get("category_authority") or ""),
+        "bridge_topology_authority": str(map_topography.get("bridge_topology_authority") or ""),
+        "graphify_is_sot": False,
+        "bridge_creation_allowed": bool(map_topography.get("bridge_creation_allowed")),
+    }
+
+
+def _topography_alignment(
+    *,
+    placement_verdict: Mapping[str, Any],
+    map_topography: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    if map_topography is None:
+        return {
+            "map_topography_aligned": False,
+            "topography_id": None,
+            "continent_id": None,
+            "continent_key": None,
+            "bed_id": None,
+            "placement_source": None,
+            "category_source": None,
+        }
+    validate_map_topography(map_topography)
+    comparisons = (
+        ("topic_id", "topography_topic_id_mismatch"),
+        ("page_id", "topography_page_id_mismatch"),
+        ("canonical_relative_path", "topography_canonical_path_mismatch"),
+    )
+    for key, reason in comparisons:
+        if str(map_topography.get(key) or "") != str(placement_verdict.get(key) or ""):
+            raise ValueError(reason)
+    return {
+        "map_topography_aligned": True,
+        "topography_id": str(map_topography.get("topography_id") or ""),
+        "continent_id": str(map_topography.get("continent_id") or ""),
+        "continent_key": str(map_topography.get("continent_key") or ""),
+        "bed_id": str(map_topography.get("bed_id") or ""),
+        "placement_source": str(map_topography.get("placement_source") or ""),
+        "category_source": str(map_topography.get("category_source") or ""),
+    }
+
+
+def _structural_edges(*, topic_id: str, page_id: str, episode_id: str) -> list[dict[str, str]]:
+    return [
+        {
+            "edge_type": "topic_owns_page",
+            "from_id": topic_id,
+            "to_id": page_id,
+        },
+        {
+            "edge_type": "topic_contains_episode",
+            "from_id": topic_id,
+            "to_id": episode_id,
+        },
+        {
+            "edge_type": "page_records_episode",
+            "from_id": page_id,
+            "to_id": episode_id,
+        },
+    ]
+
+
+def build_map_maker_structural_placement_result(
+    *,
+    placement_verdict: Mapping[str, Any],
+    map_topography: Mapping[str, Any] | None = None,
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    verdict = dict(placement_verdict)
+    validate_placement_verdict(verdict)
+    if verdict.get("place") is not True:
+        raise ValueError("Structural placement requires place=true")
+
+    topic_id = str(verdict["topic_id"])
+    episode_id = str(verdict["episode_id"])
+    page_id = str(verdict["page_id"])
+    canonical_relative_path = str(verdict["canonical_relative_path"])
+    topic_key = _topic_key_from_topic_id(topic_id)
+    episode_topic_key, episode_key = _episode_parts(episode_id)
+    path_topic_key = _expected_topic_key_from_path(canonical_relative_path)
+    expected_page_id = build_page_id(canonical_relative_path)
+
+    if episode_topic_key != topic_key:
+        raise ValueError("episode_topic_id_mismatch")
+    if path_topic_key != topic_key:
+        raise ValueError("canonical_path_topic_mismatch")
+    if page_id != expected_page_id:
+        raise ValueError("page_id_canonical_path_mismatch")
+
+    alignment = _topography_alignment(
+        placement_verdict=verdict,
+        map_topography=map_topography,
+    )
+    result = {
+        "schema_version": STRUCTURAL_PLACEMENT_SCHEMA_VERSION,
+        "status": STRUCTURAL_PLACEMENT_STATUS,
+        "profile": str(verdict["profile"]),
+        "session_id": str(verdict["session_id"]),
+        "topic_id": topic_id,
+        "topic_key": topic_key,
+        "topic_title": str(verdict["topic_title"]),
+        "episode_id": episode_id,
+        "episode_key": episode_key,
+        "page_id": page_id,
+        "canonical_relative_path": canonical_relative_path,
+        "placement_mode": str(verdict["placement_mode"]),
+        "page_action": str(verdict["page_action"]),
+        "structural_evidence_mode": STRUCTURAL_EVIDENCE_MODE,
+        "structural_placement_used": True,
+        "shallow_placement_only": False,
+        "structural_edges": _structural_edges(
+            topic_id=topic_id,
+            page_id=page_id,
+            episode_id=episode_id,
+        ),
+        "topography_alignment": alignment,
+        "authority_boundary": _safe_authority_boundary(map_topography),
+        "raw_provider_material_included": False,
+        "local_filesystem_path_included": False,
+        "generated_at": generated_at or utc_now_iso(),
+    }
+    validate_map_maker_structural_placement_result(result)
+    return result
+
+
+def validate_map_maker_structural_placement_result(result: Mapping[str, Any]) -> None:
+    if result.get("schema_version") != STRUCTURAL_PLACEMENT_SCHEMA_VERSION:
+        raise ValueError("Invalid Map Maker structural placement result schema_version")
+    if result.get("status") != STRUCTURAL_PLACEMENT_STATUS:
+        raise ValueError("Map Maker structural placement result is not proven")
+    if result.get("structural_evidence_mode") != STRUCTURAL_EVIDENCE_MODE:
+        raise ValueError("Map Maker structural placement requires topic/episode/page/topography evidence")
+    if result.get("structural_placement_used") is not True:
+        raise ValueError("Map Maker structural placement must use structural placement")
+    if result.get("shallow_placement_only") is not False:
+        raise ValueError("Map Maker structural placement must not be shallow-only")
+    if result.get("raw_provider_material_included") is not False:
+        raise ValueError("Map Maker structural placement must not include raw provider material")
+    if result.get("local_filesystem_path_included") is not False:
+        raise ValueError("Map Maker structural placement must not include local filesystem paths")
+
+    topic_id = str(result.get("topic_id") or "")
+    episode_id = str(result.get("episode_id") or "")
+    page_id = str(result.get("page_id") or "")
+    canonical_relative_path = str(result.get("canonical_relative_path") or "")
+    topic_key = _topic_key_from_topic_id(topic_id)
+    episode_topic_key, _ = _episode_parts(episode_id)
+    if topic_key != episode_topic_key:
+        raise ValueError("episode_topic_id_mismatch")
+    if _expected_topic_key_from_path(canonical_relative_path) != topic_key:
+        raise ValueError("canonical_path_topic_mismatch")
+    if build_page_id(canonical_relative_path) != page_id:
+        raise ValueError("page_id_canonical_path_mismatch")
+
+    edges = result.get("structural_edges")
+    expected_edges = _structural_edges(topic_id=topic_id, page_id=page_id, episode_id=episode_id)
+    if edges != expected_edges:
+        raise ValueError("Map Maker structural placement edges do not match identifiers")
+
+    alignment = result.get("topography_alignment")
+    if not isinstance(alignment, Mapping):
+        raise ValueError("Map Maker structural placement requires topography_alignment")
+    if alignment.get("map_topography_aligned") is not True:
+        raise ValueError("Map Maker structural placement requires aligned map_topography")
+    authority = result.get("authority_boundary")
+    if not isinstance(authority, Mapping):
+        raise ValueError("Map Maker structural placement requires authority_boundary")
+    if authority.get("map_maker_authority") != "placement_only":
+        raise ValueError("Map Maker authority must remain placement_only")
+    if authority.get("semantic_worth_authority") != "not_map_maker":
+        raise ValueError("Map Maker must not claim semantic worth authority")
+    if authority.get("category_authority") != "not_map_maker":
+        raise ValueError("Map Maker must not claim category authority")
+    if authority.get("bridge_topology_authority") != "not_map_maker":
+        raise ValueError("Map Maker must not claim bridge topology authority")
+    if authority.get("bridge_creation_allowed") is not False:
+        raise ValueError("Map Maker structural placement must not create bridges")
+    if authority.get("graphify_is_sot") is not False:
+        raise ValueError("Graphify must not be SOT for Map Maker structural placement")
+    serialized = json.dumps(dict(result), ensure_ascii=False, sort_keys=True).replace("\\", "/").lower()
+    if "d:/" in serialized or "c:/" in serialized or "file://" in serialized:
+        raise ValueError("Map Maker structural placement result must not include local filesystem paths")
 
 
 def list_existing_topics(*, vault_root: Path) -> list[dict[str, str]]:
