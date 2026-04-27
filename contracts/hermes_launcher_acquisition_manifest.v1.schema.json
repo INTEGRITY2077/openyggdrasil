@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/hermes_launcher_acquisition_manifest.v1.schema.json",
+  "title": "OpenYggdrasil Hermes Launcher Acquisition Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_id",
+    "run_id",
+    "provider_name",
+    "launcher_name",
+    "launcher_available",
+    "launcher_status",
+    "launcher_ref",
+    "launcher_sha256",
+    "version_status",
+    "version",
+    "version_exit_code",
+    "safe_evidence_refs",
+    "raw_transcript_included",
+    "credential_ref_included",
+    "local_path_included",
+    "may_start_foreground_smoke",
+    "may_claim_live_ready",
+    "may_claim_91_percent_readiness",
+    "claim_scope",
+    "rerun_condition",
+    "reason_codes",
+    "checked_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "hermes_launcher_acquisition_manifest.v1"
+    },
+    "manifest_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "provider_name": {
+      "const": "hermes"
+    },
+    "launcher_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "launcher_available": {
+      "type": "boolean"
+    },
+    "launcher_status": {
+      "type": "string",
+      "enum": [
+        "present",
+        "typed_unavailable",
+        "invalid"
+      ]
+    },
+    "launcher_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/safe_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "launcher_sha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "version_status": {
+      "type": "string",
+      "enum": [
+        "not_run",
+        "captured_safe",
+        "typed_unavailable",
+        "failed"
+      ]
+    },
+    "version": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "version_exit_code": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "safe_evidence_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
+    "raw_transcript_included": {
+      "const": false
+    },
+    "credential_ref_included": {
+      "const": false
+    },
+    "local_path_included": {
+      "const": false
+    },
+    "may_start_foreground_smoke": {
+      "const": false
+    },
+    "may_claim_live_ready": {
+      "const": false
+    },
+    "may_claim_91_percent_readiness": {
+      "const": false
+    },
+    "claim_scope": {
+      "const": "hermes_launcher_acquisition_only"
+    },
+    "rerun_condition": {
+      "anyOf": [
+        {
+          "const": "provide_hermes_launcher_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      }
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "safe_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\s]+$"
+    }
+  }
+}
