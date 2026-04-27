@@ -56,6 +56,7 @@ CANONICAL_RUNTIME_MODULES = [
     "evaluation.chain_health_scorecard",
     "evaluation.foreground_live_comparison",
     "evaluation.graphify_snapshot_from_live_delta",
+    "evaluation.hermes_guarded_foreground_smoke",
     "evaluation.hermes_launcher_acquisition",
     "evaluation.hermes_profile_acquisition",
     "evaluation.hermes_live_e2e_witness_logger",
