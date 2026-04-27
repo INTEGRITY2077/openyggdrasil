@@ -11,6 +11,8 @@
     "query_text",
     "decision",
     "claim_scope",
+    "same_run_context_status",
+    "same_run_context",
     "policy",
     "capability_registry",
     "program",
@@ -45,7 +47,65 @@
       ]
     },
     "claim_scope": {
-      "const": "ptc_contract_poc_not_live_provider_readiness"
+      "type": "string",
+      "enum": [
+        "ptc_contract_poc_not_live_provider_readiness",
+        "ptc_same_run_context_accepted_not_live_readiness"
+      ]
+    },
+    "same_run_context_status": {
+      "type": "string",
+      "enum": [
+        "absent",
+        "accepted"
+      ]
+    },
+    "same_run_context": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "same_run_id",
+            "same_run_witness_ref",
+            "same_run_source_kind",
+            "evidence_chain_status",
+            "source_authority"
+          ],
+          "properties": {
+            "same_run_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "same_run_witness_ref": {
+              "$ref": "#/$defs/evidence_ref"
+            },
+            "same_run_source_kind": {
+              "const": "physical_live_same_run"
+            },
+            "evidence_chain_status": {
+              "const": "upstream_verified"
+            },
+            "source_authority": {
+              "$ref": "#/$defs/identifier"
+            },
+            "mailbox_delivery_ref": {
+              "$ref": "#/$defs/evidence_ref"
+            },
+            "hermes_consumption_ref": {
+              "$ref": "#/$defs/evidence_ref"
+            },
+            "ptc_trace_ref": {
+              "$ref": "#/$defs/evidence_ref"
+            },
+            "bubblewrap_trace_ref": {
+              "$ref": "#/$defs/evidence_ref"
+            }
+          }
+        }
+      ]
     },
     "policy": {
       "type": "object",
@@ -229,7 +289,10 @@
         "dynamic_code_execution_allowed",
         "private_source_copied",
         "graph_output_treated_as_sot",
-        "live_provider_readiness_claimed"
+        "live_provider_readiness_claimed",
+        "same_run_context_upstream_verified",
+        "same_run_context_fabricated",
+        "historical_fixture_or_contract_only_trace_accepted"
       ],
       "properties": {
         "unknown_capability_blocked": {
@@ -254,6 +317,15 @@
           "const": false
         },
         "live_provider_readiness_claimed": {
+          "const": false
+        },
+        "same_run_context_upstream_verified": {
+          "type": "boolean"
+        },
+        "same_run_context_fabricated": {
+          "const": false
+        },
+        "historical_fixture_or_contract_only_trace_accepted": {
           "const": false
         }
       }
@@ -282,6 +354,12 @@
     "sha256": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "evidence_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400,
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://.+$"
     }
   }
 }

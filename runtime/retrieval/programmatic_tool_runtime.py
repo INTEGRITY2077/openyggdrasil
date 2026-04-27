@@ -29,6 +29,28 @@ CONTRACTS_ROOT = OPENYGGDRASIL_ROOT / "contracts"
 TRACE_SCHEMA_PATH = CONTRACTS_ROOT / "programmatic_tool_runtime_trace.v1.schema.json"
 DEFAULT_SCRATCH_ROOT = RUNTIME_STATE_ROOT / "programmatic-tool-runtime"
 SCHEMA_VERSION = "programmatic_tool_runtime_trace.v1"
+DEFAULT_TRACE_CLAIM_SCOPE = "ptc_contract_poc_not_live_provider_readiness"
+SAME_RUN_CONTEXT_TRACE_CLAIM_SCOPE = "ptc_same_run_context_accepted_not_live_readiness"
+SAME_RUN_CONTEXT_ABSENT = "absent"
+SAME_RUN_CONTEXT_ACCEPTED = "accepted"
+SAME_RUN_CONTEXT_REQUIRED_KEYS = (
+    "same_run_id",
+    "same_run_witness_ref",
+    "same_run_source_kind",
+    "evidence_chain_status",
+    "source_authority",
+)
+SAME_RUN_CONTEXT_ALLOWED_KEYS = frozenset(
+    {
+        *SAME_RUN_CONTEXT_REQUIRED_KEYS,
+        "mailbox_delivery_ref",
+        "hermes_consumption_ref",
+        "ptc_trace_ref",
+        "bubblewrap_trace_ref",
+    }
+)
+SAME_RUN_CONTEXT_SOURCE_KIND = "physical_live_same_run"
+SAME_RUN_CONTEXT_VERIFIED_STATUS = "upstream_verified"
 
 
 class ProgrammaticToolRuntimeError(RuntimeError):
@@ -89,6 +111,44 @@ def _sha256_payload(payload: Any) -> str:
 
 def _write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _require_non_empty_string(value: Any, *, field_name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ProgrammaticToolRuntimeError(f"same_run_context.{field_name} is required")
+    return value
+
+
+def _normalize_same_run_context(
+    same_run_context: Mapping[str, Any] | None,
+) -> tuple[str, dict[str, str] | None]:
+    if same_run_context is None:
+        return SAME_RUN_CONTEXT_ABSENT, None
+    if not isinstance(same_run_context, Mapping):
+        raise ProgrammaticToolRuntimeError("same_run_context must be an object")
+
+    unknown_keys = sorted(str(key) for key in set(same_run_context.keys()) - SAME_RUN_CONTEXT_ALLOWED_KEYS)
+    if unknown_keys:
+        raise ProgrammaticToolRuntimeError(
+            f"same_run_context has unsupported keys: {', '.join(unknown_keys)}"
+        )
+
+    normalized: dict[str, str] = {}
+    for key in SAME_RUN_CONTEXT_REQUIRED_KEYS:
+        normalized[key] = _require_non_empty_string(same_run_context.get(key), field_name=key)
+    for key in sorted(SAME_RUN_CONTEXT_ALLOWED_KEYS - set(SAME_RUN_CONTEXT_REQUIRED_KEYS)):
+        if key in same_run_context:
+            normalized[key] = _require_non_empty_string(same_run_context[key], field_name=key)
+
+    if normalized["same_run_source_kind"] != SAME_RUN_CONTEXT_SOURCE_KIND:
+        raise ProgrammaticToolRuntimeError(
+            "same-run source must be physical_live_same_run from an upstream evidence chain"
+        )
+    if normalized["evidence_chain_status"] != SAME_RUN_CONTEXT_VERIFIED_STATUS:
+        raise ProgrammaticToolRuntimeError(
+            "same_run_context.evidence_chain_status must be upstream_verified"
+        )
+    return SAME_RUN_CONTEXT_ACCEPTED, normalized
 
 
 def _resolve_path(value: Any, path: Sequence[str]) -> Any:
@@ -225,6 +285,28 @@ def validate_programmatic_tool_runtime_trace(payload: Mapping[str, Any]) -> None
     called = {str(call["capability_id"]) for call in trace["capability_calls"]}
     if not called.issubset(registered):
         raise ValueError("capability call references an unregistered capability")
+    same_run_status = trace["same_run_context_status"]
+    same_run_context = trace["same_run_context"]
+    if same_run_status == SAME_RUN_CONTEXT_ABSENT and same_run_context is not None:
+        raise ValueError("absent same_run_context_status must not carry same_run_context")
+    if same_run_status == SAME_RUN_CONTEXT_ABSENT:
+        if trace["claim_scope"] != DEFAULT_TRACE_CLAIM_SCOPE:
+            raise ValueError("absent same_run_context_status must use structural claim scope")
+        if trace["gates"]["same_run_context_upstream_verified"]:
+            raise ValueError("absent same_run_context_status must not be upstream verified")
+    if same_run_status == SAME_RUN_CONTEXT_ACCEPTED:
+        if not isinstance(same_run_context, Mapping):
+            raise ValueError("accepted same_run_context_status requires same_run_context")
+        if trace["claim_scope"] != SAME_RUN_CONTEXT_TRACE_CLAIM_SCOPE:
+            raise ValueError("accepted same_run_context_status must use same-run context claim scope")
+        if not trace["gates"]["same_run_context_upstream_verified"]:
+            raise ValueError("accepted same_run_context_status must be upstream verified")
+        if same_run_context["evidence_chain_status"] != SAME_RUN_CONTEXT_VERIFIED_STATUS:
+            raise ValueError("same_run_context must be upstream_verified")
+        if same_run_context["same_run_source_kind"] != SAME_RUN_CONTEXT_SOURCE_KIND:
+            raise ValueError("same_run_context must come from a physical live same-run source")
+        if trace["gates"]["same_run_context_fabricated"]:
+            raise ValueError("same_run_context must not be fabricated by the runtime")
 
 
 class ProgrammaticToolRuntime:
@@ -247,6 +329,7 @@ class ProgrammaticToolRuntime:
         final_step_id: str | None = None,
         program_source: str | None = None,
         final_result_kind: str = "pathfinder_bundle",
+        same_run_context: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         if program_source is not None:
             raise ProgrammaticToolRuntimeError(
@@ -258,6 +341,14 @@ class ProgrammaticToolRuntime:
             raise ProgrammaticToolRuntimeError("program must include at least one step")
         if len(program) > self.max_steps:
             raise ProgrammaticToolRuntimeError("program exceeds max_steps")
+        same_run_context_status, normalized_same_run_context = _normalize_same_run_context(
+            same_run_context
+        )
+        claim_scope = (
+            SAME_RUN_CONTEXT_TRACE_CLAIM_SCOPE
+            if same_run_context_status == SAME_RUN_CONTEXT_ACCEPTED
+            else DEFAULT_TRACE_CLAIM_SCOPE
+        )
 
         self.scratch_root.mkdir(parents=True, exist_ok=True)
         run_dir = Path(tempfile.mkdtemp(prefix="run-", dir=str(self.scratch_root)))
@@ -331,7 +422,9 @@ class ProgrammaticToolRuntime:
             "runtime_mode": "bounded_programmatic_tool_plan",
             "query_text": query_text,
             "decision": "completed",
-            "claim_scope": "ptc_contract_poc_not_live_provider_readiness",
+            "claim_scope": claim_scope,
+            "same_run_context_status": same_run_context_status,
+            "same_run_context": normalized_same_run_context,
             "policy": {
                 "program_source_execution": "disabled",
                 "allow_write_capabilities": False,
@@ -360,11 +453,21 @@ class ProgrammaticToolRuntime:
                 "private_source_copied": False,
                 "graph_output_treated_as_sot": False,
                 "live_provider_readiness_claimed": False,
+                "same_run_context_upstream_verified": (
+                    same_run_context_status == SAME_RUN_CONTEXT_ACCEPTED
+                ),
+                "same_run_context_fabricated": False,
+                "historical_fixture_or_contract_only_trace_accepted": False,
             },
             "reason_codes": [
                 "bounded_programmatic_tool_contract_executed",
                 "json_plan_no_dynamic_code_execution",
                 "pathfinder_bundle_final_gate_validated",
+                (
+                    "same_run_context_accepted_from_upstream"
+                    if same_run_context_status == SAME_RUN_CONTEXT_ACCEPTED
+                    else "same_run_context_absent_structural_trace"
+                ),
             ],
             "generated_at": utc_now_iso(),
         }
@@ -465,6 +568,7 @@ def build_pathfinder_bundle_via_programmatic_tool_runtime(
     recent_limit: int = 3,
     scratch_root: Path = DEFAULT_SCRATCH_ROOT,
     program_source: str | None = None,
+    same_run_context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     runtime = ProgrammaticToolRuntime(
         capabilities=build_pathfinder_capabilities(
@@ -479,4 +583,5 @@ def build_pathfinder_bundle_via_programmatic_tool_runtime(
         program=active_program,
         final_step_id="bundle",
         program_source=program_source,
+        same_run_context=same_run_context,
     )
