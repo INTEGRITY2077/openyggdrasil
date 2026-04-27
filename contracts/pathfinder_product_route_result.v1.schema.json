@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/pathfinder_product_route_result.v1.schema.json",
+  "title": "OpenYggdrasil Pathfinder Product Route Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "route_status",
+    "query_ref",
+    "support_bundle_ref",
+    "ptc_trace_ref",
+    "graphify_hint_status",
+    "provenance_fallback_status",
+    "selected_memory_refs",
+    "rejected_memory_refs",
+    "raw_provider_material_included",
+    "portable_local_path_included",
+    "live_readiness_claimed",
+    "target_readiness_claimed",
+    "source_007_rerun",
+    "stale_heartbeat_resumed"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "pathfinder_product_route_result.v1"
+    },
+    "route_status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "stopped",
+        "typed_unavailable"
+      ]
+    },
+    "query_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "support_bundle_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "ptc_trace_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "graphify_hint_status": {
+      "type": "string",
+      "enum": [
+        "used_non_sot_hint",
+        "unavailable_fallback",
+        "not_requested"
+      ]
+    },
+    "provenance_fallback_status": {
+      "type": "string",
+      "enum": [
+        "used",
+        "not_needed",
+        "unavailable"
+      ]
+    },
+    "selected_memory_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/memory_ref"
+      }
+    },
+    "rejected_memory_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/memory_ref"
+      }
+    },
+    "raw_provider_material_included": {
+      "const": false
+    },
+    "portable_local_path_included": {
+      "const": false
+    },
+    "live_readiness_claimed": {
+      "const": false
+    },
+    "target_readiness_claimed": {
+      "const": false
+    },
+    "source_007_rerun": {
+      "const": false
+    },
+    "stale_heartbeat_resumed": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "safe_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\s]+$",
+      "not": {
+        "pattern": "^(?:file|[A-Za-z]):"
+      }
+    },
+    "memory_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "role",
+        "reason_code"
+      ],
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "role": {
+          "$ref": "#/$defs/identifier"
+        },
+        "reason_code": {
+          "$ref": "#/$defs/identifier"
+        }
+      }
+    }
+  }
+}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import re
 import shutil
@@ -36,8 +37,32 @@ PATHFINDER_SCHEMA_PATH = OPENYGGDRASIL_ROOT / "contracts" / "pathfinder.v1.schem
 PATHFINDER_RETRIEVAL_RESULT_SCHEMA_PATH = (
     OPENYGGDRASIL_ROOT / "contracts" / "pathfinder_retrieval_result.v1.schema.json"
 )
+PATHFINDER_PRODUCT_ROUTE_RESULT_SCHEMA_PATH = (
+    OPENYGGDRASIL_ROOT / "contracts" / "pathfinder_product_route_result.v1.schema.json"
+)
 ACTIVE_LIFECYCLE_STATE = "ACTIVE"
 EXCLUDED_RETRIEVAL_LIFECYCLE_STATES = {"STALE", "SUPERSEDED"}
+PRODUCT_ROUTE_GRAPHIFY_HINT_STATUSES = {
+    "used_non_sot_hint",
+    "unavailable_fallback",
+    "not_requested",
+}
+PRODUCT_ROUTE_FORBIDDEN_TEXT = (
+    "d:/",
+    "d:\\",
+    "c:/",
+    "c:\\",
+    "file://",
+    "api_key",
+    "apikey",
+    "password",
+    "secret",
+    "credential",
+    "auth.json",
+    ".env",
+    "transcript.txt",
+    "transcripts/",
+)
 
 
 @lru_cache(maxsize=1)
@@ -50,12 +75,29 @@ def load_pathfinder_retrieval_result_schema() -> dict[str, Any]:
     return json.loads(PATHFINDER_RETRIEVAL_RESULT_SCHEMA_PATH.read_text(encoding="utf-8"))
 
 
+@lru_cache(maxsize=1)
+def load_pathfinder_product_route_result_schema() -> dict[str, Any]:
+    return json.loads(PATHFINDER_PRODUCT_ROUTE_RESULT_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
 def validate_pathfinder_bundle(bundle: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(bundle), schema=load_pathfinder_schema())
 
 
 def validate_pathfinder_retrieval_result(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(instance=dict(payload), schema=load_pathfinder_retrieval_result_schema())
+
+
+def validate_pathfinder_product_route_result(payload: Mapping[str, Any]) -> None:
+    product_route = dict(payload)
+    jsonschema.validate(
+        instance=product_route,
+        schema=load_pathfinder_product_route_result_schema(),
+    )
+    normalized = json.dumps(product_route, sort_keys=True).lower().replace("\\", "/")
+    for forbidden in PRODUCT_ROUTE_FORBIDDEN_TEXT:
+        if forbidden.lower().replace("\\", "/") in normalized:
+            raise ValueError(f"pathfinder product route result contains forbidden text: {forbidden}")
 
 
 def _topic_page_title(text: str, fallback: str) -> str:
@@ -924,6 +966,111 @@ def build_pathfinder_bundle(
         raw_anchor=raw_anchor,
         vault_root=vault_root,
     )
+
+
+def _product_route_ref_token(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:32]
+
+
+def _normalize_graphify_hint_status(value: str | None) -> str:
+    status = str(value or "not_requested").strip() or "not_requested"
+    if status not in PRODUCT_ROUTE_GRAPHIFY_HINT_STATUSES:
+        raise ValueError(f"unsupported graphify_hint_status: {status}")
+    return status
+
+
+def build_pathfinder_product_route_result(
+    *,
+    query_text: str,
+    vault_root: Path = DEFAULT_VAULT,
+    anchor_evaluator: Callable[..., Mapping[str, Any]] | None = None,
+    program: Sequence[Mapping[str, Any]] | None = None,
+    recent_limit: int = 3,
+    same_run_context: Mapping[str, Any] | None = None,
+    graphify_hint_status: str | None = "not_requested",
+    scratch_root: Path | None = None,
+) -> dict[str, Any]:
+    from retrieval.programmatic_tool_runtime import (
+        DEFAULT_SCRATCH_ROOT,
+        build_pathfinder_bundle_via_programmatic_tool_runtime,
+    )
+
+    runtime_result = build_pathfinder_bundle_via_programmatic_tool_runtime(
+        query_text=query_text,
+        vault_root=vault_root,
+        anchor_evaluator=anchor_evaluator,
+        program=program,
+        recent_limit=recent_limit,
+        scratch_root=scratch_root or DEFAULT_SCRATCH_ROOT,
+        same_run_context=same_run_context,
+    )
+    trace = dict(runtime_result["trace"])
+    trace_id = str(trace["trace_id"])
+    final_result = dict(trace["final_result"])
+    result_sha256 = str(final_result["result_sha256"])
+    result_token = result_sha256.removeprefix("sha256:")
+    query_token = _product_route_ref_token(query_text.strip())
+    graphify_status = _normalize_graphify_hint_status(graphify_hint_status)
+
+    query_ref = f"query-ref://openyggdrasil/pathfinder-product-route/{query_token}"
+    support_bundle_ref = f"support-bundle-ref://openyggdrasil/pathfinder-product-route/{result_token}"
+    ptc_trace_ref = f"ptc-trace-ref://openyggdrasil/programmatic-tool-runtime/{trace_id}"
+
+    selected_memory_refs = [
+        {
+            "ref": f"ptc-result-ref://openyggdrasil/pathfinder-product-route/{trace_id}/final_result",
+            "role": "pathfinder_bundle_result",
+            "reason_code": "bounded_programmatic_tool_final_result",
+        },
+        {
+            "ref": support_bundle_ref,
+            "role": "support_bundle_source",
+            "reason_code": "bounded_programmatic_tool_support_bundle",
+        },
+        {
+            "ref": ptc_trace_ref,
+            "role": "ptc_trace",
+            "reason_code": "programmatic_tool_runtime_trace",
+        },
+    ]
+    if isinstance(same_run_context, Mapping):
+        selected_memory_refs.append(
+            {
+                "ref": f"same-run-context-ref://openyggdrasil/programmatic-tool-runtime/{trace_id}",
+                "role": "same_run_context_source",
+                "reason_code": "upstream_verified_same_run_context_accepted",
+            }
+        )
+
+    rejected_memory_refs = []
+    if graphify_status == "unavailable_fallback":
+        rejected_memory_refs.append(
+            {
+                "ref": "graphify-ref://openyggdrasil/pathfinder-product-route/unavailable",
+                "role": "graphify_hint",
+                "reason_code": "derived_index_unavailable_not_sot",
+            }
+        )
+
+    result = {
+        "schema_version": "pathfinder_product_route_result.v1",
+        "route_status": "completed" if trace.get("decision") == "completed" else "stopped",
+        "query_ref": query_ref,
+        "support_bundle_ref": support_bundle_ref,
+        "ptc_trace_ref": ptc_trace_ref,
+        "graphify_hint_status": graphify_status,
+        "provenance_fallback_status": "used" if graphify_status == "unavailable_fallback" else "not_needed",
+        "selected_memory_refs": selected_memory_refs,
+        "rejected_memory_refs": rejected_memory_refs,
+        "raw_provider_material_included": False,
+        "portable_local_path_included": False,
+        "live_readiness_claimed": False,
+        "target_readiness_claimed": False,
+        "source_007_rerun": False,
+        "stale_heartbeat_resumed": False,
+    }
+    validate_pathfinder_product_route_result(result)
+    return result
 
 
 def build_pathfinder_bundle_ptc_mvp(
