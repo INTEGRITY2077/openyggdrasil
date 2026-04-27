@@ -99,6 +99,7 @@ CANONICAL_RUNTIME_MODULES = [
     "reasoning.worker_hardening_policy",
     "runner.failure_fallback_regression",
     "runner.mailbox_support_emission",
+    "runner.phase_a_mock_pipeline_facade",
     "runner.no_credential_prompt_regression",
     "runner.provider_declined_visibility",
     "runner.role_split_integration",
