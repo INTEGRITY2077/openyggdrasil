@@ -31,6 +31,12 @@ def load_reasoning_lease_ptc_bubblewrap_trace_schema() -> dict[str, Any]:
 def validate_reasoning_lease_ptc_bubblewrap_trace(payload: Mapping[str, Any]) -> None:
     trace = dict(payload)
     jsonschema.validate(instance=trace, schema=load_reasoning_lease_ptc_bubblewrap_trace_schema())
+    same_run_fields = {"same_run_id", "same_run_witness_ref", "same_run_source_kind"}
+    present_same_run_fields = {field for field in same_run_fields if field in trace}
+    if present_same_run_fields and present_same_run_fields != same_run_fields:
+        raise ValueError("same-run Bubblewrap trace must include same_run_id, same_run_witness_ref, and same_run_source_kind")
+    if trace.get("same_run_source_kind") not in (None, "physical_live_same_run"):
+        raise ValueError("same-run source must be physical_live_same_run")
     attempt_types = {str(attempt["attempt_type"]) for attempt in trace["intrusion_attempts"]}
     if attempt_types != REQUIRED_INTRUSION_TYPES:
         raise ValueError("trace must include workspace, network, and process intrusion attempts")
@@ -74,9 +80,18 @@ def _trace(
     reason_codes: Sequence[str],
     started_at: str | None = None,
     completed_at: str | None = None,
+    same_run_id: str | None = None,
+    same_run_witness_ref: str | None = None,
+    same_run_source_kind: str | None = None,
 ) -> dict[str, Any]:
     validate_reasoning_lease_request(lease_request)
     validate_process_sandbox_runtime_decision(sandbox_decision)
+    same_run_values = [same_run_id, same_run_witness_ref, same_run_source_kind]
+    if any(value is not None for value in same_run_values):
+        if not all(value is not None for value in same_run_values):
+            raise ValueError("same-run Bubblewrap trace requires same_run_id, same_run_witness_ref, and same_run_source_kind")
+        if same_run_source_kind != "physical_live_same_run":
+            raise ValueError("same-run source must be physical_live_same_run")
     timestamp = utc_now_iso()
     trace = {
         "schema_version": "reasoning_lease_ptc_bubblewrap_trace.v1",
@@ -100,6 +115,16 @@ def _trace(
         "started_at": started_at or timestamp,
         "completed_at": completed_at or timestamp,
     }
+    if same_run_id is not None and same_run_witness_ref is not None and same_run_source_kind is not None:
+        trace.update(
+            {
+                "same_run_id": str(same_run_id),
+                "same_run_witness_ref": str(same_run_witness_ref),
+                "same_run_source_kind": str(same_run_source_kind),
+            }
+        )
+        if "same_run_context_accepted_from_upstream" not in trace["reason_codes"]:
+            trace["reason_codes"].append("same_run_context_accepted_from_upstream")
     validate_reasoning_lease_ptc_bubblewrap_trace(trace)
     return trace
 
@@ -110,6 +135,9 @@ def build_ptc_bubblewrap_typed_unavailable_trace(
     sandbox_decision: Mapping[str, Any],
     ptc_worker_ref: str,
     evidence_ref: str,
+    same_run_id: str | None = None,
+    same_run_witness_ref: str | None = None,
+    same_run_source_kind: str | None = None,
 ) -> dict[str, Any]:
     reason_code = str(sandbox_decision.get("reason_code") or "sandbox_unavailable")
     return _trace(
@@ -126,6 +154,9 @@ def build_ptc_bubblewrap_typed_unavailable_trace(
             "ptc_bubblewrap_trace_typed_unavailable",
             reason_code,
         ],
+        same_run_id=same_run_id,
+        same_run_witness_ref=same_run_witness_ref,
+        same_run_source_kind=same_run_source_kind,
     )
 
 
@@ -138,6 +169,9 @@ def build_ptc_bubblewrap_isolation_trace(
     exit_code: int,
     intrusion_attempts: Sequence[Mapping[str, Any]],
     safe_evidence_refs: Sequence[str],
+    same_run_id: str | None = None,
+    same_run_witness_ref: str | None = None,
+    same_run_source_kind: str | None = None,
 ) -> dict[str, Any]:
     return _trace(
         lease_request=lease_request,
@@ -153,4 +187,7 @@ def build_ptc_bubblewrap_isolation_trace(
             "ptc_bubblewrap_isolation_trace_recorded",
             "all_intrusion_attempts_blocked",
         ],
+        same_run_id=same_run_id,
+        same_run_witness_ref=same_run_witness_ref,
+        same_run_source_kind=same_run_source_kind,
     )

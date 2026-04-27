@@ -153,6 +153,20 @@
     "live_provider_readiness_claimed": {
       "const": false
     },
+    "same_run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "same_run_witness_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "same_run_source_kind": {
+      "type": "string",
+      "enum": [
+        "physical_live_same_run"
+      ]
+    },
     "reason_codes": {
       "type": "array",
       "minItems": 1,
