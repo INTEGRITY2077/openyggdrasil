@@ -36,7 +36,17 @@ MAILBOX_CLEARINGHOUSE_CLAIM_TYPE = "clearinghouse_event_recorded"
 MAILBOX_SQLITE_SCHEMA_VERSION = "mailbox_sqlite_wal_engine.v1"
 MAILBOX_WAKEUP_SCHEMA_VERSION = "mailbox_worker_wakeup.v1"
 MAILBOX_STATUS_TRANSITION_SCHEMA_VERSION = "mailbox_status_transition.v1"
+MAILBOX_JOB_STATUS_TRANSITION_SCHEMA_VERSION = "mailbox_job_status_transition.v1"
 MAILBOX_STATUS_STATES = {"accepted", "quarantined", "rejected"}
+MAILBOX_JOB_STATUS_STATES = {
+    "queued",
+    "running",
+    "completed",
+    "unavailable",
+    "failed",
+    "timed_out",
+    "rejected",
+}
 
 _SQLITE_INIT_LOCK = threading.Lock()
 _WRITE_QUEUES_LOCK = threading.Lock()
@@ -202,6 +212,18 @@ def _ensure_mailbox_db(db_path: Path) -> None:
                   created_at TEXT NOT NULL,
                   transition_json TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS mailbox_job_status_transitions (
+                  transition_id TEXT PRIMARY KEY,
+                  message_id TEXT NOT NULL,
+                  job_id TEXT NOT NULL,
+                  lease_request_id TEXT,
+                  from_status TEXT,
+                  to_status TEXT NOT NULL,
+                  reason_code TEXT NOT NULL,
+                  created_at TEXT NOT NULL,
+                  transition_json TEXT NOT NULL
+                );
                 """
             )
 
@@ -245,6 +267,9 @@ def mailbox_sqlite_engine_status(
             "wakeups": connection.execute("SELECT COUNT(*) FROM mailbox_wakeups").fetchone()[0],
             "status_transitions": connection.execute(
                 "SELECT COUNT(*) FROM mailbox_status_transitions"
+            ).fetchone()[0],
+            "job_status_transitions": connection.execute(
+                "SELECT COUNT(*) FROM mailbox_job_status_transitions"
             ).fetchone()[0],
         }
     return {
@@ -839,6 +864,77 @@ def read_mailbox_status_transitions(
     return _read_json_rows(
         effective_db_path,
         "mailbox_status_transitions",
+        "transition_json",
+        "created_at",
+    )
+
+
+def record_mailbox_job_status_transition(
+    *,
+    message_id: str,
+    job_id: str,
+    to_status: str,
+    lease_request_id: str | None = None,
+    from_status: str | None = None,
+    reason_code: str,
+    namespace: str | None = None,
+    db_path: Path | None = None,
+    created_at: str | None = None,
+) -> Dict[str, Any]:
+    if to_status not in MAILBOX_JOB_STATUS_STATES:
+        raise ValueError(f"Mailbox job status must be one of {sorted(MAILBOX_JOB_STATUS_STATES)}")
+    if from_status is not None and from_status not in MAILBOX_JOB_STATUS_STATES:
+        raise ValueError(f"Mailbox job previous status must be one of {sorted(MAILBOX_JOB_STATUS_STATES)}")
+    transition = {
+        "schema_version": MAILBOX_JOB_STATUS_TRANSITION_SCHEMA_VERSION,
+        "transition_id": uuid.uuid4().hex,
+        "message_id": message_id,
+        "job_id": job_id,
+        "lease_request_id": lease_request_id,
+        "from_status": from_status,
+        "to_status": to_status,
+        "reason_code": reason_code,
+        "created_at": created_at or utc_now_iso(),
+    }
+    effective_db_path = _effective_db_path(namespace=namespace, db_path=db_path)
+    ready_transition = json_ready(transition)
+
+    def _insert(connection: sqlite3.Connection) -> None:
+        connection.execute(
+            """
+            INSERT INTO mailbox_job_status_transitions(
+              transition_id, message_id, job_id, lease_request_id, from_status,
+              to_status, reason_code, created_at, transition_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                ready_transition["transition_id"],
+                ready_transition["message_id"],
+                ready_transition["job_id"],
+                ready_transition["lease_request_id"],
+                ready_transition["from_status"],
+                ready_transition["to_status"],
+                ready_transition["reason_code"],
+                ready_transition["created_at"],
+                json.dumps(ready_transition, ensure_ascii=False, sort_keys=True),
+            ),
+        )
+
+    _sqlite_write(effective_db_path, _insert)
+    return transition
+
+
+def read_mailbox_job_status_transitions(
+    *,
+    namespace: str | None = None,
+    db_path: Path | None = None,
+) -> List[Dict[str, Any]]:
+    effective_db_path = _effective_db_path(namespace=namespace, db_path=db_path)
+    if not effective_db_path.exists():
+        return []
+    return _read_json_rows(
+        effective_db_path,
+        "mailbox_job_status_transitions",
         "transition_json",
         "created_at",
     )
