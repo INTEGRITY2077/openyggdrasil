@@ -102,6 +102,32 @@
       "minimum": 0.0,
       "maximum": 1.0
     },
+    "retrieval_utility_score": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "retrieval_utility_baseline_score": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "retrieval_utility_delta": {
+      "type": "number",
+      "minimum": -1.0,
+      "maximum": 1.0
+    },
+    "retrieval_utility_decision": {
+      "type": "string",
+      "enum": [
+        "keep",
+        "discard"
+      ]
+    },
+    "retrieval_utility_metrics": {
+      "type": "object",
+      "additionalProperties": true
+    },
     "confidence_score": {
       "type": "number",
       "minimum": 0.0,

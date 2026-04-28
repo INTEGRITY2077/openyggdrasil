@@ -5,7 +5,7 @@ import json
 import uuid
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import jsonschema
 
@@ -114,6 +114,78 @@ def _worthiness_score(*, confidence: float, labels: set[str], stability_state: s
     return max(0.0, min(1.0, round(score, 4)))
 
 
+def _retrieval_terms(value: Any) -> set[str]:
+    text = json.dumps(value, sort_keys=True, default=str).lower() if not isinstance(value, str) else value.lower()
+    tokens: list[str] = []
+    token = ""
+    for char in text:
+        if char.isalnum():
+            token += char
+        elif token:
+            tokens.append(token)
+            token = ""
+    if token:
+        tokens.append(token)
+    stopwords = {"and", "for", "the", "with", "from", "this", "that", "should", "must"}
+    return {item for item in tokens if len(item) >= 3 and item not in stopwords}
+
+
+def build_retrieval_utility_score(
+    *,
+    decision_candidate: Mapping[str, Any],
+    topic_index_entries: Sequence[Mapping[str, Any]] | None = None,
+    baseline_score: float = 0.0,
+) -> dict[str, Any]:
+    """Estimate whether the candidate would improve Pathfinder retrieval."""
+
+    candidate_terms = _retrieval_terms(
+        {
+            "topic_hint": decision_candidate.get("topic_hint"),
+            "surface_summary": decision_candidate.get("surface_summary"),
+            "decision_text": decision_candidate.get("decision_text"),
+            "rationale": decision_candidate.get("rationale"),
+            "reason_labels": decision_candidate.get("reason_labels"),
+        }
+    )
+    entries = [dict(entry) for entry in topic_index_entries or ()]
+    overlaps: list[float] = []
+    matched_topic_refs: list[str] = []
+    for entry in entries:
+        entry_terms = _retrieval_terms(
+            {
+                "topic_key": entry.get("topic_key"),
+                "title": entry.get("title"),
+                "one_line_summary": entry.get("one_line_summary"),
+                "aliases": entry.get("aliases"),
+            }
+        )
+        overlap = len(candidate_terms & entry_terms) / max(1, min(len(candidate_terms), len(entry_terms)))
+        if overlap >= 0.15:
+            overlaps.append(overlap)
+            matched_topic_refs.append(str(entry.get("topic_ref") or entry.get("topic_key") or "topic-index-entry"))
+    intrinsic_signal = min(0.45, len(candidate_terms) / 40.0)
+    confidence_signal = _clamp_score(decision_candidate.get("confidence_score")) * 0.35
+    best_overlap = max(overlaps or [0.0])
+    candidate_score = _clamp_score(round(max(best_overlap, intrinsic_signal) + confidence_signal, 4))
+    baseline = _clamp_score(baseline_score)
+    delta = round(candidate_score - baseline, 4)
+    utility_decision = "keep" if candidate_score >= 0.35 and delta >= 0.02 else "discard"
+    return {
+        "schema_version": "retrieval_utility_score.v1",
+        "baseline_score": baseline,
+        "candidate_score": candidate_score,
+        "utility_delta": delta,
+        "utility_decision": utility_decision,
+        "matched_topic_count": len(matched_topic_refs),
+        "matched_topic_refs": matched_topic_refs[:8],
+        "candidate_term_count": len(candidate_terms),
+        "reason_codes": [
+            "retrieval_utility_simulated_from_candidate_terms",
+            f"retrieval_utility_{utility_decision}",
+        ],
+    }
+
+
 def _prefilter_boundary(*, evaluator_status: str, requires_high_reasoning: bool) -> str:
     if requires_high_reasoning:
         return "provider_reasoning_required"
@@ -138,6 +210,8 @@ def evaluate_decision_candidate(
     *,
     decision_candidate: Mapping[str, Any],
     high_reasoning_available: bool = False,
+    retrieval_index_entries: Sequence[Mapping[str, Any]] | None = None,
+    retrieval_baseline_score: float = 0.0,
 ) -> dict[str, Any]:
     """Evaluate candidate worthiness without choosing category or placement.
 
@@ -156,6 +230,11 @@ def evaluate_decision_candidate(
         confidence=confidence,
         labels=labels,
         stability_state=stability_state,
+    )
+    retrieval_utility = build_retrieval_utility_score(
+        decision_candidate=decision_candidate,
+        topic_index_entries=retrieval_index_entries,
+        baseline_score=retrieval_baseline_score,
     )
     reason_codes: list[str] = []
     requires_high_reasoning = bool(labels & HIGH_REASONING_LABELS)
@@ -181,11 +260,20 @@ def evaluate_decision_candidate(
         evaluator_status = "accept_for_amundsen"
         reason_codes.append("candidate_worthy_for_category_decision")
 
+    if retrieval_utility["utility_decision"] == "discard":
+        reason_codes.append("retrieval_utility_discard")
+        if evaluator_status == "accept_for_amundsen":
+            evaluator_status = "defer"
+            reason_codes.append("retrieval_utility_deferred_category_handoff")
+    else:
+        reason_codes.append("retrieval_utility_keep")
+
     amundsen_handoff_allowed = evaluator_status == "accept_for_amundsen"
     promotion_recommendation = (
         evaluator_status == "accept_for_amundsen"
         and worthiness >= 0.68
         and stability_state in {"stable", "superseding"}
+        and retrieval_utility["utility_decision"] == "keep"
     )
     if evaluator_status == "reject":
         promotion_gate = "rejected"
@@ -225,6 +313,11 @@ def evaluate_decision_candidate(
         "promotion_recommendation": promotion_recommendation,
         "promotion_gate": promotion_gate,
         "worthiness_score": worthiness,
+        "retrieval_utility_score": retrieval_utility["candidate_score"],
+        "retrieval_utility_baseline_score": retrieval_utility["baseline_score"],
+        "retrieval_utility_delta": retrieval_utility["utility_delta"],
+        "retrieval_utility_decision": retrieval_utility["utility_decision"],
+        "retrieval_utility_metrics": retrieval_utility,
         "confidence_score": confidence,
         "amundsen_handoff_allowed": amundsen_handoff_allowed,
         "requires_high_reasoning": requires_high_reasoning,
