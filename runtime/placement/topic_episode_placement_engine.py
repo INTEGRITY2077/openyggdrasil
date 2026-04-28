@@ -21,6 +21,10 @@ from evaluation.promotion_worthiness import (
     load_session_json,
 )
 from placement.topic_episode_placement import validate_placement_verdict
+from placement.topic_index_catalog import (
+    load_topic_index,
+    upsert_topic_index_from_placement,
+)
 
 
 STRUCTURAL_PLACEMENT_SCHEMA_VERSION = "map_maker_structural_placement_result.v1"
@@ -263,6 +267,17 @@ def validate_map_maker_structural_placement_result(result: Mapping[str, Any]) ->
 
 
 def list_existing_topics(*, vault_root: Path) -> list[dict[str, str]]:
+    index_entries = load_topic_index(vault_root=vault_root)
+    if index_entries:
+        return [
+            {
+                "canonical_relative_path": str(entry["canonical_relative_path"]),
+                "topic_key": str(entry["topic_key"]),
+                "topic_title": str(entry["title"]),
+            }
+            for entry in index_entries
+        ]
+
     queries_root = vault_root / "queries"
     topics: list[dict[str, str]] = []
     if not queries_root.exists():
@@ -454,6 +469,11 @@ def evaluate_session_placement(
         raw_verdict=raw_verdict,
         vault_root=vault_root,
     )
+    topic_index_update = upsert_topic_index_from_placement(
+        vault_root=vault_root,
+        placement_verdict=verdict,
+        one_line_summary=raw_verdict.get("summary"),
+    )
     record_event(
         "topic_episode_placement_evaluated",
         {
@@ -465,6 +485,8 @@ def evaluate_session_placement(
             "canonical_relative_path": verdict["canonical_relative_path"],
             "placement_mode": verdict["placement_mode"],
             "page_action": verdict["page_action"],
+            "topic_index_status": topic_index_update["status"],
+            "topic_index_ref": topic_index_update["index_ref"],
         },
     )
     return verdict

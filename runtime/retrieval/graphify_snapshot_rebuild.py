@@ -24,6 +24,12 @@ MUTATION_POLICY = "read_only_no_sot_mutation"
 EXECUTION_POLICY = "external_graphify_optional_typed_unavailable"
 DEFAULT_INPUT_DIR_NAME = "input-wiki-small"
 DEFAULT_OUTPUT_DIR_NAME = "graphify-out"
+GRAPHIFY_REBUILD_CONSUMER = "graphify-snapshot-rebuild"
+GRAPHIFY_REBUILD_EVENT_TYPES = (
+    "mailbox_clearinghouse_event",
+    "topic_episode_placement_evaluated",
+    "knowledge_forest_delta_recorded",
+)
 
 
 def graphify_rebuild_paths(
@@ -141,6 +147,97 @@ def _safe_refs(values: Sequence[str] | None) -> list[str]:
         if any(fragment in normalized for fragment in forbidden_fragments):
             raise ValueError(f"Graphify incremental manifest ref contains forbidden material: {ref}")
     return refs
+
+
+def build_graphify_mailbox_event_subscription(
+    *,
+    consumer_id: str = GRAPHIFY_REBUILD_CONSUMER,
+) -> dict[str, Any]:
+    return {
+        "schema_version": "graphify_mailbox_event_subscription.v1",
+        "consumer_id": consumer_id,
+        "event_types": list(GRAPHIFY_REBUILD_EVENT_TYPES),
+        "mailbox_backed": True,
+        "async_dispatch": True,
+        "graphify_is_sot": False,
+    }
+
+
+def _event_payload(event: Mapping[str, Any]) -> Mapping[str, Any]:
+    payload = event.get("payload")
+    return payload if isinstance(payload, Mapping) else event
+
+
+def _mailbox_event_ref(event: Mapping[str, Any]) -> str:
+    event_id = str(event.get("event_id") or event.get("id") or "unknown-event").strip()
+    return f"mailbox-event-ref://openyggdrasil/{event_id}"
+
+
+def should_trigger_graphify_rebuild_from_mailbox_event(event: Mapping[str, Any]) -> bool:
+    event_type = str(event.get("event_type") or "").strip()
+    if event_type not in GRAPHIFY_REBUILD_EVENT_TYPES:
+        return False
+    payload = _event_payload(event)
+    if payload.get("graphify_rebuild_requested") is False:
+        return False
+    return True
+
+
+def graphify_changed_refs_from_mailbox_event(event: Mapping[str, Any]) -> list[str]:
+    payload = _event_payload(event)
+    explicit_refs = payload.get("changed_input_refs")
+    if isinstance(explicit_refs, Sequence) and not isinstance(explicit_refs, (str, bytes)):
+        refs = [str(value) for value in explicit_refs]
+    else:
+        refs = []
+    for key in ("topic_id", "episode_id", "canonical_relative_path"):
+        value = payload.get(key)
+        if value:
+            refs.append(f"vault-ref://openyggdrasil/{key}/{str(value).strip()}")
+    if not refs:
+        refs.append(_mailbox_event_ref(event))
+    return _safe_refs(refs)
+
+
+def build_graphify_rebuild_from_mailbox_event(
+    *,
+    event: Mapping[str, Any],
+    vault_root: Path,
+    sandbox_root: Path,
+    corpus_manifest_path: Path | None,
+    previous_snapshot_manifest: Mapping[str, Any] | None = None,
+    input_dir: Path | None = None,
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    subscription = build_graphify_mailbox_event_subscription()
+    if not should_trigger_graphify_rebuild_from_mailbox_event(event):
+        return {
+            "schema_version": "graphify_mailbox_event_rebuild_result.v1",
+            "status": "ignored",
+            "subscription": subscription,
+            "event_ref": _mailbox_event_ref(event),
+            "rebuild_result": None,
+            "generated_at": generated_at or utc_now_iso(),
+        }
+    changed_refs = graphify_changed_refs_from_mailbox_event(event)
+    rebuild_result = build_graphify_snapshot_rebuild_result(
+        vault_root=vault_root,
+        sandbox_root=sandbox_root,
+        corpus_manifest_path=corpus_manifest_path,
+        input_dir=input_dir,
+        previous_snapshot_manifest=previous_snapshot_manifest,
+        changed_input_refs=changed_refs,
+        generated_at=generated_at,
+    )
+    return {
+        "schema_version": "graphify_mailbox_event_rebuild_result.v1",
+        "status": "triggered",
+        "subscription": subscription,
+        "event_ref": _mailbox_event_ref(event),
+        "changed_input_refs": changed_refs,
+        "rebuild_result": rebuild_result,
+        "generated_at": generated_at or utc_now_iso(),
+    }
 
 
 def build_graphify_incremental_manifest(
