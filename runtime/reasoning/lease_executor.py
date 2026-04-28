@@ -24,6 +24,7 @@ from reasoning.process_sandbox_policy import validate_process_sandbox_runtime_de
 from reasoning.ptc_bubblewrap_isolation_trace import (
     build_ptc_bubblewrap_isolation_trace,
     build_ptc_bubblewrap_typed_unavailable_trace,
+    validate_reasoning_lease_ptc_bubblewrap_trace,
 )
 from reasoning.reasoning_lease_contracts import (
     validate_reasoning_lease_request,
@@ -475,11 +476,20 @@ def _result_ref_for(job_id: str, result: Mapping[str, Any]) -> str:
     return f"reasoning-lease-result-ref://openyggdrasil/{job_id}/{result['lease_result_id']}"
 
 
-def _safe_attempts_from_stdout(stdout: str, evidence_ref_prefix: str) -> list[dict[str, str]]:
+def _safe_probe_payload_from_stdout(stdout: str) -> Mapping[str, Any]:
     try:
         parsed = json.loads(stdout or "{}")
     except json.JSONDecodeError as exc:
         raise ValueError("bubblewrap probe stdout must be JSON") from exc
+    if not isinstance(parsed, Mapping):
+        raise ValueError("bubblewrap probe stdout must be an object")
+    return parsed
+
+
+def _safe_attempts_from_probe_payload(
+    parsed: Mapping[str, Any],
+    evidence_ref_prefix: str,
+) -> list[dict[str, str]]:
     raw_attempts = parsed.get("attempts") if isinstance(parsed, Mapping) else None
     if not isinstance(raw_attempts, Sequence) or isinstance(raw_attempts, (str, bytes)):
         raise ValueError("bubblewrap probe stdout must include attempts")
@@ -514,6 +524,27 @@ def _safe_attempts_from_stdout(stdout: str, evidence_ref_prefix: str) -> list[di
             }
         )
     return attempts
+
+
+def _safe_ptc_tool_plan_from_probe_payload(parsed: Mapping[str, Any]) -> list[dict[str, Any]] | None:
+    raw_plan = parsed.get("ptc_tool_plan")
+    if raw_plan is None:
+        return None
+    if not isinstance(raw_plan, Sequence) or isinstance(raw_plan, (str, bytes)):
+        raise ValueError("ptc_tool_plan must be a bounded JSON array")
+    plan: list[dict[str, Any]] = []
+    for index, raw_step in enumerate(raw_plan, start=1):
+        if not isinstance(raw_step, Mapping):
+            raise ValueError("ptc_tool_plan steps must be objects")
+        step = {
+            "step_id": str(raw_step.get("step_id") or "").strip(),
+            "capability_id": str(raw_step.get("capability_id") or "").strip(),
+            "input": dict(raw_step.get("input") or {}),
+        }
+        if not step["step_id"] or not step["capability_id"]:
+            raise ValueError(f"ptc_tool_plan step {index} requires step_id and capability_id")
+        plan.append(step)
+    return plan
 
 
 def _run_bubblewrap_probe(
@@ -582,7 +613,9 @@ def _run_bubblewrap_probe(
                 "elapsed_seconds": elapsed,
                 "process_killed": killed,
             }
-        attempts = _safe_attempts_from_stdout(stdout, evidence_ref_prefix)
+        probe_payload = _safe_probe_payload_from_stdout(stdout)
+        attempts = _safe_attempts_from_probe_payload(probe_payload, evidence_ref_prefix)
+        ptc_tool_plan = _safe_ptc_tool_plan_from_probe_payload(probe_payload)
         trace = build_ptc_bubblewrap_isolation_trace(
             lease_request=lease_request,
             sandbox_decision=sandbox_decision,
@@ -595,10 +628,14 @@ def _run_bubblewrap_probe(
                 f"{evidence_ref_prefix}#bwrap-command",
             ],
         )
+        if ptc_tool_plan is not None:
+            trace["reason_codes"].append("ptc_plan_generation_recorded")
+            validate_reasoning_lease_ptc_bubblewrap_trace(trace)
         return {
             "runner_outcome": "bubblewrap_probe_completed",
             "exit_code": exit_code,
             "trace": trace,
+            "ptc_tool_plan": ptc_tool_plan,
             "elapsed_seconds": elapsed,
             "process_killed": killed,
         }
@@ -771,6 +808,12 @@ def consume_reasoning_lease_mailbox_jobs(
                             "isolation_proven": True,
                             "bubblewrap_trace_ref": trace_ref,
                             "bubblewrap_trace": trace,
+                            "ptc_tool_plan": probe.get("ptc_tool_plan"),
+                            "ptc_plan_generation_status": (
+                                "generated_inside_bwrap_probe"
+                                if probe.get("ptc_tool_plan") is not None
+                                else "not_provided_by_probe"
+                            ),
                             "mount_point_cleanup_verified": cleanup_verified,
                         }
                     )

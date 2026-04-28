@@ -17,15 +17,7 @@ from ptc.engine import (
     structural_anchor_fallback_evaluator,
 )
 from retrieval.pathfinder import validate_pathfinder_bundle
-from retrieval.pathfinder_tools import (
-    build_support_bundle,
-    build_unanchored_bundle,
-    find_region,
-    find_topic_anchor,
-    get_origin_claims,
-    get_raw_sources,
-    get_recent_episodes,
-)
+from retrieval.ptc_tools.collect_claim_ids import collect_claim_ids as _collect_claim_ids
 
 
 OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
@@ -201,17 +193,6 @@ def _resolve_binding(binding: Any, *, context: Mapping[str, Any], step_results: 
             for value in binding
         ]
     return binding
-
-
-def _collect_claim_ids(*, recent_rows: list[Any], origin_rows: list[Any]) -> list[str]:
-    claim_ids: list[str] = []
-    for row in list(recent_rows) + list(origin_rows):
-        if not isinstance(row, Mapping):
-            continue
-        claim_id = str(row.get("claim_id") or "").strip()
-        if claim_id and claim_id not in claim_ids:
-            claim_ids.append(claim_id)
-    return claim_ids
 
 
 def build_default_pathfinder_program(*, recent_limit: int = 3) -> list[dict[str, Any]]:
@@ -555,74 +536,12 @@ def build_pathfinder_capabilities(
     vault_root: Path = DEFAULT_VAULT,
     anchor_evaluator: Callable[..., Mapping[str, Any]] | None = None,
 ) -> dict[str, Capability]:
-    return {
-        "locate_region": Capability(
-            capability_id="locate_region",
-            required_inputs={"query_text": "string"},
-            read_only=True,
-            output_kind="region_hint",
-            handler=lambda **kwargs: find_region(vault_root=vault_root, **kwargs),
-        ),
-        "select_topic_anchor": Capability(
-            capability_id="select_topic_anchor",
-            required_inputs={"query_text": "string", "region_id": "string"},
-            read_only=True,
-            output_kind="topic_anchor",
-            handler=lambda **kwargs: find_topic_anchor(
-                vault_root=vault_root,
-                evaluator=anchor_evaluator,
-                **kwargs,
-            ),
-        ),
-        "read_origin_claims": Capability(
-            capability_id="read_origin_claims",
-            required_inputs={"topic_id": "string", "limit": "integer"},
-            read_only=True,
-            output_kind="origin_claim_rows",
-            handler=lambda **kwargs: get_origin_claims(vault_root=vault_root, **kwargs),
-        ),
-        "read_recent_claims": Capability(
-            capability_id="read_recent_claims",
-            required_inputs={"topic_id": "string", "limit": "integer"},
-            read_only=True,
-            output_kind="recent_claim_rows",
-            handler=lambda **kwargs: get_recent_episodes(vault_root=vault_root, **kwargs),
-        ),
-        "collect_claim_ids": Capability(
-            capability_id="collect_claim_ids",
-            required_inputs={"recent_rows": "array", "origin_rows": "array"},
-            read_only=True,
-            output_kind="claim_id_list",
-            handler=_collect_claim_ids,
-        ),
-        "read_source_paths": Capability(
-            capability_id="read_source_paths",
-            required_inputs={"topic_id": "string", "claim_ids": "array"},
-            read_only=True,
-            output_kind="source_path_list",
-            handler=lambda **kwargs: get_raw_sources(vault_root=vault_root, **kwargs),
-        ),
-        "assemble_support_bundle": Capability(
-            capability_id="assemble_support_bundle",
-            required_inputs={
-                "query_text": "string",
-                "anchor": "object",
-                "origin_rows": "array",
-                "recent_rows": "array",
-                "source_paths": "array",
-            },
-            read_only=True,
-            output_kind="pathfinder_bundle",
-            handler=build_support_bundle,
-        ),
-        "assemble_unanchored_bundle": Capability(
-            capability_id="assemble_unanchored_bundle",
-            required_inputs={"query_text": "string"},
-            read_only=True,
-            output_kind="pathfinder_bundle",
-            handler=build_unanchored_bundle,
-        ),
-    }
+    from retrieval.ptc_tools import register_pathfinder_capabilities
+
+    return register_pathfinder_capabilities(
+        vault_root=vault_root,
+        anchor_evaluator=anchor_evaluator,
+    )
 
 
 def build_pathfinder_bundle_via_programmatic_tool_runtime(
