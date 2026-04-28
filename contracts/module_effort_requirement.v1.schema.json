@@ -33,7 +33,9 @@
         "seedkeeper",
         "map_maker",
         "gardener",
-        "postman"
+        "postman",
+        "ptc_substrate",
+        "graphify_builder"
       ]
     },
     "requires_reasoning": {
