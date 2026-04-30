@@ -128,6 +128,75 @@ vault/
 **Frontmatter of each page:**
 
 ```yaml
+
+## Provider Integration & Setup
+
+openyggdrasil operates as a cold-started skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start background daemons or manage separate server processes.
+
+> **⚠️ Current Reasoning Model:**
+> openyggdrasil currently **borrows the provider's reasoning tokens** to operate.
+> It does not have its own API keys or LLM infrastructure.
+> Support for independent API key configuration is planned for the future. 
+
+### 1. How Providers Recognize openyggdrasil
+
+Providers attach to openyggdrasil by reading the **`SKILL.md`** manifest at the repository root. To initiate the connection:
+- Point your agent's skill configuration to the absolute path of `SKILL.md`.
+- The agent reads this contract, which defines the exact entrypoints, command shapes, and boundaries for memory retrieval and capture.
+
+### 2. System Requirements & Dependency Installation
+
+openyggdrasil runs purely locally. The core runtime relies almost entirely on the Python Standard Library, but the Graphify-derived views and Sandbox isolations require the following minimal dependency stack:
+
+**Supported Operating Systems:**
+- **Windows / macOS / Linux**: Full support for the core memory pipeline (Vault curation, Graphify derived views, and Pathfinder retrieval).
+- **Linux / WSL2 (Windows Subsystem for Linux)**: **Required.** The Reasoning Lease Sandbox depends on `bubblewrap` for unprivileged isolation, and this is a mandatory production dependency. Windows/macOS users must use WSL2 to satisfy this requirement.
+
+**Core Prerequisite:**
+- **`Python 3.10+`**: Must be installed and accessible in the local environment.
+
+**Python Packages (via pip):**
+- **`graphifyy`**: the core companion package for structural analysis and graph building
+- **`networkx`**: for graph derivation, node indexing, and traversal
+- **`leidenalg` & `igraph`**: for community detection and topic clustering
+- **`jsonschema`**: for strictly validating provider contracts and mailbox schemas
+- **`pyyaml`**: for reading/writing configuration and manifest files
+- **`pytest`**: for local contract verification and smoke tests
+
+**System Dependencies:**
+- **`bubblewrap`** (`bwrap`): required for unprivileged sandbox isolation during Reasoning Lease execution (Linux/WSL only).
+
+**These dependencies must be installed in the user's local environment.**
+
+> **⚠️ Mandatory Rule for Providers:**
+> Before executing the cold-start skill for the first time, the provider **MUST ask the user for explicit permission** to install these dependencies.
+> 
+> 1. Provider detects that dependencies are missing.
+> 2. Provider halts and prompts the user: *"openyggdrasil requires Python dependencies (listed in requirements) to be installed locally. Do you allow this?"*
+> 3. Only upon user approval, the provider installs the requirements. **Silent or unprompted installations are strictly forbidden.**
+
+### 3. One-Touch Cold Start
+
+Once dependencies are approved and installed, the provider can execute the skill entrypoints defined in `SKILL.md`. The openyggdrasil runtime **cold-starts itself on demand**, executes the required memory transaction, and shuts down cleanly.
+
+### Verify Installation Manually
+
+If you prefer to verify the installation before attaching a provider:
+
+```bash
+# Clone the repository
+git clone https://github.com/INTEGRITY2077/openyggdrasil.git
+cd openyggdrasil
+
+# Install dependencies (user-initiated)
+pip install -r requirements.txt # (assuming requirements exist)
+
+# Run import smoke test
+python runtime/import_smoke.py
+```
+
+
+
 ---
 title: Page Title
 created: 2026-04-30
@@ -737,73 +806,6 @@ always knows exactly what it's getting and why.
 
 ---
 ## System Requirements & Setup
-
-## Provider Integration & Setup
-
-openyggdrasil operates as a cold-started skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start background daemons or manage separate server processes.
-
-> **⚠️ Current Reasoning Model:**
-> openyggdrasil currently **borrows the provider's reasoning tokens** to operate.
-> It does not have its own API keys or LLM infrastructure.
-> Support for independent API key configuration is planned for the future. 
-
-### 1. How Providers Recognize openyggdrasil
-
-Providers attach to openyggdrasil by reading the **`SKILL.md`** manifest at the repository root. To initiate the connection:
-- Point your agent's skill configuration to the absolute path of `SKILL.md`.
-- The agent reads this contract, which defines the exact entrypoints, command shapes, and boundaries for memory retrieval and capture.
-
-### 2. System Requirements & Dependency Installation
-
-openyggdrasil runs purely locally. The core runtime relies almost entirely on the Python Standard Library, but the Graphify-derived views and Sandbox isolations require the following minimal dependency stack:
-
-**Supported Operating Systems:**
-- **Windows / macOS / Linux**: Full support for the core memory pipeline (Vault curation, Graphify derived views, and Pathfinder retrieval).
-- **Linux / WSL2 (Windows Subsystem for Linux)**: **Required.** The Reasoning Lease Sandbox depends on `bubblewrap` for unprivileged isolation, and this is a mandatory production dependency. Windows/macOS users must use WSL2 to satisfy this requirement.
-
-**Core Prerequisite:**
-- **`Python 3.10+`**: Must be installed and accessible in the local environment.
-
-**Python Packages (via pip):**
-- **`graphifyy`**: the core companion package for structural analysis and graph building
-- **`networkx`**: for graph derivation, node indexing, and traversal
-- **`leidenalg` & `igraph`**: for community detection and topic clustering
-- **`jsonschema`**: for strictly validating provider contracts and mailbox schemas
-- **`pyyaml`**: for reading/writing configuration and manifest files
-- **`pytest`**: for local contract verification and smoke tests
-
-**System Dependencies:**
-- **`bubblewrap`** (`bwrap`): required for unprivileged sandbox isolation during Reasoning Lease execution (Linux/WSL only).
-
-**These dependencies must be installed in the user's local environment.**
-
-> **⚠️ Mandatory Rule for Providers:**
-> Before executing the cold-start skill for the first time, the provider **MUST ask the user for explicit permission** to install these dependencies.
-> 
-> 1. Provider detects that dependencies are missing.
-> 2. Provider halts and prompts the user: *"openyggdrasil requires Python dependencies (listed in requirements) to be installed locally. Do you allow this?"*
-> 3. Only upon user approval, the provider installs the requirements. **Silent or unprompted installations are strictly forbidden.**
-
-### 3. One-Touch Cold Start
-
-Once dependencies are approved and installed, the provider can execute the skill entrypoints defined in `SKILL.md`. The openyggdrasil runtime **cold-starts itself on demand**, executes the required memory transaction, and shuts down cleanly.
-
-### Verify Installation Manually
-
-If you prefer to verify the installation before attaching a provider:
-
-```bash
-# Clone the repository
-git clone https://github.com/INTEGRITY2077/openyggdrasil.git
-cd openyggdrasil
-
-# Install dependencies (user-initiated)
-pip install -r requirements.txt # (assuming requirements exist)
-
-# Run import smoke test
-python runtime/import_smoke.py
-```
-
 
 ## Reasoning Lease
 
