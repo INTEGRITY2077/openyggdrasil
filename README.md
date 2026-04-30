@@ -522,69 +522,74 @@ When this need arises, the Provider Agent does not just copy-paste the entire he
 When a capture signal enters the system, it is not blindly handed off to an automated black box. This process is divided between the Provider Agent and a dynamically leased Subagent:
 
 1. **Initial Context Recognition (Provider Agent)**: The Provider Agent reads `SKILL.md` to recognize contexts worth remembering. It constructs an initial signal (`Session Structure Signal` containing `surface_reason` and `source_ref`) and injects it into the OpenYggdrasil runtime.
-2. **Deep Structuring (Subagent)**: The runtime receives this request and uses a Reasoning Lease to borrow the provider's compute power, spawning a Subagent. This Subagent is **not** a fixed pipeline sequence. It is a **Role-Polymorphic Leased Executor** that changes its role (Distiller, Evaluator, Amundsen, Pathfinder, Postman) depending on the Task Contract.
+2. **Deep Structuring (Subagent)**: The runtime receives this request and uses a Reasoning Lease to borrow the provider's compute power, spawning a Subagent. This Subagent is **not** a fixed pipeline sequence. It is a **Role-Polymorphic Leased Executor** assigned specifically to knowledge production roles (Distiller, Evaluator, Amundsen, Gardener).
 
-True to the nature of Programmatic Tool Calling (PTC), the Subagent **writes code to invoke the necessary allowed tools** to fulfill its assigned role. (It does not execute a hardcoded 8-step sequence).
+True to the nature of Programmatic Tool Calling (PTC), the Subagent **writes code to invoke the necessary allowed tools** to fulfill its assigned production role. (It does not execute a hardcoded 8-step sequence).
 
 The tools provided to the Subagent have a dual nature:
 
 1. **Contract Guardrails (Requires Reasoning)**: Consume the subagent's reasoning tokens. The subagent must make judgments (distillation, evaluation, classification), but the guardrails strictly enforce the JSON Schema output.
-2. **Utility Tools (No Reasoning)**: Pure Python deterministic functions. The subagent just passes the verified payload from the previous step without spending reasoning tokens.
+2. **Utility Tools (No Reasoning)**: Pure Python deterministic functions. The subagent just passes the verified payload from the previous step to normalize, save, and package data.
 
 ```
   Session Structure Signal (Injected by Provider Agent)
        │
        ▼
-  PTC Subagent (Role-Polymorphic Leased Executor)
+  PTC Subagent (Role-Polymorphic Executor assigned to Knowledge Production)
        │
-       │  ① OpenYggdrasil provides a Task Contract (Distiller/Amundsen/etc)
-       │  ② Subagent writes code to invoke the appropriate tools
+       │  ① OpenYggdrasil provides a Task Contract (Distiller/Amundsen/Gardener etc)
+       │  ② Subagent writes code to invoke the appropriate production tools
        │
        ▼
-  ┌─ PTC Engine (Runtime) — Allowlisted Tool Pool ───────────┐
-  │                                                          │
-  │  [Contract Guardrails — Structure Subagent's reasoning]  │
-  │                                                          │
-  │  ┌─ distill_signal (Invoked when assigned Distiller role)│
-  │  │  Deeply distill shallow signal into decisions         │
-  │  │  Reasoning Depth: HIGH                                │
-  └──────────────────────────────────────────────┬───────────┘
-                                                 ▼
-  ┌─ 2. evaluate_candidate (Guardrail) ──────────────────────┐
-  │  Subagent judges promotion worthiness                    │
-  │  "Is this syntactically valid and worth remembering?"    │
-  └──────────────────────────────────────────────┬───────────┘
-                                                 ▼
-  ┌─ 3. classify_novelty (Guardrail) ────────────────────────┐
-  │  Subagent classifies category & novelty                  │
-  │  "Is this topic known or a new continent?"               │
-  └──────────────────────────────────────────────┬───────────┘
-                                                 ▼
-  ┌─ 4. stamp_provenance (Utility) ──────────────────────────┐
-  │  Deterministic: stamps source_ref, turn_range, dedup_key │
-  │  Output: preserved segment with planting_ready flag      │
-  └──────────────────────────────────────────────┬───────────┘
-                                                 ▼
-  ┌─ 5. compose_seed (Utility) ──────────────────────────────┐
-  │  Deterministic: combines guardrail outputs + provenance  │
-  │  Creates the final `engraved_seed`                       │
-  └──────────────────────────────────────────────┬───────────┘
-                                                 ▼
-  ┌─ 6. plant_to_vault (Utility) ────────────────────────────┐
-  │  Deterministic: executes the filesystem write            │
-  │  Handles ACTIVE → SUPERSEDED transitions automatically   │
-  └──────────────────────────────────────────────┬───────────┘
-                                                 ▼
-  ┌─ 7. update_topology (Utility) ───────────────────────────┐
-  │  Deterministic: updates Map Maker's bridge topology      │
-  └──────────────────────────────────────────────┬───────────┘
-                                                 ▼
-  ┌─ 8. deliver_receipt (Utility) ───────────────────────────┐
-  │  Deterministic: generates the final delivery receipt     │
-  │  Records clearinghouse event in the Mailbox              │
-  └──────────────────────────────────────────────┬───────────┘
-                                                 ▼
-                                          Vault updated
+  ┌─ PTC Engine (Runtime) — Allowlisted Tool Pool ───────────────────────────┐
+  │                                                                          │
+  │  [Contract Guardrails — Structure Subagent's reasoning]                  │
+  │                                                                          │
+  │  ┌─ distill_signal (Guardrail — Refers to Affordance Contract) ────────┐ │
+  │  │  Deeply distill shallow signal into structural decisions            │ │
+  │  │  Role: Guardrail (Consumes subagent reasoning)                      │ │
+  │  └─────────────────────────────────────────────────────────────────────┘ │
+  │                                                  ▼                       │
+  │  ┌─ evaluate_candidate (Guardrail) ────────────────────────────────────┐ │
+  │  │  Judges promotion worthiness, dedupes, threshold gating             │ │
+  │  │  Role: Guardrail (Consumes subagent reasoning)                      │ │
+  │  └─────────────────────────────────────────────────────────────────────┘ │
+  │                                                  ▼                       │
+  │  ┌─ classify_novelty (Guardrail) ──────────────────────────────────────┐ │
+  │  │  Classifies category & new continent (novelty)                      │ │
+  │  │  Role: Guardrail (Consumes subagent reasoning)                      │ │
+  │  └─────────────────────────────────────────────────────────────────────┘ │
+  │                                                  ▼                       │
+  │  [Utility Tools — Pure Python functions for packing & planting]          │
+  │                                                                          │
+  │  ┌─ stamp_provenance (Utility) ────────────────────────────────────────┐ │
+  │  │  Engraves Tree Rings: stamps source_ref, origin_locator             │ │
+  │  │  Role: Utility (Deterministic Python)                               │ │
+  │  └─────────────────────────────────────────────────────────────────────┘ │
+  │                                                  ▼                       │
+  │  ┌─ compose_seed (Utility) ────────────────────────────────────────────┐ │
+  │  │  Combines upstream outputs into the final engraved Seed             │ │
+  │  │  Role: Utility (Deterministic Python)                               │ │
+  │  └─────────────────────────────────────────────────────────────────────┘ │
+  │                                                  ▼                       │
+  │  ┌─ plant_to_vault (Utility) ──────────────────────────────────────────┐ │
+  │  │  Physically plants the seed in the Vault, transitions lifecycle     │ │
+  │  │  Role: Utility (Deterministic Python)                               │ │
+  │  └─────────────────────────────────────────────────────────────────────┘ │
+  │                                                  ▼                       │
+  │  ┌─ update_topology (Utility) ─────────────────────────────────────────┐ │
+  │  │  Updates continent/topic/episode topology                           │ │
+  │  │  Role: Utility (Deterministic Python)                               │ │
+  │  └─────────────────────────────────────────────────────────────────────┘ │
+  │                                                  ▼                       │
+  │  ┌─ deliver_receipt (Utility) ─────────────────────────────────────────┐ │
+  │  │  Generates Mailbox receipt                                          │ │
+  │  │  Role: Utility (Deterministic Python)                               │ │
+  │  └─────────────────────────────────────────────────────────────────────┘ │
+  └──────────────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+  Subagent returns to the provider session holding the Receipt (Production & Vaulting Complete)
 ```
 
 ### PTC Execution Plan (Production)
