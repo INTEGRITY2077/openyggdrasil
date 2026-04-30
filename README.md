@@ -22,11 +22,20 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-> **⚠️ This project is under active live testing.**
-> The architecture is designed and contracts are defined, but the end-to-end
-> pipeline is not yet production-ready. Expect breaking changes, incomplete
-> integrations, and rough edges. We're building in the open — contributions
-> and feedback are welcome.
+> **⚠️ This project is in active live-testing and early development (WIP).**
+> While the philosophical foundation and architecture are designed, the runtime is actively migrating toward the target Programmatic Tool Calling (PTC) architecture (8th Roadmap, Phase 4). Expect breaking changes and incomplete integrations.
+
+### 📊 Current Status — Architecture Alignment Scorecard (As of May 2026)
+
+This scorecard indicates how close the current runtime is to the Target Architecture:
+
+| Architecture Component | Alignment | Current State & Next Steps |
+|---|---|---|
+| **Persistent Knowledge Base (Vault SOT)** | **100%** | Strict markdown frontmatter constraints and lifecycle states (ACTIVE/SUPERSEDED) fully implemented. |
+| **Reasoning Lease** | **90%** | Inter-provider `source_ref` pointers and sandbox execution delegation are established. |
+| **Consumption Pipeline (Retrieval)** | **60%** | Transitioning from the legacy monolithic module to a true Tool-based Retrieval system. |
+| **Terrain-based Category (Map Maker)** | **40%** | Concepts of Continents and Tree Rings are introduced, but perfect routing with physical planting (Gardener) is still a WIP. |
+| **Production Pipeline (PTC Engine)** | **30%** | **(Biggest Gap)** Currently mocked by a deterministic Python chain (`thin_worker_chain.py`). Migrating to a true **Role-Polymorphic Executor** where the subagent writes code to invoke production tools is the highest priority. |
 
 ## Why This Exists
 
