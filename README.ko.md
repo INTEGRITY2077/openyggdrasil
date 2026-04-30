@@ -4,7 +4,7 @@
     <strong>프로바이더 중립적 AI 코딩 에이전트 메모리 엔진</strong>
   </p>
   <p align="center">
-    <em>또 다른 RAG 래퍼가 아닙니다. 프로바이더 간 축적되는<br/>
+    <em>프로바이더 간 축적되는<br/>
     영속적이고 생명주기 인식 가능한 지식 계층 —
     <a href="https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f">Karpathy의 LLM Wiki</a>에서 영감을 받았습니다.</em>
   </p>

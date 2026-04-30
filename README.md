@@ -4,7 +4,7 @@
     <strong>A provider-neutral memory engine for AI coding agents</strong>
   </p>
   <p align="center">
-    <em>Not another RAG wrapper. A persistent, lifecycle-aware knowledge layer<br/>
+    <em>A persistent, lifecycle-aware knowledge layer<br/>
     that compounds across providers — inspired by
     <a href="https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f">Karpathy's LLM Wiki</a>.</em>
   </p>
