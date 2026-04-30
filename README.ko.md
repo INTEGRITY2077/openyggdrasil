@@ -476,7 +476,9 @@ Provider Signal                             Provider Query
 ```
 
 
-### 생산 파이프라인 — 역할 가변 추론 임대 실행체(Role-Polymorphic Subagent)
+### 생산 파이프라인 — 역할 가변 추론 임대 실행체 (목표 설계: Target Architecture)
+
+> **[⚠️ 미완성/설계 상태]** 현재 런타임 코드는 `thin_worker_chain.py` 기반의 결정론적(Deterministic) 파이프라인으로 작동하고 있습니다. 아래 설명된 서브에이전트가 직접 코드를 작성하여 생산 도구를 호출하는 PTC(Programmatic Tool Calling) 구조는 향후 달성할 **목표 아키텍처**입니다.
 
 캡처 신호가 시스템에 들어오면, 이를 단순히 자동화된 블랙박스에 넘기지 않습니다. 이 과정은 프로바이더 본체와 서브에이전트의 명확한 역할 분담을 통해 이루어집니다:
 

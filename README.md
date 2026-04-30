@@ -467,7 +467,9 @@ Provider Signal                               Provider Query
   4. Prune                                      4. Postman (Mailbox Receipt)
 ```
 
-### Production Pipeline — The Role-Polymorphic Subagent
+### Production Pipeline — The Role-Polymorphic Subagent (Target Architecture)
+
+> **[⚠️ WIP / Design Phase]** The current runtime operates on a deterministic pipeline via `thin_worker_chain.py`. The Programmatic Tool Calling (PTC) mechanism described below—where the subagent writes code to autonomously invoke production tools—is the **target architecture** and is not yet fully implemented for the production side.
 
 When a capture signal enters the system, it is not blindly handed off to an automated black box. This process is divided between the Provider Agent and a dynamically leased Subagent:
 
