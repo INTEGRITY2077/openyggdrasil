@@ -103,6 +103,30 @@ provider) is planned for the future.
 
 ---
 
+## PTC (Programmatic Tool Calling) Concept & Architecture
+
+The production and consumption pipelines of OpenYggdrasil operate on a **PTC (Programmatic Tool Calling)** architecture.
+
+**Source of Truth (SOT):**
+This architecture is heavily inspired by Anthropic's [Claude Code Tool Use / MCP (Model Context Protocol)](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use) and the broader CLI REPL ecosystem philosophy.
+
+### Original Architecture (Claude Code Style)
+The standard agentic tool-calling paradigm is highly unconstrained:
+1. The agent freely writes Bash commands or arbitrary Python scripts to control the system.
+2. It observes the output, rewrites the code, and executes again in an **open-ended REPL (Read-Eval-Print Loop)**.
+3. While flexible, this approach lacks the predictability required to normalize knowledge and store it as memory with a strict lifecycle. It is highly vulnerable to runtime hallucinations and unexpected side effects.
+
+### OpenYggdrasil's Transformation (The Typed PTC Engine)
+OpenYggdrasil intentionally constrains this autonomy, internalizing it as a **Typed Chain**:
+
+1. **Dismantling the Black Box:** Instead of an invisible automated 12-module background loop, every module is exposed as a single-purpose "Tool" that the subagent must explicitly call.
+2. **Constraining Freedom (JSON Tool Plan):** The agent is forbidden from arbitrarily mixing tools or writing custom scripts. Instead, the PTC engine forces a contextual **Execution Plan** (JSON Tool Plan) upon the agent.
+3. **Dual-Nature Tools:** Tools are categorized into 'Contract Guardrails' (which consume reasoning tokens and enforce strict schemas) and 'Utility Tools' (deterministic Python execution), optimizing the agent's cognitive load.
+
+Consequently, OpenYggdrasil's PTC structure borrows the **"powerful reasoning capabilities of Claude Code"** but **"forces it to run on a strict, track-based railway"**, ensuring absolute data integrity.
+
+---
+
 ## How It Works
 
 OpenYggdrasil treats memory as a **two-sided engine** — a production side that

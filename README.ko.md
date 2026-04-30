@@ -103,6 +103,30 @@ OpenYggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 
 ---
 
+## PTC (Programmatic Tool Calling) 개념과 아키텍처
+
+OpenYggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool Calling)** 아키텍처를 기반으로 동작합니다. 
+
+**원천 SOT (Source of Truth):**
+이 아키텍처는 Anthropic의 [Claude Code Tool Use / MCP (Model Context Protocol)](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use) 및 CLI REPL 생태계의 철학을 모티브로 삼고 있습니다.
+
+### 원본 아키텍처 (Claude Code 스타일)
+일반적인 에이전트 도구 호출 방식은 자유도가 매우 높습니다:
+1. 에이전트가 자유롭게 Bash 명령어나 임의의 Python 스크립트를 작성하여 시스템을 제어합니다.
+2. 결과를 관찰하고 다시 코드를 수정하여 실행하는 **개방형 자율 루프(Open-ended REPL)** 방식입니다.
+3. 이 방식은 유연하지만, 지식을 정규화하고 엄격한 생명주기를 가진 메모리로 저장하기에는 예측 가능성이 떨어지며 런타임 환각에 취약합니다.
+
+### OpenYggdrasil의 변형 및 내재화 (Typed PTC Engine)
+OpenYggdrasil은 이 원본 아키텍처의 자율성을 의도적으로 제한하고, **타입 안정성이 보장된 체인(Typed Chain)** 으로 내재화했습니다.
+
+1. **블랙박스 해체:** 내부 12-모듈이 보이지 않게 자동으로 도는 블랙박스 구조를 해체하고, 모든 모듈을 서브에이전트가 명시적으로 호출할 수 있는 "단일 목적 도구(Tool)"로 노출했습니다.
+2. **자유도 제한 (JSON Tool Plan):** 에이전트가 마음대로 도구를 조합하거나 스크립트를 짜는 것을 막습니다. 대신, PTC 엔진이 상황에 맞는 **고정된 도구 순서(Execution Plan)** 를 JSON 형태로 에이전트에게 강제 주입합니다.
+3. **이중 성격의 도구:** 도구를 '계약 가드레일'(추론 토큰 소비, 엄격한 스키마 검증)과 '작업 도구'(결정론적 Python 실행)로 분리하여 에이전트의 인지 부하를 최적화했습니다.
+
+결과적으로, OpenYggdrasil의 PTC는 **"Claude Code의 강력한 에이전트 추론 능력"**을 빌려오면서도, **"엄격한 트랙 기반의 철도(Railway) 위에서만 달리도록 통제"**하여 데이터 무결성을 보장하는 고유한 구조를 완성했습니다.
+
+---
+
 ## 작동 방식
 
 OpenYggdrasil은 메모리를 **양면 엔진**으로 취급합니다 — 지식을 포착하고 큐레이션하는
