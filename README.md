@@ -8,6 +8,9 @@
     that compounds across providers — inspired by
     <a href="https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f">Karpathy's LLM Wiki</a>.</em>
   </p>
+  <p align="center">
+    English · <a href="./README.ko.md">한국어</a>
+  </p>
 </p>
 
 <p align="center">
@@ -392,7 +395,12 @@ deterministic modules never depend on optional LLM reasoning.
 
 ## Provider Integration & Setup
 
-OpenYggdrasil operates as a cold-started skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start background daemons or manage separate server processes. 
+OpenYggdrasil operates as a cold-started skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start background daemons or manage separate server processes.
+
+> **⚠️ Current Reasoning Model:**
+> OpenYggdrasil currently **borrows the provider's reasoning tokens** to operate.
+> It does not have its own API keys or LLM infrastructure.
+> Support for independent API key configuration is planned for the future. 
 
 ### 1. How Providers Recognize OpenYggdrasil
 
@@ -406,7 +414,7 @@ OpenYggdrasil runs purely locally. The core runtime relies almost entirely on th
 
 **Supported Operating Systems:**
 - **Windows / macOS / Linux**: Full support for the core memory pipeline (Vault curation, Graphify derived views, and Pathfinder retrieval).
-- **Linux / WSL2 (Windows Subsystem for Linux)**: Exclusively required if you use the optional **Reasoning Lease Sandbox**. This feature relies on `bubblewrap` for unprivileged isolation. Windows/macOS users can still use the entire base pipeline without it.
+- **Linux / WSL2 (Windows Subsystem for Linux)**: **Required.** The Reasoning Lease Sandbox depends on `bubblewrap` for unprivileged isolation, and this is a mandatory production dependency. Windows/macOS users must use WSL2 to satisfy this requirement.
 
 **Core Prerequisite:**
 - **`Python 3.10+`**: Must be installed and accessible in the local environment.
