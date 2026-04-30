@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/subagent_persona_manifest.v1.schema.json",
+  "title": "openyggdrasil Subagent Persona Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_id",
+    "role",
+    "common_persona_ref",
+    "role_persona_ref",
+    "required_sections",
+    "missing_sections",
+    "prompt_surface",
+    "global_hard_nonclaims",
+    "packet_hard_nonclaims",
+    "additive_only_hard_nonclaims",
+    "runtime_owner",
+    "reason_codes",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "subagent_persona_manifest.v1"
+    },
+    "manifest_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "role": {
+      "$ref": "#/$defs/role"
+    },
+    "common_persona_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "role_persona_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "required_sections": {
+      "$ref": "#/$defs/strings"
+    },
+    "missing_sections": {
+      "$ref": "#/$defs/strings"
+    },
+    "prompt_surface": {
+      "type": "string",
+      "minLength": 1
+    },
+    "global_hard_nonclaims": {
+      "$ref": "#/$defs/strings"
+    },
+    "packet_hard_nonclaims": {
+      "$ref": "#/$defs/strings"
+    },
+    "additive_only_hard_nonclaims": {
+      "const": true
+    },
+    "runtime_owner": {
+      "const": "runtime/reasoning/persona_loader.py"
+    },
+    "reason_codes": {
+      "$ref": "#/$defs/strings"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "distiller",
+        "evaluator",
+        "amundsen",
+        "pathfinder",
+        "postman",
+        "map_maker"
+      ]
+    },
+    "safe_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\s\\\\]+$"
+    },
+    "strings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

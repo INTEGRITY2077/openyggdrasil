@@ -92,6 +92,7 @@ CANONICAL_RUNTIME_MODULES = [
     "reasoning.lease_executor",
     "reasoning.lease_tollgate",
     "reasoning.module_effort_requirements",
+    "reasoning.persona_loader",
     "reasoning.ptc_bubblewrap_isolation_trace",
     "reasoning.provider_capability_descriptor",
     "reasoning.provider_effort_normalizer",
