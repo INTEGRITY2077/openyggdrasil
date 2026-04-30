@@ -291,6 +291,19 @@ delivers it.
                     └─────────────────────────────────────────────────────────────┘
 ```
 
+### Core Pipeline Flow
+
+```text
+[ Production Pipeline ]                       [ Consumption Pipeline ]
+Provider Signal                               Provider Query
+       │                                             │
+       ▼                                             ▼
+  1. Distill                                    1. Pathfinder (Topology Scan)
+  2. Evaluate          ──(Vault SOT)──          2. Resolve (Surface Read)
+  3. Place             ──(Graphify)──           3. Support Bundle (Provenance)
+  4. Prune                                      4. Postman (Mailbox Receipt)
+```
+
 ### Production Side — "What to remember"
 
 The production pipeline doesn't blindly store everything. It **distills**
@@ -311,6 +324,23 @@ Rather than just raw text summaries, these bundles (governed by the `support_bun
 Consequently, the agent receives both the distilled summary and the exact address to return to its origin, securely delivered via the typed **Mailbox** contract by **Postman**.
 
 ### The Bridge — Vault and Graphify
+
+The system strictly isolates static file storage (Vault) from the dynamic relationship network (Graphify).
+
+```text
+┌────────────────────────────────────────┐
+│  Graphify (Derived Topology / Non-SOT) │ 
+│  [Math Nodes] ──(Edges)── [Clusters]   │  <-- Can be deleted and regenerated anytime
+└─────────────────▲──────────────────────┘
+                  │ (Real-time extraction & validation)
+        [ skill_frontmatter_parser.py ] 
+                  │
+┌─────────────────▼──────────────────────┐
+│  Vault (Single Source of Truth / SOT)  │ 
+│  ├── concepts/   (--- YAML ---)        │  <-- Immutable Markdown files
+│  └── entities/   (--- YAML ---)        │
+└────────────────────────────────────────┘
+```
 
 #### Vault: The Canonical Memory Surface
 
