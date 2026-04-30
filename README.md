@@ -176,12 +176,16 @@ Providers attach to OpenYggdrasil by reading the **`SKILL.md`** manifest at the 
 
 ### 2. Dependency Installation & User Consent
 
-OpenYggdrasil runs purely locally. The core runtime relies almost entirely on the Python Standard Library, but the Graphify-derived views and validations require the following minimal dependency stack:
+OpenYggdrasil runs purely locally. The core runtime relies almost entirely on the Python Standard Library, but the Graphify-derived views and Sandbox isolations require the following minimal dependency stack:
 
+**Python Packages (via pip):**
 - **`graphifyy`**: the core companion package for structural analysis and graph building
 - **`networkx`**: for graph derivation, node indexing, and traversal
 - **`leidenalg` & `igraph`**: for community detection and topic clustering
 - **`pytest`**: for local contract verification and smoke tests
+
+**System Dependencies:**
+- **`bubblewrap`** (`bwrap`): required for unprivileged sandbox isolation during Reasoning Lease execution (Linux/WSL only).
 
 **These dependencies must be installed in the user's local environment.**
 
