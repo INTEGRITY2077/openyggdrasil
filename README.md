@@ -467,36 +467,37 @@ Provider Signal                               Provider Query
   4. Prune                                      4. Postman (Mailbox Receipt)
 ```
 
-### Production Pipeline — Subagent's 8-Tool Chain
+### Production Pipeline — The Role-Polymorphic Subagent
 
-When a capture signal enters the system, the subagent does not just blindly hand it off to an automated black box. **The subagent explicitly invokes the following 8 tools sequentially** via the PTC engine.
+When a capture signal enters the system, it is not blindly handed off to an automated black box. This process is divided between the Provider Agent and a dynamically leased Subagent:
 
-This involves a two-stage structuring process:
-1. **First-pass Structuring (Provider Agent)**: The Provider Agent reads `SKILL.md` and constructs a shallow initial signal (`Session Structure Signal` containing `surface_reason` and `source_ref`), injecting it into the entrypoint.
-2. **Deep Structuring (Subagent)**: The Subagent (spawned by the PTC Engine) receives this shallow signal and uses the `distill_signal` tool to deeply parse and distill it into a fully structured decision (Rationale, Alternatives).
+1. **Initial Context Recognition (Provider Agent)**: The Provider Agent reads `SKILL.md` to recognize contexts worth remembering. It constructs an initial signal (`Session Structure Signal` containing `surface_reason` and `source_ref`) and injects it into the OpenYggdrasil runtime.
+2. **Deep Structuring (Subagent)**: The runtime receives this request and uses a Reasoning Lease to borrow the provider's compute power, spawning a Subagent. This Subagent is **not** a fixed pipeline sequence. It is a **Role-Polymorphic Leased Executor** that changes its role (Distiller, Evaluator, Amundsen, Pathfinder, Postman) depending on the Task Contract.
 
-These tools have a dual nature:
+True to the nature of Programmatic Tool Calling (PTC), the Subagent **writes code to invoke the necessary allowed tools** to fulfill its assigned role. (It does not execute a hardcoded 8-step sequence).
 
-1. **Contract Guardrails (3 Tools)**: Consume the subagent's reasoning tokens. The subagent must read the source material, judge it, and format it into a structured schema to pass the tool.
-2. **Utility Tools (5 Tools)**: Pure Python deterministic functions. The subagent just passes the verified payload from the previous step without spending reasoning tokens.
+The tools provided to the Subagent have a dual nature:
+
+1. **Contract Guardrails (Requires Reasoning)**: Consume the subagent's reasoning tokens. The subagent must make judgments (distillation, evaluation, classification), but the guardrails strictly enforce the JSON Schema output.
+2. **Utility Tools (No Reasoning)**: Pure Python deterministic functions. The subagent just passes the verified payload from the previous step without spending reasoning tokens.
 
 ```
-  Session Structure Signal (Shallow summary injected by Provider Agent)
+  Session Structure Signal (Injected by Provider Agent)
        │
        ▼
-  Subagent Spawned (Inside openyggdrasil runtime)
+  PTC Subagent (Role-Polymorphic Leased Executor)
        │
-       │  ① PTC Engine provides 8 tools and JSON Execution Plan
-       │  ② Subagent writes code to sequentially invoke the tools
+       │  ① OpenYggdrasil provides a Task Contract (Distiller/Amundsen/etc)
+       │  ② Subagent writes code to invoke the appropriate tools
        │
        ▼
-  ┌─ PTC Engine (Production) — 8-Tool Chain ─────────────────┐
+  ┌─ PTC Engine (Runtime) — Allowlisted Tool Pool ───────────┐
   │                                                          │
   │  [Contract Guardrails — Structure Subagent's reasoning]  │
   │                                                          │
-  │  ┌─ distill_signal ───────────────────────────────┐      │
-  │  │  Deeply distill shallow signal into decisions  │      │
-  │  │  Reasoning Depth: HIGH                         │      │
+  │  ┌─ distill_signal (Invoked when assigned Distiller role)│
+  │  │  Deeply distill shallow signal into decisions         │
+  │  │  Reasoning Depth: HIGH                                │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
   ┌─ 2. evaluate_candidate (Guardrail) ──────────────────────┐
