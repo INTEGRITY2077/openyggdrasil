@@ -301,9 +301,26 @@ openyggdrasil does not rely on the LLM's goodwill or autonomy. Even if a model i
 
 ## How It Works
 
-openyggdrasil treats memory as a **two-sided engine** — a production side that
-captures and curates knowledge, and a consumption side that retrieves and
-delivers it.
+### Core Philosophy: Absorbing Karpathy's 'LLM Wiki'
+
+openyggdrasil directly implements Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) concept as its system architecture. Instead of re-deriving knowledge via RAG on every query, the system is designed so that the **LLM incrementally builds and maintains a persistent wiki**.
+
+| LLM Wiki Concept | openyggdrasil Pipeline Implementation |
+|---|---|
+| **Raw Sources** (immutable originals) | → Provider Signal (①) — original signals are never mutated |
+| **The Wiki** (LLM-maintained knowledge) | → Vault — Canonical memory (SOT) with lifecycle states |
+| **The Schema** (CLAUDE.md rules) | → `contracts/` — Machine-readable JSON Schema boundaries |
+| **Ingest** operation | → Production Pipeline (Signal Capture → Evaluate → Topological Placement) |
+| **Query** operation | → Consumption Pipeline (Topological Search → Provenance Bundle Assembly) |
+| **Lint** operation | → Gardener Pruning + Amundsen Consistency Checks |
+| **`index.md`** catalog | → Pathfinder's index-based retrieval |
+| **`log.md`** chronology | → Source repository with temporal edges |
+
+> *"The wiki becomes richer with every source added. A human's job is to curate the sources and ask good questions. The LLM's job is everything else."* — Karpathy
+
+openyggdrasil extends this beyond a simple wiki into a **multi-provider / multi-agent** system with typed contracts, lifecycle governance, and provider-neutral sharing.
+
+Building on this philosophy, openyggdrasil treats memory as a **two-sided engine** — a **Production Side** that captures and curates knowledge, and a **Consumption Side** that retrieves and delivers it.
 
 ```
                     ┌─────────────────────────────────────────────────────────────┐
@@ -811,32 +828,7 @@ openyggdrasil/
 
 ## Inspirations & Acknowledgements
 
-openyggdrasil stands on the shoulders of two key ideas.
-
-### Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
-
-Karpathy articulated the core insight: instead of re-deriving knowledge via RAG
-on every query, have the LLM **incrementally build and maintain a persistent
-wiki**. openyggdrasil absorbed this philosophy directly:
-
-| LLM Wiki Concept | openyggdrasil Absorption |
-|---|---|
-| **Raw Sources** (immutable originals) | → Provider Signal (①) — originals are never mutated |
-| **The Wiki** (LLM-maintained knowledge) | → Vault — canonical memory with lifecycle states |
-| **The Schema** (CLAUDE.md/AGENTS.md rules) | → `contracts/` — machine-readable boundaries |
-| **Ingest** operation | → Production pipeline (Signal → Gardener) |
-| **Query** operation | → Consumption pipeline (Pathfinder → Mailbox) |
-| **Lint** operation | → Gardener pruning + Amundsen consistency checks |
-| **`index.md`** catalog | → Pathfinder's index-based retrieval |
-| **`log.md`** chronological record | → Provenance store with temporal edges |
-
-> *"The wiki keeps getting richer with every source you add. The human's job is
-> to curate sources and ask good questions. The LLM's job is everything else."*
-> — Karpathy
-
-openyggdrasil extends this from single-user/single-LLM to
-**multi-provider/multi-agent** with typed contracts, lifecycle governance, and
-provider-neutral sharing.
+openyggdrasil stands on the shoulders of two key ideas (see the 'LLM Wiki' pipeline implementation above).
 
 ### [Graphify](https://github.com/safishamsi/graphify) (v5)
 
