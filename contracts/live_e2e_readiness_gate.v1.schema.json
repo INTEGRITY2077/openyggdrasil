@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/live_e2e_readiness_gate.v1.schema.json",
-  "title": "OpenYggdrasil Live E2E Readiness Gate v1",
+  "title": "openyggdrasil Live E2E Readiness Gate v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

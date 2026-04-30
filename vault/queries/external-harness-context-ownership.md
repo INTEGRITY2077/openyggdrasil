@@ -18,7 +18,7 @@ instead of Hermes core?
 
 Promotion and graph rebuild are boundary-management tasks that need source
 policy, lifecycle review, and publication rules. Keeping them outside provider
-core preserves a smaller provider runtime while OpenYggdrasil migrates durable
+core preserves a smaller provider runtime while openyggdrasil migrates durable
 behavior into root contracts, runtime modules, and Graphify support surfaces.
 
 ## Related

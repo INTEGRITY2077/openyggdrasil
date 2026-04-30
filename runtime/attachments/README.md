@@ -24,3 +24,4 @@ request provider credentials.
 - `provider_cold_start_healthcheck.py`
 - `deploy_skill.py`
 - `deploy_hermes_profile_skill.py`
+- `deploy_hermes_reasoning_lease_bridge_skill.py`

@@ -9,11 +9,14 @@ from typing import Any, Mapping
 from delivery.mailbox_store import read_messages
 from reasoning.chain_bundle_policy import normalize_module_id, select_chain_bundle_policy
 from reasoning.process_sandbox_policy import validate_process_sandbox_runtime_decision
-from reasoning.reasoning_lease_contracts import validate_reasoning_lease_request
+from reasoning.reasoning_lease_contracts import (
+    REASONING_LEASE_MAILBOX_JOB_SCHEMA_VERSION,
+    validate_reasoning_lease_request,
+)
 
 
 TRACE_SCHEMA_VERSION = "reasoning_tollgate_bundle_trace.v1"
-JOB_SCHEMA_VERSION = "reasoning_lease_mailbox_job.v1"
+JOB_SCHEMA_VERSION = REASONING_LEASE_MAILBOX_JOB_SCHEMA_VERSION
 MESSAGE_TYPE = "execute_deep_search"
 INGRESS_CHAIN_ID = "ingress_chain"
 INGRESS_MODULES = {"distiller", "evaluator", "amundsen"}

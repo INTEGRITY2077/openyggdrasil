@@ -1,0 +1,313 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/hermes_subagent_reasoning_lease_bridge.v1.schema.json",
+  "title": "openyggdrasil Hermes Subagent Reasoning Lease Bridge v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "bridge_id",
+    "bridge_ref",
+    "provider",
+    "bridge_status",
+    "unavailable_condition",
+    "reject_condition",
+    "reason_codes",
+    "safety_reject_reasons",
+    "provider_skill_ref",
+    "provider_subagent_surface_ref",
+    "reasoning_lease_ref",
+    "lease_depth_or_effort",
+    "lease_budget_ref",
+    "lease_unavailable_reason",
+    "ptc_or_subagent_boundary_ref",
+    "provider_gateway_proof_ref",
+    "typed_task_id",
+    "typed_result_ref",
+    "typed_unavailable_ref",
+    "before_main_context_window_ref",
+    "after_main_context_window_ref",
+    "producer_receipt_ref",
+    "consumer_usage_ref",
+    "safe_portable_refs",
+    "input_schema_versions",
+    "ptc_callable",
+    "runtime_owner",
+    "transition_prep_only",
+    "static_bridge_contract_only",
+    "typed_refs_only",
+    "hermes_source_hard_coupled",
+    "hermes_source_patch_used",
+    "foreground_env_injection_used",
+    "private_env_injection_used",
+    "stdin_injection_used",
+    "raw_transcript_included",
+    "raw_prompt_included",
+    "raw_provider_material_included",
+    "provider_credential_profile_included",
+    "provider_state_db_material_included",
+    "skill_body_included",
+    "safe_provider_owned_gateway_evidence_claimed",
+    "hermes_subagent_live_bridge_complete_claimed",
+    "r10_live_pass_claimed",
+    "r9_real_session_pass_claimed",
+    "reasoning_lease_solved_claimed",
+    "live_readiness_claimed",
+    "production_readiness_claimed",
+    "public_runtime_integration_complete_claimed",
+    "background_live_integration_claimed",
+    "p4_h6_closed_claimed",
+    "hermes_answer_quality_claimed",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "hermes_subagent_reasoning_lease_bridge.v1"
+    },
+    "bridge_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "bridge_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "const": "hermes"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "bridge_status": {
+      "type": "string",
+      "enum": [
+        "static_bridge_contract_ready",
+        "typed_unavailable",
+        "reject"
+      ]
+    },
+    "unavailable_condition": {
+      "$ref": "#/$defs/nullable_identifier"
+    },
+    "reject_condition": {
+      "$ref": "#/$defs/nullable_identifier"
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "safety_reject_reasons": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "provider_skill_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "provider_subagent_surface_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "reasoning_lease_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "lease_depth_or_effort": {
+      "$ref": "#/$defs/nullable_identifier"
+    },
+    "lease_budget_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "lease_unavailable_reason": {
+      "$ref": "#/$defs/nullable_identifier"
+    },
+    "ptc_or_subagent_boundary_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "provider_gateway_proof_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "typed_task_id": {
+      "$ref": "#/$defs/nullable_identifier"
+    },
+    "typed_result_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "typed_unavailable_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "before_main_context_window_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "after_main_context_window_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "producer_receipt_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "consumer_usage_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "safe_portable_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
+    "input_schema_versions": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "ptc_callable": {
+      "const": true
+    },
+    "runtime_owner": {
+      "const": "runtime/reasoning/hermes_subagent_reasoning_lease_bridge.py"
+    },
+    "transition_prep_only": {
+      "const": true
+    },
+    "static_bridge_contract_only": {
+      "const": true
+    },
+    "typed_refs_only": {
+      "const": true
+    },
+    "hermes_source_hard_coupled": {
+      "const": false
+    },
+    "hermes_source_patch_used": {
+      "const": false
+    },
+    "foreground_env_injection_used": {
+      "const": false
+    },
+    "private_env_injection_used": {
+      "const": false
+    },
+    "stdin_injection_used": {
+      "const": false
+    },
+    "raw_transcript_included": {
+      "const": false
+    },
+    "raw_prompt_included": {
+      "const": false
+    },
+    "raw_provider_material_included": {
+      "const": false
+    },
+    "provider_credential_profile_included": {
+      "const": false
+    },
+    "provider_state_db_material_included": {
+      "const": false
+    },
+    "skill_body_included": {
+      "const": false
+    },
+    "safe_provider_owned_gateway_evidence_claimed": {
+      "const": false
+    },
+    "hermes_subagent_live_bridge_complete_claimed": {
+      "const": false
+    },
+    "r10_live_pass_claimed": {
+      "const": false
+    },
+    "r9_real_session_pass_claimed": {
+      "const": false
+    },
+    "reasoning_lease_solved_claimed": {
+      "const": false
+    },
+    "live_readiness_claimed": {
+      "const": false
+    },
+    "production_readiness_claimed": {
+      "const": false
+    },
+    "public_runtime_integration_complete_claimed": {
+      "const": false
+    },
+    "background_live_integration_claimed": {
+      "const": false
+    },
+    "p4_h6_closed_claimed": {
+      "const": false
+    },
+    "hermes_answer_quality_claimed": {
+      "const": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "nullable_identifier": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/identifier"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullable_safe_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/safe_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "safe_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 700,
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\\\\\s]+$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^[Ff][Ii][Ll][Ee]://"
+          },
+          {
+            "pattern": "^[A-Za-z]:"
+          },
+          {
+            "pattern": "(?i)\\.skill\\.md"
+          },
+          {
+            "pattern": "(?i)credential"
+          },
+          {
+            "pattern": "(?i)profile"
+          },
+          {
+            "pattern": "(?i)transcript"
+          }
+        ]
+      }
+    }
+  }
+}

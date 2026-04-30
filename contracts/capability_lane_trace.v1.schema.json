@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/capability_lane_trace.v1.schema.json",
-  "title": "OpenYggdrasil Capability Lane Trace v1",
+  "title": "openyggdrasil Capability Lane Trace v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

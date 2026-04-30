@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/gardener_lifecycle_transition_request.v1.schema.json",
-  "title": "OpenYggdrasil Gardener Lifecycle Transition Request v1",
+  "title": "openyggdrasil Gardener Lifecycle Transition Request v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

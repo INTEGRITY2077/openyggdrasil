@@ -130,7 +130,7 @@ def build_hermes_background_unavailable_lease_result(
     This contract is runner-facing: each unavailable/declined/blocked state has
     a distinct kind, outcome, fault domain, and fallback-path status. It never
     asks for credentials and never treats provider unavailability as an
-    OpenYggdrasil runtime failure.
+    openyggdrasil runtime failure.
     """
 
     validate_reasoning_lease_request(lease_request)

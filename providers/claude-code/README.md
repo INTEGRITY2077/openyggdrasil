@@ -3,7 +3,7 @@
 `providers/claude-code/` documents the Claude Code attachment and packaging
 baseline.
 
-The public repository owns the OpenYggdrasil attachment contract and skill
+The public repository owns the openyggdrasil attachment contract and skill
 deployment target. It does not copy, vendor, translate, or mechanically port
 Claude Code implementation source.
 
@@ -26,6 +26,6 @@ Claude Code implementation source.
 
 - Public docs and contracts may reference product-level behavior.
 - Private/reference source may inform behavior only through clean-room notes and
-  independently designed OpenYggdrasil contracts.
-- Raw Claude Code sessions and transcripts are not copied into OpenYggdrasil.
+  independently designed openyggdrasil contracts.
+- Raw Claude Code sessions and transcripts are not copied into openyggdrasil.
 - The inbox is session-bound; no global inbox is allowed.

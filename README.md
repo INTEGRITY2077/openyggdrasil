@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">🌳 OpenYggdrasil</h1>
+  <h1 align="center">🌳 openyggdrasil</h1>
   <p align="center">
     <strong>A provider-neutral memory engine for AI coding agents</strong>
   </p>
@@ -50,21 +50,21 @@ There's no accumulation, no lifecycle, no cross-provider sharing.
 (Neo4j, Pinecone, embeddings) without solving the fundamental problem: *who
 decides what to remember, what to forget, and what to deliver?*
 
-OpenYggdrasil takes a different approach.
+openyggdrasil takes a different approach.
 
 ### Cross-Provider Pollination
 
-The most powerful feature of OpenYggdrasil is that it is a **"Shared Brain"** not locked into any specific tool.
+The most powerful feature of openyggdrasil is that it is a **"Shared Brain"** not locked into any specific tool.
 
 - **Hermes writes:** In a Hermes session, you decide on an architecture and it gets recorded in the Vault. (Source: `provider_id: hermes`)
 - **Claude Code reads and updates:** Days later, you open Claude Code. It searches for, reads the document Hermes wrote, and continues the work. If the decision changes, Claude pushes the old knowledge to `SUPERSEDED` and writes the new knowledge.
 - **Hermes recognizes it again:** The next time Hermes connects, it doesn't read the stale knowledge it wrote in the past, but the updated knowledge maintained by Claude Code.
 
-This is possible because all agents abandon their internal transcript formats and share the same canonical Vault specification—the **strict frontmatter schema (Markdown + YAML)** of OpenYggdrasil.
+This is possible because all agents abandon their internal transcript formats and share the same canonical Vault specification—the **strict frontmatter schema (Markdown + YAML)** of openyggdrasil.
 
 ## Execution Model
 
-OpenYggdrasil does not have its own LLM or API keys.
+openyggdrasil does not have its own LLM or API keys.
 When a provider (Hermes, Claude Code, Cursor, etc.) enters this repository,
 it reads **`SKILL.md`** at the root and executes the entrypoints defined
 there using its own tokens.
@@ -105,22 +105,22 @@ provider) is planned for the future.
 
 ## Provider Integration & Setup
 
-OpenYggdrasil operates as a cold-started skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start background daemons or manage separate server processes.
+openyggdrasil operates as a cold-started skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start background daemons or manage separate server processes.
 
 > **⚠️ Current Reasoning Model:**
-> OpenYggdrasil currently **borrows the provider's reasoning tokens** to operate.
+> openyggdrasil currently **borrows the provider's reasoning tokens** to operate.
 > It does not have its own API keys or LLM infrastructure.
 > Support for independent API key configuration is planned for the future. 
 
-### 1. How Providers Recognize OpenYggdrasil
+### 1. How Providers Recognize openyggdrasil
 
-Providers attach to OpenYggdrasil by reading the **`SKILL.md`** manifest at the repository root. To initiate the connection:
+Providers attach to openyggdrasil by reading the **`SKILL.md`** manifest at the repository root. To initiate the connection:
 - Point your agent's skill configuration to the absolute path of `SKILL.md`.
 - The agent reads this contract, which defines the exact entrypoints, command shapes, and boundaries for memory retrieval and capture.
 
 ### 2. System Requirements & Dependency Installation
 
-OpenYggdrasil runs purely locally. The core runtime relies almost entirely on the Python Standard Library, but the Graphify-derived views and Sandbox isolations require the following minimal dependency stack:
+openyggdrasil runs purely locally. The core runtime relies almost entirely on the Python Standard Library, but the Graphify-derived views and Sandbox isolations require the following minimal dependency stack:
 
 **Supported Operating Systems:**
 - **Windows / macOS / Linux**: Full support for the core memory pipeline (Vault curation, Graphify derived views, and Pathfinder retrieval).
@@ -146,12 +146,12 @@ OpenYggdrasil runs purely locally. The core runtime relies almost entirely on th
 > Before executing the cold-start skill for the first time, the provider **MUST ask the user for explicit permission** to install these dependencies.
 > 
 > 1. Provider detects that dependencies are missing.
-> 2. Provider halts and prompts the user: *"OpenYggdrasil requires Python dependencies (listed in requirements) to be installed locally. Do you allow this?"*
+> 2. Provider halts and prompts the user: *"openyggdrasil requires Python dependencies (listed in requirements) to be installed locally. Do you allow this?"*
 > 3. Only upon user approval, the provider installs the requirements. **Silent or unprompted installations are strictly forbidden.**
 
 ### 3. One-Touch Cold Start
 
-Once dependencies are approved and installed, the provider can execute the skill entrypoints defined in `SKILL.md`. The OpenYggdrasil runtime **cold-starts itself on demand**, executes the required memory transaction, and shuts down cleanly.
+Once dependencies are approved and installed, the provider can execute the skill entrypoints defined in `SKILL.md`. The openyggdrasil runtime **cold-starts itself on demand**, executes the required memory transaction, and shuts down cleanly.
 
 ### Verify Installation Manually
 
@@ -171,7 +171,7 @@ python runtime/import_smoke.py
 
 ## PTC (Programmatic Tool Calling) Concept & Architecture
 
-The production and consumption pipelines of OpenYggdrasil operate on a **PTC (Programmatic Tool Calling)** architecture.
+The production and consumption pipelines of openyggdrasil operate on a **PTC (Programmatic Tool Calling)** architecture.
 
 **Source of Truth (SOT):**
 This architecture is heavily inspired by Anthropic's [Programmatic Tool Calling](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/programmatic-tool-calling) (PTC) and the broader open-ended agentic loop (REPL) philosophy.
@@ -204,11 +204,11 @@ The standard PTC paradigm allows the agent to freely write Python code within a 
 2. The script executes, calling multiple tools sequentially and filtering intermediate data, saving tokens and latency.
 3. While efficient and flexible, normalizing knowledge into a strict lifecycle memory system using this approach is highly unpredictable. It relies entirely on the logical integrity of the agent's on-the-fly script, making it vulnerable to runtime hallucinations.
 
-### OpenYggdrasil's Transformation (The Typed PTC Engine)
+### openyggdrasil's Transformation (The Typed PTC Engine)
 
 ```
   ┌──────────────────────────────────────────────────────────────┐
-  │               OpenYggdrasil (Typed PTC Engine)               │
+  │               openyggdrasil (Typed PTC Engine)               │
   │                                                              │
   │  1. PTC Engine: Injects `JSON Execution Plan`                │
   │     (e.g., ["distill_signal", "evaluate_candidate", ...])    │
@@ -220,24 +220,24 @@ The standard PTC paradigm allows the agent to freely write Python code within a 
                                  │ Contract: Strict JSON Schema / Typed Payloads
                                  ▼
   ┌──────────────────────────────────────────────────────────────┐
-  │                 OpenYggdrasil 8-Tool Chain                   │
+  │                 openyggdrasil 8-Tool Chain                   │
   │          (Deterministic, Type-safe, Lifecycle-managed)       │
   └──────────────────────────────────────────────────────────────┘
 ```
 
-OpenYggdrasil intentionally constrains this autonomy, internalizing it as a **Typed Chain**:
+openyggdrasil intentionally constrains this autonomy, internalizing it as a **Typed Chain**:
 
 1. **Dismantling the Black Box:** Instead of an invisible automated 12-module background loop, every module is exposed as a single-purpose "Tool" that the subagent must explicitly call.
 2. **Constraining Freedom (JSON Tool Plan):** The agent is forbidden from arbitrarily mixing tools or writing custom scripts. Instead, the PTC engine forces a contextual **Execution Plan** (JSON Tool Plan) upon the agent.
 3. **Dual-Nature Tools:** Tools are categorized into 'Contract Guardrails' (which consume reasoning tokens and enforce strict schemas) and 'Utility Tools' (deterministic Python execution), optimizing the agent's cognitive load.
 
-Consequently, OpenYggdrasil's PTC model restricts the agent's open-ended reasoning loop and enforces sequential tool execution according to a predefined JSON Execution Plan, ensuring data integrity by design.
+Consequently, openyggdrasil's PTC model restricts the agent's open-ended reasoning loop and enforces sequential tool execution according to a predefined JSON Execution Plan, ensuring data integrity by design.
 
 ### Background: Why PTC over Vector DBs / ElasticSearch? (Token Efficiency)
 
 Traditional RAG (Retrieval-Augmented Generation) approaches rely on Vector DBs or ElasticSearch to retrieve massive amounts of documents, dumping thousands or tens of thousands of text tokens directly into the agent's context window. This is **expensive, slow, and causes "Lost in the middle" hallucinations**.
 
-The primary reason OpenYggdrasil abandoned heavy external infrastructure in favor of a **pure local-filesystem PTC architecture** is its **overwhelming token efficiency and structural filtering**:
+The primary reason openyggdrasil abandoned heavy external infrastructure in favor of a **pure local-filesystem PTC architecture** is its **overwhelming token efficiency and structural filtering**:
 
 - **Context Exclusion of Intermediate Data:** When the agent calls utility tools like `scan_topology` or `filter_lifecycle`, massive amounts of intermediate data (e.g., scanning 20 Vault documents) are never loaded into the agent's context window. The data is processed, filtered, and aggregated purely within Python memory.
 - **Elimination of Model Round-Trip Overhead:** Querying 10 knowledge nodes as independent tools consumes massive tokens because it invokes the LLM individually for each query. By using PTC to read 10 documents within a single code execution block and returning only a summarized conclusion, token usage is reduced by approximately **10x or more**.
@@ -245,7 +245,7 @@ The primary reason OpenYggdrasil abandoned heavy external infrastructure in favo
 
 ### Reasoning Model Baseline & Limitations
 
-In the PTC pipeline, the subagent (LLM) must retain the complex `JSON Execution Plan` within its sandbox context, invoke 8 tools in precise order, and pass strict JSON schema constraints for each tool. This rigidity is enforced by OpenYggdrasil's **Contract Guardrails**.
+In the PTC pipeline, the subagent (LLM) must retain the complex `JSON Execution Plan` within its sandbox context, invoke 8 tools in precise order, and pass strict JSON schema constraints for each tool. This rigidity is enforced by openyggdrasil's **Contract Guardrails**.
 
 To successfully navigate this highly constrained environment, the **Reasoning Model Baseline is frontier-class models like Claude 3.5 Sonnet or GPT-4o**.
 
@@ -254,13 +254,13 @@ To successfully navigate this highly constrained environment, the **Reasoning Mo
 - **Guardrail Validation Failure:** Failing to adhere to strict JSON schemas, receiving an error from the `evaluate` tool, and falling into an error loop (Timeout/Lease Failed) due to an inability to self-correct.
 - **Hallucination & Step Skipping:** Arbitrarily skipping required data processing steps and attempting to terminate the pipeline with hallucinated results.
 
-OpenYggdrasil does not rely on the LLM's goodwill or autonomy. Even if a model ignores prompts and acts unpredictably, the main system (Vault) is 100% protected by the sandbox and strict type validations. Models that fail to meet this baseline are immediately filtered out during prior Readiness Governance, preventing them from claiming the `production_readiness_claimed` mark in the provider receipt (`hermes_routing_receipt`).
+openyggdrasil does not rely on the LLM's goodwill or autonomy. Even if a model ignores prompts and acts unpredictably, the main system (Vault) is 100% protected by the sandbox and strict type validations. Models that fail to meet this baseline are immediately filtered out during prior Readiness Governance, preventing them from claiming the `production_readiness_claimed` mark in the provider receipt (`hermes_routing_receipt`).
 
 ---
 
 ## How It Works
 
-OpenYggdrasil treats memory as a **two-sided engine** — a production side that
+openyggdrasil treats memory as a **two-sided engine** — a production side that
 captures and curates knowledge, and a consumption side that retrieves and
 delivers it.
 
@@ -447,7 +447,7 @@ There are two distinct invocation paths — one for **writing** knowledge
 
 When a provider session produces a decision worth remembering — a design
 choice, a debugging insight, a resolved trade-off — the provider's agent
-**invokes OpenYggdrasil as a skill** to capture it.
+**invokes openyggdrasil as a skill** to capture it.
 
 ```
   Provider Agent (e.g., Hermes, Claude Code, Cursor)
@@ -466,10 +466,10 @@ choice, a debugging insight, a resolved trade-off — the provider's agent
        │     }
        │
        │  ③ Calls the capture entrypoint defined in SKILL.md
-       │     → OpenYggdrasil cold-starts, processes the signal, shuts down
+       │     → openyggdrasil cold-starts, processes the signal, shuts down
        │
        ▼
-  OpenYggdrasil Production Pipeline receives the signal
+  openyggdrasil Production Pipeline receives the signal
 ```
 
 **Key rules:**
@@ -477,7 +477,7 @@ choice, a debugging insight, a resolved trade-off — the provider's agent
   It never guesses or hard-codes internal paths.
 - The signal must carry a **`source_ref`** — provenance is mandatory, not
   optional. Signals without source references are rejected at the gate.
-- OpenYggdrasil **cold-starts on demand**. There is no background daemon.
+- openyggdrasil **cold-starts on demand**. There is no background daemon.
   The provider calls it, it runs, it exits.
 
 ### Production Pipeline — Subagent's 8-Tool Chain
@@ -589,7 +589,7 @@ If the subagent violates the **typed contracts** at any guardrail (e.g., trying 
 
 When a provider session needs context from past decisions — "What did we
 decide about the gateway pattern?" — the provider's agent **invokes
-OpenYggdrasil as a subagent** to search the accumulated knowledge.
+openyggdrasil as a subagent** to search the accumulated knowledge.
 
 ```
   Provider Agent (working on a new task)
@@ -606,7 +606,7 @@ OpenYggdrasil as a subagent** to search the accumulated knowledge.
        │       session_id:  "session-2026-04-30-xyz789"
        │     }
        │
-       │  ④ OpenYggdrasil cold-starts Pathfinder
+       │  ④ openyggdrasil cold-starts Pathfinder
        │     → Scans Vault for matching topics
        │     → Assembles bounded support bundle
        │     → Returns lifecycle-aware, provenance-tracked result
@@ -718,7 +718,7 @@ always knows exactly what it's getting and why.
 
 Some complex signals or ambiguous tradeoffs go beyond simple PTC tool calls—they require extended LLM reasoning with time budgets and isolation guarantees.
 
-OpenYggdrasil handles this via the **Reasoning Lease** layer. It activates when the PTC engine's `lease_backed_llm` mode is used:
+openyggdrasil handles this via the **Reasoning Lease** layer. It activates when the PTC engine's `lease_backed_llm` mode is used:
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -773,15 +773,15 @@ openyggdrasil/
 
 ## Inspirations & Acknowledgements
 
-OpenYggdrasil stands on the shoulders of two key ideas.
+openyggdrasil stands on the shoulders of two key ideas.
 
 ### Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 
 Karpathy articulated the core insight: instead of re-deriving knowledge via RAG
 on every query, have the LLM **incrementally build and maintain a persistent
-wiki**. OpenYggdrasil absorbed this philosophy directly:
+wiki**. openyggdrasil absorbed this philosophy directly:
 
-| LLM Wiki Concept | OpenYggdrasil Absorption |
+| LLM Wiki Concept | openyggdrasil Absorption |
 |---|---|
 | **Raw Sources** (immutable originals) | → Provider Signal (①) — originals are never mutated |
 | **The Wiki** (LLM-maintained knowledge) | → Vault — canonical memory with lifecycle states |
@@ -796,7 +796,7 @@ wiki**. OpenYggdrasil absorbed this philosophy directly:
 > to curate sources and ask good questions. The LLM's job is everything else."*
 > — Karpathy
 
-OpenYggdrasil extends this from single-user/single-LLM to
+openyggdrasil extends this from single-user/single-LLM to
 **multi-provider/multi-agent** with typed contracts, lifecycle governance, and
 provider-neutral sharing.
 
@@ -805,7 +805,7 @@ provider-neutral sharing.
 Graphify provides the structural analysis layer — turning codebases and knowledge
 into navigable graphs:
 
-| Graphify Concept | OpenYggdrasil Absorption |
+| Graphify Concept | openyggdrasil Absorption |
 |---|---|
 | `detect → extract → build_graph → cluster → analyze → report → export` pipeline | → `common/graphify/` derived view engine |
 | NetworkX + Leiden community clustering | → Topic/community structure for Map Maker |
@@ -876,8 +876,8 @@ This project is open-source and released under the [Apache License 2.0](./LICENS
 You are free to use, modify, and distribute the code under the terms of this license.
 
 **Trademark & Brand Protection (Section 6):**
-While the code is open-source, the brand names **"OpenYggdrasil"** and **"INTEGRITY2077"**, along with their associated logos and trade dress, are strictly protected. The Apache 2.0 License explicitly **does not grant** permission to use these trademarks. 
+While the code is open-source, the brand names **"openyggdrasil"** and **"INTEGRITY2077"**, along with their associated logos and trade dress, are strictly protected. The Apache 2.0 License explicitly **does not grant** permission to use these trademarks. 
 
-If you fork or distribute a modified version of this project, you must change the name and cannot use the OpenYggdrasil or INTEGRITY2077 branding to identify your version.
+If you fork or distribute a modified version of this project, you must change the name and cannot use the openyggdrasil or INTEGRITY2077 branding to identify your version.
 
 See [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md) for companion dependency notices.

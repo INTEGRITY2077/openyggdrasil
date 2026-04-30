@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/effort_aware_gardener_worthiness.v1.schema.json",
-  "title": "OpenYggdrasil Effort Aware Gardener Worthiness v1",
+  "title": "openyggdrasil Effort Aware Gardener Worthiness v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

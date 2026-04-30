@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/provider_runtime_integrity_result.v1.schema.json",
-  "title": "OpenYggdrasil Provider Runtime Integrity Result v1",
+  "title": "openyggdrasil Provider Runtime Integrity Result v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

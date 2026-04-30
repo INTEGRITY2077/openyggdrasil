@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/provider_effort_vocabulary_normalization.v1.schema.json",
-  "title": "OpenYggdrasil Provider Effort Vocabulary Normalization v1",
+  "title": "openyggdrasil Provider Effort Vocabulary Normalization v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

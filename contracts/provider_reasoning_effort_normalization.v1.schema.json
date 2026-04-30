@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/provider_reasoning_effort_normalization.v1.schema.json",
+  "title": "openyggdrasil Provider Reasoning Effort Normalization v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "normalization_id",
+    "provider_capability",
+    "module_id",
+    "module_effort",
+    "normalization",
+    "safety",
+    "reason_codes",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "provider_reasoning_effort_normalization.v1"
+    },
+    "normalization_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "provider_capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_id",
+        "model_class",
+        "reasoning_tier",
+        "requested_normalization"
+      ],
+      "properties": {
+        "provider_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "model_class": {
+          "type": "string",
+          "enum": [
+            "below_baseline",
+            "at_baseline",
+            "above_baseline"
+          ]
+        },
+        "reasoning_tier": {
+          "$ref": "#/$defs/effort"
+        },
+        "requested_normalization": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "compensate_up",
+            "pass_through",
+            "conserve_down"
+          ]
+        }
+      }
+    },
+    "module_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "module_effort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requires_reasoning",
+        "min_effort",
+        "preferred_effort",
+        "max_useful_effort",
+        "lease_group"
+      ],
+      "properties": {
+        "requires_reasoning": {
+          "type": "boolean"
+        },
+        "min_effort": {
+          "$ref": "#/$defs/effort"
+        },
+        "preferred_effort": {
+          "$ref": "#/$defs/effort"
+        },
+        "max_useful_effort": {
+          "$ref": "#/$defs/effort"
+        },
+        "lease_group": {
+          "$ref": "#/$defs/identifier"
+        }
+      }
+    },
+    "normalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "selected_effort",
+        "baseline_effort",
+        "provider_reasoning_tier",
+        "compensation_required",
+        "compensation_strategies",
+        "token_conservation_applied",
+        "below_module_min_effort_allowed",
+        "guidance_intensity"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "deterministic_no_reasoning",
+            "compensate_up",
+            "pass_through",
+            "conserve_down"
+          ]
+        },
+        "selected_effort": {
+          "$ref": "#/$defs/effort"
+        },
+        "baseline_effort": {
+          "$ref": "#/$defs/effort"
+        },
+        "provider_reasoning_tier": {
+          "$ref": "#/$defs/effort"
+        },
+        "compensation_required": {
+          "type": "boolean"
+        },
+        "compensation_strategies": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/identifier"
+          }
+        },
+        "token_conservation_applied": {
+          "type": "boolean"
+        },
+        "below_module_min_effort_allowed": {
+          "type": "boolean"
+        },
+        "guidance_intensity": {
+          "type": "string",
+          "enum": [
+            "none",
+            "normal",
+            "strong"
+          ]
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_provider_effort_equivalence_claimed",
+        "provider_capability_overrides_module_contract",
+        "live_readiness_claimed",
+        "production_readiness_claimed"
+      ],
+      "properties": {
+        "raw_provider_effort_equivalence_claimed": {
+          "const": false
+        },
+        "provider_capability_overrides_module_contract": {
+          "const": false
+        },
+        "live_readiness_claimed": {
+          "const": false
+        },
+        "production_readiness_claimed": {
+          "const": false
+        }
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "effort": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    }
+  }
+}

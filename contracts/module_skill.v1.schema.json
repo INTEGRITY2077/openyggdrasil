@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "module_skill.v1.schema.json",
-  "title": "OpenYggdrasil Module Skill Declaration",
+  "title": "openyggdrasil Module Skill Declaration",
   "description": "Schema for .skill.md YAML frontmatter. Each module declares its reasoning profile for dynamic tollgate routing.",
   "type": "object",
   "required": [

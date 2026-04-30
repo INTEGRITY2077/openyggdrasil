@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/session_signal_runner_result.v1.schema.json",
-  "title": "OpenYggdrasil Session Signal Runner Result v1",
+  "title": "openyggdrasil Session Signal Runner Result v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

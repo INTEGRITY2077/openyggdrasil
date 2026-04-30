@@ -2,12 +2,12 @@
 
 ## Purpose
 
-This document fixes the public distribution policy for the current OpenYggdrasil stack
+This document fixes the public distribution policy for the current openyggdrasil stack
 while the graph query layer remains external.
 
 The active rule is:
 
-- OpenYggdrasil core remains provider-neutral and authoritative for contracts, runtime, and vault storage
+- openyggdrasil core remains provider-neutral and authoritative for contracts, runtime, and vault storage
 - Graphify is distributed as a default-installed companion layer
 - Graphify must not become a hard runtime dependency that can take down core memory operations
 
@@ -21,7 +21,7 @@ not required for core survival
 
 ## Current Position
 
-OpenYggdrasil uses Graphify as a derived query layer over the canonical vault.
+openyggdrasil uses Graphify as a derived query layer over the canonical vault.
 
 That means:
 
@@ -38,7 +38,7 @@ It is not authoritative enough to become the only surviving query path.
 
 The default public distribution should install:
 
-1. OpenYggdrasil core
+1. openyggdrasil core
 2. Graphify companion
 
 This is the recommended default because it gives operators one reproducible install path and
@@ -65,12 +65,12 @@ Graphify must be treated as:
 
 Graphify must not be treated as:
 
-- the OpenYggdrasil source of truth
+- the openyggdrasil source of truth
 - the owner of canonical memory
 - the owner of provider attachment policy
 - the owner of provider bootstrap or hook installation
 
-OpenYggdrasil owns:
+openyggdrasil owns:
 
 - contracts
 - provider attachment rules
@@ -88,20 +88,20 @@ Graphify owns only:
 
 ### 1. Install the engine, not the product surface
 
-OpenYggdrasil distributions should install the Graphify engine surface needed for query/rebuild use.
+openyggdrasil distributions should install the Graphify engine surface needed for query/rebuild use.
 
-OpenYggdrasil distributions should not rely on upstream product-side install behavior such as:
+openyggdrasil distributions should not rely on upstream product-side install behavior such as:
 
 - `graphify install`
 - upstream AGENTS.md mutation
 - upstream hook installation
 - upstream provider-specific bootstrap side effects
 
-Those surfaces belong to the upstream Graphify product and should not define the OpenYggdrasil runtime.
+Those surfaces belong to the upstream Graphify product and should not define the openyggdrasil runtime.
 
-### 2. OpenYggdrasil manages bootstrap
+### 2. openyggdrasil manages bootstrap
 
-OpenYggdrasil must manage its own:
+openyggdrasil must manage its own:
 
 - skills
 - bootstrap instructions
@@ -111,7 +111,7 @@ OpenYggdrasil must manage its own:
 
 ### 3. Use pinned companion versions
 
-The Graphify companion must be installed through an OpenYggdrasil-managed pinned version path.
+The Graphify companion must be installed through an openyggdrasil-managed pinned version path.
 
 This means:
 
@@ -123,7 +123,7 @@ This means:
 
 ### 1. Preferred path when healthy
 
-When the graph layer is present and fresh, OpenYggdrasil should prefer:
+When the graph layer is present and fresh, openyggdrasil should prefer:
 
 - Graphify `query`
 - Graphify `path`
@@ -140,7 +140,7 @@ If Graphify is:
 - broken
 - unavailable in the current runtime
 
-OpenYggdrasil must fall back to:
+openyggdrasil must fall back to:
 
 1. direct canonical note reads
 2. provenance-backed topic/episode retrieval
@@ -161,13 +161,13 @@ It must not destroy the underlying memory system.
 
 ## Network and Privacy Rule
 
-Because Graphify can involve external surfaces, the default OpenYggdrasil distribution must treat these as companion-layer concerns:
+Because Graphify can involve external surfaces, the default openyggdrasil distribution must treat these as companion-layer concerns:
 
 - semantic extraction may depend on the current provider model API
 - URL ingest is networked and must remain explicit or opt-in
 - HTML visualization may rely on upstream CDN behavior unless localized later
 
-These surfaces must not be silently redefined as OpenYggdrasil core behavior.
+These surfaces must not be silently redefined as openyggdrasil core behavior.
 
 ## Licensing Rule
 
@@ -190,12 +190,12 @@ The long-term options remain:
 
 1. continue with default-installed companion distribution
 2. vendor the graph engine into the repository
-3. fully replace the external engine with a native OpenYggdrasil graph layer
+3. fully replace the external engine with a native openyggdrasil graph layer
 
 Until one of those transitions is completed, the active policy is:
 
 ```text
 ship Graphify by default
-keep OpenYggdrasil core alive without it
+keep openyggdrasil core alive without it
 do not let upstream product install surfaces own our runtime
 ```

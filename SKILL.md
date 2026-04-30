@@ -1,16 +1,16 @@
 ---
 name: openyggdrasil
-description: Attaches the current provider session to the shared OpenYggdrasil memory forest when the session needs durable memory, attachment repair, cold-start health checks, or session-bound inbox access.
+description: Attaches the current provider session to the shared openyggdrasil memory forest when the session needs durable memory, attachment repair, cold-start health checks, or session-bound inbox access.
 ---
 
-# OpenYggdrasil Skill
+# openyggdrasil Skill
 
-This skill attaches a provider session to OpenYggdrasil through explicit
+This skill attaches a provider session to openyggdrasil through explicit
 workspace-local contracts.
 
 Use this skill when:
 
-- a provider session should become visible to OpenYggdrasil;
+- a provider session should become visible to openyggdrasil;
 - `.yggdrasil/` attachment artifacts do not exist yet;
 - an existing attachment needs schema repair;
 - a provider session needs a session-bound inbox;
@@ -33,7 +33,7 @@ do not guess the memory layer
 attach to it explicitly
 ```
 
-OpenYggdrasil exists so multiple providers can attach to one shared memory
+openyggdrasil exists so multiple providers can attach to one shared memory
 forest while preserving provider, profile, session, source, and lifecycle
 boundaries.
 
@@ -57,6 +57,37 @@ Use these tools instead of inventing provider-local mutations:
 - cold-start health check: `runtime/attachments/provider_cold_start_healthcheck.py`
 - provider-native skill deployment: `runtime/attachments/deploy_skill.py`
 - Hermes profile deployment: `runtime/attachments/deploy_hermes_profile_skill.py`
+- Hermes Reasoning Lease bridge deployment:
+  `runtime/attachments/deploy_hermes_reasoning_lease_bridge_skill.py`
+
+## Execution Model
+
+openyggdrasil is not a second hidden LLM. The active provider supplies the
+reasoning token and calls repo-owned Python entrypoints through typed contracts.
+
+Before running a production or consumption path:
+
+1. identify the provider, profile, and session;
+2. attach or health-check the session through the bootstrap checklist;
+3. use typed refs instead of raw transcripts, credentials, provider state DB
+   rows, local private paths, or prompt text;
+4. consult the module effort contracts before leasing provider reasoning:
+   `contracts/module_effort_requirement.v1.schema.json`,
+   `contracts/module_effort_plan.v1.schema.json`, and
+   `runtime/reasoning/module_effort_requirements.py`.
+
+Provider effort vocabulary is normalized only through
+`runtime/cultivation/provider_effort_vocabulary_normalization.py` and
+`contracts/provider_effort_vocabulary_normalization.v1.schema.json`. Do not
+claim raw provider effort strings are globally equivalent across providers.
+
+Provider-relative reasoning effort is normalized through
+`runtime/reasoning/provider_effort_normalizer.py` and
+`contracts/provider_reasoning_effort_normalization.v1.schema.json`. A
+below-baseline provider should receive stronger guidance and compensation
+strategies for reasoning-heavy modules; an above-baseline provider may conserve
+tokens by selecting one lower effort level when the normalizer says that is
+safe.
 
 ## Core Rules
 
@@ -77,7 +108,7 @@ Do not invent a fake cross-provider session.
 
 ### 3. Prefer Symbolic Raw Reference
 
-Do not copy whole provider raw session history into OpenYggdrasil by default.
+Do not copy whole provider raw session history into openyggdrasil by default.
 
 Preserve raw provenance through:
 
@@ -123,6 +154,103 @@ Use only observable metadata and conservative defaults where explicitly allowed.
    - `turn_delta.v1.jsonl`.
 7. Validate generated artifacts before declaring success.
 
+## Hermes Reasoning Lease Bridge
+
+Use this only for the Hermes provider-skill path:
+
+```text
+Hermes provider skill -> openyggdrasil provider skill bridge -> Reasoning Lease typed handoff
+```
+
+Do not replace this with MCP, a generic command gateway, an agent adapter,
+foreground `.env` injection, stdin injection, raw transcript copying, Hermes
+source patching, credential/profile copying, or provider state DB harvesting.
+
+Cold start:
+
+```bash
+python runtime/attachments/deploy_hermes_reasoning_lease_bridge_skill.py \
+  --profile-name <hermes-profile> \
+  --workspace-root <openyggdrasil-public-root> \
+  --hermes-home <hermes-home> \
+  --cold-start
+```
+
+Cold start may create the Hermes profile skill package, binding artifact, and
+typed environment contract. These files are not live proof by themselves.
+
+Warm start:
+
+```bash
+python runtime/attachments/deploy_hermes_reasoning_lease_bridge_skill.py \
+  --profile-name <hermes-profile> \
+  --workspace-root <openyggdrasil-public-root> \
+  --hermes-home <hermes-home> \
+  --warm-start-check
+```
+
+Warm start is check-only. It must not rewrite the skill package, binding
+artifact, or environment contract.
+
+Live invocation may be claimed only when Hermes voluntarily invokes the
+installed `openyggdrasil-reasoning-lease-bridge` skill and returns typed refs
+that satisfy:
+
+- `contracts/hermes_provider_skill_bridge_entrypoint.v1.schema.json`
+- `runtime/reasoning/hermes_provider_skill_bridge_entrypoint.py`
+
+Required live refs include `typed_task_id`, `typed_result_ref` or
+`typed_unavailable_ref`, before/after main-context-window refs, and producer
+and consumer refs whenever producer/consumer usage is claimed.
+
+## Capture (Production)
+
+Use capture when a provider session should produce durable openyggdrasil
+knowledge from a bounded signal.
+
+Entrypoint:
+
+```python
+from runner.thin_worker_chain import run_thin_worker_chain
+```
+
+Input contracts:
+
+- signal: `contracts/session_structure_signal.v1.schema.json`
+- runner result: `contracts/session_signal_runner_result.v1.schema.json`
+
+Output contract:
+
+- thin worker chain result validated by `runtime/runner/thin_worker_chain.py`
+
+Capture must preserve source refs and provider/session provenance. It must not
+copy whole provider transcripts into `vault/`.
+
+## Retrieve (Consumption)
+
+Use retrieve when the provider needs an openyggdrasil memory bundle for a query.
+
+Entrypoint:
+
+```python
+from retrieval.pathfinder import build_pathfinder_bundle
+```
+
+Input shape:
+
+- `query_text`: plain query string
+- optional `vault_root`
+- optional bounded `evaluator`
+
+Output contracts:
+
+- `contracts/pathfinder_retrieval_result.v1.schema.json`
+- Pathfinder bundle validators exported by `runtime/retrieval/pathfinder.py`
+
+Consumption claims require an actual Pathfinder/Postman/Mailbox or
+provider-skill consumer ref. Do not claim consumer usage from setup reports or
+static package creation alone.
+
 ## Success Condition
 
 The skill is successful when:
@@ -131,7 +259,7 @@ The skill is successful when:
 - cold-start health check is `ready`, or `degraded` with explicit non-blocking
   user help;
 - provider/session attachment files are schema-compatible;
-- the session is discoverable by OpenYggdrasil runtime;
+- the session is discoverable by openyggdrasil runtime;
 - the inbox path is session-bound rather than global.
 
 ## Failure Condition

@@ -2,7 +2,7 @@
 
 This directory is a public documentation anchor for Hermes hook integration.
 
-Hook implementations and runtime copies are provider-local. Public OpenYggdrasil
+Hook implementations and runtime copies are provider-local. Public openyggdrasil
 code must not depend on untracked hook files being present here.
 
 ## Rule

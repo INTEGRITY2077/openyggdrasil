@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/vault_promotion_request.v1.schema.json",
-  "title": "OpenYggdrasil Vault Promotion Request v1",
+  "title": "openyggdrasil Vault Promotion Request v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

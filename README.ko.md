@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">🌳 OpenYggdrasil</h1>
+  <h1 align="center">🌳 openyggdrasil</h1>
   <p align="center">
     <strong>프로바이더 중립적 AI 코딩 에이전트 메모리 엔진</strong>
   </p>
@@ -49,21 +49,21 @@
 추가할 뿐, 근본 문제를 해결하지 않습니다: *무엇을 기억하고, 무엇을 잊고, 무엇을
 전달할지 누가 결정하는가?*
 
-OpenYggdrasil은 다른 접근을 취합니다.
+openyggdrasil은 다른 접근을 취합니다.
 
 ### 프로바이더 간 지식 교차 (Cross-Provider Pollination)
 
-OpenYggdrasil의 가장 강력한 특징은 특정 도구에 종속되지 않는 **"공용 뇌(Shared Brain)"** 라는 점입니다.
+openyggdrasil의 가장 강력한 특징은 특정 도구에 종속되지 않는 **"공용 뇌(Shared Brain)"** 라는 점입니다.
 
 - **Hermes가 씁니다:** Hermes 세션에서 아키텍처를 결정하고 Vault에 기록합니다. (출처: `provider_id: hermes`)
 - **Claude Code가 읽고 갱신합니다:** 며칠 뒤 Claude Code가 켜지면, Hermes가 쓴 문서를 검색해서 읽고 그 위에서 작업을 이어갑니다. 만약 결정이 변경되면 Claude가 기존 지식을 `SUPERSEDED`(대체됨)로 밀어내고 새 지식을 씁니다.
 - **다시 Hermes가 인지합니다:** 다음에 Hermes가 들어오면, 자신이 과거에 썼던 낡은 지식이 아니라 Claude Code가 최신화해 둔 지식을 읽게 됩니다.
 
-이것이 가능한 이유는 모든 에이전트가 자신만의 내부 트랜스크립트 포맷을 버리고, OpenYggdrasil의 **엄격한 프론트매터 스키마(Markdown + YAML)** 라는 단일 진실 원천(Vault) 규격을 공유하기 때문입니다.
+이것이 가능한 이유는 모든 에이전트가 자신만의 내부 트랜스크립트 포맷을 버리고, openyggdrasil의 **엄격한 프론트매터 스키마(Markdown + YAML)** 라는 단일 진실 원천(Vault) 규격을 공유하기 때문입니다.
 
 ## 실행 모델
 
-OpenYggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
+openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 프로바이더(Hermes, Claude Code, Cursor 등)가 이 레포지토리에 진입하면
 루트의 **`SKILL.md`** 를 읽고, 거기에 정의된 진입점을 자기 토큰으로 실행합니다.
 
@@ -105,18 +105,18 @@ OpenYggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 
 ## 프로바이더 연동 & 설정
 
-OpenYggdrasil은 AI 프로바이더(예: Hermes, Claude Code, Cursor)에 부착되는
+openyggdrasil은 AI 프로바이더(예: Hermes, Claude Code, Cursor)에 부착되는
 콜드스타트 스킬로 동작합니다. 백그라운드 데몬을 시작하거나 별도 서버
 프로세스를 관리할 필요가 없습니다.
 
 > **⚠️ 추론 토큰 모델:**
-> OpenYggdrasil은 현재 **프로바이더의 추론 토큰을 빌려서 사용**합니다.
+> openyggdrasil은 현재 **프로바이더의 추론 토큰을 빌려서 사용**합니다.
 > 자체 API 키나 LLM 인프라를 보유하지 않습니다.
 > 향후 독립적인 API 키 지정을 통한 자체 추론 지원도 계획되어 있습니다.
 
-### 1. 프로바이더가 OpenYggdrasil을 인식하는 방법
+### 1. 프로바이더가 openyggdrasil을 인식하는 방법
 
-프로바이더는 레포지토리 루트의 **`SKILL.md`** 매니페스트를 읽어 OpenYggdrasil에
+프로바이더는 레포지토리 루트의 **`SKILL.md`** 매니페스트를 읽어 openyggdrasil에
 연결합니다:
 - 에이전트의 스킬 설정을 `SKILL.md`의 절대 경로로 지정합니다.
 - 에이전트가 이 계약을 읽으면, 메모리 검색 및 캡처를 위한 정확한 진입점,
@@ -124,7 +124,7 @@ OpenYggdrasil은 AI 프로바이더(예: Hermes, Claude Code, Cursor)에 부착�
 
 ### 2. 시스템 요구사항 & 의존성 설치
 
-OpenYggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python 표준
+openyggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python 표준
 라이브러리에 거의 전적으로 의존하지만, Graphify 파생 뷰와 샌드박스 격리에
 다음 의존성 스택이 필요합니다:
 
@@ -152,13 +152,13 @@ OpenYggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python
 > 콜드스타트 스킬을 처음 실행하기 전에, 프로바이더는 **반드시 사용자에게 명시적 허가를 요청**해야 합니다.
 >
 > 1. 프로바이더가 의존성 누락을 감지합니다.
-> 2. 프로바이더가 중단하고 사용자에게 프롬프트: *"OpenYggdrasil은 로컬에 설치할 Python 의존성이 필요합니다. 허용하시겠습니까?"*
+> 2. 프로바이더가 중단하고 사용자에게 프롬프트: *"openyggdrasil은 로컬에 설치할 Python 의존성이 필요합니다. 허용하시겠습니까?"*
 > 3. 사용자 승인 시에만 의존성을 설치합니다. **무단 또는 프롬프트 없는 설치는 엄격히 금지됩니다.**
 
 ### 3. 원터치 콜드스타트
 
 의존성이 승인되고 설치되면, 프로바이더가 `SKILL.md`에 정의된 스킬 진입점을
-실행할 수 있습니다. OpenYggdrasil 런타임은 **요청 시 콜드스타트**되고,
+실행할 수 있습니다. openyggdrasil 런타임은 **요청 시 콜드스타트**되고,
 필요한 메모리 트랜잭션을 실행한 후, 깔끔하게 종료됩니다.
 
 ### 수동 설치 확인
@@ -179,7 +179,7 @@ python runtime/import_smoke.py
 
 ## PTC (Programmatic Tool Calling) 개념과 아키텍처
 
-OpenYggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool Calling)** 아키텍처를 기반으로 동작합니다. 
+openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool Calling)** 아키텍처를 기반으로 동작합니다. 
 
 **원천 SOT (Source of Truth):**
 이 아키텍처는 Anthropic의 [Programmatic Tool Calling](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/programmatic-tool-calling) (PTC) 기능과 개방형 에이전트 루프(REPL) 철학을 모티브로 삼고 있습니다.
@@ -212,11 +212,11 @@ OpenYggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool C
 2. 스크립트가 실행되며 여러 도구를 연속적으로 호출하고, 중간 데이터를 필터링하여 토큰과 지연 시간을 절약합니다.
 3. 이 방식은 효율적이고 유연하지만, 지식을 정규화하고 엄격한 생명주기를 가진 메모리로 저장하기에는 에이전트가 작성한 스크립트의 로직 무결성에 의존해야 하므로 예측 가능성이 떨어지고 런타임 환각에 취약합니다.
 
-### OpenYggdrasil의 변형 및 내재화 (Typed PTC Engine)
+### openyggdrasil의 변형 및 내재화 (Typed PTC Engine)
 
 ```
   ┌──────────────────────────────────────────────────────────────┐
-  │               OpenYggdrasil (Typed PTC Engine)               │
+  │               openyggdrasil (Typed PTC Engine)               │
   │                                                              │
   │  1. PTC Engine: `JSON Execution Plan` 강제 주입               │
   │     (예: ["distill_signal", "evaluate_candidate", ...])      │
@@ -228,24 +228,24 @@ OpenYggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool C
                                  │ Contract: Strict JSON Schema / Typed Payloads
                                  ▼
   ┌──────────────────────────────────────────────────────────────┐
-  │                 OpenYggdrasil 8-Tool Chain                   │
+  │                 openyggdrasil 8-Tool Chain                   │
   │           (결정론적, 타입 안정성, 생명주기가 관리됨)               │
   └──────────────────────────────────────────────────────────────┘
 ```
 
-OpenYggdrasil은 이 원본 아키텍처의 자율성을 의도적으로 제한하고, **타입 안정성이 보장된 체인(Typed Chain)** 으로 내재화했습니다.
+openyggdrasil은 이 원본 아키텍처의 자율성을 의도적으로 제한하고, **타입 안정성이 보장된 체인(Typed Chain)** 으로 내재화했습니다.
 
 1. **블랙박스 해체:** 내부 12-모듈이 보이지 않게 자동으로 도는 블랙박스 구조를 해체하고, 모든 모듈을 서브에이전트가 명시적으로 호출할 수 있는 "단일 목적 도구(Tool)"로 노출했습니다.
 2. **자유도 제한 (JSON Tool Plan):** 에이전트가 마음대로 도구를 조합하거나 스크립트를 짜는 것을 막습니다. 대신, PTC 엔진이 상황에 맞는 **고정된 도구 순서(Execution Plan)** 를 JSON 형태로 에이전트에게 강제 주입합니다.
 3. **이중 성격의 도구:** 도구를 '계약 가드레일'(추론 토큰 소비, 엄격한 스키마 검증)과 '작업 도구'(결정론적 Python 실행)로 분리하여 에이전트의 인지 부하를 최적화했습니다.
 
-결과적으로, OpenYggdrasil의 PTC 모델은 에이전트의 개방형 추론 루프를 제한하고, 정의된 JSON Execution Plan에 따라 순차적 도구 호출을 강제하여 데이터 무결성을 보장하는 구조로 설계되었습니다.
+결과적으로, openyggdrasil의 PTC 모델은 에이전트의 개방형 추론 루프를 제한하고, 정의된 JSON Execution Plan에 따라 순차적 도구 호출을 강제하여 데이터 무결성을 보장하는 구조로 설계되었습니다.
 
 ### PTC 도입 배경: 기존 Vector DB / ElasticSearch와의 차별점 (토큰 효율성)
 
 전통적인 RAG(검색 증강 생성) 방식은 Vector DB나 ElasticSearch에 의존하여 대량의 문서를 검색하고, 수천~수만 개의 텍스트 토큰을 에이전트의 컨텍스트 윈도우에 그대로 욱여넣습니다. 이는 **비용이 비싸고, 지연 시간(Latency)이 길며, 핵심 정보를 놓치는 현상(Lost in the middle)을 유발**합니다.
 
-OpenYggdrasil이 무거운 외부 인프라를 버리고 **순수 로컬 파일시스템 기반의 PTC 아키텍처**를 도입한 가장 큰 이유는 **압도적인 토큰 효율성과 구조적 필터링** 때문입니다:
+openyggdrasil이 무거운 외부 인프라를 버리고 **순수 로컬 파일시스템 기반의 PTC 아키텍처**를 도입한 가장 큰 이유는 **압도적인 토큰 효율성과 구조적 필터링** 때문입니다:
 
 - **중간 처리의 컨텍스트 배제:** 에이전트가 `scan_topology`나 `filter_lifecycle` 같은 Utility 도구를 호출할 때, 수많은 중간 데이터(예: 20개의 Vault 문서 스캔)는 에이전트의 컨텍스트 윈도우에 적재되지 않습니다. 오직 순수 Python 메모리 내에서만 처리(필터링, 집계)됩니다.
 - **모델 왕복(Round-trip) 오버헤드 제거:** 10개의 지식 노드를 각각 독립된 도구로 조회하는 것은 개별적으로 LLM을 호출하므로 막대한 토큰을 소모합니다. 그러나 PTC를 통해 하나의 코드 실행 블록 내에서 10개의 문서를 읽고 요약된 결론만 반환하도록 하면 토큰 소모량을 약 **10배 이상 절약**할 수 있습니다.
@@ -253,7 +253,7 @@ OpenYggdrasil이 무거운 외부 인프라를 버리고 **순수 로컬 파일�
 
 ### 추론 모델의 한계와 마지노선 (Reasoning Model Baseline & Limitations)
 
-PTC 파이프라인에서 서브에이전트(LLM)는 샌드박스 내에서 복잡한 `JSON Execution Plan`을 기억하고, 8단계의 도구를 순서대로 호출하며, 각 도구의 엄격한 JSON 스키마 제약을 오차 없이 통과해야 합니다. 이를 강제하는 것이 OpenYggdrasil의 **계약 가드레일(Contract Guardrails)**입니다.
+PTC 파이프라인에서 서브에이전트(LLM)는 샌드박스 내에서 복잡한 `JSON Execution Plan`을 기억하고, 8단계의 도구를 순서대로 호출하며, 각 도구의 엄격한 JSON 스키마 제약을 오차 없이 통과해야 합니다. 이를 강제하는 것이 openyggdrasil의 **계약 가드레일(Contract Guardrails)**입니다.
 
 이러한 고도의 제약 환경을 완주하기 위한 **추론 모델의 마지노선(Baseline)은 Claude 3.5 Sonnet 또는 GPT-4o 등급의 프론티어 모델**입니다. 
 
@@ -262,13 +262,13 @@ PTC 파이프라인에서 서브에이전트(LLM)는 샌드박스 내에서 복�
 - **가드레일 검증 실패:** 엄격한 JSON 스키마를 준수하지 못해 `evaluate` 도구에서 에러를 반환받았을 때, 스스로 코드를 수정하지 못하고 에러 루프에 빠져 타임아웃(Lease Failed) 발생.
 - **환각 및 단계 건너뛰기:** 데이터 처리 단계를 임의로 스킵하고, 환각(Hallucination)에 기반한 결과물로 파이프라인을 종료하려 시도.
 
-OpenYggdrasil은 모델의 선의나 자율성에 기대지 않습니다. 모델이 프롬프트를 무시하고 돌발 행동을 하더라도, 메인 시스템(Vault)은 샌드박스와 타입 검증에 의해 100% 보호받습니다. 위 마지노선을 충족하지 못하는 모델은 사전에 즉각적으로 걸러지며, 프로바이더 영수증(`hermes_routing_receipt`)에 `production_readiness_claimed` 마크를 획득할 수 없습니다.
+openyggdrasil은 모델의 선의나 자율성에 기대지 않습니다. 모델이 프롬프트를 무시하고 돌발 행동을 하더라도, 메인 시스템(Vault)은 샌드박스와 타입 검증에 의해 100% 보호받습니다. 위 마지노선을 충족하지 못하는 모델은 사전에 즉각적으로 걸러지며, 프로바이더 영수증(`hermes_routing_receipt`)에 `production_readiness_claimed` 마크를 획득할 수 없습니다.
 
 ---
 
 ## 작동 방식
 
-OpenYggdrasil은 메모리를 **양면 엔진**으로 취급합니다 — 지식을 포착하고 큐레이션하는
+openyggdrasil은 메모리를 **양면 엔진**으로 취급합니다 — 지식을 포착하고 큐레이션하는
 **생산면(Production Side)** 과 지식을 검색하고 전달하는 **소비면(Consumption Side)**.
 
 ```
@@ -434,7 +434,7 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니�
 지식을 **읽는** 경로(소비 트리거).
 
 > **⚠️ 현재 추론 모델:**
-> OpenYggdrasil은 현재 **프로바이더의 추론 토큰을 빌려서 사용**합니다.
+> openyggdrasil은 현재 **프로바이더의 추론 토큰을 빌려서 사용**합니다.
 > 별도의 API 키나 자체 LLM 인프라를 보유하지 않습니다.
 > 향후 독립적인 API 키 지정을 통한 자체 추론 지원도 계획되어 있습니다.
 
@@ -460,7 +460,7 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니�
 
 프로바이더 세션이 기억할 가치가 있는 의사결정 — 설계 선택, 디버깅 인사이트,
 해결된 트레이드오프 — 을 생산하면, 프로바이더의 에이전트가
-**OpenYggdrasil을 스킬로 호출**하여 이를 포착합니다.
+**openyggdrasil을 스킬로 호출**하여 이를 포착합니다.
 
 ```
   프로바이더 에이전트 (예: Hermes, Claude Code, Cursor)
@@ -479,10 +479,10 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니�
        │     }
        │
        │  ③ SKILL.md에 정의된 캡처 진입점 호출
-       │     → OpenYggdrasil이 콜드스타트, 신호 처리, 종료
+       │     → openyggdrasil이 콜드스타트, 신호 처리, 종료
        │
        ▼
-  OpenYggdrasil 생산 파이프라인이 신호를 수신
+  openyggdrasil 생산 파이프라인이 신호를 수신
 ```
 
 **핵심 규칙:**
@@ -490,7 +490,7 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니�
   내부 경로를 추측하거나 하드코딩하지 않습니다.
 - 신호는 반드시 **`source_ref`** 를 포함해야 합니다 — 출처는 필수이며 선택이 아닙니다.
   출처 참조가 없는 신호는 게이트에서 거부됩니다.
-- OpenYggdrasil은 **요청 시 콜드스타트**됩니다. 백그라운드 데몬이 없습니다.
+- openyggdrasil은 **요청 시 콜드스타트**됩니다. 백그라운드 데몬이 없습니다.
   프로바이더가 호출하면 실행되고, 완료되면 종료됩니다.
 
 ### 생산 파이프라인 — 서브에이전트가 지식을 기록하는 과정
@@ -644,7 +644,7 @@ asyncio.run(run_production_pipeline())
 ### 소비 트리거 — 프로바이더가 과거 지식을 검색하는 방법
 
 프로바이더 세션이 과거 의사결정의 맥락이 필요할 때 — "게이트웨이 패턴에 대해
-뭘 결정했었지?" — 프로바이더의 에이전트가 **OpenYggdrasil을 서브에이전트로
+뭘 결정했었지?" — 프로바이더의 에이전트가 **openyggdrasil을 서브에이전트로
 호출**하여 축적된 지식을 검색합니다.
 
 ```
@@ -662,7 +662,7 @@ asyncio.run(run_production_pipeline())
        │       session_id:  "session-2026-04-30-xyz789"
        │     }
        │
-       │  ④ OpenYggdrasil이 Pathfinder를 콜드스타트
+       │  ④ openyggdrasil이 Pathfinder를 콜드스타트
        │     → Vault에서 일치하는 토픽 스캔
        │     → 제한된 지원 번들 조립
        │     → 생명주기 인식, 출처 추적된 결과 리턴
@@ -842,7 +842,7 @@ PTC 엔진은 서브에이전트에게 JSON Tool Plan을 제공합니다. 서브
 일부 복잡한 신호나 모호한 트레이드오프는 단순한 PTC 도구 호출을 넘어섭니다 —
 시간 예산과 격리 보장이 있는 확장된 LLM 추론이 필요합니다.
 
-OpenYggdrasil은 이를 **Reasoning Lease** 계층으로 처리합니다. PTC 엔진의
+openyggdrasil은 이를 **Reasoning Lease** 계층으로 처리합니다. PTC 엔진의
 `lease_backed_llm` 모드가 활성화되면 이 계층이 동작합니다:
 
 ```
@@ -900,15 +900,15 @@ openyggdrasil/
 
 ## 영감 & 감사
 
-OpenYggdrasil은 두 가지 핵심 아이디어 위에 서 있습니다.
+openyggdrasil은 두 가지 핵심 아이디어 위에 서 있습니다.
 
 ### Andrej Karpathy의 [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 
 Karpathy는 핵심 인사이트를 명확히 했습니다: 매 질의마다 RAG로 지식을 재파생하는
 대신, LLM이 **점진적으로 영속적인 위키를 구축하고 유지**하게 하라.
-OpenYggdrasil은 이 철학을 직접 흡수했습니다:
+openyggdrasil은 이 철학을 직접 흡수했습니다:
 
-| LLM Wiki 개념 | OpenYggdrasil 흡수 |
+| LLM Wiki 개념 | openyggdrasil 흡수 |
 |---|---|
 | **Raw Sources** (불변 원본) | → Provider Signal (①) — 원본은 절대 변형되지 않음 |
 | **The Wiki** (LLM이 유지하는 지식) | → Vault — 생명주기 상태가 있는 정규 메모리 |
@@ -923,7 +923,7 @@ OpenYggdrasil은 이 철학을 직접 흡수했습니다:
 > 좋은 질문을 하는 것입니다. LLM의 일은 나머지 전부입니다."*
 > — Karpathy
 
-OpenYggdrasil은 이를 단일 사용자/단일 LLM에서
+openyggdrasil은 이를 단일 사용자/단일 LLM에서
 타입 계약, 생명주기 거버넌스, 프로바이더 중립 공유가 있는
 **멀티 프로바이더/멀티 에이전트**로 확장합니다.
 
@@ -932,7 +932,7 @@ OpenYggdrasil은 이를 단일 사용자/단일 LLM에서
 Graphify는 구조 분석 계층을 제공합니다 — 코드베이스와 지식을
 탐색 가능한 그래프로 변환:
 
-| Graphify 개념 | OpenYggdrasil 흡수 |
+| Graphify 개념 | openyggdrasil 흡수 |
 |---|---|
 | `detect → extract → build_graph → cluster → analyze → report → export` 파이프라인 | → `common/graphify/` 파생 뷰 엔진 |
 | NetworkX + Leiden 커뮤니티 클러스터링 | → Map Maker를 위한 토픽/커뮤니티 구조 |
@@ -1003,11 +1003,11 @@ Graphify는 구조 분석 계층을 제공합니다 — 코드베이스와 지�
 이 라이선스 조건에 따라 코드를 자유롭게 사용, 수정, 배포할 수 있습니다.
 
 **상표 & 브랜드 보호 (제6조):**
-코드는 오픈소스이지만, 브랜드명 **"OpenYggdrasil"** 과 **"INTEGRITY2077"**,
+코드는 오픈소스이지만, 브랜드명 **"openyggdrasil"** 과 **"INTEGRITY2077"**,
 그리고 관련 로고와 트레이드 드레스는 엄격히 보호됩니다. Apache 2.0
 라이선스는 이러한 상표의 사용 권한을 명시적으로 **부여하지 않습니다**.
 
 이 프로젝트를 포크하거나 수정된 버전을 배포하는 경우, 이름을 변경해야 하며
-OpenYggdrasil 또는 INTEGRITY2077 브랜딩을 사용하여 해당 버전을 식별할 수 없습니다.
+openyggdrasil 또는 INTEGRITY2077 브랜딩을 사용하여 해당 버전을 식별할 수 없습니다.
 
 동반 의존성 고지는 [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)를 참조하세요.

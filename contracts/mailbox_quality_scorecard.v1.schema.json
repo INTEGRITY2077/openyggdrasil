@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/mailbox_quality_scorecard.v1.schema.json",
-  "title": "OpenYggdrasil Mailbox Quality Scorecard v1",
+  "title": "openyggdrasil Mailbox Quality Scorecard v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

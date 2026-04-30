@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/production_report_evidence_lineage.v1.schema.json",
-  "title": "OpenYggdrasil Production Report Evidence Lineage v1",
+  "title": "openyggdrasil Production Report Evidence Lineage v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

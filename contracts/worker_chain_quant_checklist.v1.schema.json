@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/worker_chain_quant_checklist.v1.schema.json",
-  "title": "OpenYggdrasil Worker Chain Quant Checklist v1",
+  "title": "openyggdrasil Worker Chain Quant Checklist v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

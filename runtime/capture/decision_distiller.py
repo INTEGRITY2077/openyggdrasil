@@ -15,13 +15,47 @@ from harness_common import utc_now_iso
 
 
 DecisionCandidateRenderer = Callable[..., Mapping[str, Any]]
+StructuredDecisionCandidateRenderer = Callable[..., Any]
 STABILITY_STATES = {"provisional", "stable", "superseding"}
+STRUCTURED_OUTPUT_GUARD_SCHEMA_VERSION = "decision_distiller_structured_output_guard.v1"
+STRUCTURED_OUTPUT_GUARD_REASON = "provider_structured_output_guard"
+FORBIDDEN_STRUCTURED_OUTPUT_KEYS = {
+    "api_key",
+    "apikey",
+    "auth_token",
+    "credential",
+    "credentials",
+    "local_path",
+    "password",
+    "profile",
+    "provider_context",
+    "provider_material",
+    "provider_profile",
+    "raw_provider_context",
+    "raw_provider_material",
+    "raw_session",
+    "raw_text",
+    "raw_transcript",
+    "secret",
+    "token",
+    "transcript",
+}
+LOCAL_PATH_PATTERN = re.compile(
+    r"(?:\b[A-Za-z]:[\\/][^\s\"']+|\\\\[^\s\"']+|file://|/(?:Users|home|mnt|tmp|var|etc)/[^\s\"']+)"
+)
+CREDENTIAL_VALUE_PATTERN = re.compile(
+    r"(?i)(?:api[_-]?key|access[_-]?token|secret|credential|password)\s*[:=]\s*['\"]?[^,\s'\"]+|sk-[A-Za-z0-9_-]{12,}"
+)
+PROVIDER_PROFILE_VALUE_PATTERN = re.compile(r"(?i)\b(?:provider[_ -]?profile|profile\s*[:=])")
+RAW_TRANSCRIPT_VALUE_PATTERN = re.compile(
+    r"(?i)\b(?:raw[_ -]?transcript|conversation[_ -]?transcript)\s*[:=]"
+)
 
 
 def build_decision_distillation_prompt(*, decision_surface: Mapping[str, Any]) -> str:
     surface_json = json.dumps(dict(decision_surface), ensure_ascii=False, indent=2)
     return (
-        "You are a provider-owned headless Decision Distiller for OpenYggdrasil.\n"
+        "You are a provider-owned headless Decision Distiller for openyggdrasil.\n"
         "A foreground provider session identified a bounded decision surface.\n"
         "Extract only the durable decision candidate from that surface.\n"
         "Return ONLY one JSON object with this exact shape:\n"
@@ -47,14 +81,84 @@ def build_decision_distillation_prompt(*, decision_surface: Mapping[str, Any]) -
 
 
 def extract_json_object(text: str) -> dict[str, Any]:
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1 or end <= start:
+    """Parse one standalone JSON object for legacy deterministic fixtures.
+
+    Text parsing is not provider-owned structured-output proof; real-session
+    producer quality must use the Mapping-only structured-output guard below.
+    """
+
+    stripped = text.strip()
+    if not stripped:
         raise ValueError("No JSON object found in decision distillation output")
-    payload = json.loads(text[start : end + 1])
+    decoder = json.JSONDecoder()
+    try:
+        payload, end = decoder.raw_decode(stripped)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Decision distillation output must be exactly one standalone JSON object") from exc
+    if end != len(stripped):
+        raise ValueError("Decision distillation output must contain exactly one JSON object")
     if not isinstance(payload, dict):
         raise ValueError("Decision distillation output must be a JSON object")
     return payload
+
+
+def _structured_output_unavailable(reason_code: str) -> dict[str, Any]:
+    return {
+        "schema_version": STRUCTURED_OUTPUT_GUARD_SCHEMA_VERSION,
+        "status": "typed_unavailable",
+        "structured_output_required": True,
+        "structured_output_accepted": False,
+        "provider_structured_output_proof": False,
+        "raw_text_accepted_as_structured_proof": False,
+        "accepted_as_pass": False,
+        "candidate": None,
+        "reason_codes": [STRUCTURED_OUTPUT_GUARD_REASON, reason_code],
+    }
+
+
+def _normalized_structured_output_key(key: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(key).strip().lower()).strip("_")
+
+
+def _unsafe_structured_output_reason(value: Any) -> str | None:
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            normalized_key = _normalized_structured_output_key(key)
+            if normalized_key in FORBIDDEN_STRUCTURED_OUTPUT_KEYS:
+                if "credential" in normalized_key or normalized_key in {
+                    "api_key",
+                    "apikey",
+                    "auth_token",
+                    "password",
+                    "secret",
+                    "token",
+                }:
+                    return "credential_material_not_allowed"
+                if "profile" in normalized_key:
+                    return "provider_profile_material_not_allowed"
+                if "path" in normalized_key:
+                    return "portable_local_path_material_not_allowed"
+                if "transcript" in normalized_key or normalized_key in {"raw_text", "raw_session"}:
+                    return "raw_transcript_material_not_allowed"
+                return "provider_private_material_not_allowed"
+            child_reason = _unsafe_structured_output_reason(child)
+            if child_reason is not None:
+                return child_reason
+    elif isinstance(value, list):
+        for child in value:
+            child_reason = _unsafe_structured_output_reason(child)
+            if child_reason is not None:
+                return child_reason
+    elif isinstance(value, str):
+        if LOCAL_PATH_PATTERN.search(value):
+            return "portable_local_path_material_not_allowed"
+        if CREDENTIAL_VALUE_PATTERN.search(value):
+            return "credential_material_not_allowed"
+        if PROVIDER_PROFILE_VALUE_PATTERN.search(value):
+            return "provider_profile_material_not_allowed"
+        if RAW_TRANSCRIPT_VALUE_PATTERN.search(value):
+            return "raw_transcript_material_not_allowed"
+    return None
 
 
 def _normalize_reason_labels(value: Any) -> list[str]:
@@ -164,6 +268,43 @@ def finalize_decision_candidate(
     return candidate
 
 
+def finalize_provider_structured_decision_candidate(
+    *,
+    decision_surface: Mapping[str, Any],
+    structured_output: Any,
+    structured_output_proof: bool = False,
+    provider_id: str | None = None,
+    profile: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any]:
+    """Finalize a candidate only when provider output is a proved Mapping.
+
+    Plain provider text and any missing structured-output proof fail closed as
+    typed unavailable for the producer-quality path. extract_json_object remains
+    only a legacy fixture parser and does not establish this proof. Existing
+    deterministic Mapping finalization remains available through
+    finalize_decision_candidate.
+    """
+
+    validate_decision_surface(decision_surface)
+    if not structured_output_proof:
+        return _structured_output_unavailable("missing_structured_output_proof")
+    if not isinstance(structured_output, Mapping):
+        return _structured_output_unavailable("provider_output_not_structured_mapping")
+
+    unsafe_reason = _unsafe_structured_output_reason(structured_output)
+    if unsafe_reason is not None:
+        return _structured_output_unavailable(unsafe_reason)
+
+    return finalize_decision_candidate(
+        decision_surface=decision_surface,
+        raw_candidate=structured_output,
+        provider_id=provider_id,
+        profile=profile,
+        session_id=session_id,
+    )
+
+
 def _deterministic_skip_reason(raw_candidate: Any) -> str | None:
     if not isinstance(raw_candidate, Mapping):
         return "raw_candidate_not_mapping"
@@ -251,6 +392,26 @@ def distill_decision_candidate(
     return finalize_decision_candidate(
         decision_surface=decision_surface,
         raw_candidate=raw_candidate,
+        provider_id=provider_id,
+        profile=profile,
+        session_id=session_id,
+    )
+
+
+def distill_provider_structured_decision_candidate(
+    *,
+    decision_surface: Mapping[str, Any],
+    renderer: StructuredDecisionCandidateRenderer,
+    provider_id: str | None = None,
+    profile: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any]:
+    validate_decision_surface(decision_surface)
+    structured_output = renderer(decision_surface=decision_surface)
+    return finalize_provider_structured_decision_candidate(
+        decision_surface=decision_surface,
+        structured_output=structured_output,
+        structured_output_proof=True,
         provider_id=provider_id,
         profile=profile,
         session_id=session_id,

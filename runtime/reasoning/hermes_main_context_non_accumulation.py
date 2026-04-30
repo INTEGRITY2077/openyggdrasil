@@ -130,7 +130,7 @@ def build_hermes_main_context_non_accumulation_proof(
 ) -> dict[str, Any]:
     """Build a typed foreground-context non-accumulation proof.
 
-    The proof is scoped to OpenYggdrasil's runner/lease boundary. It records
+    The proof is scoped to openyggdrasil's runner/lease boundary. It records
     static or live evidence that worker prompts, traces, raw tool outputs, and
     lease result payloads are not appended to a provider's main foreground
     conversation. When evidence is insufficient, it emits typed unavailable

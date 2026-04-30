@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/production_poc_report.v1.schema.json",
-  "title": "OpenYggdrasil Production POC Report v1",
+  "title": "openyggdrasil Production POC Report v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

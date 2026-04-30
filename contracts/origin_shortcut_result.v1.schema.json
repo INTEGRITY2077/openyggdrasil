@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/origin_shortcut_result.v1.schema.json",
-  "title": "OpenYggdrasil Origin Shortcut Result v1",
+  "title": "openyggdrasil Origin Shortcut Result v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/session_admission_verdict.v1.schema.json",
-  "title": "OpenYggdrasil Session Admission Verdict v1",
+  "title": "openyggdrasil Session Admission Verdict v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

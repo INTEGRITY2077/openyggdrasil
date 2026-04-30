@@ -54,13 +54,13 @@ def scaffold_antigravity_workspace(workspace_root: Path) -> Dict[str, Path]:
     skill_path.write_text(
         """---
 name: openyggdrasil-provider-bootstrap
-description: Use when a provider session needs to attach to OpenYggdrasil through generated artifacts in the current workspace.
+description: Use when a provider session needs to attach to openyggdrasil through generated artifacts in the current workspace.
 ---
 
-# OpenYggdrasil Provider Bootstrap
+# openyggdrasil Provider Bootstrap
 
 ## Goal
-- Attach the current Antigravity session to OpenYggdrasil without assuming a static provider adapter.
+- Attach the current Antigravity session to openyggdrasil without assuming a static provider adapter.
 
 ## Required Behavior
 1. Treat the current workspace as the attachment root.
@@ -81,9 +81,9 @@ description: Use when a provider session needs to attach to OpenYggdrasil throug
         encoding="utf-8",
     )
     rule_path.write_text(
-        """# OpenYggdrasil Attachment Discipline
+        """# openyggdrasil Attachment Discipline
 
-- Prefer Planning mode for OpenYggdrasil-related work.
+- Prefer Planning mode for openyggdrasil-related work.
 - Keep terminal execution in Request Review unless the operator has explicitly narrowed the task.
 - Treat `.yggdrasil/` as an attachment protocol surface, not as disposable scratch state.
 - Keep provider/session identity namespaced.
@@ -94,7 +94,7 @@ description: Use when a provider session needs to attach to OpenYggdrasil throug
         """# emit-openyggdrasil-bootstrap
 
 - Inspect the current provider session context.
-- Emit or update OpenYggdrasil provider attachment artifacts for the current workspace.
+- Emit or update openyggdrasil provider attachment artifacts for the current workspace.
 - Confirm the attachment root and session-bound inbox path.
 """,
         encoding="utf-8",

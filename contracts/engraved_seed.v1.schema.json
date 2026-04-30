@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/engraved_seed.v1.schema.json",
-  "title": "OpenYggdrasil Engraved Seed v1",
+  "title": "openyggdrasil Engraved Seed v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

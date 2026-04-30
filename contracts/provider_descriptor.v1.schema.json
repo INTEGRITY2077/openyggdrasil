@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/provider_descriptor.v1.schema.json",
-  "title": "OpenYggdrasil Provider Descriptor v1",
+  "title": "openyggdrasil Provider Descriptor v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

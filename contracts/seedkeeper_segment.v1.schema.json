@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/seedkeeper_segment.v1.schema.json",
-  "title": "OpenYggdrasil Seedkeeper Segment v1",
+  "title": "openyggdrasil Seedkeeper Segment v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/recall_support_bundle_ref.v1.schema.json",
-  "title": "OpenYggdrasil Recall Support Bundle Ref v1",
+  "title": "openyggdrasil Recall Support Bundle Ref v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

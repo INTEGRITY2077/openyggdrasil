@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/mailbox_delivery_hermes_consumption.v1.schema.json",
-  "title": "OpenYggdrasil Mailbox Delivery Hermes Consumption v1",
+  "title": "openyggdrasil Mailbox Delivery Hermes Consumption v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

@@ -19,13 +19,13 @@ def main() -> int:
         workspace_root.mkdir(parents=True, exist_ok=True)
         scaffold = scaffold_antigravity_workspace(workspace_root)
         (workspace_root / "README.md").write_text(
-            "# Antigravity Live Attach Probe\n\nThis workspace is used to verify live OpenYggdrasil skill attachment behavior.\n",
+            "# Antigravity Live Attach Probe\n\nThis workspace is used to verify live openyggdrasil skill attachment behavior.\n",
             encoding="utf-8",
         )
 
         prompt = (
             "Use the openyggdrasil-provider-bootstrap skill. "
-            "Attach this Antigravity workspace to OpenYggdrasil by creating "
+            "Attach this Antigravity workspace to openyggdrasil by creating "
             ".yggdrasil provider attachment artifacts for the current session, "
             "including provider_descriptor.v1.json, session_attachment.v1.json, "
             "inbox_binding.v1.json, and one turn_delta.v1.jsonl entry. "

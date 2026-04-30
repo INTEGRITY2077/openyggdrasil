@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/graph_quality_feedback_package.v1.schema.json",
-  "title": "OpenYggdrasil Graph Quality Feedback Package v1",
+  "title": "openyggdrasil Graph Quality Feedback Package v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

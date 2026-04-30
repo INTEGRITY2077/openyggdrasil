@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/graphify_snapshot_from_live_delta.v1.schema.json",
-  "title": "OpenYggdrasil Graphify Snapshot From Live Delta v1",
+  "title": "openyggdrasil Graphify Snapshot From Live Delta v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

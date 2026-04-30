@@ -24,7 +24,7 @@ def load_runtime_module(module_name: str) -> ModuleType:
         target,
     )
     if spec is None or spec.loader is None:
-        raise ImportError(f"Unable to load OpenYggdrasil runtime module: {module_name}")
+        raise ImportError(f"Unable to load openyggdrasil runtime module: {module_name}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_key] = module
     try:

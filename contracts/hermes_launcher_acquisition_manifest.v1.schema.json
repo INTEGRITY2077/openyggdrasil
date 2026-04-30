@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/hermes_launcher_acquisition_manifest.v1.schema.json",
-  "title": "OpenYggdrasil Hermes Launcher Acquisition Manifest v1",
+  "title": "openyggdrasil Hermes Launcher Acquisition Manifest v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

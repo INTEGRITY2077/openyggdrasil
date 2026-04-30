@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/provider_packaging_known_limitations_matrix.v1.schema.json",
-  "title": "OpenYggdrasil Provider Packaging Known Limitations Matrix v1",
+  "title": "openyggdrasil Provider Packaging Known Limitations Matrix v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

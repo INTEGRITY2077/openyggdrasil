@@ -3,7 +3,7 @@
 This directory is a public documentation anchor for Hermes provider memory
 files.
 
-Provider-native memory files are not the OpenYggdrasil source of truth. Durable
+Provider-native memory files are not the openyggdrasil source of truth. Durable
 provider-neutral memory belongs in the root `vault/` only after promotion and
 provenance review.
 

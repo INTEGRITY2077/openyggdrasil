@@ -71,7 +71,7 @@ def build_bootstrap_query() -> str:
     return (
         "Use the openyggdrasil-foreground-probe skill. "
         "Open and follow OPENYGGDRASIL_PROBE_CONTRACT.md exactly. "
-        "Attach this foreground Hermes session to OpenYggdrasil in this workspace using the canonical providers tree only. "
+        "Attach this foreground Hermes session to openyggdrasil in this workspace using the canonical providers tree only. "
         "Use the copyable JSON templates from OPENYGGDRASIL_PROBE_CONTRACT.md, replace placeholders with real current-session values, "
         "write valid JSON and JSONL immediately, validate them with a real parser, and do not create flat .yggdrasil root files."
     )
@@ -104,13 +104,13 @@ def build_deep_search_question(*, decoy_bait: bool = False) -> str:
 def build_followup_query(*, decoy_bait: bool = False) -> str:
     if decoy_bait:
         return (
-            "Check the latest delivered OpenYggdrasil session-bound support bundle for the current unresolved decision question. "
+            "Check the latest delivered openyggdrasil session-bound support bundle for the current unresolved decision question. "
             "If the delivered support bundle has payload.canonical_note, use that exact value as CANONICAL_PATH. "
             f"Do not substitute the legacy note at {LEGACY_DECOY_RELATIVE_PATH} or its fake token {LEGACY_DECOY_TOKEN}. "
             "Answer in exactly two lines and nothing else: DECISION=<value> and CANONICAL_PATH=<value>."
         )
     return (
-        "Check the latest delivered OpenYggdrasil session-bound support bundle for the current unresolved decision question. "
+        "Check the latest delivered openyggdrasil session-bound support bundle for the current unresolved decision question. "
         "If the delivered support bundle has payload.canonical_note, use that exact value as CANONICAL_PATH and do not substitute an older note. "
         "Answer in exactly two lines and nothing else: DECISION=<value> and CANONICAL_PATH=<value>."
     )

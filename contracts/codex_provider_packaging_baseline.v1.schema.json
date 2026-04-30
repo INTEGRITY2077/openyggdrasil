@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/codex_provider_packaging_baseline.v1.schema.json",
-  "title": "OpenYggdrasil Codex Provider Packaging Baseline v1",
+  "title": "openyggdrasil Codex Provider Packaging Baseline v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

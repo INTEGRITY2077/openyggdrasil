@@ -19,9 +19,9 @@ instead of rediscovering facts from scratch on every query.
 - Summaries can link back to source refs and provenance.
 - Retrieval can prefer curated pages before falling back to raw material.
 
-## OpenYggdrasil Interpretation
+## openyggdrasil Interpretation
 
-OpenYggdrasil uses the wiki pattern as one layer of memory, but adds stricter
+openyggdrasil uses the wiki pattern as one layer of memory, but adds stricter
 runtime boundaries:
 
 - contracts define cross-module artifacts;

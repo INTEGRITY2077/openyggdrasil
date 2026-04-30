@@ -27,6 +27,7 @@ from reasoning.ptc_bubblewrap_isolation_trace import (
     validate_reasoning_lease_ptc_bubblewrap_trace,
 )
 from reasoning.reasoning_lease_contracts import (
+    REASONING_LEASE_MAILBOX_JOB_SCHEMA_VERSION,
     validate_reasoning_lease_request,
     validate_reasoning_lease_result,
 )
@@ -41,7 +42,7 @@ ReasoningLeaseWorker = Callable[[Mapping[str, Any]], Mapping[str, Any]]
 ReasoningLeaseRequestResolver = Callable[[Mapping[str, Any]], Mapping[str, Any]]
 PopenFactory = Callable[..., Any]
 Clock = Callable[[], float]
-ASYNC_MAILBOX_JOB_SCHEMA_VERSION = "reasoning_lease_mailbox_job.v1"
+ASYNC_MAILBOX_JOB_SCHEMA_VERSION = REASONING_LEASE_MAILBOX_JOB_SCHEMA_VERSION
 ASYNC_MAILBOX_ENQUEUE_SCHEMA_VERSION = "reasoning_lease_async_job_enqueue_result.v1"
 ASYNC_MAILBOX_CONSUMER_SCHEMA_VERSION = "reasoning_lease_async_consumer_result.v1"
 ASYNC_MAILBOX_MESSAGE_TYPE = "execute_deep_search"

@@ -255,7 +255,7 @@ def repair_workspace(workspace_root: Path) -> dict[str, Any]:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Repair OpenYggdrasil attachment artifacts conservatively.")
+    parser = argparse.ArgumentParser(description="Repair openyggdrasil attachment artifacts conservatively.")
     parser.add_argument(
         "--workspace-root",
         type=Path,

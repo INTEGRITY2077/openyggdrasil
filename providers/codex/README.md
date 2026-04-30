@@ -2,7 +2,7 @@
 
 `providers/codex/` documents the Codex attachment baseline.
 
-Codex currently attaches through the provider-neutral OpenYggdrasil skill and
+Codex currently attaches through the provider-neutral openyggdrasil skill and
 shared workspace-local contracts. There is no provider-native installed package
 target in the public deploy helper yet.
 
@@ -26,5 +26,5 @@ target in the public deploy helper yet.
 - Codex has a provider-neutral attachment path.
 - `runtime/attachments/deploy_skill.py` does not currently install a
   Codex-native provider file target.
-- Raw Codex sessions and transcripts are not copied into OpenYggdrasil.
+- Raw Codex sessions and transcripts are not copied into openyggdrasil.
 - The inbox is session-bound; no global inbox is allowed.

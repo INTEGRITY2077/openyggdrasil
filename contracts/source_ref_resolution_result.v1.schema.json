@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/source_ref_resolution_result.v1.schema.json",
-  "title": "OpenYggdrasil Source Ref Resolution Result v1",
+  "title": "openyggdrasil Source Ref Resolution Result v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/inbox_packet.v1.schema.json",
-  "title": "OpenYggdrasil Inbox Packet v1",
+  "title": "openyggdrasil Inbox Packet v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

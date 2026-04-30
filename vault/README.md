@@ -1,7 +1,7 @@
-# OpenYggdrasil Vault
+# openyggdrasil Vault
 
 `vault/` is the canonical provider-neutral memory surface for public
-OpenYggdrasil knowledge.
+openyggdrasil knowledge.
 
 It is not a place for every provider to dump raw session history.
 

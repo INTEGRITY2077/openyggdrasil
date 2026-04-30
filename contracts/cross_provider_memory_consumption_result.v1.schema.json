@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/cross_provider_memory_consumption_result.v1.schema.json",
-  "title": "OpenYggdrasil Cross Provider Memory Consumption Result v1",
+  "title": "openyggdrasil Cross Provider Memory Consumption Result v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

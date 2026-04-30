@@ -98,7 +98,7 @@ def validate_workspace(workspace_root: Path) -> dict[str, Any]:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate OpenYggdrasil attachment artifacts.")
+    parser = argparse.ArgumentParser(description="Validate openyggdrasil attachment artifacts.")
     parser.add_argument(
         "--workspace-root",
         type=Path,

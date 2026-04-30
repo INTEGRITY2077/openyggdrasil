@@ -9,7 +9,7 @@ sources: []
 
 # Memory Architecture
 
-OpenYggdrasil separates memory into explicit layers so provider tools do not
+openyggdrasil separates memory into explicit layers so provider tools do not
 collapse runtime state, raw sessions, and canonical knowledge into one bucket.
 
 ## Layers

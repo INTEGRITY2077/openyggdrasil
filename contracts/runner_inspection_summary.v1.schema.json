@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/runner_inspection_summary.v1.schema.json",
-  "title": "OpenYggdrasil Runner Inspection Summary v1",
+  "title": "openyggdrasil Runner Inspection Summary v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

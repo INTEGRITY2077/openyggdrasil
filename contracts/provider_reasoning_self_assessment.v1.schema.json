@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/provider_reasoning_self_assessment.v1.schema.json",
+  "title": "openyggdrasil Provider Reasoning Self Assessment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "assessment_id",
+    "provider_id",
+    "module_id",
+    "assessment_status",
+    "subjects",
+    "decision",
+    "safety",
+    "reason_codes",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "provider_reasoning_self_assessment.v1"
+    },
+    "assessment_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "provider_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "module_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "assessment_status": {
+      "type": "string",
+      "enum": [
+        "self_assessed",
+        "typed_unavailable",
+        "reject_unsafe"
+      ]
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subject_id",
+          "model_role",
+          "model_class",
+          "reasoning_tier",
+          "confidence",
+          "evidence_basis",
+          "limitation_codes"
+        ],
+        "properties": {
+          "subject_id": {
+            "$ref": "#/$defs/identifier"
+          },
+          "model_role": {
+            "type": "string",
+            "enum": [
+              "main_provider",
+              "subagent_provider"
+            ]
+          },
+          "model_class": {
+            "type": "string",
+            "enum": [
+              "below_baseline",
+              "at_baseline",
+              "above_baseline"
+            ]
+          },
+          "reasoning_tier": {
+            "$ref": "#/$defs/effort"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "evidence_basis": {
+            "type": "string",
+            "enum": [
+              "self_assessed_only",
+              "known_model_map",
+              "calibrated_probe",
+              "official_doc",
+              "mixed"
+            ]
+          },
+          "limitation_codes": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "$ref": "#/$defs/identifier"
+            }
+          }
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selected_subject_id",
+        "selected_model_role",
+        "requested_normalization",
+        "decision_basis",
+        "provider_capability_for_normalizer"
+      ],
+      "properties": {
+        "selected_subject_id": {
+          "$ref": "#/$defs/nullable_identifier"
+        },
+        "selected_model_role": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "main_provider",
+                "subagent_provider"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requested_normalization": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "compensate_up",
+            "pass_through",
+            "conserve_down",
+            "typed_unavailable"
+          ]
+        },
+        "decision_basis": {
+          "type": "string",
+          "enum": [
+            "self_assessed_only",
+            "known_model_map",
+            "calibrated_probe",
+            "official_doc",
+            "mixed",
+            "insufficient_signal"
+          ]
+        },
+        "provider_capability_for_normalizer": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "provider_id",
+                "model_class",
+                "reasoning_tier",
+                "requested_normalization"
+              ],
+              "properties": {
+                "provider_id": {
+                  "$ref": "#/$defs/identifier"
+                },
+                "model_class": {
+                  "type": "string",
+                  "enum": [
+                    "below_baseline",
+                    "at_baseline",
+                    "above_baseline"
+                  ]
+                },
+                "reasoning_tier": {
+                  "$ref": "#/$defs/effort"
+                },
+                "requested_normalization": {
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "compensate_up",
+                    "pass_through",
+                    "conserve_down"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "self_assessment_not_verified",
+        "verified_capability_claimed",
+        "provider_capability_overrides_module_contract",
+        "raw_prompt_included",
+        "raw_transcript_included",
+        "live_readiness_claimed",
+        "production_readiness_claimed"
+      ],
+      "properties": {
+        "self_assessment_not_verified": {
+          "const": true
+        },
+        "verified_capability_claimed": {
+          "const": false
+        },
+        "provider_capability_overrides_module_contract": {
+          "const": false
+        },
+        "raw_prompt_included": {
+          "const": false
+        },
+        "raw_transcript_included": {
+          "const": false
+        },
+        "live_readiness_claimed": {
+          "const": false
+        },
+        "production_readiness_claimed": {
+          "const": false
+        }
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "nullable_identifier": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/identifier"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "effort": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    }
+  }
+}

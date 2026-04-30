@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/support_bundle_delivery_policy.v1.schema.json",
-  "title": "OpenYggdrasil Support Bundle Delivery Policy v1",
+  "title": "openyggdrasil Support Bundle Delivery Policy v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

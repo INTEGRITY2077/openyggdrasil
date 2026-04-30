@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/amundsen_category_judgment.v1.schema.json",
+  "title": "openyggdrasil Amundsen Category Judgment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "judgment_id",
+    "category_request_id",
+    "candidate_ref",
+    "judgment_status",
+    "decision_branch",
+    "selected_category_ref",
+    "selected_category_label",
+    "selected_basis_ref",
+    "basis_refs",
+    "unsafe_basis_ref_count",
+    "reason_codes",
+    "ptc_callable",
+    "runtime_owner",
+    "module_authority",
+    "semantic_worth_authority",
+    "placement_authority",
+    "hardcoded_decision",
+    "raw_dialogue_included",
+    "raw_skill_body_included",
+    "portable_local_path_included",
+    "graphify_used_as_sot",
+    "historical_ring_snapshot_read_capability_claimed",
+    "standalone_llm_spawned",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "amundsen_category_judgment.v1"
+    },
+    "judgment_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "category_request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "candidate_ref": {
+      "type": "string",
+      "maxLength": 700
+    },
+    "judgment_status": {
+      "type": "string",
+      "enum": [
+        "judged",
+        "typed_unavailable"
+      ]
+    },
+    "decision_branch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "selected_category_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\\\]+$",
+      "maxLength": 700
+    },
+    "selected_category_label": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 180
+    },
+    "selected_basis_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\\\]+$",
+      "maxLength": 700
+    },
+    "basis_refs": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\\\]+$",
+        "maxLength": 700
+      }
+    },
+    "unsafe_basis_ref_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 180
+      }
+    },
+    "ptc_callable": {
+      "const": true
+    },
+    "runtime_owner": {
+      "const": "runtime/reasoning/amundsen_category_judgment.py"
+    },
+    "module_authority": {
+      "const": "amundsen_category_decision_only"
+    },
+    "semantic_worth_authority": {
+      "const": "not_amundsen"
+    },
+    "placement_authority": {
+      "const": "not_amundsen"
+    },
+    "hardcoded_decision": {
+      "const": false
+    },
+    "raw_dialogue_included": {
+      "const": false
+    },
+    "raw_skill_body_included": {
+      "const": false
+    },
+    "portable_local_path_included": {
+      "const": false
+    },
+    "graphify_used_as_sot": {
+      "const": false
+    },
+    "historical_ring_snapshot_read_capability_claimed": {
+      "const": false
+    },
+    "standalone_llm_spawned": {
+      "const": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

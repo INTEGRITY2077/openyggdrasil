@@ -180,7 +180,7 @@ def _workspace_exists_check(workspace_root: Path) -> dict[str, Any]:
         user_help=[
             _help(
                 "workspace_root_missing",
-                "Open or clone the OpenYggdrasil repository and run the provider skill from that workspace root.",
+                "Open or clone the openyggdrasil repository and run the provider skill from that workspace root.",
                 "The provider cannot safely infer the canonical repository root.",
             )
         ],
@@ -225,7 +225,7 @@ def _workspace_writable_check(workspace_root: Path) -> dict[str, Any]:
                 _help(
                     "healthcheck_dir_not_writable",
                     "Grant write access to the repository-local .yggdrasil directory or choose a writable workspace clone.",
-                    "OpenYggdrasil must write session-bound runtime state before it can attach a provider.",
+                    "openyggdrasil must write session-bound runtime state before it can attach a provider.",
                 )
             ],
         )
@@ -335,7 +335,7 @@ def _source_files_check(workspace_root: Path) -> dict[str, Any]:
         user_help=[
             _help(
                 "skill_sources_missing",
-                "Restore the repository checkout or rerun from a complete OpenYggdrasil clone.",
+                "Restore the repository checkout or rerun from a complete openyggdrasil clone.",
                 "The provider must not invent missing runtime contracts or attachment tools.",
             )
         ],
@@ -419,7 +419,7 @@ def _python_runtime_check() -> dict[str, Any]:
     ok = sys.version_info >= (3, 11)
     return _check(
         check_id="python.runtime.available",
-        label="Python runtime can execute OpenYggdrasil probes",
+        label="Python runtime can execute openyggdrasil probes",
         blocking=True,
         attempts=[
             _attempt(
@@ -439,7 +439,7 @@ def _python_runtime_check() -> dict[str, Any]:
         user_help=[
             _help(
                 "python_runtime_too_old",
-                "Install or select Python 3.11+ for the provider-side OpenYggdrasil runtime probes.",
+                "Install or select Python 3.11+ for the provider-side openyggdrasil runtime probes.",
                 "Schema validation and runtime probes are Python-backed.",
             )
         ],
@@ -586,7 +586,7 @@ def _attachment_validation_check(workspace_root: Path) -> dict[str, Any]:
             _help(
                 "attachment_validation_failed",
                 "Run runtime/attachments/repair_attachment.py or inspect the invalid .yggdrasil provider artifacts.",
-                "OpenYggdrasil must reject corrupted or schema-incompatible provider state.",
+                "openyggdrasil must reject corrupted or schema-incompatible provider state.",
             )
         ],
     )
@@ -767,7 +767,7 @@ def _sandbox_runtime_check(
             _help(
                 "sandbox_dependencies_missing",
                 "Install bubblewrap and socat inside the WSL2/Linux environment used by provider workers.",
-                "OpenYggdrasil can attach memory without them, but sandboxed reasoning lease execution should fail closed.",
+                "openyggdrasil can attach memory without them, but sandboxed reasoning lease execution should fail closed.",
             )
         ],
     )

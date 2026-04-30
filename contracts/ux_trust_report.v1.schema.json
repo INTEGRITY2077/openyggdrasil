@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/ux_trust_report.v1.schema.json",
-  "title": "OpenYggdrasil UX Trust Report v1",
+  "title": "openyggdrasil UX Trust Report v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

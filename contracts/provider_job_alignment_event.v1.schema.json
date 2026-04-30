@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/provider_job_alignment_event.v1.schema.json",
-  "title": "OpenYggdrasil Provider Job Alignment Event v1",
+  "title": "openyggdrasil Provider Job Alignment Event v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

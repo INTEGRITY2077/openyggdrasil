@@ -20,14 +20,14 @@ def build_hermes_profile_skill_markdown(
     workspace_root = workspace_root.resolve()
     return f"""---
 name: {skill_name}
-description: Attaches the current Hermes foreground session to the shared OpenYggdrasil memory forest when the current workspace needs canonical attachment bootstrap, repair, or session-bound inbox access.
+description: Attaches the current Hermes foreground session to the shared openyggdrasil memory forest when the current workspace needs canonical attachment bootstrap, repair, or session-bound inbox access.
 ---
 
-# OpenYggdrasil Foreground Probe
+# openyggdrasil Foreground Probe
 
 Use this skill when the current Hermes foreground session must:
 
-- attach itself to OpenYggdrasil inside the current workspace
+- attach itself to openyggdrasil inside the current workspace
 - run the cold-start healthcheck on first install or forced recheck
 - create canonical `.yggdrasil/providers/...` artifacts
 - keep the inbox session-bound
@@ -59,7 +59,7 @@ Support consumption rule:
   inspect that delivered packet first
 - prefer `payload.canonical_note` and `payload.provenance_note` from the latest delivered
   `support_bundle` over older workspace notes when the task explicitly asks for delivered
-  OpenYggdrasil support
+  openyggdrasil support
 - do not substitute an older topic page if the delivered `support_bundle` already names a
   canonical note for the current question
 

@@ -49,6 +49,6 @@ Required contracts:
   foreground proof surface exists.
 - Hermes background reasoning is typed and gated; an invocation marker alone is
   not a completed reasoning lease result.
-- Provider raw sessions and transcripts are not copied into OpenYggdrasil.
+- Provider raw sessions and transcripts are not copied into openyggdrasil.
 - The inbox remains session-bound; no global inbox is allowed.
 - Provider-native private bundles are not published in this public repository.

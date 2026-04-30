@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/thin_worker_chain_result.v1.schema.json",
-  "title": "OpenYggdrasil Thin Worker Chain Result v1",
+  "title": "openyggdrasil Thin Worker Chain Result v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

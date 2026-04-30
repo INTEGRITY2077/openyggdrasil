@@ -1,7 +1,7 @@
 # Third-Party Licenses
 
 This file records public third-party license notice for companion dependencies
-that are intentionally part of the OpenYggdrasil distribution surface.
+that are intentionally part of the openyggdrasil distribution surface.
 
 It currently documents the direct Graphify companion notice. It is not a
 complete SBOM and does not claim full transitive dependency coverage.
@@ -15,10 +15,10 @@ complete SBOM and does not claim full transitive dependency coverage.
 - Reviewed upstream reference: `v4`
 - Upstream package name: `graphifyy`
 - Upstream license: MIT
-- OpenYggdrasil usage: default companion graph/query layer over canonical
+- openyggdrasil usage: default companion graph/query layer over canonical
   `vault/` material
 
-### OpenYggdrasil Integration Boundary
+### openyggdrasil Integration Boundary
 
 Graphify is used for:
 
@@ -26,7 +26,7 @@ Graphify is used for:
 - graph query execution;
 - graph explain/path/query support.
 
-Graphify is not the OpenYggdrasil source of truth. Canonical memory remains in
+Graphify is not the openyggdrasil source of truth. Canonical memory remains in
 `vault/`, and public wrappers live under `common/graphify/`.
 
 ### Upstream Copyright And License Notice
@@ -59,7 +59,7 @@ SOFTWARE.
 
 ## Scope Clarification
 
-This notice covers the direct Graphify project notice that OpenYggdrasil must
+This notice covers the direct Graphify project notice that openyggdrasil must
 surface because Graphify is part of the intended default companion path.
 
 This file does not yet enumerate:
@@ -72,6 +72,6 @@ Those remain separate review and packaging tasks.
 
 ## Packaging Rule
 
-Any public OpenYggdrasil distribution that installs or bundles Graphify should
+Any public openyggdrasil distribution that installs or bundles Graphify should
 preserve this notice or an equivalent notice carrying the same upstream
 attribution and license text.

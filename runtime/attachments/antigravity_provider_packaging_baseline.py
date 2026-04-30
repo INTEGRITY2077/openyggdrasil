@@ -104,7 +104,7 @@ def build_antigravity_provider_packaging_baseline(
         "known_limitations": [
             "This baseline proves repo-owned Gemini file deployment and Antigravity workspace scaffold behavior, not current product behavior.",
             "The Antigravity provider id remains distinct from the Gemini file target to preserve provider/session provenance.",
-            "Raw Gemini or Antigravity sessions and transcripts are not copied into OpenYggdrasil.",
+            "Raw Gemini or Antigravity sessions and transcripts are not copied into openyggdrasil.",
         ],
         "safety": {
             "doc_committed": False,

@@ -3,7 +3,7 @@
 `providers/antigravity/` documents the Antigravity and Gemini-family attachment
 baseline.
 
-OpenYggdrasil does not ship a static Antigravity runtime bundle here. The
+openyggdrasil does not ship a static Antigravity runtime bundle here. The
 public baseline is generated from provider-neutral attachment contracts and
 repo-owned bootstrap helpers.
 
@@ -25,7 +25,7 @@ repo-owned bootstrap helpers.
 ## Boundary
 
 - Antigravity identity remains distinct from the Gemini generated file target.
-- Raw Gemini or Antigravity sessions are not copied into OpenYggdrasil.
+- Raw Gemini or Antigravity sessions are not copied into openyggdrasil.
 - The inbox is session-bound; no global inbox is allowed.
 - This public folder is a documentation and packaging anchor, not a private
   provider bundle.

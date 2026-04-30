@@ -13,6 +13,8 @@ from reasoning.provider_capability_descriptor import background_reasoning_descri
 OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS_ROOT = OPENYGGDRASIL_ROOT / "contracts"
 
+REASONING_LEASE_MAILBOX_JOB_SCHEMA_VERSION = "reasoning_lease_mailbox_job.v1"
+
 REASONING_DEPTH_ORDER = {
     "none": 0,
     "low": 1,

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/hermes_state_metadata_policy.v1.schema.json",
-  "title": "OpenYggdrasil Hermes State Metadata Policy v1",
+  "title": "openyggdrasil Hermes State Metadata Policy v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

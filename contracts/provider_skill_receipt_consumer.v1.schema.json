@@ -1,0 +1,285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/provider_skill_receipt_consumer.v1.schema.json",
+  "title": "openyggdrasil Provider Skill Receipt Consumer v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "consumption_id",
+    "consumer_request_id",
+    "consumption_status",
+    "unavailable_condition",
+    "reason_codes",
+    "production_request_ref",
+    "production_receipt_ref",
+    "support_bundle_ref",
+    "menu_ref",
+    "menu_items",
+    "safe_portable_refs",
+    "input_schema_versions",
+    "ptc_callable",
+    "plane",
+    "runtime_owner",
+    "plane_a_boundary_retained",
+    "plane_b_frontmatter_consumed",
+    "typed_receipt_inputs_only",
+    "raw_transcript_included",
+    "raw_provider_material_included",
+    "skill_body_included",
+    "raw_skill_body_included",
+    "provider_credential_profile_included",
+    "portable_local_path_included",
+    "live_readiness_claimed",
+    "production_readiness_claimed",
+    "reasoning_lease_solved_claimed",
+    "public_runtime_integration_complete_claimed",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "provider_skill_receipt_consumer.v1"
+    },
+    "consumption_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "consumer_request_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "consumption_status": {
+      "type": "string",
+      "enum": [
+        "menu_built",
+        "typed_unavailable"
+      ]
+    },
+    "unavailable_condition": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 180
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "production_request_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/safe_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "production_receipt_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/safe_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "support_bundle_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/safe_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "menu_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/safe_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "menu_items": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/menu_item"
+      }
+    },
+    "safe_portable_refs": {
+      "type": "array",
+      "maxItems": 48,
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
+    "input_schema_versions": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "ptc_callable": {
+      "const": true
+    },
+    "plane": {
+      "const": "plane_a_receipt_consumer"
+    },
+    "runtime_owner": {
+      "const": "runtime/reasoning/provider_skill_receipt_consumer.py"
+    },
+    "plane_a_boundary_retained": {
+      "const": true
+    },
+    "plane_b_frontmatter_consumed": {
+      "const": false
+    },
+    "typed_receipt_inputs_only": {
+      "const": true
+    },
+    "raw_transcript_included": {
+      "const": false
+    },
+    "raw_provider_material_included": {
+      "const": false
+    },
+    "skill_body_included": {
+      "const": false
+    },
+    "raw_skill_body_included": {
+      "const": false
+    },
+    "provider_credential_profile_included": {
+      "const": false
+    },
+    "portable_local_path_included": {
+      "const": false
+    },
+    "live_readiness_claimed": {
+      "const": false
+    },
+    "production_readiness_claimed": {
+      "const": false
+    },
+    "reasoning_lease_solved_claimed": {
+      "const": false
+    },
+    "public_runtime_integration_complete_claimed": {
+      "const": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "safe_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 700,
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\\\\\s]+$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^[Ff][Ii][Ll][Ee]://"
+          },
+          {
+            "pattern": "^[A-Za-z]:"
+          },
+          {
+            "pattern": "(?i)\\.skill\\.md"
+          },
+          {
+            "pattern": "(?i)credential"
+          },
+          {
+            "pattern": "(?i)transcript"
+          }
+        ]
+      }
+    },
+    "safe_label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180,
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "(?s)^---\\s*\\n.*name\\s*:"
+          },
+          {
+            "pattern": "```"
+          },
+          {
+            "pattern": "\\.skill\\.md"
+          },
+          {
+            "pattern": "<INSTRUCTIONS>"
+          },
+          {
+            "pattern": "(?i)credential"
+          },
+          {
+            "pattern": "(?i)transcript"
+          },
+          {
+            "pattern": "(?i)provider_profile"
+          }
+        ]
+      }
+    },
+    "menu_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_ref",
+        "item_kind",
+        "label",
+        "source_ref",
+        "reason_code"
+      ],
+      "properties": {
+        "item_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "item_kind": {
+          "type": "string",
+          "enum": [
+            "production_request",
+            "production_receipt",
+            "support_bundle",
+            "routing_receipt",
+            "answer_receipt",
+            "approved_routing_fact",
+            "recall_support_bundle"
+          ]
+        },
+        "label": {
+          "$ref": "#/$defs/safe_label"
+        },
+        "source_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "reason_code": {
+          "$ref": "#/$defs/identifier"
+        }
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/follow_up_production_request_candidate.v1.schema.json",
-  "title": "OpenYggdrasil Follow-up Production Request Candidate v1",
+  "title": "openyggdrasil Follow-up Production Request Candidate v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

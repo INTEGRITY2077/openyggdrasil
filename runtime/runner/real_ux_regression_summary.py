@@ -152,7 +152,7 @@ def summarize_real_ux_regression_results(result_paths: list[Path]) -> dict[str, 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Summarize OpenYggdrasil Phase 2 real UX regression results without raw transcripts."
+        description="Summarize openyggdrasil Phase 2 real UX regression results without raw transcripts."
     )
     parser.add_argument("--result", action="append", required=True, help="Path to a real UX regression result JSON.")
     parser.add_argument("--output", help="Optional JSON summary output path.")

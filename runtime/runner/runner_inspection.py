@@ -266,7 +266,7 @@ def _load_input(path: str) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Inspect OpenYggdrasil runner output without provider raw text.")
+    parser = argparse.ArgumentParser(description="Inspect openyggdrasil runner output without provider raw text.")
     parser.add_argument("--input", "-i", required=True, help="Runner result JSON path, or '-' for stdin.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     args = parser.parse_args(argv)

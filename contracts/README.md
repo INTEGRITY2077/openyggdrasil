@@ -1,6 +1,6 @@
 # Contracts
 
-`contracts/` is the public schema surface for OpenYggdrasil.
+`contracts/` is the public schema surface for openyggdrasil.
 
 The runtime is intentionally contract-first. Modules pass typed JSON artifacts
 instead of free-form prose whenever a result, handoff, lifecycle decision,

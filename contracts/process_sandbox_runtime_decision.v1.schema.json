@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/process_sandbox_runtime_decision.v1.schema.json",
-  "title": "OpenYggdrasil Process Sandbox Runtime Decision v1",
+  "title": "openyggdrasil Process Sandbox Runtime Decision v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

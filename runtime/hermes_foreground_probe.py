@@ -61,7 +61,7 @@ def build_probe_skill_markdown(
 def build_probe_agents_markdown(*, probe_profile: str) -> str:
     return f"""# AGENTS.md
 
-- Use the `{DEFAULT_PROBE_SKILL_NAME}` skill for OpenYggdrasil-related work in this workspace.
+- Use the `{DEFAULT_PROBE_SKILL_NAME}` skill for openyggdrasil-related work in this workspace.
 - The current workspace is the only valid attachment root.
 - Use `provider_id = hermes`.
 - Use `provider_profile = {probe_profile}`.
@@ -74,7 +74,7 @@ def build_probe_agents_markdown(*, probe_profile: str) -> str:
 
 
 def build_probe_contract_markdown(*, probe_profile: str) -> str:
-    return f"""# OpenYggdrasil Probe Contract
+    return f"""# openyggdrasil Probe Contract
 
 Use this file as the canonical attachment reference for the current workspace.
 
@@ -240,7 +240,7 @@ Replace every angle-bracket placeholder with the current real value.
   "sequence": 1,
   "created_at": "<iso_timestamp>",
   "role": "assistant",
-  "content": "Foreground Hermes session attached to OpenYggdrasil.",
+  "content": "Foreground Hermes session attached to openyggdrasil.",
   "summary": "workspace attachment bootstrap"
 }}
 ```
@@ -268,9 +268,25 @@ def newest_session_id(before: Sequence[str], after: Sequence[str]) -> str | None
     return latest
 
 
+def _load_env_exports() -> str:
+    env_path = PROJECT_ROOT.parent / "openyggdrasil-private-dev" / ".env"
+    if not env_path.exists():
+        return ""
+    exports = []
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, val = line.split("=", 1)
+            exports.append(f"export {key}={shlex.quote(val)}")
+    if exports:
+        return " ".join(exports) + " && "
+    return ""
+
+
 def _run_wsl_bash(script: str, *, timeout_seconds: int = 240) -> subprocess.CompletedProcess[str]:
+    full_script = _load_env_exports() + script
     return subprocess.run(
-        ["wsl", "-d", WSL_DISTRO, "--", "bash", "-lc", script],
+        ["wsl", "-d", WSL_DISTRO, "--", "bash", "-lc", full_script],
         text=True,
         encoding="utf-8",
         errors="replace",
@@ -331,42 +347,15 @@ def sync_probe_auth(
     probe_profile: str = DEFAULT_PROBE_PROFILE,
     clone_from: str = DEFAULT_BASE_PROFILE,
 ) -> Dict[str, Any]:
-    python_code = f"""
-import json
-import pathlib
-import shutil
-
-probe_profile = {json.dumps(probe_profile)}
-clone_from = {json.dumps(clone_from)}
-profiles_root = pathlib.Path.home() / ".hermes" / "profiles"
-source_auth = profiles_root / clone_from / "auth.json"
-probe_auth = profiles_root / probe_profile / "auth.json"
-copied = False
-source_exists = source_auth.exists()
-if source_exists:
-    probe_auth.parent.mkdir(parents=True, exist_ok=True)
-    source_bytes = source_auth.read_bytes()
-    target_bytes = probe_auth.read_bytes() if probe_auth.exists() else None
-    if target_bytes != source_bytes:
-        shutil.copy2(source_auth, probe_auth)
-        probe_auth.chmod(0o600)
-        copied = True
-print(json.dumps({{
-    "source_auth": str(source_auth),
-    "probe_auth": str(probe_auth),
-    "source_exists": source_exists,
-    "probe_exists": probe_auth.exists(),
-    "copied": copied,
-}}))
-""".strip()
-    completed = run_wsl_python(python_code, timeout_seconds=120, mode="heredoc")
-    if completed.returncode != 0:
-        raise RuntimeError(
-            "Failed to sync Hermes probe auth\n"
-            f"stdout={completed.stdout!r}\n"
-            f"stderr={completed.stderr!r}"
-        )
-    return json.loads(completed.stdout.strip())
+    # auth.json sync disabled in favor of stateless .env injection
+    return {
+        "source_auth": "none",
+        "probe_auth": "none",
+        "source_exists": False,
+        "probe_exists": False,
+        "copied": False,
+        "message": "auth.json sync disabled, using .env injection instead"
+    }
 
 
 def sync_probe_skill(
@@ -464,7 +453,7 @@ def write_probe_workspace_files(*, workspace_root: Path, probe_profile: str) -> 
     contract_path = workspace_root / "OPENYGGDRASIL_PROBE_CONTRACT.md"
     readme_path.write_text(
         "# Hermes Foreground Probe Workspace\n\n"
-        "This workspace exists to verify whether a foreground-equivalent Hermes CLI session can attach itself to OpenYggdrasil.\n",
+        "This workspace exists to verify whether a foreground-equivalent Hermes CLI session can attach itself to openyggdrasil.\n",
         encoding="utf-8",
     )
     agents_path.write_text(build_probe_agents_markdown(probe_profile=probe_profile), encoding="utf-8")
@@ -617,7 +606,7 @@ def run_hermes_foreground_probe(
         f"The current Hermes profile is {probe_profile}. "
         "Open and follow OPENYGGDRASIL_PROBE_CONTRACT.md exactly. "
         "Copy the JSON templates and replace the placeholders with real values from the current session. "
-        "Attach this foreground Hermes session to OpenYggdrasil using the canonical providers tree, not a flat .yggdrasil root. "
+        "Attach this foreground Hermes session to openyggdrasil using the canonical providers tree, not a flat .yggdrasil root. "
         "Use provider_id hermes, use the current session id from the system prompt, "
         "derive session_uid as hermes:yggdrasilfgpoc:<current_session_id>, derive the session_component by replacing colons with underscores, "
         "write the three JSON contract files under .yggdrasil/providers/hermes/yggdrasilfgpoc/<session_component>/, "

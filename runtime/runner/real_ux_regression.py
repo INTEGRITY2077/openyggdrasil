@@ -1259,7 +1259,7 @@ def run_real_ux_regression(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run OpenYggdrasil Phase 2 real UX regressions.")
+    parser = argparse.ArgumentParser(description="Run openyggdrasil Phase 2 real UX regressions.")
     parser.add_argument(
         "--scenario",
         default="accepted_decision",

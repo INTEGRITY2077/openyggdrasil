@@ -9,7 +9,7 @@ sources: []
 
 # Home
 
-This is the public landing page for the OpenYggdrasil vault.
+This is the public landing page for the openyggdrasil vault.
 
 The vault is a curated memory surface. It is not a provider transcript archive,
 runtime inbox, or operator testbed.

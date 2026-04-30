@@ -1,6 +1,6 @@
 # Wiki Index
 
-Content catalog for the public OpenYggdrasil vault.
+Content catalog for the public openyggdrasil vault.
 
 Last updated: 2026-04-26
 
@@ -15,7 +15,7 @@ Last updated: 2026-04-26
 
 - [[concepts/llm-wiki-pattern]] - Markdown wiki pattern for AI-readable
   accumulated knowledge.
-- [[concepts/memory-architecture]] - OpenYggdrasil memory layers and boundaries.
+- [[concepts/memory-architecture]] - openyggdrasil memory layers and boundaries.
 
 ## Queries
 

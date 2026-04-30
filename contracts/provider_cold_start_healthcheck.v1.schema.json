@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/provider_cold_start_healthcheck.v1.schema.json",
-  "title": "OpenYggdrasil Provider Cold Start Healthcheck v1",
+  "title": "openyggdrasil Provider Cold Start Healthcheck v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

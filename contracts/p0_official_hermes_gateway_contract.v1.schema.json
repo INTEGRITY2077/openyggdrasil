@@ -1,0 +1,426 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/p0_official_hermes_gateway_contract.v1.schema.json",
+  "title": "openyggdrasil P0 Official Hermes Gateway Contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_id",
+    "contract_ref",
+    "provider",
+    "gateway_status",
+    "unavailable_condition",
+    "reject_condition",
+    "reason_codes",
+    "safety_reject_reasons",
+    "gateway_owner_type",
+    "gateway_owner_ref",
+    "invocation_surface",
+    "gateway_capability",
+    "provider_gateway_surface_ref",
+    "provider_gateway_capability_ref",
+    "provider_gateway_contract_ref",
+    "gateway_request_ref",
+    "session_probe_id",
+    "typed_task_id",
+    "typed_result_ref",
+    "typed_unavailable_ref",
+    "before_main_context_window_ref",
+    "after_main_context_window_ref",
+    "provider_gateway_evidence_ref",
+    "provider_gateway_proof_ref",
+    "producer_usage_claimed",
+    "producer_request_ref",
+    "producer_receipt_ref",
+    "consumer_usage_claimed",
+    "support_bundle_ref",
+    "consumer_menu_ref",
+    "consumer_usage_ref",
+    "subagent_or_provider_skill_claimed",
+    "provider_skill_ref",
+    "provider_subagent_surface_ref",
+    "reasoning_lease_ref",
+    "ptc_or_subagent_boundary_ref",
+    "lease_budget_ref",
+    "lease_unavailable_reason",
+    "safe_portable_refs",
+    "input_schema_versions",
+    "ptc_callable",
+    "runtime_owner",
+    "static_contract_only",
+    "typed_refs_only",
+    "foreground_env_injection_used",
+    "private_env_injection_used",
+    "stdin_injection_used",
+    "raw_transcript_included",
+    "raw_prompt_included",
+    "raw_provider_material_included",
+    "provider_credential_profile_included",
+    "provider_state_db_material_included",
+    "local_provider_path_material_included",
+    "hermes_source_hard_coupled",
+    "hermes_source_patch_used",
+    "mock_synthetic_proof_relabelled_live",
+    "setup_report_treated_as_typed_proof",
+    "raw_provider_task_output_payload_captured",
+    "safe_gateway_pass_claimed",
+    "hermes_subagent_live_bridge_complete_claimed",
+    "r9_real_session_pass_claimed",
+    "r10_live_pass_claimed",
+    "reasoning_lease_solved_claimed",
+    "live_readiness_claimed",
+    "production_readiness_claimed",
+    "public_runtime_integration_complete_claimed",
+    "background_live_integration_claimed",
+    "p4_h6_closed_claimed",
+    "hermes_answer_quality_claimed",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "p0_official_hermes_gateway_contract.v1"
+    },
+    "contract_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "contract_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "const": "hermes"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "gateway_status": {
+      "type": "string",
+      "enum": [
+        "static_contract_ready",
+        "typed_unavailable",
+        "reject"
+      ]
+    },
+    "unavailable_condition": {
+      "$ref": "#/$defs/nullable_identifier"
+    },
+    "reject_condition": {
+      "$ref": "#/$defs/nullable_identifier"
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 40,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "safety_reject_reasons": {
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "gateway_owner_type": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "app_assigned_gateway",
+            "provider_owned_gateway"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "gateway_owner_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "invocation_surface": {
+      "type": "string",
+      "enum": [
+        "official_app_assigned_command",
+        "official_provider_command",
+        "official_provider_subagent_delegate",
+        "official_provider_skill_entrypoint",
+        "none"
+      ]
+    },
+    "gateway_capability": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "command_gateway",
+            "subagent_gateway",
+            "provider_skill_gateway"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "provider_gateway_surface_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "provider_gateway_capability_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "provider_gateway_contract_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "gateway_request_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "session_probe_id": {
+      "$ref": "#/$defs/nullable_identifier"
+    },
+    "typed_task_id": {
+      "$ref": "#/$defs/nullable_identifier"
+    },
+    "typed_result_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "typed_unavailable_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "before_main_context_window_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "after_main_context_window_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "provider_gateway_evidence_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "provider_gateway_proof_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "producer_usage_claimed": {
+      "type": "boolean"
+    },
+    "producer_request_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "producer_receipt_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "consumer_usage_claimed": {
+      "type": "boolean"
+    },
+    "support_bundle_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "consumer_menu_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "consumer_usage_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "subagent_or_provider_skill_claimed": {
+      "type": "boolean"
+    },
+    "provider_skill_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "provider_subagent_surface_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "reasoning_lease_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "ptc_or_subagent_boundary_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "lease_budget_ref": {
+      "$ref": "#/$defs/nullable_safe_ref"
+    },
+    "lease_unavailable_reason": {
+      "$ref": "#/$defs/nullable_identifier"
+    },
+    "safe_portable_refs": {
+      "type": "array",
+      "maxItems": 80,
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
+    "input_schema_versions": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "ptc_callable": {
+      "const": true
+    },
+    "runtime_owner": {
+      "const": "runtime/reasoning/hermes_official_gateway_contract.py"
+    },
+    "static_contract_only": {
+      "const": true
+    },
+    "typed_refs_only": {
+      "const": true
+    },
+    "foreground_env_injection_used": {
+      "const": false
+    },
+    "private_env_injection_used": {
+      "const": false
+    },
+    "stdin_injection_used": {
+      "const": false
+    },
+    "raw_transcript_included": {
+      "const": false
+    },
+    "raw_prompt_included": {
+      "const": false
+    },
+    "raw_provider_material_included": {
+      "const": false
+    },
+    "provider_credential_profile_included": {
+      "const": false
+    },
+    "provider_state_db_material_included": {
+      "const": false
+    },
+    "local_provider_path_material_included": {
+      "const": false
+    },
+    "hermes_source_hard_coupled": {
+      "const": false
+    },
+    "hermes_source_patch_used": {
+      "const": false
+    },
+    "mock_synthetic_proof_relabelled_live": {
+      "const": false
+    },
+    "setup_report_treated_as_typed_proof": {
+      "const": false
+    },
+    "raw_provider_task_output_payload_captured": {
+      "const": false
+    },
+    "safe_gateway_pass_claimed": {
+      "const": false
+    },
+    "hermes_subagent_live_bridge_complete_claimed": {
+      "const": false
+    },
+    "r9_real_session_pass_claimed": {
+      "const": false
+    },
+    "r10_live_pass_claimed": {
+      "const": false
+    },
+    "reasoning_lease_solved_claimed": {
+      "const": false
+    },
+    "live_readiness_claimed": {
+      "const": false
+    },
+    "production_readiness_claimed": {
+      "const": false
+    },
+    "public_runtime_integration_complete_claimed": {
+      "const": false
+    },
+    "background_live_integration_claimed": {
+      "const": false
+    },
+    "p4_h6_closed_claimed": {
+      "const": false
+    },
+    "hermes_answer_quality_claimed": {
+      "const": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "nullable_identifier": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/identifier"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullable_safe_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/safe_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "safe_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 700,
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\\\\\s]+$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^[Ff][Ii][Ll][Ee]://"
+          },
+          {
+            "pattern": "^[A-Za-z]:"
+          },
+          {
+            "pattern": "(?i)\\.skill\\.md"
+          },
+          {
+            "pattern": "(?i)credential"
+          },
+          {
+            "pattern": "(?i)profile"
+          },
+          {
+            "pattern": "(?i)transcript"
+          },
+          {
+            "pattern": "(?i)prompt"
+          },
+          {
+            "pattern": "(?i)auth\\.json"
+          },
+          {
+            "pattern": "(?i)state[_-]?db"
+          },
+          {
+            "pattern": "(?i)\\.env"
+          },
+          {
+            "pattern": "(?i)openyggdrasil-private-dev"
+          }
+        ]
+      }
+    }
+  }
+}

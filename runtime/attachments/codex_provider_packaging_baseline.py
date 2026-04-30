@@ -76,7 +76,7 @@ def build_codex_provider_packaging_baseline(
         "deploy_tool_surface": "runtime/attachments/deploy_skill.py",
         "activation_path": (
             "No provider-native Codex deploy target exists in deploy_skill.py; "
-            "use the canonical OpenYggdrasil skill instructions in the current Codex workspace "
+            "use the canonical openyggdrasil skill instructions in the current Codex workspace "
             "and generate .yggdrasil/providers/codex/... through the shared attachment contracts."
         ),
         "degrade_reason": "Codex is attachable through provider-neutral session contracts but has no provider-native deploy target.",
@@ -95,7 +95,7 @@ def build_codex_provider_packaging_baseline(
         "known_limitations": [
             "deploy_skill.py has no Codex provider-native file target.",
             "Codex attachment is currently provider-neutral and skill-generated, not an installed provider package.",
-            "Raw Codex session transcripts are not copied into OpenYggdrasil.",
+            "Raw Codex session transcripts are not copied into openyggdrasil.",
         ],
         "safety": {
             "doc_committed": False,

@@ -94,6 +94,8 @@ CANONICAL_RUNTIME_MODULES = [
     "reasoning.module_effort_requirements",
     "reasoning.ptc_bubblewrap_isolation_trace",
     "reasoning.provider_capability_descriptor",
+    "reasoning.provider_effort_normalizer",
+    "reasoning.provider_reasoning_self_assessment",
     "reasoning.provider_resource_boundary",
     "reasoning.provider_reasoning_gate",
     "reasoning.process_sandbox_policy",

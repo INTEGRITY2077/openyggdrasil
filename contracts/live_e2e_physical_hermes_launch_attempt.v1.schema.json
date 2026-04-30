@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/live_e2e_physical_hermes_launch_attempt.v1.schema.json",
-  "title": "OpenYggdrasil Live E2E Physical Hermes Launch Attempt v1",
+  "title": "openyggdrasil Live E2E Physical Hermes Launch Attempt v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

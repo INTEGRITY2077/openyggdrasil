@@ -1,6 +1,6 @@
 # Runtime
 
-`runtime/` contains provider-neutral OpenYggdrasil implementation modules.
+`runtime/` contains provider-neutral openyggdrasil implementation modules.
 
 The runtime is split by role so that no single module can capture a provider
 signal, promote canonical memory, query stale material, and deliver support to a

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/knowledge_forest_delta_from_live_session.v1.schema.json",
-  "title": "OpenYggdrasil Knowledge Forest Delta From Live Session v1",
+  "title": "openyggdrasil Knowledge Forest Delta From Live Session v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/module_anchor_mapping.v1.schema.json",
-  "title": "OpenYggdrasil Module Anchor Mapping v1",
+  "title": "openyggdrasil Module Anchor Mapping v1",
   "oneOf": [
     {
       "$ref": "#/$defs/module_anchor_mapping"

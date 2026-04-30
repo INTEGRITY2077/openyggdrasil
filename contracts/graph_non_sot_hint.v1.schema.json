@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/graph_non_sot_hint.v1.schema.json",
-  "title": "OpenYggdrasil Graph Non-SOT Hint v1",
+  "title": "openyggdrasil Graph Non-SOT Hint v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

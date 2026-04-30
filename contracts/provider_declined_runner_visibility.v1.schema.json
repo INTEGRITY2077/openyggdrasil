@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/provider_declined_runner_visibility.v1.schema.json",
-  "title": "OpenYggdrasil Provider Declined Runner Visibility v1",
+  "title": "openyggdrasil Provider Declined Runner Visibility v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

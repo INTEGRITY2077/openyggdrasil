@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openyggdrasil.local/contracts/gardener_routing_decision.v1.schema.json",
-  "title": "OpenYggdrasil Gardener Routing Decision v1",
+  "title": "openyggdrasil Gardener Routing Decision v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

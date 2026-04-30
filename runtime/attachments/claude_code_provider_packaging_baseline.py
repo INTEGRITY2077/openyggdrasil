@@ -101,7 +101,7 @@ def build_claude_code_provider_packaging_baseline(
         "known_limitations": [
             "This baseline proves repo-owned provider-native file deployment, not current Claude Code product behavior.",
             "No local Claude Code implementation source is copied, vendored, translated, or mechanically ported.",
-            "Raw Claude Code sessions and transcripts are not copied into OpenYggdrasil.",
+            "Raw Claude Code sessions and transcripts are not copied into openyggdrasil.",
         ],
         "safety": {
             "doc_committed": False,

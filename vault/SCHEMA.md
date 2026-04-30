@@ -1,6 +1,6 @@
 # Vault Schema
 
-This file defines what the public OpenYggdrasil vault is allowed to contain.
+This file defines what the public openyggdrasil vault is allowed to contain.
 
 The vault is a canonical promoted memory layer, not a generic runtime dump.
 
