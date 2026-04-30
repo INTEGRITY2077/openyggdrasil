@@ -940,34 +940,7 @@ into navigable graphs:
 6. **Derived views are never source of truth.** Graphify indexes, graph views,
    and wiki pages are derived surfaces. The vault is the only canonical surface.
 
----
 
-## Current State — Live Testing
-
-> **This project is not production-ready.** We are live-testing the architecture
-> and iterating in public.
-
-The module chain architecture is designed with 37,000+ lines of runtime code
-and 510+ passing tests — but the end-to-end pipeline does not yet pass through
-from signal to mailbox.
-
-**What exists:**
-- 12-module chain contract definitions and internal logic
-- Provider-neutral capture, evaluation, cultivation, and retrieval implementations
-- Pathfinder retrieval with PTC (Programmatic Tool Calling) support
-- Graphify-derived snapshot views
-- Hermes provider adapter (foreground)
-
-**What does not work yet:**
-- Top-level facade wiring (35 stubs need to be connected to internal logic)
-- End-to-end pipeline pass-through (signal → mailbox)
-- Mailbox async delegation loop
-- Bubblewrap sandbox runner integration
-- Safe provider-owned gateway contract
-
-See the [SKILL.md](./SKILL.md) for the provider-facing operating contract.
-
----
 
 ## Contributing
 
