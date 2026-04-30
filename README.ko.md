@@ -166,6 +166,69 @@ openyggdrasil은 정적인 파일 스토리지인 'LLM Wiki'의 한계를 극복
 이러한 **'LLM Wiki의 Graphify화'**를 통해, openyggdrasil은 단순한 텍스트 묶음을 넘어, 외부 Vector DB 없이도 스스로 관계망을 인지하는 **순수 로컬 오프라인 멀티-에이전트 메모리 시스템**으로 작동합니다.
 
 
+### 추론 의사결정 재구조화 (8차 북극성)
+
+> **[8차 로드맵 핵심 전환]** 추론 파이프라인의 중심축이 `effort` 기반 정규화에서
+> **LLM-facing 어포던스 계약** 기반으로 전환되었습니다.
+
+**기존 관점:** *"이 작업은 high effort인가 medium effort인가?"*
+**새 관점:** *"이 판단은 누가, 어떤 역할로, 어떤 근거를 보고, 언제 멈춰야 하는가?"*
+
+이 전환을 관통하는 3계층 원칙:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Schema validates    — JSON 스키마가 구조를 기계적으로 강제      │
+│  Persona persuades   — 자연어 어포던스가 LLM의 판단을 설득       │
+│  Runtime enforces    — Reject Hook이 시스템 안전 경계를 집행     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**어포던스 계약(Affordance Contract):**
+
+각 PTC 도구와 추론 모듈은 JSON 시그니처 강제 대신, LLM이 스스로 판단할 수
+있도록 자연어 어포던스 문구를 제공합니다:
+
+| 어포던스 필드 | 역할 |
+|---|---|
+| `Use this when` | 이 도구/판단을 사용해야 하는 상황 |
+| `Do NOT use this when` | 사용하면 안 되는 상황 |
+| `If ambiguous` | 모호할 때의 기본 행동 |
+| `Typed unavailable when` | 도구가 기능할 수 없는 조건 |
+| `Hard nonclaims` | 이 도구/판단이 **절대 주장하지 않는 것** |
+
+**effort의 격하:** `effort`는 더 이상 추론 품질의 primary behavior driver가
+아닙니다. 호환성 메타데이터(compatibility metadata)로 격하되었으며,
+추론 품질의 실제 판단 근거는 페르소나 어포던스 계약이 담당합니다.
+
+**Hard Nonclaims 모델:**
+2계층 가산적(additive-only) 제약 모델입니다. 글로벌 규칙은 모든 패킷에
+적용되고, 패킷 특수 규칙은 추가만 가능합니다 — **글로벌 규칙을 해제하거나
+약화시키는 것은 불가능합니다.**
+
+이 아키텍처는 Microsoft의
+[Language Server Protocol](https://github.com/microsoft/language-server-protocol)의
+capability negotiation 패턴에서 영감을 받았습니다 — 서버가 "나는 이걸 할 수
+있다"를 선언하고, 클라이언트는 선언된 기능만 요청하는 구조입니다.
+
+### 3계층 검색 아키텍처
+
+소비면의 검색 파이프라인은 3개의 상호보완적 레이어로 작동합니다:
+
+```
+[1단계] QMD BM25          → vault에서 키워드 기반 후보 추림 (SQLite FTS5)
+[2단계] Graphify 그래프   → 구조적 관계 탐색 (DFS/경로/설명)
+[3단계] Semantic Edge     → provenance supports/supersedes/contradicts 관계 확장
+```
+
+| 레이어 | 역할 | 기술 |
+|---|---|---|
+| **[QMD](https://github.com/nicobailey/qmd) BM25** | 넓게 후보 추리기 | SQLite FTS5 (벡터 불필요) |
+| **Graphify** | 구조 탐색 | graph.json 순회 |
+| **Semantic Edge** | 깊게 관계 확장 | provenance `supports`/`supersedes`/`contradicts` |
+
+벡터 임베딩이나 외부 검색 인프라 없이, 순수 로컬 BM25 키워드 검색과
+명시적 그래프 엣지만으로 검색 파이프라인을 구성합니다.
 ### 브릿지 — Vault와 Graphify의 관계
 
 이 시스템은 정적인 파일 스토리지(Vault)와 이를 연결하는 동적 관계망(Graphify)을 엄격하게 분리하여 관리합니다.
@@ -763,10 +826,14 @@ openyggdrasil은 모델의 선의나 자율성에 기대지 않습니다. 모델
        ▼
   ┌─ PTC Engine ─────────────────────────────────────────────┐
   │                                                          │
-  │  PTC는 서브에이전트에게 8개의 도구(capability)를 제공:      │
+  │  PTC는 서브에이전트에게 9개의 도구(capability)를 제공:      │
   │                                                          │
+  │  ┌─ qmd_search ─────────────────────────────────────┐    │
+  │  │  BM25 키워드 검색으로 vault 후보 추림              │    │
+  │  └──────────────────────────────────────────────────┘    │
+  │                      ▼                                   │
   │  ┌─ locate_region ──────────────────────────────────┐    │
-  │  │  질의에서 대륙/지역 식별                            │    │
+  │  │  검색 결과에서 대륙/지역 식별                       │    │
   │  └──────────────────────────────────────────────────┘    │
   │                      ▼                                   │
   │  ┌─ select_topic_anchor ────────────────────────────┐    │
@@ -963,6 +1030,30 @@ Graphify는 구조 분석 계층을 제공합니다 — 코드베이스와 지�
 | 신뢰도 라벨 (EXTRACTED / INFERRED / AMBIGUOUS) | → 검색 결과의 출처 신뢰도 |
 | 순수 Python, 로컬, 오프라인 | → **외부 인프라 의존성 없음** |
 
+### [QMD](https://github.com/nicobailey/qmd)
+
+QMD는 on-device 마크다운 검색엔진입니다. openyggdrasil은 QMD의 BM25
+(SQLite FTS5) 키워드 검색만을 PTC 도구로 사용합니다:
+
+| QMD 개념 | openyggdrasil 흡수 |
+|---|---|
+| SQLite FTS5 기반 BM25 검색 | → `qmd_search` PTC 도구 (소비면 1단계) |
+| CLI: `qmd search "query" --json` | → `subprocess` 래퍼로 PTC 핸들러 구현 |
+| 밀리초 단위 응답 | → `select_topic_anchor` 전 후보 추림으로 토큰 절감 |
+| 벡터/리랭킹 기능 | → **사용하지 않음** (BM25만 사용) |
+
+### [Language Server Protocol](https://github.com/microsoft/language-server-protocol) (LSP)
+
+Microsoft의 LSP는 에디터와 언어 서버 사이의 표준 통신 프로토콜입니다.
+openyggdrasil은 LSP를 직접 사용하지 않지만, 그 **capability negotiation
+패턴**을 PTC 어포던스 설계의 참조 아키텍처로 채택했습니다:
+
+| LSP 패턴 | openyggdrasil 적용 |
+|---|---|
+| `ServerCapabilities` — "나는 이걸 할 수 있다" 선언 | → PTC `Capability` + 어포던스 문구 |
+| Progressive Enhancement — 필수만 구현, 나머지 선택 | → `typed_unavailable` 안전 거부 |
+| M×N → M+N — 공통 프로토콜로 조합 폭발 해소 | → 프로바이더×도구를 공통 계약으로 통합 |
+
 ---
 
 ## 설계 원칙
@@ -985,6 +1076,10 @@ Graphify는 구조 분석 계층을 제공합니다 — 코드베이스와 지�
 
 6. **파생 뷰는 절대 진실 원천이 아닙니다.** Graphify 인덱스, 그래프 뷰,
    위키 페이지는 파생 표면입니다. Vault만이 유일한 정규 표면입니다.
+
+7. **Schema validates, Persona persuades, Runtime enforces.** 추론 품질은
+   JSON 스키마 강제만으로 달성되지 않습니다. LLM에게 행위의 이유와 경계를
+   자연어로 설득하고(Persona), 시스템이 안전 경계를 집행합니다(Runtime).
 
 ---
 
