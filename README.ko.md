@@ -51,6 +51,16 @@
 
 OpenYggdrasil은 다른 접근을 취합니다.
 
+### 프로바이더 간 지식 교차 (Cross-Provider Pollination)
+
+OpenYggdrasil의 가장 강력한 특징은 특정 도구에 종속되지 않는 **"공용 뇌(Shared Brain)"** 라는 점입니다.
+
+- **Hermes가 씁니다:** Hermes 세션에서 아키텍처를 결정하고 Vault에 기록합니다. (출처: `provider_id: hermes`)
+- **Claude Code가 읽고 갱신합니다:** 며칠 뒤 Claude Code가 켜지면, Hermes가 쓴 문서를 검색해서 읽고 그 위에서 작업을 이어갑니다. 만약 결정이 변경되면 Claude가 기존 지식을 `SUPERSEDED`(대체됨)로 밀어내고 새 지식을 씁니다.
+- **다시 Hermes가 인지합니다:** 다음에 Hermes가 들어오면, 자신이 과거에 썼던 낡은 지식이 아니라 Claude Code가 최신화해 둔 지식을 읽게 됩니다.
+
+이것이 가능한 이유는 모든 에이전트가 자신만의 내부 트랜스크립트 포맷을 버리고, OpenYggdrasil의 **엄격한 프론트매터 스키마(Markdown + YAML)** 라는 단일 진실 원천(Vault) 규격을 공유하기 때문입니다.
+
 ## 실행 모델
 
 OpenYggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
