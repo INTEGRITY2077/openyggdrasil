@@ -186,37 +186,30 @@ captures and curates knowledge, and a consumption side that retrieves and
 delivers it.
 
 ```
-                    ┌─────────────────────────────────────────────┐
-                    │           PRODUCTION SIDE                   │
-                    │                                             │
-  Provider Signal ──┤  ① Signal ─→ ② Gate ─→ ③ Seedkeeper        │
-  (Hermes, Codex,   │       │                      │              │
-   Claude Code,     │       ▼                      ▼              │
-   Cursor, ...)     │  ④ Distiller ─→ ⑤ Evaluator                │
-                    │                      │                      │
-                    │                      ▼                      │
-                    │  ⑥ Amundsen ─→ ⑦ Nursery ─→ ⑧ Map Maker   │
-                    │                                    │        │
-                    │                      ⑨ Gardener ◄──┘        │
-                    └──────────────────────┬──────────────────────┘
-                                           │
-                                    ┌──────┴──────┐
-                                    │    VAULT     │
-                                    │  (Canonical  │
-                                    │   Memory)    │
-                                    └──────┬──────┘
-                                           │
-                    ┌──────────────────────┴──────────────────────┐
-                    │           CONSUMPTION SIDE                  │
-                    │                                             │
-                    │  ⑫ Pathfinder ─→ Bounded Support Bundle    │
-                    │       │                      │              │
-                    │       ▼                      ▼              │
-                    │  ⑩ Postman ─────────→ ⑪ Mailbox            │
-                    │                          │                  │
-                    │                          ▼                  │
-                    │                   Provider Session          │
-                    └─────────────────────────────────────────────┘
+                    ┌─────────────────────────────────────────────────────────────┐
+                    │                      PRODUCTION SIDE                        │
+                    │                                                             │
+  Provider Signal   │ ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │
+  (Hermes, Claude) ─┼─▶│   Distill    │────▶│ **Evaluate** │────▶│ Plant/Commit │  │
+                    │ │ (Structurize)│     │(Value & Schema│     │ (Record to   │  │
+                    │ └──────────────┘     │  Validation)  │     │   Vault)     │  │
+                    │                      └──────────────┘     └──────────────┘  │
+                    └─────────────────────────────────┬───────────────────────────┘
+                                                      │ (Only Type-Safe Seeds)
+                                               ┌──────┴──────┐
+                                               │    VAULT    │
+                                               │ (SOT Memory)│
+                                               └──────┬──────┘
+                                                      │
+                    ┌─────────────────────────────────┴───────────────────────────┐
+                    │                      CONSUMPTION SIDE                       │
+                    │                                                             │
+  Retrieval Query   │ ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │
+  (Needs Context)  ─┼─▶│  Pathfinder  │────▶│ **Mailbox**  │────▶│   Provider   │  │
+                    │ │ (Explore &   │     │ (Delivery    │     │   Session    │  │
+                    │ │ Bundle build)│     │  Contract)   │     │(Context Load)│  │
+                    │ └──────────────┘     └──────────────┘     └──────────────┘  │
+                    └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Production Side — "What to remember"
