@@ -6,7 +6,7 @@
   <p align="center">
     <em>Not another RAG wrapper. A persistent, lifecycle-aware knowledge layer<br/>
     that compounds across providers — inspired by
-    <a href="https://github.com/karpathy/llm-wiki">Karpathy's LLM Wiki</a>.</em>
+    <a href="https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f">Karpathy's LLM Wiki</a>.</em>
   </p>
 </p>
 
@@ -209,7 +209,7 @@ openyggdrasil/
 
 OpenYggdrasil stands on the shoulders of two key ideas.
 
-### Andrej Karpathy's [LLM Wiki](https://github.com/karpathy/llm-wiki)
+### Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 
 Karpathy articulated the core insight: instead of re-deriving knowledge via RAG
 on every query, have the LLM **incrementally build and maintain a persistent
@@ -234,7 +234,7 @@ OpenYggdrasil extends this from single-user/single-LLM to
 **multi-provider/multi-agent** with typed contracts, lifecycle governance, and
 provider-neutral sharing.
 
-### [Graphify](https://github.com/paul-gauthier/graphify) (v5)
+### [Graphify](https://github.com/safishamsi/graphify) (v5)
 
 Graphify provides the structural analysis layer — turning codebases and knowledge
 into navigable graphs:
