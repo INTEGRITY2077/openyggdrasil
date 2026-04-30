@@ -30,8 +30,6 @@
 
 ## 시스템 요구사항 및 설정
 
-## 프로바이더 연동 & 설정
-
 openyggdrasil은 AI 프로바이더(예: Hermes, Claude Code, Cursor)에 부착되는
 콜드스타트 스킬로 동작합니다. 백그라운드 데몬을 시작하거나 별도 서버
 프로세스를 관리할 필요가 없습니다.
@@ -350,8 +348,6 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니�
 결과적으로 에이전트는 요약본과 함께 "최초의 탄생 맥락으로 언제든 돌아갈 수 있는 명시적 주소"를 한 번에 제공받아, **Postman**을 통해 타입이 지정된 **Mailbox** 계약으로 안전하게 수신합니다.
 
 
-### Typed PTC (Programmatic Tool Calling) 엔진
-
 ## PTC (Programmatic Tool Calling) 개념과 아키텍처
 
 openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool Calling)** 아키텍처를 기반으로 동작합니다. 
@@ -427,8 +423,6 @@ openyggdrasil이 무거운 외부 인프라를 버리고 **순수 로컬 파일�
 - **최종 요약본만 반환:** 에이전트에게는 검색 과정의 방대한 노이즈가 보이지 않으며, 오직 최종적으로 정제된 `bounded support bundle`(제한된 지원 번들)의 결과만 반환됩니다.
 
 
-### SKILL.md 기반 진입 모델 (에이전트 트리거)
-
 ## 실행 모델
 
 openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
@@ -478,10 +472,6 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 두 가지 호출 경로가 있습니다 — 지식을 **기록**하는 경로(생산 트리거)와
 지식을 **읽는** 경로(소비 트리거).
 
-> **⚠️ 현재 추론 모델:**
-> openyggdrasil은 현재 **프로바이더의 추론 토큰을 빌려서 사용**합니다.
-> 별도의 API 키나 자체 LLM 인프라를 보유하지 않습니다.
-> 향후 독립적인 API 키 지정을 통한 자체 추론 지원도 계획되어 있습니다.
 
 ```
   ┌─────────────────────────────────────────────────────────────────────────┐
@@ -536,21 +526,6 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 - **콜드스타트 원칙:** openyggdrasil은 **요청 시 콜드스타트**됩니다. 백그라운드 데몬이 없습니다. 프로바이더가 의뢰할 때만 실행되며, 작업이 완료되면 종료됩니다.
 - **추론 자원 임대 (Reasoning Lease):** 본체 에이전트는 신호를 넘길 때, 서브에이전트가 이 `jsonl` 원본을 파싱하고 심층 구조화(Distill/Evaluate)를 수행할 수 있도록 자신의 추론 자원을 반드시 빌려주어야(Lease) 합니다.
 
-
-## 파이프라인 흐름도
-
-### 파이프라인 핵심 흐름도
-
-```text
-[ 생산 파이프라인 ]                          [ 소비 파이프라인 ]
-Provider Signal                             Provider Query
-       │                                           │
-       ▼                                           ▼
-  1. Distill (증류)                          1. Pathfinder (위상 스캔)
-  2. Evaluate (가치 평가)   ──(Vault SOT)──  2. Resolve (표면 해석)
-  3. Place (구조적 배치)    ──(Graphify)──   3. Support Bundle (출처 추적 번들)
-  4. Prune (가지치기)                        4. Postman (Mailbox 수신증 발급)
-```
 
 
 ### 생산 파이프라인 — 역할 가변 추론 임대 실행체 (목표 설계: Target Architecture)
