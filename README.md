@@ -197,6 +197,7 @@ python runtime/import_smoke.py
 
 
 
+```yaml
 ---
 title: Page Title
 created: 2026-04-30
