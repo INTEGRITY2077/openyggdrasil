@@ -113,22 +113,24 @@ OpenYggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool C
 ### 원본 아키텍처 (Claude PTC)
 
 ```
-  ┌──────────────────────────────────────────────┐
-  │  Anthropic Programmatic Tool Calling (PTC)   │
-  │                                              │
-  │  1. 에이전트가 단일 Python 스크립트 작성         │
-  │  2. 샌드박스에서 스크립트 실행 시작             │
-  │  3. 스크립트 내부에서 `await tool()` 호출       │
-  │  4. 샌드박스 일시정지, 호스트에 데이터 요청       │
-  │  5. 데이터 수신 후 스크립트 실행 재개           │
-  │  6. 스크립트 종료 후 최종 결과만 에이전트에게 반환  │
-  └──────────────────────┬───────────────────────┘
-                         │ 자유로운 스크립트 제어 (조건문, 루프 등)
-                         ▼
-  ┌──────────────────────────────────────────────┐
-  │              Host (Client Tools)             │
-  │       (Database, File system, APIs 등)       │
-  └──────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────┐
+  │          Anthropic Programmatic Tool Calling (PTC)           │
+  │                                                              │
+  │  1. Agent: `server_tool_use` 발생 (name: code_execution)      │
+  │  2. Sandbox: Python 스크립트 실행 시작                          │
+  │  3. Script: 내부에서 `await target_tool()` 호출                 │
+  │  4. API: Sandbox 일시정지, Host에 `tool_use` 발생             │
+  │     (payload: `caller: { type: code_execution_... }`)        │
+  │  5. Host: `tool_result` 반환                                 │
+  │  6. Sandbox: 스크립트 실행 재개 및 중간 데이터 필터링/루프 처리 │
+  │  7. Sandbox: `code_execution_tool_result` 반환                │
+  └──────────────────────────────┬───────────────────────────────┘
+                                 │ Contract: allowed_callers=["code_execution..."]
+                                 ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │                     Host (Client Tools)                      │
+  │              (Database, File system, APIs 등)                │
+  └──────────────────────────────────────────────────────────────┘
 ```
 
 일반적인 PTC는 샌드박스 내부에서 에이전트가 자유롭게 Python 코드를 작성하여 여러 도구를 제어합니다:
@@ -139,22 +141,22 @@ OpenYggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool C
 ### OpenYggdrasil의 변형 및 내재화 (Typed PTC Engine)
 
 ```
-  ┌──────────────────────────────────────────────┐
-  │       OpenYggdrasil (Typed PTC Engine)       │
-  │                                              │
-  │  1. 에이전트 스크립트 작성 금지 (자유도 통제)    │
-  │  2. PTC 엔진이 JSON Execution Plan 강제 주입   │
-  │     (예: [distill, evaluate, amundsen])        │
-  │  3. 에이전트는 지정된 도구 #1 만 호출 가능      │
-  │  4. 계약 가드레일이 엄격한 JSON 스키마 검증     │
-  │  5. 통과 시 도구 #2 로 순차적 진행              │
-  └──────────────────────┬───────────────────────┘
-                         │ 계약에 의한 통제 (Railway)
-                         ▼
-  ┌──────────────────────────────────────────────┐
-  │        OpenYggdrasil 12-Module Chain         │
-  │     (결정론적, 안전함, 생명주기가 관리됨)        │
-  └──────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────┐
+  │               OpenYggdrasil (Typed PTC Engine)               │
+  │                                                              │
+  │  1. PTC Engine: `JSON Execution Plan` 강제 주입               │
+  │     (예: ["distill_signal", "evaluate_candidate", ...])      │
+  │  2. Agent: 도구 #1 호출 (엄격한 JSON Schema 준수 필요)         │
+  │  3. Guardrail: 추론 토큰 소비 및 스키마 유효성 검사             │
+  │  4. Utility: 도구 #2 이후는 결정론적 Python 함수 자동 통과     │
+  │  5. Pipeline: `stop_reason` 발생 또는 체인 완료              │
+  └──────────────────────────────┬───────────────────────────────┘
+                                 │ Contract: Strict JSON Schema / Typed Payloads
+                                 ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │                 OpenYggdrasil 8-Tool Chain                   │
+  │           (결정론적, 타입 안정성, 생명주기가 관리됨)               │
+  └──────────────────────────────────────────────────────────────┘
 ```
 
 OpenYggdrasil은 이 원본 아키텍처의 자율성을 의도적으로 제한하고, **타입 안정성이 보장된 체인(Typed Chain)** 으로 내재화했습니다.

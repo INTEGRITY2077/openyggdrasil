@@ -113,22 +113,24 @@ This architecture is heavily inspired by Anthropic's [Programmatic Tool Calling]
 ### Original Architecture (Claude PTC)
 
 ```
-  ┌──────────────────────────────────────────────┐
-  │  Anthropic Programmatic Tool Calling (PTC)   │
-  │                                              │
-  │  1. Agent writes a single Python script      │
-  │  2. Sandbox starts executing the script      │
-  │  3. Script calls `await tool()` internally   │
-  │  4. Sandbox pauses, requests data from host  │
-  │  5. Host provides data, script resumes       │
-  │  6. Final script output returned to agent    │
-  └──────────────────────┬───────────────────────┘
-                         │ Free script logic (loops, if-else, etc.)
-                         ▼
-  ┌──────────────────────────────────────────────┐
-  │              Host (Client Tools)             │
-  │     (Database, APIs, File system, etc.)      │
-  └──────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────┐
+  │          Anthropic Programmatic Tool Calling (PTC)           │
+  │                                                              │
+  │  1. Agent: Emits `server_tool_use` (name: code_execution)    │
+  │  2. Sandbox: Starts executing Python script                  │
+  │  3. Script: Calls `await target_tool()` internally           │
+  │  4. API: Pauses Sandbox, emits `tool_use` to Host            │
+  │     (payload: `caller: { type: code_execution_... }`)        │
+  │  5. Host: Returns `tool_result`                              │
+  │  6. Sandbox: Resumes execution, processes data (loops, etc.) │
+  │  7. Sandbox: Emits `code_execution_tool_result`              │
+  └──────────────────────────────┬───────────────────────────────┘
+                                 │ Contract: allowed_callers=["code_execution..."]
+                                 ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │                     Host (Client Tools)                      │
+  │             (Database, File system, APIs, etc.)              │
+  └──────────────────────────────────────────────────────────────┘
 ```
 
 The standard PTC paradigm allows the agent to freely write Python code within a sandbox to control multiple tools:
@@ -139,22 +141,22 @@ The standard PTC paradigm allows the agent to freely write Python code within a 
 ### OpenYggdrasil's Transformation (The Typed PTC Engine)
 
 ```
-  ┌──────────────────────────────────────────────┐
-  │       OpenYggdrasil (Typed PTC Engine)       │
-  │                                              │
-  │  1. Script writing forbidden (Constrained)   │
-  │  2. PTC Engine injects JSON Execution Plan   │
-  │     (e.g., [distill, evaluate, amundsen])    │
-  │  3. Agent forced to use specific Tool #1     │
-  │  4. Contract Guardrail enforces strict JSON  │
-  │  5. Pipeline completion via step-by-step     │
-  └──────────────────────┬───────────────────────┘
-                         │ Constrained by Contracts (Railway)
-                         ▼
-  ┌──────────────────────────────────────────────┐
-  │        OpenYggdrasil 12-Module Chain         │
-  │   (Deterministic, Safe, Lifecycle-managed)   │
-  └──────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────┐
+  │               OpenYggdrasil (Typed PTC Engine)               │
+  │                                                              │
+  │  1. PTC Engine: Injects `JSON Execution Plan`                │
+  │     (e.g., ["distill_signal", "evaluate_candidate", ...])    │
+  │  2. Agent: Calls Tool #1 (Requires strict JSON Schema)       │
+  │  3. Guardrail: Consumes reasoning tokens, validates payload  │
+  │  4. Utility: Auto-executes deterministic Python downstream   │
+  │  5. Pipeline: Returns `stop_reason` or completes chain       │
+  └──────────────────────────────┬───────────────────────────────┘
+                                 │ Contract: Strict JSON Schema / Typed Payloads
+                                 ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │                 OpenYggdrasil 8-Tool Chain                   │
+  │          (Deterministic, Type-safe, Lifecycle-managed)       │
+  └──────────────────────────────────────────────────────────────┘
 ```
 
 OpenYggdrasil intentionally constrains this autonomy, internalizing it as a **Typed Chain**:
