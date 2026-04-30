@@ -128,8 +128,18 @@ vault/
 **Frontmatter of each page:**
 
 ```yaml
+---
+title: Page Title
+created: 2026-04-30
+updated: 2026-04-30
+type: entity | concept | comparison | query | summary
+status: ACTIVE | SUPERSEDED
+tags: [classification tags]
+sources: [source refs or public paths]
+---
+```
 
-## Provider Integration & Setup
+## System Requirements & Setup
 
 openyggdrasil operates as a cold-started skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start background daemons or manage separate server processes.
 
@@ -196,18 +206,6 @@ python runtime/import_smoke.py
 ```
 
 
-
-```yaml
----
-title: Page Title
-created: 2026-04-30
-updated: 2026-04-30
-type: entity | concept | comparison | query | summary
-status: ACTIVE | SUPERSEDED
-tags: [classification tags]
-sources: [source refs or public paths]
----
-```
 
 **Actual Codebase Implementation (Frontmatter Parser):**
 This is not merely theoretical documentation. The system actively utilizes `runtime/retrieval/skill_frontmatter_parser.py` to extract the `---` YAML frontmatter from all markdown files and rigorously validates it against a strict JSON Schema contract. Both Graphify and Pathfinder rely on this parsed topological data to construct their mathematical search networks.
@@ -339,8 +337,6 @@ Rather than just raw text summaries, these bundles (governed by the `support_bun
 Consequently, the agent receives both the distilled summary and the exact address to return to its origin, securely delivered via the typed **Mailbox** contract by **Postman**.
 
 
-### The Typed PTC Engine
-
 ## PTC (Programmatic Tool Calling) Concept & Architecture
 
 The production and consumption pipelines of openyggdrasil operate on a **PTC (Programmatic Tool Calling)** architecture.
@@ -415,8 +411,6 @@ The primary reason openyggdrasil abandoned heavy external infrastructure in favo
 - **Elimination of Model Round-Trip Overhead:** Querying 10 knowledge nodes as independent tools consumes massive tokens because it invokes the LLM individually for each query. By using PTC to read 10 documents within a single code execution block and returning only a summarized conclusion, token usage is reduced by approximately **10x or more**.
 - **Returning Only the Final Summary:** The agent is shielded from the vast noise of the search process. It only receives the final, highly refined `bounded support bundle`.
 
-
-### SKILL.md Entry Model (Agent Trigger)
 
 ## Execution Model
 
@@ -520,20 +514,6 @@ When this need arises, the Provider Agent does not just copy-paste the entire he
 - **Reasoning Lease:** Because OpenYggdrasil lacks its own LLM, the Provider Agent must delegate its own compute (Reasoning Lease) alongside the signal. The spawned subagent uses this leased energy to parse the raw `.jsonl` files and perform deep structuring (Distill/Evaluate).
 
 
-## Pipeline Flow
-
-### Core Pipeline Flow
-
-```text
-[ Production Pipeline ]                       [ Consumption Pipeline ]
-Provider Signal                               Provider Query
-       │                                             │
-       ▼                                             ▼
-  1. Distill                                    1. Pathfinder (Topology Scan)
-  2. Evaluate          ──(Vault SOT)──          2. Resolve (Surface Read)
-  3. Place             ──(Graphify)──           3. Support Bundle (Provenance)
-  4. Prune                                      4. Postman (Mailbox Receipt)
-```
 
 ### Production Pipeline — The Role-Polymorphic Subagent (Target Architecture)
 
@@ -806,8 +786,6 @@ always knows exactly what it's getting and why.
 | ⑫ | **Pathfinder** | Retrieves explainable support material | Every retrieval result carries provenance and lifecycle proof |
 
 ---
-## System Requirements & Setup
-
 ## Reasoning Lease
 
 Some complex signals or ambiguous tradeoffs go beyond simple PTC tool calls—they require extended LLM reasoning with time budgets and isolation guarantees.
