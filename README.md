@@ -52,6 +52,16 @@ decides what to remember, what to forget, and what to deliver?*
 
 OpenYggdrasil takes a different approach.
 
+### Cross-Provider Pollination
+
+The most powerful feature of OpenYggdrasil is that it is a **"Shared Brain"** not locked into any specific tool.
+
+- **Hermes writes:** In a Hermes session, you decide on an architecture and it gets recorded in the Vault. (Source: `provider_id: hermes`)
+- **Claude Code reads and updates:** Days later, you open Claude Code. It searches for, reads the document Hermes wrote, and continues the work. If the decision changes, Claude pushes the old knowledge to `SUPERSEDED` and writes the new knowledge.
+- **Hermes recognizes it again:** The next time Hermes connects, it doesn't read the stale knowledge it wrote in the past, but the updated knowledge maintained by Claude Code.
+
+This is possible because all agents abandon their internal transcript formats and share the same canonical Vault specification—the **strict frontmatter schema (Markdown + YAML)** of OpenYggdrasil.
+
 ## Execution Model
 
 OpenYggdrasil does not have its own LLM or API keys.
@@ -74,9 +84,9 @@ there using its own tokens.
   └──────────────────────────────────────────────────┘
        │
        ▼
-  Agent runs Python scripts via its own shell/tool-use
-  → 12-module chain executes deterministically
-  → Agent receives the result
+  Agent runs Python entrypoints via its own shell/tool-use
+  → PTC Engine presents a Tool Set and an Execution Plan
+  → Agent calls tools sequentially to pass through the pipeline
 ```
 
 Two things are borrowed from the provider:
@@ -84,10 +94,9 @@ Two things are borrowed from the provider:
 | Borrowed | Description |
 |---|---|
 | **Execution context** | The agent's shell/tool-calling ability to run Python scripts |
-| **Reasoning tokens** | The agent's LLM tokens, used only during Reasoning Lease |
+| **Reasoning tokens** | The LLM reasoning capability required to pass PTC contract guardrails and make complex decisions |
 
-The 12-module chain itself is pure Python — it runs without LLM reasoning.
-Reasoning tokens are only consumed during the optional Reasoning Lease stage.
+**The subagent IS the pipeline.** While some pipeline modules (Utility Tools) run deterministically in pure Python, core decisions (Contract Guardrails) execute by consuming the agent's own reasoning tokens.
 
 Independent API key configuration for self-hosted execution (without a
 provider) is planned for the future.
@@ -147,11 +156,110 @@ The consumption pipeline doesn't dump the entire vault. **Pathfinder** builds
 bounded support bundles — explainable, lifecycle-aware, provenance-tracked
 packages — and **Postman** delivers them through typed **Mailbox** contracts.
 
-### The Bridge — Vault as Source of Truth
+### The Bridge — Vault and Graphify
 
-The vault is the single canonical memory surface. Graphify builds derived
-graph/wiki/index views over it, but **Graphify is never source of truth** — it's
-a derived visibility layer.
+#### Vault: The Canonical Memory Surface
+
+The Vault is the single source of truth (SOT). Knowledge produced by providers is ultimately recorded in the Vault, following this structure:
+
+```
+vault/
+├── SCHEMA.md           # This schema file
+├── index.md            # Master topic catalog (Karpathy's index.md)
+├── log.md              # Chronological record (Karpathy's log.md)
+├── concepts/           # Technical ideas, patterns, principles, recurring themes
+├── entities/           # People, organizations, products, models, systems
+├── comparisons/        # Side-by-side analysis, decision tradeoffs
+├── queries/            # High-value answers with high derivation cost
+├── _meta/              # Operational notes, templates, maps, governance
+│   └── provenance/     # Provenance tracking records
+└── raw/                # Original supporting materials (not raw transcripts)
+```
+
+**Frontmatter of each page:**
+
+```yaml
+---
+title: Page Title
+created: 2026-04-30
+updated: 2026-04-30
+type: entity | concept | comparison | query | summary
+tags: [classification tags]
+sources: [source refs or public paths]
+---
+```
+
+**Vault Promotion Rules — To be recorded:**
+- Must be persistent, non-trivial, hard to re-derive, and reusable in future sessions.
+- Transient conversations, trivial responses, and raw session dumps are strictly prohibited.
+
+#### Graphify: The Derived Visibility Layer
+
+This is a **derived layer** that builds graph/wiki/index views over the Vault.
+**Even if Graphify fails, the core pipeline (capture, lifecycle, Mailbox) is unaffected.**
+
+**Why adopt Graphify:**
+
+| Problem | Graphify's Solution |
+|---|---|
+| Unnavigable as Vault pages pile up | Visualizes relationships as a node/edge graph |
+| "Where does this concept connect?" | Automatically detects topic clusters via Leiden community clustering |
+| Lack of structural context in search | Identifies core hubs via God Node and Surprising Connection analysis |
+| Dependency on external infra (Vector DBs) | Pure Python + NetworkX, runs locally offline |
+
+**Graphify Derived Pipeline:**
+
+```
+  Vault (Canonical Memory)
+       │
+       │  stage_graphify_input.py
+       │  → Stages promoted Vault pages into the input corpus
+       │
+       ▼
+  ┌─ Graphify 7-Step Pipeline ───────────────────────────────┐
+  │                                                          │
+  │  detect    → Detects corpus files                        │
+  │  extract   → Extracts AST/structure                      │
+  │  semantic  → Extracts semantic relations (uses tokens)   │
+  │  build     → Builds NetworkX graph                       │
+  │  cluster   → Leiden community clustering                 │
+  │  analyze   → God Node, Surprising Connection analysis    │
+  │  report    → GRAPH_REPORT.md + graph.json + graph.html   │
+  │                                                          │
+  └──────────────────────────────────────────────────────────┘
+       │
+       ▼
+  Derived Artifacts (Not SOT):
+  ├── GRAPH_REPORT.md    # Analysis report
+  ├── graph.json         # Machine-readable graph
+  ├── graph.html         # Visual exploration interface
+  └── summary.json       # Node/edge/community summary
+```
+
+**Core Boundary:**
+
+```
+  ┌───────────────────────────────────────────────────────┐
+  │  Vault (SOT)                                          │
+  │  • Canonical memory — the only Source of Truth        │
+  │  • Lifecycle state (ACTIVE / SUPERSEDED / STALE)      │
+  │  • Provenance tracking (source_ref, origin_locator)   │
+  │  • Enforced frontmatter schema                        │
+  └────────────────────┬──────────────────────────────────┘
+                       │ Derivation (One-way)
+                       ▼
+  ┌───────────────────────────────────────────────────────┐
+  │  Graphify (Derived View)                               │
+  │  • Graph/wiki/index — Visibility layer                 │
+  │  • Failure does not block the core pipeline            │
+  │  • Provides hints to Pathfinder (verification required)│
+  │  • Never mutates the Vault (Read-only)                 │
+  └───────────────────────────────────────────────────────┘
+```
+
+Graphify artifacts enhance Pathfinder's retrieval quality, but
+**Pathfinder always cross-verifies Graphify hints against the original Vault.**
+If a relationship suggested by Graphify cannot be verified in the Vault, it is ignored.
 
 ---
 
@@ -218,67 +326,72 @@ choice, a debugging insight, a resolved trade-off — the provider's agent
 - OpenYggdrasil **cold-starts on demand**. There is no background daemon.
   The provider calls it, it runs, it exits.
 
-### Production Pipeline — Signal to Vault
+### Production Pipeline — Subagent's 8-Tool Chain
 
-Once the signal enters the system, it flows through the 12-module chain:
+When a capture signal enters the system, the subagent does not just blindly hand it off to an automated black box. **The subagent explicitly invokes the following 8 tools sequentially** via the PTC engine.
+
+These tools have a dual nature:
+
+1. **Contract Guardrails (3 Tools)**: Consume the subagent's reasoning tokens. The subagent must read the source material, judge it, and format it into a structured schema to pass the tool.
+2. **Utility Tools (5 Tools)**: Pure Python deterministic functions. The subagent just passes the verified payload from the previous step without spending reasoning tokens.
 
 ```
   Session Structure Signal
        │
        ▼
-  ┌─ Distiller ──────────────────────────────────────────────┐
-  │  Raw signal → structured decision candidate              │
-  │  Extracts: decision_text, rationale, alternatives,       │
-  │            confidence_score, stability_state              │
+  ┌─ 1. distill_signal (Guardrail) ──────────────────────────┐
+  │  Subagent reads raw signal and structures the decision   │
+  │  Extracts: rationale, alternatives, confidence_score     │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
-  ┌─ Evaluator ──────────────────────────────────────────────┐
-  │  Scores promotion worthiness                             │
-  │  Checks: semantic validity, dedup, threshold gates       │
-  │  Output: evaluator_verdict → ready_for_amundsen          │
+  ┌─ 2. evaluate_candidate (Guardrail) ──────────────────────┐
+  │  Subagent judges promotion worthiness                    │
+  │  "Is this syntactically valid and worth remembering?"    │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
-  ┌─ Amundsen ───────────────────────────────────────────────┐
-  │  Category & novelty classification                       │
+  ┌─ 3. classify_novelty (Guardrail) ────────────────────────┐
+  │  Subagent classifies category & novelty                  │
   │  "Is this topic known or a new continent?"               │
-  │  Output: continent_route + topic_route                   │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
-  ┌─ Seedkeeper ─────────────────────────────────────────────┐
-  │  Stamps provenance ring: source_ref, origin_locator,     │
-  │  turn_range, dedup_key, integrity_status                 │
+  ┌─ 4. stamp_provenance (Utility) ──────────────────────────┐
+  │  Deterministic: stamps source_ref, turn_range, dedup_key │
   │  Output: preserved segment with planting_ready flag      │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
-  ┌─ Nursery ────────────────────────────────────────────────┐
-  │  Composes the final engraved seed from all upstream      │
-  │  artifacts: verdict + route + segment                    │
-  │  Output: engraved_seed with seed_identity_key            │
+  ┌─ 5. compose_seed (Utility) ──────────────────────────────┐
+  │  Deterministic: combines guardrail outputs + provenance  │
+  │  Creates the final `engraved_seed`                       │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
-  ┌─ Gardener ───────────────────────────────────────────────┐
-  │  Plans planting → builds routing → writes to Vault       │
-  │  Creates: topic page + provenance page                   │
-  │  Lifecycle: ACTIVE → SUPERSEDED → STALE transitions      │
+  ┌─ 6. plant_to_vault (Utility) ────────────────────────────┐
+  │  Deterministic: executes the filesystem write            │
+  │  Handles ACTIVE → SUPERSEDED transitions automatically   │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
-  ┌─ Map Maker ──────────────────────────────────────────────┐
-  │  Updates topography: continent/topic/episode placement   │
-  │  Maintains adjacency keys and bridge topology            │
+  ┌─ 7. update_topology (Utility) ───────────────────────────┐
+  │  Deterministic: updates Map Maker's bridge topology      │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
-  ┌─ Postman ────────────────────────────────────────────────┐
-  │  Builds delivery handoff → submits to Mailbox            │
-  │  Records clearinghouse event + push delivery             │
+  ┌─ 8. deliver_receipt (Utility) ───────────────────────────┐
+  │  Deterministic: generates the final delivery receipt     │
+  │  Records clearinghouse event in the Mailbox              │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
                                           Vault updated
-                                     Mailbox receipt recorded
 ```
 
-At every boundary, **typed contracts** validate the handoff. If any module
-rejects the input, the chain stops with a typed `stop_reason` — it never
-silently drops data.
+### PTC Execution Plan (Production)
+
+The PTC engine orchestrates these 8 tools using one of three plans, depending on the complexity of the signal:
+
+| Mode | Condition | Execution Pattern |
+|---|---|---|
+| `deterministic` | Simple structural updates | Guardrails auto-pass (Rule-based) → Utility execution |
+| `lease_backed_llm` | Complex signals / ambiguity | Full reasoning (3x HIGH) → Utility execution |
+| `fallback` | Lease rejection | Downgrade to safe baseline or halt pipeline |
+
+If the subagent violates the **typed contracts** at any guardrail (e.g., trying to submit a string instead of an array), the chain stops with a typed `stop_reason`—it never silently drops data.
 
 ### Consumption Trigger — How providers retrieve past knowledge
 
@@ -331,48 +444,57 @@ OpenYggdrasil as a subagent** to search the accumulated knowledge.
   from raw transcripts — it queries an incrementally built, lifecycle-managed
   knowledge surface.
 
-### Consumption Pipeline — Vault to Provider Session
+### Consumption Pipeline — Pathfinder's 7-Tool Chain
 
-Once the retrieval query enters the system:
+Retrieval is also not an automatic black box. The subagent invokes the following 7 tools sequentially to fetch and verify knowledge.
 
 ```
   Retrieval Query
        │
        ▼
-  ┌─ Pathfinder ─────────────────────────────────────────────┐
-  │  Query → Vault scan → topic anchor resolution            │
-  │  Modes: "topic-page-recent-origin" (anchored)            │
-  │         "unanchored" (no matching topic found)            │
-  │  Output: pathfinder_bundle with support_facts,           │
-  │          source_paths, episode_ids, claim_ids             │
+  ┌─ 1. resolve_anchor (Guardrail) ──────────────────────────┐
+  │  Subagent determines the topic anchor from the query     │
+  │  Searches Vault indices to find the closest match        │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
-  ┌─ Origin Shortcut ────────────────────────────────────────┐
-  │  Resolves source_ref → physical file existence check     │
-  │  If source file is gone → stops with "origin_missing"    │
-  │  Provenance must be verifiable, not just claimed          │
+  ┌─ 2. scan_topology (Utility) ─────────────────────────────┐
+  │  Deterministic: scans Map Maker for connected topics     │
+  │  Provides Graphify hints if available                    │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
-  ┌─ Lifecycle Filter ───────────────────────────────────────┐
-  │  Filters retrieval results by lifecycle state             │
-  │  Default: ACTIVE only                                    │
-  │  Optional: include SUPERSEDED/STALE for historical view  │
+  ┌─ 3. verify_origin (Utility) ─────────────────────────────┐
+  │  Deterministic: physical file existence check            │
+  │  If source file is missing, stops with "origin_missing"  │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
-  ┌─ Product Route ──────────────────────────────────────────┐
-  │  Determines delivery format and Graphify hint status     │
-  │  Guards: no forbidden text patterns in output            │
+  ┌─ 4. filter_lifecycle (Utility) ──────────────────────────┐
+  │  Deterministic: filters by state (Default: ACTIVE only)  │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
-  ┌─ Mailbox Delivery ──────────────────────────────────────┐
-  │  Pathfinder retrieval result → inbox JSONL               │
-  │  Routed by: profile + session_id                         │
-  │  Provider agent reads from its inbox                     │
+  ┌─ 5. guard_product (Utility) ─────────────────────────────┐
+  │  Deterministic: ensures no forbidden text patterns leak  │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+  ┌─ 6. build_bundle (Guardrail) ────────────────────────────┐
+  │  Subagent constructs the final explainable context       │
+  │  Decides what facts are actually relevant to the query   │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+  ┌─ 7. dispatch_mailbox (Utility) ──────────────────────────┐
+  │  Deterministic: drops the bundle into inbox JSONL        │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
                                      Provider agent receives
                                    bounded, explainable context
 ```
+
+### PTC Execution Plan (Consumption)
+
+| Mode | Condition | Execution Pattern |
+|---|---|---|
+| `fast_path` | Exact match (Cache hit) | `resolve_anchor` skips LLM → Utility → Mailbox |
+| `deep_search` | Vague query (e.g., "how did we do X?") | Subagent scans topology → reads multiple pages → builds bundle |
+| `graphify_assisted` | Cross-domain query | Uses Graphify hints for semantic search |
 
 The consumption side **never fabricates context**. If the Vault is empty,
 Pathfinder returns an honest `anchor_type: "none"` result. If provenance
@@ -402,10 +524,9 @@ always knows exactly what it's getting and why.
 
 ## Reasoning Lease
 
-Some tasks require more than deterministic pipeline execution — they need
-extended LLM reasoning with time budgets and isolation guarantees.
+Some complex signals or ambiguous tradeoffs go beyond simple PTC tool calls—they require extended LLM reasoning with time budgets and isolation guarantees.
 
-OpenYggdrasil separates this as an **optional Reasoning Lease** layer:
+OpenYggdrasil handles this via the **Reasoning Lease** layer. It activates when the PTC engine's `lease_backed_llm` mode is used:
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -428,8 +549,7 @@ OpenYggdrasil separates this as an **optional Reasoning Lease** layer:
 └───────────────────────────────────────────────────────────┘
 ```
 
-The base pipeline keeps working when reasoning capability is unavailable —
-deterministic modules never depend on optional LLM reasoning.
+The Reasoning Lease runs in an unprivileged sandbox via the mandatory dependency `bubblewrap`, ensuring that the subagent's complex autonomous loop cannot corrupt the main system.
 
 ---
 
