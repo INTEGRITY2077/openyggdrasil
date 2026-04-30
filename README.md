@@ -165,7 +165,7 @@ OpenYggdrasil intentionally constrains this autonomy, internalizing it as a **Ty
 2. **Constraining Freedom (JSON Tool Plan):** The agent is forbidden from arbitrarily mixing tools or writing custom scripts. Instead, the PTC engine forces a contextual **Execution Plan** (JSON Tool Plan) upon the agent.
 3. **Dual-Nature Tools:** Tools are categorized into 'Contract Guardrails' (which consume reasoning tokens and enforce strict schemas) and 'Utility Tools' (deterministic Python execution), optimizing the agent's cognitive load.
 
-Consequently, OpenYggdrasil's PTC structure borrows the **"powerful reasoning capabilities of Claude Code"** but **"forces it to run on a strict, track-based railway"**, ensuring absolute data integrity.
+Consequently, OpenYggdrasil's PTC model restricts the agent's open-ended reasoning loop and enforces sequential tool execution according to a predefined JSON Execution Plan, ensuring data integrity by design.
 
 ### Background: Why PTC over Vector DBs / ElasticSearch? (Token Efficiency)
 
