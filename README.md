@@ -67,11 +67,11 @@ openyggdrasil fuses four core philosophies to prevent "memory erosion" in a frag
 ### 1. Persistent Knowledge Base (LLM Wiki)
 Inspired by Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f). Instead of injecting context via RAG on every query, we "let the LLM incrementally build and curate a persistent wiki (SOT)." However, a simple flat wiki makes it difficult to explore macroscopic contexts.
 
-### 2. Terrain-based Category Structuring (Forest & Terrain)
-Knowledge is not a flat list; it is a **Terrain**.
-- **Amundsen (Explorer)** judges whether new knowledge belongs to an existing category (a known 'forest') or represents an entirely new domain (a 'new continent').
-- **Map Maker** plans the relative topology and coordinates of the knowledge.
-- **Gardener** protects the ecosystem, ensuring trees aren't planted in the wrong forest, and handles the physical planting.
+### 2. Category Structuring = Defining Continents (Continents & Terrain)
+In openyggdrasil, structuring categories is equivalent to **defining Continents**. Knowledge is not a flat folder system; it is an ecosystem terrain.
+- **Amundsen (Explorer)** judges whether incoming knowledge belongs to an existing continent ('known category') or if a 'new continent' must be charted, drawing the boundaries.
+- **Map Maker** plans the relative topology and coordinates within that continent.
+- **Gardener** protects the ecosystem, ensuring knowledge isn't planted in the wrong continent, and handles the physical planting.
 
 ### 3. Tree Rings and Lineage (Evolution Tree)
 *"Time flows linearly, but context does not evolve linearly."*
