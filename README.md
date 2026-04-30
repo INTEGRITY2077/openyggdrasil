@@ -174,9 +174,12 @@ Providers attach to OpenYggdrasil by reading the **`SKILL.md`** manifest at the 
 - Point your agent's skill configuration to the absolute path of `SKILL.md`.
 - The agent reads this contract, which defines the exact entrypoints, command shapes, and boundaries for memory retrieval and capture.
 
-### 2. Dependency Installation & User Consent
+### 2. System Requirements & Dependency Installation
 
 OpenYggdrasil runs purely locally. The core runtime relies almost entirely on the Python Standard Library, but the Graphify-derived views and Sandbox isolations require the following minimal dependency stack:
+
+**Core Prerequisite:**
+- **`Python 3.10+`**: Must be installed and accessible in the local environment.
 
 **Python Packages (via pip):**
 - **`graphifyy`**: the core companion package for structural analysis and graph building
