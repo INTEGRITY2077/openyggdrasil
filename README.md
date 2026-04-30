@@ -19,6 +19,12 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
+> **⚠️ This project is under active live testing.**
+> The architecture is designed and contracts are defined, but the end-to-end
+> pipeline is not yet production-ready. Expect breaking changes, incomplete
+> integrations, and rough edges. We're building in the open — contributions
+> and feedback are welcome.
+
 ---
 
 ## Why This Exists
@@ -271,20 +277,25 @@ into navigable graphs:
 
 ---
 
-## Current State
+## Current State — Live Testing
 
-OpenYggdrasil is in active development. The module chain architecture is
-established with 37,000+ lines of runtime code and 510+ passing tests.
+> **This project is not production-ready.** We are live-testing the architecture
+> and iterating in public.
 
-**What works today:**
-- Full 12-module chain contract definitions
-- Provider-neutral capture, evaluation, cultivation, and retrieval logic
+The module chain architecture is designed with 37,000+ lines of runtime code
+and 510+ passing tests — but the end-to-end pipeline does not yet pass through
+from signal to mailbox.
+
+**What exists:**
+- 12-module chain contract definitions and internal logic
+- Provider-neutral capture, evaluation, cultivation, and retrieval implementations
 - Pathfinder retrieval with PTC (Programmatic Tool Calling) support
 - Graphify-derived snapshot views
 - Hermes provider adapter (foreground)
 
-**What's in progress:**
-- Top-level facade wiring for end-to-end pipeline pass-through
+**What does not work yet:**
+- Top-level facade wiring (35 stubs need to be connected to internal logic)
+- End-to-end pipeline pass-through (signal → mailbox)
 - Mailbox async delegation loop
 - Bubblewrap sandbox runner integration
 - Safe provider-owned gateway contract
