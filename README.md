@@ -471,18 +471,32 @@ Provider Signal                               Provider Query
 
 When a capture signal enters the system, the subagent does not just blindly hand it off to an automated black box. **The subagent explicitly invokes the following 8 tools sequentially** via the PTC engine.
 
+This involves a two-stage structuring process:
+1. **First-pass Structuring (Provider Agent)**: The Provider Agent reads `SKILL.md` and constructs a shallow initial signal (`Session Structure Signal` containing `surface_reason` and `source_ref`), injecting it into the entrypoint.
+2. **Deep Structuring (Subagent)**: The Subagent (spawned by the PTC Engine) receives this shallow signal and uses the `distill_signal` tool to deeply parse and distill it into a fully structured decision (Rationale, Alternatives).
+
 These tools have a dual nature:
 
 1. **Contract Guardrails (3 Tools)**: Consume the subagent's reasoning tokens. The subagent must read the source material, judge it, and format it into a structured schema to pass the tool.
 2. **Utility Tools (5 Tools)**: Pure Python deterministic functions. The subagent just passes the verified payload from the previous step without spending reasoning tokens.
 
 ```
-  Session Structure Signal
+  Session Structure Signal (Shallow summary injected by Provider Agent)
        │
        ▼
-  ┌─ 1. distill_signal (Guardrail) ──────────────────────────┐
-  │  Subagent reads raw signal and structures the decision   │
-  │  Extracts: rationale, alternatives, confidence_score     │
+  Subagent Spawned (Inside openyggdrasil runtime)
+       │
+       │  ① PTC Engine provides 8 tools and JSON Execution Plan
+       │  ② Subagent writes code to sequentially invoke the tools
+       │
+       ▼
+  ┌─ PTC Engine (Production) — 8-Tool Chain ─────────────────┐
+  │                                                          │
+  │  [Contract Guardrails — Structure Subagent's reasoning]  │
+  │                                                          │
+  │  ┌─ distill_signal ───────────────────────────────┐      │
+  │  │  Deeply distill shallow signal into decisions  │      │
+  │  │  Reasoning Depth: HIGH                         │      │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
   ┌─ 2. evaluate_candidate (Guardrail) ──────────────────────┐
