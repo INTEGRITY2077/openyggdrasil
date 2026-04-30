@@ -309,11 +309,13 @@ openyggdrasil은 모델의 선의나 자율성에 기대지 않습니다. 모델
 
 ## 작동 방식
 
-### 기본 철학: Karpathy의 'LLM Wiki' 흡수
+### 기본 철학: Karpathy의 'LLM Wiki' 흡수 + Graphify 확장
 
 openyggdrasil은 Andrej Karpathy의 [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 개념을 시스템 아키텍처로 직접 구현했습니다. 매 질의마다 RAG로 지식을 재파생하는 대신, **LLM이 점진적으로 영속적인 위키를 구축하고 유지**하도록 설계되었습니다.
 
-| LLM Wiki 개념 | openyggdrasil 파이프라인 구현 |
+여기에 단순한 플랫(flat) 위키의 탐색 한계를 극복하기 위해, [Graphify(v5)](https://github.com/safishamsi/graphify)의 구조 분석 파이프라인을 해체하여 동적 위상 계층으로 결합했습니다.
+
+| LLM Wiki + Graphify 개념 | openyggdrasil 파이프라인 구현 |
 |---|---|
 | **Raw Sources** (불변 원본) | → Provider Signal (①) — 원본 신호는 절대 변형되지 않음 |
 | **The Wiki** (LLM이 유지하는 지식) | → Vault — 생명주기를 가진 단일 진실 원천(SOT) |
@@ -323,10 +325,12 @@ openyggdrasil은 Andrej Karpathy의 [LLM Wiki](https://gist.github.com/karpathy/
 | **Lint** 연산 | → Gardener 가지치기 + Amundsen 일관성 검사 |
 | **`index.md`** 카탈로그 | → Pathfinder의 인덱스 기반 검색 |
 | **`log.md`** 연대기 기록 | → 시간 엣지가 있는 출처 저장소 |
+| *Graphify: 커뮤니티 클러스터링* | → Map Maker의 토픽 군집화 (Leiden 알고리즘 기반) |
+| *Graphify: 파생 네트워크* | → `common/graphify/` — 정적 Vault 위에 씌워지는 오프라인 파생 뷰 |
 
 > *"위키는 소스를 추가할 때마다 더 풍부해집니다. 사람의 일은 소스를 큐레이션하고 좋은 질문을 하는 것입니다. LLM의 일은 나머지 전부입니다."* — Karpathy
 
-openyggdrasil은 이를 단순한 위키를 넘어 타입 계약, 생명주기 거버넌스, 프로바이더 중립 공유가 있는 **멀티 프로바이더/멀티 에이전트**로 확장합니다. 
+openyggdrasil은 이를 단순한 위키를 넘어 타입 계약, 생명주기 거버넌스, 그리고 외부 인프라(Vector DB 등) 의존 없이 **순수 로컬 오프라인 그래프 계층**이 접목된 **멀티 프로바이더/멀티 에이전트** 아키텍처로 확장합니다.
 
 이 철학을 바탕으로, openyggdrasil은 메모리를 포착하고 큐레이션하는 **생산면(Production Side)** 과 지식을 검색하고 전달하는 **소비면(Consumption Side)** 이라는 양면 엔진으로 작동합니다.
 
