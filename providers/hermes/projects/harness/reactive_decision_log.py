@@ -18,6 +18,7 @@ DEFAULT_RETRIES = 2
 DEFAULT_RETRY_DELAY_SECONDS = 1.0
 MAX_QUERY_CHARS = 96
 JSON_STRING_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
+MAX_ROUTING_RECEIPTS = 8
 
 
 def query_reminder(query_text: str) -> str:
@@ -30,13 +31,18 @@ def query_reminder(query_text: str) -> str:
 def build_decision_log_state(*, packets: list[dict], query_text: str) -> dict[str, Any]:
     graph_hints = sum(1 for packet in packets if packet.get("message_type") == "graph_hint")
     lint_alerts = sum(1 for packet in packets if packet.get("message_type") == "lint_alert")
+    routing_receipt_state = _collect_routing_receipt_state(packets)
     signal_labels: list[str] = []
     if graph_hints:
         signal_labels.append(f"Graphify hint x{graph_hints}")
     if lint_alerts:
         signal_labels.append(f"lint alert x{lint_alerts}")
+    if routing_receipt_state["receipt_count"]:
+        signal_labels.append(f"runtime route receipt x{routing_receipt_state['receipt_count']}")
 
     primary_action = "graphify_query_surface"
+    if routing_receipt_state["receipt_count"]:
+        primary_action = "runtime_authoritative_support_bundle_route"
     if not packets:
         primary_action = "graphify_query_surface_without_packet_hint"
 
@@ -74,6 +80,7 @@ def build_decision_log_state(*, packets: list[dict], query_text: str) -> dict[st
             "source_paths": _collect_source_paths(packets),
             "topic_candidates": _collect_topics(packets),
         },
+        "routing_receipts": routing_receipt_state,
     }
 
 
@@ -97,6 +104,49 @@ def _collect_topics(packets: list[dict]) -> list[str]:
             if topic_text not in topics:
                 topics.append(topic_text)
     return topics[:5]
+
+
+def _collect_routing_receipt_state(packets: list[dict]) -> dict[str, Any]:
+    receipts: list[dict[str, Any]] = []
+    for packet in packets:
+        payload = packet.get("payload", {})
+        if not isinstance(payload, dict):
+            continue
+        for receipt in payload.get("routing_receipts") or []:
+            if not isinstance(receipt, dict):
+                continue
+            evidence_ids = [
+                str(row.get("evidence_id"))
+                for row in receipt.get("evidence_refs") or []
+                if isinstance(row, dict) and row.get("evidence_id")
+            ]
+            receipts.append(
+                {
+                    "packet_id": packet.get("message_id"),
+                    "receipt_id": receipt.get("receipt_id"),
+                    "route_id": receipt.get("route_id"),
+                    "approved_effort": receipt.get("approved_effort"),
+                    "lease_group": receipt.get("lease_group"),
+                    "evidence_ids": evidence_ids[:8],
+                    "provider_route_summary": receipt.get("provider_route_summary"),
+                }
+            )
+            if len(receipts) >= MAX_ROUTING_RECEIPTS:
+                break
+        if len(receipts) >= MAX_ROUTING_RECEIPTS:
+            break
+    return {
+        "receipt_count": len(receipts),
+        "route_ids": [row["route_id"] for row in receipts if row.get("route_id")],
+        "approved_efforts": sorted({str(row["approved_effort"]) for row in receipts if row.get("approved_effort")}),
+        "lease_groups": sorted({str(row["lease_group"]) for row in receipts if row.get("lease_group")}),
+        "evidence_ids": [
+            evidence_id
+            for row in receipts
+            for evidence_id in row.get("evidence_ids", [])
+        ][:16],
+        "receipts": receipts,
+    }
 
 
 def build_reactive_prompt(*, query_text: str, state: dict[str, Any], requested_locale: str | None) -> str:
@@ -247,6 +297,8 @@ def render_fallback_lines(*, query_text: str, state: dict[str, Any]) -> list[str
     received = ", ".join(signal_labels) if signal_labels else "no directly relevant subagent signal"
     if state["decision"]["primary_action"] == "graphify_query_surface_without_packet_hint":
         first_step = "I will start with the Graphify query surface to narrow the answer."
+    elif state["decision"]["primary_action"] == "runtime_authoritative_support_bundle_route":
+        first_step = "I will start from the runtime-approved support bundle route receipt."
     elif state["decision"]["cautions"]:
         first_step = "I will narrow the answer through Graphify-linked wiki context and stay conservative around warned links."
     else:

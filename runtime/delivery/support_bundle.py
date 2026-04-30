@@ -103,6 +103,17 @@ def _support_bundle_evidence_pointers(payload: Mapping[str, Any]) -> set[str]:
     pathfinder_bundle = payload.get("pathfinder_bundle")
     if isinstance(pathfinder_bundle, Mapping):
         pointers.update(_normalized_pointer_set(pathfinder_bundle.get("source_paths") or []))
+    routing_receipts = payload.get("routing_receipts")
+    if isinstance(routing_receipts, list):
+        for receipt in routing_receipts:
+            if not isinstance(receipt, Mapping):
+                continue
+            for evidence_ref in receipt.get("evidence_refs") or []:
+                if not isinstance(evidence_ref, Mapping):
+                    continue
+                value = str(evidence_ref.get("ref") or "").strip()
+                if value:
+                    pointers.add(value.replace("\\", "/"))
     for key in ("canonical_note", "provenance_note", "source_ref"):
         value = str(payload.get(key) or "").strip()
         if value:
@@ -566,6 +577,13 @@ def build_support_bundle_payload(
         "community_id": None,
         "source_ref": None,
     }
+    routing_receipts = payload.get("routing_receipts")
+    if isinstance(routing_receipts, list) and routing_receipts:
+        bundle["routing_receipts"] = [
+            dict(receipt)
+            for receipt in routing_receipts
+            if isinstance(receipt, Mapping)
+        ]
     overlay = _select_support_overlay(
         query_text=query_text,
         source_paths=source_paths,

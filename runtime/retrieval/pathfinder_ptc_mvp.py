@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import tempfile
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from harness_common import DEFAULT_VAULT, RUNTIME_STATE_ROOT, utc_now_iso
+from reasoning.approved_routing_fact import (
+    build_approved_routing_fact_from_ptc_trace,
+    build_hermes_routing_receipt,
+)
 from retrieval.pathfinder import validate_pathfinder_bundle
 from retrieval.pathfinder_tools import (
     build_support_bundle,
@@ -17,6 +22,7 @@ from retrieval.pathfinder_tools import (
     get_recent_episodes,
 )
 from ptc.engine import (
+    build_pathfinder_ptc_routing_trace,
     structural_anchor_fallback_evaluator,
     render_default_pathfinder_program,
 )
@@ -142,6 +148,7 @@ class PathfinderPTCMVPRuntime:
         query_text: str,
         program_source: str | None = None,
         recent_limit: int = 3,
+        advisory_effort: str | None = None,
     ) -> dict[str, Any]:
         self.scratch_root.mkdir(parents=True, exist_ok=True)
         run_dir = Path(
@@ -171,6 +178,37 @@ class PathfinderPTCMVPRuntime:
         tool_calls_path.write_text(json.dumps(transcript, ensure_ascii=False, indent=2), encoding="utf-8")
         bundle_path = run_dir / "bundle.json"
         bundle_path.write_text(json.dumps(bundle, ensure_ascii=False, indent=2), encoding="utf-8")
+        query_token = hashlib.sha256(query_text.strip().encode("utf-8")).hexdigest()[:32]
+        bundle_token = hashlib.sha256(
+            json.dumps(bundle, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+        trace_token = hashlib.sha256(f"{query_token}:{bundle_token}:{run_dir.name}".encode("utf-8")).hexdigest()[:32]
+        query_ref = f"query-ref://openyggdrasil/pathfinder-ptc-mvp/{query_token}"
+        support_bundle_ref = f"support-bundle-ref://openyggdrasil/pathfinder-ptc-mvp/{bundle_token}"
+        ptc_trace_ref = f"ptc-trace-ref://openyggdrasil/pathfinder-ptc-mvp/{trace_token}"
+        routing_trace = build_pathfinder_ptc_routing_trace(
+            query_ref=query_ref,
+            support_bundle_ref=support_bundle_ref,
+            ptc_trace_ref=ptc_trace_ref,
+            advisory_effort=advisory_effort,
+        )
+        approved_routing_fact = build_approved_routing_fact_from_ptc_trace(routing_trace)
+        hermes_routing_receipt = build_hermes_routing_receipt(approved_routing_fact)
+        routing_trace_path = run_dir / "pathfinder_ptc_routing_trace.json"
+        routing_trace_path.write_text(
+            json.dumps(routing_trace, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        approved_fact_path = run_dir / "approved_routing_fact.json"
+        approved_fact_path.write_text(
+            json.dumps(approved_routing_fact, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        hermes_receipt_path = run_dir / "hermes_routing_receipt.json"
+        hermes_receipt_path.write_text(
+            json.dumps(hermes_routing_receipt, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
         runtime_meta = {
             "runtime_mode": "ptc-inspired-deterministic-tool-plan",
             "query_text": query_text,
@@ -185,6 +223,19 @@ class PathfinderPTCMVPRuntime:
             "program_source_status": "deterministic_plan_not_executed_as_code",
             "tool_calls_path": str(tool_calls_path),
             "bundle_path": str(bundle_path),
+            "route_id": hermes_routing_receipt["route_id"],
+            "receipt_id": hermes_routing_receipt["receipt_id"],
+            "approved_effort": hermes_routing_receipt["approved_effort"],
+            "lease_group": hermes_routing_receipt["lease_group"],
+            "query_ref": query_ref,
+            "support_bundle_ref": support_bundle_ref,
+            "ptc_trace_ref": ptc_trace_ref,
+            "approved_routing_fact_ref": hermes_routing_receipt["approved_routing_fact_ref"],
+            "routing_trace_path": str(routing_trace_path),
+            "approved_routing_fact_path": str(approved_fact_path),
+            "hermes_routing_receipt_path": str(hermes_receipt_path),
+            "skill_body_included": False,
+            "raw_provider_material_included": False,
             "tool_call_count": len(transcript),
             "generated_at": utc_now_iso(),
         }
@@ -196,6 +247,9 @@ class PathfinderPTCMVPRuntime:
             "bundle": bundle,
             "runtime": runtime_meta,
             "tool_calls": transcript,
+            "routing_trace": routing_trace,
+            "approved_routing_fact": approved_routing_fact,
+            "hermes_routing_receipt": hermes_routing_receipt,
             "scratch_dir": str(run_dir),
         }
 
@@ -208,6 +262,7 @@ def build_pathfinder_bundle_via_ptc_mvp(
     program_source: str | None = None,
     recent_limit: int = 3,
     scratch_root: Path = DEFAULT_SCRATCH_ROOT,
+    advisory_effort: str | None = None,
 ) -> dict[str, Any]:
     runtime = PathfinderPTCMVPRuntime(
         vault_root=vault_root,
@@ -218,4 +273,5 @@ def build_pathfinder_bundle_via_ptc_mvp(
         query_text=query_text,
         program_source=program_source,
         recent_limit=recent_limit,
+        advisory_effort=advisory_effort,
     )

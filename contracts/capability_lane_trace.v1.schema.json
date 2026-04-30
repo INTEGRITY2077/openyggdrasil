@@ -1,0 +1,635 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/capability_lane_trace.v1.schema.json",
+  "title": "OpenYggdrasil Capability Lane Trace v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "trace_id",
+    "created_at",
+    "ptc_code_execution_session_ref",
+    "reasoning_lease_ref",
+    "leased_token_budget",
+    "lease_consumed_tokens",
+    "lease_status",
+    "lease_binding_mode",
+    "execution_physical_profile",
+    "runtime_profile_ref",
+    "ttl_ms",
+    "expires_at",
+    "intermediate_store_ref",
+    "cleanup_trace_ref",
+    "session_state",
+    "cleanup_evidence_ref",
+    "ptc_egress_payload_kind",
+    "allowed_callers_equivalent_ref",
+    "pipeline_stage_trace_ref",
+    "pipeline_stage_order",
+    "lanes",
+    "standalone_agent_spawned",
+    "raw_provider_material_included",
+    "skill_body_included",
+    "credential_content_included",
+    "portable_local_path_included",
+    "graphify_used_as_sot",
+    "vector_embedding_used_as_canonical_placement",
+    "broad_vault_scan_performed",
+    "raw_stdout_included",
+    "raw_stderr_included",
+    "raw_tool_intermediates_included",
+    "raw_provider_context_included",
+    "live_process_handles_included",
+    "untyped_scratch_files_included",
+    "standalone_llm_spawned",
+    "reasoning_lease_bypassed",
+    "lease_less_execution",
+    "non_typed_ptc_egress",
+    "host_context_pollution",
+    "host_death_without_session_close",
+    "proxoauth_provider_api_proxy",
+    "stdin_injection",
+    "state_db_raw_polling",
+    "provider_tool_decision_override",
+    "hidden_request_response_mutation",
+    "main_context_injection",
+    "fixture_lease_presented_as_live_background_proof",
+    "hardcoded_decision",
+    "map_maker_without_amundsen_authority",
+    "gardener_before_placement_topography",
+    "seedkeeper_stage_skipped",
+    "nursery_stage_skipped",
+    "collapsed_promotion_stage_detected",
+    "ambiguous_untyped_label_bucket_detected",
+    "portable_local_path_leakage_detected",
+    "direct_aftercare_mutation_detected",
+    "historical_ring_snapshot_read_capability_claimed",
+    "portable_output",
+    "reason_codes"
+  ],
+  "allOf": [
+    {
+      "anyOf": [
+        {
+          "required": [
+            "sandbox_profile_ref"
+          ]
+        },
+        {
+          "required": [
+            "provider_background_task_id"
+          ]
+        }
+      ]
+    },
+    {
+      "if": {
+        "properties": {
+          "execution_physical_profile": {
+            "const": "provider_owned_background"
+          }
+        },
+        "required": [
+          "execution_physical_profile"
+        ]
+      },
+      "then": {
+        "required": [
+          "provider_background_task_id"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "execution_physical_profile": {
+            "enum": [
+              "bubblewrap_equivalent",
+              "managed_container",
+              "lease_bound_worker_process"
+            ]
+          }
+        },
+        "required": [
+          "execution_physical_profile"
+        ]
+      },
+      "then": {
+        "required": [
+          "sandbox_profile_ref"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lease_status": {
+            "enum": [
+              "exhausted",
+              "revoked",
+              "expired"
+            ]
+          }
+        },
+        "required": [
+          "lease_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "typed_unavailable_egress_ref"
+        ],
+        "properties": {
+          "ptc_egress_payload_kind": {
+            "const": "typed_unavailable"
+          },
+          "session_state": {
+            "const": "closed"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lease_binding_mode": {
+            "const": "provider_owned_background_live"
+          }
+        },
+        "required": [
+          "lease_binding_mode"
+        ]
+      },
+      "then": {
+        "required": [
+          "provider_background_task_id",
+          "p4_h1_background_live_smoke_ref",
+          "p4_h2_background_task_id_ref",
+          "p4_h3_background_result_contract_ref",
+          "p4_h6_main_context_non_accumulation_ref"
+        ],
+        "properties": {
+          "execution_physical_profile": {
+            "const": "provider_owned_background"
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "capability_lane_trace.v1"
+    },
+    "trace_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ptc_code_execution_session_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "reasoning_lease_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "leased_token_budget": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000000
+    },
+    "lease_consumed_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000000
+    },
+    "lease_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "exhausted",
+        "revoked",
+        "expired"
+      ]
+    },
+    "lease_binding_mode": {
+      "type": "string",
+      "enum": [
+        "fixture_contract",
+        "self_managed_live",
+        "provider_owned_background_live"
+      ]
+    },
+    "execution_physical_profile": {
+      "type": "string",
+      "enum": [
+        "bubblewrap_equivalent",
+        "provider_owned_background",
+        "managed_container",
+        "lease_bound_worker_process"
+      ]
+    },
+    "runtime_profile_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "sandbox_profile_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "provider_background_task_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "ttl_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 86400000
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "intermediate_store_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "cleanup_trace_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "session_state": {
+      "const": "closed"
+    },
+    "cleanup_evidence_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "p4_h1_background_live_smoke_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "p4_h2_background_task_id_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "p4_h3_background_result_contract_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "p4_h6_main_context_non_accumulation_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "ptc_egress_payload_kind": {
+      "type": "string",
+      "enum": [
+        "typed_payload",
+        "typed_unavailable"
+      ]
+    },
+    "typed_unavailable_egress_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "allowed_callers_equivalent_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "pipeline_stage_trace_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "pipeline_stage_order": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "prefixItems": [
+        {
+          "const": "seedkeeper"
+        },
+        {
+          "const": "nursery"
+        },
+        {
+          "const": "amundsen"
+        },
+        {
+          "const": "map_maker"
+        },
+        {
+          "const": "gardener"
+        },
+        {
+          "const": "index_log"
+        },
+        {
+          "const": "receipt_ptc_egress"
+        }
+      ]
+    },
+    "lanes": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 6,
+      "items": {
+        "$ref": "#/$defs/lane"
+      }
+    },
+    "standalone_agent_spawned": {
+      "const": false
+    },
+    "raw_provider_material_included": {
+      "const": false
+    },
+    "skill_body_included": {
+      "const": false
+    },
+    "credential_content_included": {
+      "const": false
+    },
+    "portable_local_path_included": {
+      "const": false
+    },
+    "graphify_used_as_sot": {
+      "const": false
+    },
+    "vector_embedding_used_as_canonical_placement": {
+      "const": false
+    },
+    "broad_vault_scan_performed": {
+      "const": false
+    },
+    "raw_stdout_included": {
+      "const": false
+    },
+    "raw_stderr_included": {
+      "const": false
+    },
+    "raw_tool_intermediates_included": {
+      "const": false
+    },
+    "raw_provider_context_included": {
+      "const": false
+    },
+    "live_process_handles_included": {
+      "const": false
+    },
+    "untyped_scratch_files_included": {
+      "const": false
+    },
+    "standalone_llm_spawned": {
+      "const": false
+    },
+    "reasoning_lease_bypassed": {
+      "const": false
+    },
+    "lease_less_execution": {
+      "const": false
+    },
+    "non_typed_ptc_egress": {
+      "const": false
+    },
+    "host_context_pollution": {
+      "const": false
+    },
+    "host_death_without_session_close": {
+      "const": false
+    },
+    "proxoauth_provider_api_proxy": {
+      "const": false
+    },
+    "stdin_injection": {
+      "const": false
+    },
+    "state_db_raw_polling": {
+      "const": false
+    },
+    "provider_tool_decision_override": {
+      "const": false
+    },
+    "hidden_request_response_mutation": {
+      "const": false
+    },
+    "main_context_injection": {
+      "const": false
+    },
+    "fixture_lease_presented_as_live_background_proof": {
+      "const": false
+    },
+    "hardcoded_decision": {
+      "const": false
+    },
+    "map_maker_without_amundsen_authority": {
+      "const": false
+    },
+    "gardener_before_placement_topography": {
+      "const": false
+    },
+    "seedkeeper_stage_skipped": {
+      "const": false
+    },
+    "nursery_stage_skipped": {
+      "const": false
+    },
+    "collapsed_promotion_stage_detected": {
+      "const": false
+    },
+    "ambiguous_untyped_label_bucket_detected": {
+      "const": false
+    },
+    "portable_local_path_leakage_detected": {
+      "const": false
+    },
+    "direct_aftercare_mutation_detected": {
+      "const": false
+    },
+    "historical_ring_snapshot_read_capability_claimed": {
+      "const": false
+    },
+    "portable_output": {
+      "$ref": "#/$defs/portable_output"
+    },
+    "reason_codes": {
+      "$ref": "#/$defs/reason_codes"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "safe_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\s]+$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^[Ff][Ii][Ll][Ee]://"
+          },
+          {
+            "pattern": "^[A-Za-z]:"
+          },
+          {
+            "pattern": "(?i)\\.skill\\.md"
+          },
+          {
+            "pattern": "(?i)transcript\\.txt"
+          },
+          {
+            "pattern": "(?i)credential"
+          }
+        ]
+      }
+    },
+    "lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lane_id",
+        "capability",
+        "execution_context",
+        "output_ref",
+        "output_kind",
+        "canonical_authority",
+        "raw_material_included"
+      ],
+      "properties": {
+        "lane_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "capability": {
+          "type": "string",
+          "enum": [
+            "amundsen",
+            "seedkeeper",
+            "nursery",
+            "map_maker",
+            "gardener",
+            "pathfinder",
+            "graphify"
+          ]
+        },
+        "execution_context": {
+          "const": "ptc_code_execution_session"
+        },
+        "output_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "output_kind": {
+          "type": "string",
+          "enum": [
+            "category_decision",
+            "seedkeeper_segment",
+            "nursery_candidate",
+            "topic_episode_placement",
+            "map_topography",
+            "index_delta",
+            "log_delta",
+            "pathfinder_trace",
+            "derived_visibility_hint",
+            "typed_unavailable"
+          ]
+        },
+        "canonical_authority": {
+          "type": "string",
+          "enum": [
+            "category_decision",
+            "structural_placement",
+            "lifecycle_delta",
+            "retrieval_probe",
+            "none"
+          ]
+        },
+        "raw_material_included": {
+          "const": false
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "capability": {
+                "const": "graphify"
+              }
+            },
+            "required": [
+              "capability"
+            ]
+          },
+          "then": {
+            "properties": {
+              "canonical_authority": {
+                "const": "none"
+              },
+              "output_kind": {
+                "enum": [
+                  "derived_visibility_hint",
+                  "typed_unavailable"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "capability": {
+                "const": "pathfinder"
+              }
+            },
+            "required": [
+              "capability"
+            ]
+          },
+          "then": {
+            "properties": {
+              "canonical_authority": {
+                "enum": [
+                  "retrieval_probe",
+                  "none"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "portable_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "typed_refs_only",
+        "raw_stdout_included",
+        "raw_stderr_included",
+        "raw_tool_intermediates_included",
+        "raw_provider_context_included",
+        "live_process_handles_included",
+        "untyped_scratch_files_included"
+      ],
+      "properties": {
+        "typed_refs_only": {
+          "const": true
+        },
+        "raw_stdout_included": {
+          "const": false
+        },
+        "raw_stderr_included": {
+          "const": false
+        },
+        "raw_tool_intermediates_included": {
+          "const": false
+        },
+        "raw_provider_context_included": {
+          "const": false
+        },
+        "live_process_handles_included": {
+          "const": false
+        },
+        "untyped_scratch_files_included": {
+          "const": false
+        }
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    }
+  }
+}

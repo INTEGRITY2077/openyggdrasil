@@ -17,12 +17,14 @@ DEFAULT_RETRIES = 2
 DEFAULT_RETRY_DELAY_SECONDS = 1.0
 MAX_PACKET_FACTS = 5
 MAX_PACKETS = 3
+MAX_ROUTING_RECEIPTS = 8
 
 
 def build_answer_state(*, packets: list[dict], query_text: str) -> dict[str, Any]:
     packet_summaries: list[dict[str, Any]] = []
     for packet in packets[:MAX_PACKETS]:
         payload = packet.get("payload", {})
+        receipt_summaries = _routing_receipt_summaries(payload)
         packet_summaries.append(
             {
                 "packet_id": packet.get("message_id"),
@@ -30,13 +32,50 @@ def build_answer_state(*, packets: list[dict], query_text: str) -> dict[str, Any
                 "topic": packet.get("scope", {}).get("topic"),
                 "facts": list(payload.get("facts", []))[:MAX_PACKET_FACTS],
                 "source_paths": list(payload.get("source_paths", []))[:MAX_PACKET_FACTS],
+                "routing_receipt_ids": [
+                    receipt["receipt_id"]
+                    for receipt in receipt_summaries
+                    if receipt.get("receipt_id")
+                ],
             }
         )
     return {
         "question": query_text,
         "packet_count": len(packets),
         "packet_summaries": packet_summaries,
+        "routing_receipts": [
+            receipt
+            for packet in packets[:MAX_PACKETS]
+            for receipt in _routing_receipt_summaries(packet.get("payload", {}))
+        ][:MAX_ROUTING_RECEIPTS],
     }
+
+
+def _routing_receipt_summaries(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    if not isinstance(payload, dict):
+        return []
+    summaries: list[dict[str, Any]] = []
+    for receipt in payload.get("routing_receipts") or []:
+        if not isinstance(receipt, dict):
+            continue
+        evidence_ids = [
+            str(row.get("evidence_id"))
+            for row in receipt.get("evidence_refs") or []
+            if isinstance(row, dict) and row.get("evidence_id")
+        ]
+        summaries.append(
+            {
+                "receipt_id": receipt.get("receipt_id"),
+                "route_id": receipt.get("route_id"),
+                "approved_effort": receipt.get("approved_effort"),
+                "lease_group": receipt.get("lease_group"),
+                "evidence_ids": evidence_ids[:8],
+                "provider_route_summary": receipt.get("provider_route_summary"),
+            }
+        )
+        if len(summaries) >= MAX_ROUTING_RECEIPTS:
+            break
+    return summaries
 
 
 def build_answer_prompt(*, query_text: str, state: dict[str, Any]) -> str:
@@ -45,6 +84,7 @@ def build_answer_prompt(*, query_text: str, state: dict[str, Any]) -> str:
         "You are Hermes answering the user's question using plugin-plane support context.\n"
         "Write the final answer directly to the user.\n"
         "Use the selected packet facts when relevant.\n"
+        "When routing receipt summaries are present, ground the answer on their provider-visible route summary.\n"
         "Do not mention packets, mailboxes, telemetry, or internal logging.\n"
         "Do not invent missing support. If the support is insufficient, answer conservatively and say what remains uncertain.\n\n"
         f"User question:\n{query_text}\n\n"
@@ -136,6 +176,16 @@ def render_fallback_answer(*, query_text: str, state: dict[str, Any]) -> str:
             "I would start from the Graphify query surface and then verify against linked SOT notes."
         )
     first_packet = next(iter(state.get("packet_summaries") or []), {})
+    first_receipt = next(iter(state.get("routing_receipts") or []), {})
+    if first_receipt:
+        summary = first_receipt.get("provider_route_summary") or "the runtime-approved route"
+        route_id = first_receipt.get("route_id") or "unknown-route"
+        effort = first_receipt.get("approved_effort") or "unknown"
+        lease_group = first_receipt.get("lease_group") or "unknown"
+        return (
+            f"The runtime-approved route is {route_id}: {summary} "
+            f"The approved effort is {effort} in the {lease_group} lease group."
+        )
     topic = first_packet.get("topic") or "the current topic"
     facts = first_packet.get("facts") or []
     fact_text = "; ".join(str(fact) for fact in facts[:2]) if facts else "support context is available"

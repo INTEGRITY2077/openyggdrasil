@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "module_skill.v1.schema.json",
+  "title": "OpenYggdrasil Module Skill Declaration",
+  "description": "Schema for .skill.md YAML frontmatter. Each module declares its reasoning profile for dynamic tollgate routing.",
+  "type": "object",
+  "required": [
+    "name",
+    "description",
+    "chain_position",
+    "effort_class",
+    "requires_reasoning",
+    "bundle_eligible",
+    "output_contract"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "maxLength": 64,
+      "description": "kebab-case module identifier"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "description": "When this module should be activated. Used for Progressive Disclosure matching."
+    },
+    "chain_position": {
+      "type": "string",
+      "enum": ["ingress", "processing", "egress", "maintenance"],
+      "description": "Which chain segment this module belongs to."
+    },
+    "effort_class": {
+      "type": "string",
+      "enum": ["high", "medium", "low"],
+      "description": "Reasoning effort required. high = LLM reasoning lease, medium = LLM single call, low = deterministic only."
+    },
+    "requires_reasoning": {
+      "type": "boolean",
+      "description": "Whether this module needs an LLM reasoning session."
+    },
+    "bundle_eligible": {
+      "type": "boolean",
+      "description": "Whether this module can be bundled with adjacent modules in the same bwrap session."
+    },
+    "output_contract": {
+      "type": "string",
+      "pattern": "^[a-z_]+\\.v[0-9]+$",
+      "description": "Output contract schema name (e.g. distiller_candidate.v1)."
+    },
+    "shared_context": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Input files or artifacts this module consumes."
+    },
+    "success_condition": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Conditions that define successful execution."
+    },
+    "failure_mode": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "How the module fails safely."
+    }
+  },
+  "additionalProperties": false
+}

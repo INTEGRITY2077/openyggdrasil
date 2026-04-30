@@ -97,8 +97,24 @@
       "type": "array",
       "minItems": 1,
       "items": {
-        "type": "string",
-        "minLength": 1
+        "allOf": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "not": {
+              "pattern": "(?s)^---\\s*\\n.*name\\s*:"
+            }
+          }
+        ]
+      }
+    },
+    "routing_receipts": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/hermes_routing_receipt"
       }
     },
     "source_paths": {
@@ -334,6 +350,243 @@
             "type": "string",
             "minLength": 1
           }
+        }
+      }
+    },
+    "hermes_routing_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "receipt_id",
+        "route_id",
+        "approved_routing_fact_ref",
+        "query_ref",
+        "support_bundle_ref",
+        "ptc_trace_ref",
+        "runtime_authoritative",
+        "approved_effort",
+        "lease_group",
+        "provider_route_summary",
+        "selected_memory_refs",
+        "rejected_memory_refs",
+        "evidence_refs",
+        "skill_body_included",
+        "raw_provider_material_included",
+        "portable_local_path_included",
+        "advisory_metadata_lowered_effort",
+        "live_readiness_claimed",
+        "production_readiness_claimed",
+        "reasoning_lease_solved_claimed",
+        "target_readiness_claimed",
+        "reason_codes",
+        "generated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "hermes_routing_receipt.v1"
+        },
+        "receipt_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "route_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "approved_routing_fact_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "query_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "support_bundle_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "ptc_trace_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "runtime_authoritative": {
+          "const": true
+        },
+        "approved_effort": {
+          "$ref": "#/$defs/effort_level"
+        },
+        "lease_group": {
+          "$ref": "#/$defs/lease_group"
+        },
+        "provider_route_summary": {
+          "$ref": "#/$defs/provider_safe_text"
+        },
+        "selected_memory_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/memory_ref"
+          }
+        },
+        "rejected_memory_refs": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/memory_ref"
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "skill_body_included": {
+          "const": false
+        },
+        "raw_provider_material_included": {
+          "const": false
+        },
+        "portable_local_path_included": {
+          "const": false
+        },
+        "advisory_metadata_lowered_effort": {
+          "const": false
+        },
+        "live_readiness_claimed": {
+          "const": false
+        },
+        "production_readiness_claimed": {
+          "const": false
+        },
+        "reasoning_lease_solved_claimed": {
+          "const": false
+        },
+        "target_readiness_claimed": {
+          "const": false
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 24,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/identifier"
+          }
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "safe_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\s]+$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^[Ff][Ii][Ll][Ee]://"
+          },
+          {
+            "pattern": "^[A-Za-z]:"
+          }
+        ]
+      }
+    },
+    "provider_safe_text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600,
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "(?s)^---\\s*\\n.*name\\s*:"
+          },
+          {
+            "pattern": "```"
+          },
+          {
+            "pattern": "\\.skill\\.md"
+          },
+          {
+            "pattern": "<INSTRUCTIONS>"
+          }
+        ]
+      }
+    },
+    "effort_level": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    "lease_group": {
+      "type": "string",
+      "enum": [
+        "deep_reasoning",
+        "semantic_routing",
+        "deterministic"
+      ]
+    },
+    "memory_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "role",
+        "reason_code"
+      ],
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "role": {
+          "$ref": "#/$defs/identifier"
+        },
+        "reason_code": {
+          "$ref": "#/$defs/identifier"
+        }
+      }
+    },
+    "evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "ref",
+        "evidence_kind",
+        "pointer_accounting_key"
+      ],
+      "properties": {
+        "evidence_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "evidence_kind": {
+          "type": "string",
+          "enum": [
+            "approved_routing_fact",
+            "pathfinder_trace",
+            "ptc_trace",
+            "support_bundle",
+            "route_decision"
+          ]
+        },
+        "pointer_accounting_key": {
+          "$ref": "#/$defs/identifier"
         }
       }
     }

@@ -59,6 +59,18 @@ def render_decision_log(*, packets: List[dict], query_text: str, locale: str | N
     )
 
 
+def routing_receipt_ids(packets: List[dict]) -> list[str]:
+    ids: list[str] = []
+    for packet in packets:
+        payload = packet.get("payload", {})
+        if not isinstance(payload, dict):
+            continue
+        for receipt in payload.get("routing_receipts") or []:
+            if isinstance(receipt, dict) and receipt.get("receipt_id"):
+                ids.append(str(receipt["receipt_id"]))
+    return ids
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Simulate Hermes mailbox preflight consumption.")
     parser.add_argument("--profile", required=True)
@@ -89,6 +101,7 @@ def main() -> int:
         packet["message_id"]: score_packet(packet, args.query)
         for packet in packets
     }
+    selected_routing_receipt_ids = routing_receipt_ids(packets)
     record_plugin_event(
         event_type="preflight_selection_made",
         actor="hermes",
@@ -99,12 +112,14 @@ def main() -> int:
         artifacts={
             "packet_ids": [packet["message_id"] for packet in packets],
             "packet_types": [packet.get("message_type") for packet in packets],
+            "routing_receipt_ids": selected_routing_receipt_ids,
             "mailbox_namespace": args.mailbox_namespace,
         },
         state={
             "selected_packet_count": len(packets),
             "top_k": args.top_k,
             "packet_scores": packet_scores,
+            "routing_receipt_count": len(selected_routing_receipt_ids),
         },
     )
     for packet in packets:
@@ -168,6 +183,7 @@ def main() -> int:
             artifacts={
                 "packet_ids": [packet["message_id"] for packet in packets],
                 "packet_types": [packet.get("message_type") for packet in packets],
+                "routing_receipt_ids": selected_routing_receipt_ids,
                 "rendering_mode": report.get("rendering_mode"),
                 "requested_locale": report.get("requested_locale"),
                 "mailbox_namespace": args.mailbox_namespace,
@@ -175,6 +191,7 @@ def main() -> int:
             state={
                 "brief_line_count": len(report.get("brief_lines", [])),
                 "selected_packet_count": len(packets),
+                "routing_receipt_count": len(selected_routing_receipt_ids),
                 "graph_hint_count": sum(1 for packet in packets if packet.get("message_type") == "graph_hint"),
                 "lint_alert_count": sum(1 for packet in packets if packet.get("message_type") == "lint_alert"),
                 "fallback_order": report.get("state", {}).get("fallback", {}).get("order", []),
@@ -194,6 +211,7 @@ def main() -> int:
                 artifacts={
                     "packet_ids": [packet["message_id"] for packet in packets],
                     "packet_types": [packet.get("message_type") for packet in packets],
+                    "routing_receipt_ids": selected_routing_receipt_ids,
                     "answer_hash": initial_answer.get("answer_hash"),
                     "rendering_mode": initial_answer.get("rendering_mode"),
                     "mailbox_namespace": args.mailbox_namespace,
@@ -201,6 +219,7 @@ def main() -> int:
                 state={
                     "answer_length": len(initial_answer.get("answer_text", "")),
                     "selected_packet_count": len(packets),
+                    "routing_receipt_count": len(selected_routing_receipt_ids),
                     "graph_hint_count": sum(1 for packet in packets if packet.get("message_type") == "graph_hint"),
                     "lint_alert_count": sum(1 for packet in packets if packet.get("message_type") == "lint_alert"),
                     "stage": "initial",
@@ -222,6 +241,7 @@ def main() -> int:
                 artifacts={
                     "packet_ids": [packet["message_id"] for packet in packets],
                     "packet_types": [packet.get("message_type") for packet in packets],
+                    "routing_receipt_ids": selected_routing_receipt_ids,
                     "answer_hash": initial_answer.get("answer_hash"),
                     "quality_grade": initial_answer_quality.get("quality_grade"),
                     "mailbox_namespace": args.mailbox_namespace,
@@ -282,6 +302,7 @@ def main() -> int:
                 artifacts={
                     "packet_ids": [packet["message_id"] for packet in packets],
                     "packet_types": [packet.get("message_type") for packet in packets],
+                    "routing_receipt_ids": selected_routing_receipt_ids,
                     "initial_answer_hash": initial_answer.get("answer_hash"),
                     "final_answer_hash": final_answer.get("answer_hash"),
                     "assurance_mode": assurance.get("assurance_mode"),
@@ -305,6 +326,7 @@ def main() -> int:
                 artifacts={
                     "packet_ids": [packet["message_id"] for packet in packets],
                     "packet_types": [packet.get("message_type") for packet in packets],
+                    "routing_receipt_ids": selected_routing_receipt_ids,
                     "answer_hash": final_answer.get("answer_hash"),
                     "quality_grade": final_answer_quality.get("quality_grade"),
                     "mailbox_namespace": args.mailbox_namespace,

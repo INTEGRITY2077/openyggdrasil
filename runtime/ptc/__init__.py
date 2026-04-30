@@ -16,6 +16,7 @@ from .compat import (
 )
 from .engine import (
     build_lease_backed_query_adaptive_pathfinder_plan,
+    build_pathfinder_ptc_routing_trace,
     build_query_adaptive_pathfinder_plan,
     render_default_pathfinder_json_plan,
     render_default_pathfinder_program,
@@ -31,6 +32,7 @@ __all__ = [
     "PACKAGE_STATUS",
     "compatibility_policy",
     "build_lease_backed_query_adaptive_pathfinder_plan",
+    "build_pathfinder_ptc_routing_trace",
     "build_query_adaptive_pathfinder_plan",
     "render_default_pathfinder_json_plan",
     "render_default_pathfinder_program",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -18,6 +19,8 @@ LEASE_BACKED_LLM_PLANNER_MODE = "lease_backed_llm_dynamic_assembly"
 EXTERNAL_LLM_PLANNER_MODE = "external_llm_dynamic_assembly"
 DETERMINISTIC_PLANNER_MODE = "deterministic_query_signals"
 FALLBACK_PLANNER_MODE = "deterministic_fallback_after_llm_failure"
+PATHFINDER_RUNTIME_APPROVED_EFFORT = "high"
+PATHFINDER_RUNTIME_LEASE_GROUP = "semantic_routing"
 
 PATHFINDER_JSON_TOOL_CAPABILITIES = {
     "locate_region",
@@ -52,6 +55,124 @@ COMPARISON_TERMS = {
     "supersession",
 }
 ORIGIN_TERMS = {"origin", "first", "initial", "root", "source"}
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _route_token(*values: Any) -> str:
+    encoded = "|".join(str(value) for value in values).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()[:32]
+
+
+def build_pathfinder_ptc_routing_trace(
+    *,
+    query_ref: str,
+    support_bundle_ref: str,
+    ptc_trace_ref: str,
+    route_id: str | None = None,
+    approved_routing_fact_ref: str | None = None,
+    approved_effort: str = PATHFINDER_RUNTIME_APPROVED_EFFORT,
+    lease_group: str = PATHFINDER_RUNTIME_LEASE_GROUP,
+    provider_route_summary: str | None = None,
+    selected_memory_refs: Sequence[Mapping[str, Any]] | None = None,
+    rejected_memory_refs: Sequence[Mapping[str, Any]] | None = None,
+    evidence_refs: Sequence[Mapping[str, Any]] | None = None,
+    advisory_effort: str | None = None,
+    evidence_id: str | None = None,
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    """Project Pathfinder/PTC trace refs into a route trace for Hermes receipt building.
+
+    This trace carries only safe refs and routing metadata. It does not claim
+    live provider readiness or solve Reasoning Lease execution.
+    """
+
+    token = _route_token(query_ref, support_bundle_ref, ptc_trace_ref)
+    active_route_id = route_id or f"route-pathfinder-ptc-{token}"
+    active_fact_ref = (
+        approved_routing_fact_ref
+        or f"approved-routing-fact-ref://openyggdrasil/pathfinder-ptc/{active_route_id}"
+    )
+    active_evidence_id = evidence_id or f"ptc-trace-{token[:16]}"
+    advisory = str(advisory_effort or "").strip() or None
+    override_applied = bool(advisory and advisory != approved_effort)
+    reason_codes = [
+        "pathfinder_ptc_trace_linked_to_route",
+        "runtime_authoritative_route",
+        "skill_body_excluded",
+    ]
+    if override_applied:
+        reason_codes.append("runtime_authoritative_override_advisory_effort_mismatch")
+
+    return {
+        "schema_version": "pathfinder_ptc_routing_trace.v1",
+        "route_id": active_route_id,
+        "evidence_id": active_evidence_id,
+        "approved_routing_fact_ref": active_fact_ref,
+        "query_ref": query_ref,
+        "support_bundle_ref": support_bundle_ref,
+        "ptc_trace_ref": ptc_trace_ref,
+        "runtime_authoritative": True,
+        "approved_effort": approved_effort,
+        "lease_group": lease_group,
+        "provider_route_summary": provider_route_summary
+        or "Use the runtime-approved Pathfinder support bundle route with provenance refs.",
+        "selected_memory_refs": list(
+            selected_memory_refs
+            or [
+                {
+                    "ref": support_bundle_ref,
+                    "role": "support_bundle_source",
+                    "reason_code": "runtime_approved_route",
+                },
+                {
+                    "ref": ptc_trace_ref,
+                    "role": "ptc_trace",
+                    "reason_code": "programmatic_tool_runtime_trace",
+                },
+            ]
+        ),
+        "rejected_memory_refs": list(rejected_memory_refs or []),
+        "evidence_refs": list(
+            evidence_refs
+            or [
+                {
+                    "evidence_id": active_evidence_id,
+                    "ref": ptc_trace_ref,
+                    "evidence_kind": "ptc_trace",
+                    "pointer_accounting_key": "ptc_trace_ref",
+                },
+                {
+                    "evidence_id": f"support-bundle-{token[:16]}",
+                    "ref": support_bundle_ref,
+                    "evidence_kind": "support_bundle",
+                    "pointer_accounting_key": "support_bundle_ref",
+                },
+            ]
+        ),
+        "runtime_authoritative_override": {
+            "override_applied": override_applied,
+            "advisory_effort": advisory,
+            "approved_effort": approved_effort,
+            "lease_group": lease_group,
+            "reason_code": (
+                "runtime_authoritative_override_advisory_effort_mismatch"
+                if override_applied
+                else "runtime_authoritative_route"
+            ),
+        },
+        "skill_body_included": False,
+        "raw_provider_material_included": False,
+        "portable_local_path_included": False,
+        "live_readiness_claimed": False,
+        "production_readiness_claimed": False,
+        "reasoning_lease_solved_claimed": False,
+        "target_readiness_claimed": False,
+        "reason_codes": reason_codes,
+        "generated_at": generated_at or _utc_now_iso(),
+    }
 
 
 def _clamp_int(value: int, *, minimum: int, maximum: int) -> int:
@@ -484,6 +605,7 @@ __all__ = [
     "QUERY_ADAPTIVE_PLAN_STATUS",
     "STRUCTURAL_ANCHOR_FALLBACK_REASON_CODE",
     "build_lease_backed_query_adaptive_pathfinder_plan",
+    "build_pathfinder_ptc_routing_trace",
     "build_query_adaptive_pathfinder_plan",
     "render_default_pathfinder_program",
     "render_default_pathfinder_json_plan",
