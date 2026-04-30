@@ -114,26 +114,27 @@ This architecture is heavily inspired by Anthropic's [Programmatic Tool Calling]
 
 ```
   ┌──────────────────────────────────────────────┐
-  │         Claude Code (Open-ended REPL)        │
+  │  Anthropic Programmatic Tool Calling (PTC)   │
   │                                              │
-  │  1. Observe context                          │
-  │  2. Write arbitrary Bash/Python script       │
-  │  3. Execute via bash/python tool             │
-  │  4. Read stdout / stderr                     │
-  │  5. Loop autonomously until satisfied        │
+  │  1. Agent writes a single Python script      │
+  │  2. Sandbox starts executing the script      │
+  │  3. Script calls `await tool()` internally   │
+  │  4. Sandbox pauses, requests data from host  │
+  │  5. Host provides data, script resumes       │
+  │  6. Final script output returned to agent    │
   └──────────────────────┬───────────────────────┘
-                         │ Unconstrained Autonomy
+                         │ Free script logic (loops, if-else, etc.)
                          ▼
   ┌──────────────────────────────────────────────┐
-  │                  System OS                   │
-  │  (Filesystem, Shell, Arbitrary Side-effects) │
+  │              Host (Client Tools)             │
+  │     (Database, APIs, File system, etc.)      │
   └──────────────────────────────────────────────┘
 ```
 
-The standard agentic tool-calling paradigm is highly unconstrained:
-1. The agent freely writes Bash commands or arbitrary Python scripts to control the system.
-2. It observes the output, rewrites the code, and executes again in an **open-ended REPL (Read-Eval-Print Loop)**.
-3. While flexible, this approach lacks the predictability required to normalize knowledge and store it as memory with a strict lifecycle. It is highly vulnerable to runtime hallucinations and unexpected side effects.
+The standard PTC paradigm allows the agent to freely write Python code within a sandbox to control multiple tools:
+1. The agent autonomously writes a Python script containing loops and conditional logic.
+2. The script executes, calling multiple tools sequentially and filtering intermediate data, saving tokens and latency.
+3. While efficient and flexible, normalizing knowledge into a strict lifecycle memory system using this approach is highly unpredictable. It relies entirely on the logical integrity of the agent's on-the-fly script, making it vulnerable to runtime hallucinations.
 
 ### OpenYggdrasil's Transformation (The Typed PTC Engine)
 
@@ -141,14 +142,14 @@ The standard agentic tool-calling paradigm is highly unconstrained:
   ┌──────────────────────────────────────────────┐
   │       OpenYggdrasil (Typed PTC Engine)       │
   │                                              │
-  │  1. PTC Engine injects JSON Execution Plan   │
+  │  1. Script writing forbidden (Constrained)   │
+  │  2. PTC Engine injects JSON Execution Plan   │
   │     (e.g., [distill, evaluate, amundsen])    │
-  │  2. Agent forced to use specific Tool #1     │
-  │  3. Contract Guardrail enforces strict JSON  │
-  │  4. Agent forced to use specific Tool #2     │
-  │  5. Pipeline completion                      │
+  │  3. Agent forced to use specific Tool #1     │
+  │  4. Contract Guardrail enforces strict JSON  │
+  │  5. Pipeline completion via step-by-step     │
   └──────────────────────┬───────────────────────┘
-                         │ Constrained by Contracts
+                         │ Constrained by Contracts (Railway)
                          ▼
   ┌──────────────────────────────────────────────┐
   │        OpenYggdrasil 12-Module Chain         │
@@ -163,6 +164,16 @@ OpenYggdrasil intentionally constrains this autonomy, internalizing it as a **Ty
 3. **Dual-Nature Tools:** Tools are categorized into 'Contract Guardrails' (which consume reasoning tokens and enforce strict schemas) and 'Utility Tools' (deterministic Python execution), optimizing the agent's cognitive load.
 
 Consequently, OpenYggdrasil's PTC structure borrows the **"powerful reasoning capabilities of Claude Code"** but **"forces it to run on a strict, track-based railway"**, ensuring absolute data integrity.
+
+### Background: Why PTC over Vector DBs / ElasticSearch? (Token Efficiency)
+
+Traditional RAG (Retrieval-Augmented Generation) approaches rely on Vector DBs or ElasticSearch to retrieve massive amounts of documents, dumping thousands or tens of thousands of text tokens directly into the agent's context window. This is **expensive, slow, and causes "Lost in the middle" hallucinations**.
+
+The primary reason OpenYggdrasil abandoned heavy external infrastructure in favor of a **pure local-filesystem PTC architecture** is its **overwhelming token efficiency and structural filtering**:
+
+- **Context Exclusion of Intermediate Data:** When the agent calls utility tools like `scan_topology` or `filter_lifecycle`, massive amounts of intermediate data (e.g., scanning 20 Vault documents) are never loaded into the agent's context window. The data is processed, filtered, and aggregated purely within Python memory.
+- **Elimination of Model Round-Trip Overhead:** Querying 10 knowledge nodes as independent tools consumes massive tokens because it invokes the LLM individually for each query. By using PTC to read 10 documents within a single code execution block and returning only a summarized conclusion, token usage is reduced by approximately **10x or more**.
+- **Returning Only the Final Summary:** The agent is shielded from the vast noise of the search process. It only receives the final, highly refined `bounded support bundle`.
 
 ---
 
