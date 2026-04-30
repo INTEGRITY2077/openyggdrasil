@@ -322,8 +322,9 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니�
 ### 생산 파이프라인 — 서브에이전트가 지식을 기록하는 과정
 
 소비면과 마찬가지로, **서브에이전트가 곧 파이프라인입니다.**
-서브에이전트가 프로바이더의 추론 토큰으로 PTC 도구를 호출하고,
-결정론적 모듈은 그 사이에 자동으로 실행됩니다.
+서브에이전트가 PTC 엔진이 제공하는 8개 도구를 코드로 조합하여
+순서대로 호출합니다. "자동으로 도는" 것은 없습니다 —
+모든 모듈을 서브에이전트가 직접 호출합니다.
 
 ```
   서브에이전트 (프로바이더가 빌려준 LLM)
@@ -335,45 +336,50 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니�
        ▼
   PTC 엔진에 신호 전달
        │
-       │  ④ PTC가 3개의 추론 도구를 순서대로 제시
-       │     (서브에이전트의 추론 토큰으로 실행)
+       │  ④ PTC가 8개 도구와 실행 계획을 제시
+       │  ⑤ 서브에이전트가 코드를 조합하여 도구를 순서대로 호출
        │
        ▼
-  ┌─ PTC Engine (생산면) ────────────────────────────────────┐
-  │                                                          │
-  │  [PTC 도구 — 서브에이전트 추론 필요]                        │
+  ┌─ PTC Engine (생산면) — 8개 도구 ──────────────────────────┐
   │                                                          │
   │  ┌─ distill_signal ─────────────────────────────────┐    │
   │  │  원시 신호 → 구조화된 의사결정 후보 추출             │    │
   │  │  추론 깊이: HIGH                                   │    │
-  │  │  추출: decision_text, rationale, alternatives,     │    │
-  │  │        confidence_score, stability_state           │    │
   │  └──────────────────────────────────────────────────┘    │
   │                      ▼                                   │
   │  ┌─ evaluate_candidate ─────────────────────────────┐    │
-  │  │  승격 가치 평가                                     │    │
+  │  │  승격 가치 평가, 중복 제거, 임계값 게이트            │    │
   │  │  추론 깊이: MEDIUM                                  │    │
-  │  │  검사: 의미적 유효성, 중복 제거, 임계값 게이트        │    │
-  │  │  출력: evaluator_verdict                           │    │
   │  └──────────────────────────────────────────────────┘    │
   │                      ▼                                   │
   │  ┌─ classify_novelty ───────────────────────────────┐    │
   │  │  카테고리 & 새로움 분류                              │    │
   │  │  추론 깊이: HIGH                                   │    │
-  │  │  "이 토픽은 알려진 것인가, 새로운 대륙인가?"          │    │
-  │  │  출력: continent_route + topic_route               │    │
-  │  └──────────────────────────────────────────────────┘    │
-  │                                                          │
-  │  [자동 실행 — 서브에이전트 추론 불필요]                     │
-  │                                                          │
-  │  ┌─ Seedkeeper ─→ Nursery ─→ Gardener ──────────────┐    │
-  │  │  출처 스탬핑 → 씨앗 조합 → Vault 기록              │    │
-  │  │  추론 깊이: NONE (순수 Python)                     │    │
   │  └──────────────────────────────────────────────────┘    │
   │                      ▼                                   │
-  │  ┌─ Map Maker ─→ Postman ───────────────────────────┐    │
-  │  │  위상 갱신 → Mailbox 수신증 발행                    │    │
-  │  │  추론 깊이: NONE (순수 Python)                     │    │
+  │  ┌─ stamp_provenance ───────────────────────────────┐    │
+  │  │  출처 고리 부착: source_ref, origin_locator        │    │
+  │  │  추론 깊이: NONE (결정론적)                         │    │
+  │  └──────────────────────────────────────────────────┘    │
+  │                      ▼                                   │
+  │  ┌─ compose_seed ───────────────────────────────────┐    │
+  │  │  상류 산출물 → 최종 각인 씨앗 조합                   │    │
+  │  │  추론 깊이: NONE (결정론적)                         │    │
+  │  └──────────────────────────────────────────────────┘    │
+  │                      ▼                                   │
+  │  ┌─ plant_to_vault ─────────────────────────────────┐    │
+  │  │  심기 계획 → Vault에 기록, 생명주기 전환             │    │
+  │  │  추론 깊이: NONE (결정론적)                         │    │
+  │  └──────────────────────────────────────────────────┘    │
+  │                      ▼                                   │
+  │  ┌─ update_topology ────────────────────────────────┐    │
+  │  │  대륙/토픽/에피소드 위상 갱신                        │    │
+  │  │  추론 깊이: NONE (결정론적)                         │    │
+  │  └──────────────────────────────────────────────────┘    │
+  │                      ▼                                   │
+  │  ┌─ deliver_receipt ────────────────────────────────┐    │
+  │  │  Mailbox 수신증 발행                               │    │
+  │  │  추론 깊이: NONE (결정론적)                         │    │
   │  └──────────────────────────────────────────────────┘    │
   └──────────────────────────────────────────────────────────┘
        │
@@ -383,17 +389,26 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니�
 
 ### PTC 실행 계획 — 서브에이전트가 받는 것 (캡처)
 
+서브에이전트는 JSON Tool Plan을 받고, 이에 따라 코드를 조합하여
+8개 도구를 순서대로 호출합니다:
+
 ```json
 [
-  { "step_id": "distill",  "capability_id": "distill_signal",     "effort": "high",   "input": { "raw_signal": "..." } },
-  { "step_id": "evaluate", "capability_id": "evaluate_candidate", "effort": "medium", "input": { "candidate": "←distill" } },
-  { "step_id": "classify", "capability_id": "classify_novelty",   "effort": "high",   "input": { "candidate": "←distill", "verdict": "←evaluate" } }
+  { "step_id": "distill",   "capability_id": "distill_signal",     "effort": "high",   "input": { "raw_signal": "..." } },
+  { "step_id": "evaluate",  "capability_id": "evaluate_candidate", "effort": "medium", "input": { "candidate": "←distill" } },
+  { "step_id": "classify",  "capability_id": "classify_novelty",   "effort": "high",   "input": { "candidate": "←distill", "verdict": "←evaluate" } },
+  { "step_id": "stamp",     "capability_id": "stamp_provenance",   "effort": "none",   "input": { "candidate": "←distill", "route": "←classify" } },
+  { "step_id": "seed",      "capability_id": "compose_seed",       "effort": "none",   "input": { "verdict": "←evaluate", "route": "←classify", "segment": "←stamp" } },
+  { "step_id": "plant",     "capability_id": "plant_to_vault",     "effort": "none",   "input": { "seed": "←seed" } },
+  { "step_id": "topology",  "capability_id": "update_topology",    "effort": "none",   "input": { "seed": "←seed", "vault_path": "←plant" } },
+  { "step_id": "receipt",   "capability_id": "deliver_receipt",     "effort": "none",   "input": { "seed": "←seed", "vault_path": "←plant" } }
 ]
 ```
 
-PTC 도구 3개 호출 후 결정론적 모듈 5개(Seedkeeper → Nursery → Gardener →
-Map Maker → Postman)가 자동 실행됩니다. 서브에이전트의 추론 토큰은
-**PTC 도구 호출 시에만** 소비됩니다.
+서브에이전트는 **모든 도구를 직접 호출**합니다. 추론 토큰은
+`distill_signal`, `evaluate_candidate`, `classify_novelty` 호출 시
+소비되고, 나머지 5개 도구는 결정론적이라 추론 없이 실행되지만
+호출 자체는 서브에이전트가 합니다.
 
 **계획 생성 모드 3가지:**
 
