@@ -537,6 +537,44 @@ These tools have a dual nature:
 
 ### PTC Execution Plan (Production)
 
+The subagent receives a JSON Tool Plan and fulfills it by writing and executing a **single asynchronous Python script**. Here is an example of the actual script the LLM emits to traverse all 8 steps without model round-trips:
+
+```python
+import asyncio
+import json
+
+async def run_production_pipeline():
+    # 1. Distill
+    distilled = await distill_signal(raw_signal="...", context="...")
+    
+    # 2. Evaluate (Contract Guardrail)
+    verdict = await evaluate_candidate(candidate=distilled)
+    
+    # Subagent's own logic: abort if guardrail fails
+    if not verdict.get("is_worth_remembering"):
+        print(json.dumps({"status": "aborted"}))
+        return
+        
+    # 3. Classify
+    route = await classify_novelty(candidate=distilled, verdict=verdict)
+    
+    # 4~7. Deterministic Utilities (pass-through only)
+    stamped = await stamp_provenance(candidate=distilled, route=route)
+    seed = await compose_seed(verdict=verdict, route=route, segment=stamped)
+    vault_path = await plant_to_vault(seed=seed)
+    await update_topology(seed=seed, vault_path=vault_path)
+    
+    # 8. Final Receipt
+    receipt = await deliver_receipt(seed=seed, vault_path=vault_path)
+    
+    # Only this final print statement is returned to the LLM's context (saving 10x tokens)
+    print(json.dumps({"status": "success", "receipt": receipt}))
+
+asyncio.run(run_production_pipeline())
+```
+
+While this script runs inside the sandbox, massive intermediate data structures (`distilled`, `verdict`, etc.) exist solely in Python memory and never pollute the LLM's context window.
+
 The PTC engine orchestrates these 8 tools using one of three plans, depending on the complexity of the signal:
 
 | Mode | Condition | Execution Pattern |

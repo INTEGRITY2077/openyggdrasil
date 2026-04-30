@@ -591,9 +591,43 @@ PTC 엔진은 서브에이전트에게 8개 도구를 제공하고, 서브에이
 ]
 ```
 
-서브에이전트는 **모든 도구를 직접 호출**합니다. 계약 가드레일(3개)에서
-추론 토큰이 소비되고, 작업 도구(5개)에서는 서브에이전트가 Python
-스크립트를 호출하기만 하면 결정론적으로 처리됩니다.
+서브에이전트는 이 계획을 완수하기 위해 **단일 비동기 Python 스크립트**를 작성하여 실행합니다. LLM이 모델 왕복(Round-trip) 없이 한 번에 8단계를 모두 관통하는 실제 스크립트 예시는 다음과 같습니다:
+
+```python
+import asyncio
+import json
+
+async def run_production_pipeline():
+    # 1. 신호 정제 (Distill)
+    distilled = await distill_signal(raw_signal="...", context="...")
+    
+    # 2. 가치 평가 및 스키마 검증 (Evaluate) - Contract Guardrail
+    verdict = await evaluate_candidate(candidate=distilled)
+    
+    # 서브에이전트의 자체 판단: 가드레일 통과 못하면 파이프라인 중단
+    if not verdict.get("is_worth_remembering"):
+        print(json.dumps({"status": "aborted"}))
+        return
+        
+    # 3. 위상 분류 (Classify)
+    route = await classify_novelty(candidate=distilled, verdict=verdict)
+    
+    # 4~7. 기계적 유틸리티 통과 (추론 없이 데이터만 넘김)
+    stamped = await stamp_provenance(candidate=distilled, route=route)
+    seed = await compose_seed(verdict=verdict, route=route, segment=stamped)
+    vault_path = await plant_to_vault(seed=seed)
+    await update_topology(seed=seed, vault_path=vault_path)
+    
+    # 8. 최종 영수증 발급
+    receipt = await deliver_receipt(seed=seed, vault_path=vault_path)
+    
+    # 이 마지막 print 문의 결과만 LLM의 컨텍스트로 반환됨 (토큰 10배 절약)
+    print(json.dumps({"status": "success", "receipt": receipt}))
+
+asyncio.run(run_production_pipeline())
+```
+
+이 스크립트가 샌드박스 내부에서 도는 동안, 방대한 중간 데이터(`distilled`, `verdict` 등)는 오직 순수 Python 메모리에만 존재하며 LLM의 컨텍스트를 전혀 오염시키지 않습니다.
 
 **계획 생성 모드 3가지:**
 
