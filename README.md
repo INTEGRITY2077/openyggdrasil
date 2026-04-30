@@ -112,6 +112,232 @@ a derived visibility layer.
 
 ---
 
+## Operational Flow — Trigger to Delivery
+
+The diagram above shows the internal chain, but the real question is:
+**how does a provider actually invoke this system?**
+
+There are two distinct invocation paths — one for **writing** knowledge
+(Production Trigger) and one for **reading** it (Consumption Trigger).
+
+```
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │                    FULL LIFECYCLE OVERVIEW                              │
+  │                                                                        │
+  │  ① Provider reads SKILL.md                                             │
+  │  ② Provider's agent decides: "capture" or "retrieve"                   │
+  │                                                                        │
+  │  CAPTURE PATH (Production)                RETRIEVE PATH (Consumption)  │
+  │  ─────────────────────────                ──────────────────────────── │
+  │  ③ Agent calls capture entrypoint         ③ Agent calls retrieve       │
+  │     with structured signal                   entrypoint with query     │
+  │  ④ Signal → 12-module chain               ④ Pathfinder → Vault scan   │
+  │  ⑤ Vault updated                          ⑤ Support bundle assembled  │
+  │  ⑥ Postman → Mailbox receipt              ⑥ Mailbox → Agent receives  │
+  │                                              bounded retrieval result  │
+  └─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Production Trigger — How providers capture knowledge
+
+When a provider session produces a decision worth remembering — a design
+choice, a debugging insight, a resolved trade-off — the provider's agent
+**invokes OpenYggdrasil as a skill** to capture it.
+
+```
+  Provider Agent (e.g., Hermes, Claude Code, Cursor)
+       │
+       │  ① Reads SKILL.md from the openyggdrasil repo root
+       │     → Discovers entrypoints, input shapes, boundaries
+       │
+       │  ② Constructs a Session Structure Signal:
+       │     {
+       │       provider_id:         "hermes"
+       │       provider_session_id: "session-2026-04-30-abc123"
+       │       trigger_type:        "hard_trigger"
+       │       surface_reason:      "Decided to use gateway pattern..."
+       │       turn_range:          { from: 12, to: 18 }
+       │       source_ref:          { path_hint: "sessions/abc123.jsonl" }
+       │     }
+       │
+       │  ③ Calls the capture entrypoint defined in SKILL.md
+       │     → OpenYggdrasil cold-starts, processes the signal, shuts down
+       │
+       ▼
+  OpenYggdrasil Production Pipeline receives the signal
+```
+
+**Key rules:**
+- The provider agent **must read `SKILL.md`** to discover valid entrypoints.
+  It never guesses or hard-codes internal paths.
+- The signal must carry a **`source_ref`** — provenance is mandatory, not
+  optional. Signals without source references are rejected at the gate.
+- OpenYggdrasil **cold-starts on demand**. There is no background daemon.
+  The provider calls it, it runs, it exits.
+
+### Production Pipeline — Signal to Vault
+
+Once the signal enters the system, it flows through the 12-module chain:
+
+```
+  Session Structure Signal
+       │
+       ▼
+  ┌─ Distiller ──────────────────────────────────────────────┐
+  │  Raw signal → structured decision candidate              │
+  │  Extracts: decision_text, rationale, alternatives,       │
+  │            confidence_score, stability_state              │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+  ┌─ Evaluator ──────────────────────────────────────────────┐
+  │  Scores promotion worthiness                             │
+  │  Checks: semantic validity, dedup, threshold gates       │
+  │  Output: evaluator_verdict → ready_for_amundsen          │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+  ┌─ Amundsen ───────────────────────────────────────────────┐
+  │  Category & novelty classification                       │
+  │  "Is this topic known or a new continent?"               │
+  │  Output: continent_route + topic_route                   │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+  ┌─ Seedkeeper ─────────────────────────────────────────────┐
+  │  Stamps provenance ring: source_ref, origin_locator,     │
+  │  turn_range, dedup_key, integrity_status                 │
+  │  Output: preserved segment with planting_ready flag      │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+  ┌─ Nursery ────────────────────────────────────────────────┐
+  │  Composes the final engraved seed from all upstream      │
+  │  artifacts: verdict + route + segment                    │
+  │  Output: engraved_seed with seed_identity_key            │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+  ┌─ Gardener ───────────────────────────────────────────────┐
+  │  Plans planting → builds routing → writes to Vault       │
+  │  Creates: topic page + provenance page                   │
+  │  Lifecycle: ACTIVE → SUPERSEDED → STALE transitions      │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+  ┌─ Map Maker ──────────────────────────────────────────────┐
+  │  Updates topography: continent/topic/episode placement   │
+  │  Maintains adjacency keys and bridge topology            │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+  ┌─ Postman ────────────────────────────────────────────────┐
+  │  Builds delivery handoff → submits to Mailbox            │
+  │  Records clearinghouse event + push delivery             │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+                                          Vault updated
+                                     Mailbox receipt recorded
+```
+
+At every boundary, **typed contracts** validate the handoff. If any module
+rejects the input, the chain stops with a typed `stop_reason` — it never
+silently drops data.
+
+### Consumption Trigger — How providers retrieve past knowledge
+
+When a provider session needs context from past decisions — "What did we
+decide about the gateway pattern?" — the provider's agent **invokes
+OpenYggdrasil as a subagent** to search the accumulated knowledge.
+
+```
+  Provider Agent (working on a new task)
+       │
+       │  ① Agent recognizes it needs past context
+       │     e.g., "We discussed this pattern before..."
+       │
+       │  ② Reads SKILL.md → discovers the retrieval entrypoint
+       │
+       │  ③ Calls the retrieval entrypoint with a query:
+       │     {
+       │       query_text:  "What was the gateway contract design?"
+       │       profile:     "yggdrasilfgpoc"
+       │       session_id:  "session-2026-04-30-xyz789"
+       │     }
+       │
+       │  ④ OpenYggdrasil cold-starts Pathfinder
+       │     → Scans Vault for matching topics
+       │     → Assembles bounded support bundle
+       │     → Returns lifecycle-aware, provenance-tracked result
+       │
+       ▼
+  Agent receives a Pathfinder Retrieval Result:
+  {
+    status:           "completed"
+    pathfinder_bundle: {
+      anchor_type:    "topic"
+      topic_id:       "topic:gateway-contract"
+      support_facts:  ["Decided to use provider-owned gateway..."]
+      source_paths:   ["vault/queries/gateway-contract.md"]
+    }
+    lifecycle_records: [{ state: "ACTIVE", valid_from: "..." }]
+  }
+```
+
+**Key rules:**
+- The agent receives a **bounded support bundle**, not a raw Vault dump.
+  Every fact in the bundle carries provenance and lifecycle state.
+- If the topic has been **SUPERSEDED** or **STALE**, the retrieval result
+  explicitly states this — the agent is never silently given outdated context.
+- **Source refs are required.** The retrieval result always links back to
+  the original provider session that produced the knowledge.
+- This is the **LLM Wiki** pattern: the provider doesn't re-derive knowledge
+  from raw transcripts — it queries an incrementally built, lifecycle-managed
+  knowledge surface.
+
+### Consumption Pipeline — Vault to Provider Session
+
+Once the retrieval query enters the system:
+
+```
+  Retrieval Query
+       │
+       ▼
+  ┌─ Pathfinder ─────────────────────────────────────────────┐
+  │  Query → Vault scan → topic anchor resolution            │
+  │  Modes: "topic-page-recent-origin" (anchored)            │
+  │         "unanchored" (no matching topic found)            │
+  │  Output: pathfinder_bundle with support_facts,           │
+  │          source_paths, episode_ids, claim_ids             │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+  ┌─ Origin Shortcut ────────────────────────────────────────┐
+  │  Resolves source_ref → physical file existence check     │
+  │  If source file is gone → stops with "origin_missing"    │
+  │  Provenance must be verifiable, not just claimed          │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+  ┌─ Lifecycle Filter ───────────────────────────────────────┐
+  │  Filters retrieval results by lifecycle state             │
+  │  Default: ACTIVE only                                    │
+  │  Optional: include SUPERSEDED/STALE for historical view  │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+  ┌─ Product Route ──────────────────────────────────────────┐
+  │  Determines delivery format and Graphify hint status     │
+  │  Guards: no forbidden text patterns in output            │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+  ┌─ Mailbox Delivery ──────────────────────────────────────┐
+  │  Pathfinder retrieval result → inbox JSONL               │
+  │  Routed by: profile + session_id                         │
+  │  Provider agent reads from its inbox                     │
+  └──────────────────────────────────────────────┬───────────┘
+                                                 ▼
+                                     Provider agent receives
+                                   bounded, explainable context
+```
+
+The consumption side **never fabricates context**. If the Vault is empty,
+Pathfinder returns an honest `anchor_type: "none"` result. If provenance
+can't be verified, it stops with `origin_shortcut_missing`. The agent
+always knows exactly what it's getting and why.
+
+---
+
 ## The 12-Module Chain
 
 | # | Module | Role | Key Insight |
