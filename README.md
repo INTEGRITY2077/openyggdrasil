@@ -246,15 +246,6 @@ into navigable graphs:
 | Confidence labels (EXTRACTED / INFERRED / AMBIGUOUS) | → Provenance confidence in retrieval results |
 | Pure Python, local, offline | → **No external infrastructure dependency** |
 
-### What We Explicitly Did NOT Adopt
-
-| Rejected Approach | Why |
-|---|---|
-| **Graphiti/Zep** (Neo4j + embeddings) | External infrastructure dependency violates our "no database, no vector store" principle |
-| **Vector similarity search** | Karpathy showed `index.md` works surprisingly well at moderate scale without embeddings |
-| **Raw transcript storage** | Transcripts are provider-private; only typed decisions cross the boundary |
-| **Provider-coupled memory** | Memory that only works with one tool defeats the purpose |
-
 ---
 
 ## Design Principles
