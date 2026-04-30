@@ -221,8 +221,14 @@ OpenYggdrasil은 메모리를 **양면 엔진**으로 취급합니다 — 지식
 ### 소비면 — "무엇을 전달할 것인가"
 
 소비 파이프라인은 Vault 전체를 덤프하지 않습니다. **Pathfinder**가 설명
-가능하고, 생명주기를 인식하며, 출처가 추적된 제한된 지원 번들을 구축하고,
-**Postman**이 타입이 지정된 **Mailbox** 계약을 통해 전달합니다.
+가능하고, 생명주기를 인식하며, **출처가 추적된 제한된 지원 번들(Provenance-tracked Bounded Support Bundle)**을 구축합니다.
+
+단순한 지식 요약본이 아니라, 이 번들(`support_bundle.v1.schema.json` 계약) 내부에는 원본 맥락을 100% 복원할 수 있는 **3단계 출처 추적 장치**가 구조적으로 포함됩니다:
+1. **Breadcrumb (`source_paths`)**: 지식이 추출된 원천 파일의 URI 배열.
+2. **Topology ID (`episode_ids`, `claim_ids`)**: Vault/Graphify 내에서 해당 지식이 생성된 맥락적 위상 좌표.
+3. **Evidence Refs (`safe_ref`)**: 필요 시 원시 대화 로그(Conversation Logs)나 터미널 실행 결과 원본으로 곧바로 찾아갈 수 있는 안전한 포인터.
+
+결과적으로 에이전트는 요약본과 함께 "최초의 탄생 맥락으로 언제든 돌아갈 수 있는 명시적 주소"를 한 번에 제공받아, **Postman**을 통해 타입이 지정된 **Mailbox** 계약으로 안전하게 수신합니다.
 
 ### 브릿지 — Vault와 Graphify의 관계
 

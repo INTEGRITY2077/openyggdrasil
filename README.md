@@ -222,8 +222,14 @@ through lifecycle transitions.
 ### Consumption Side — "What to deliver"
 
 The consumption pipeline doesn't dump the entire vault. **Pathfinder** builds
-bounded support bundles — explainable, lifecycle-aware, provenance-tracked
-packages — and **Postman** delivers them through typed **Mailbox** contracts.
+explainable, lifecycle-aware, and **Provenance-tracked Bounded Support Bundles**.
+
+Rather than just raw text summaries, these bundles (governed by the `support_bundle.v1.schema.json` contract) structurally embed a **3-tier provenance tracking mechanism** to allow 100% context restoration:
+1. **Breadcrumbs (`source_paths`)**: The array of URI paths to the original files where the knowledge was extracted.
+2. **Topology IDs (`episode_ids`, `claim_ids`)**: The contextual topological coordinates within Vault/Graphify where this knowledge was generated.
+3. **Evidence Refs (`safe_ref`)**: Safe pointers to the exact Raw Conversation Logs or terminal execution transcripts, allowing the agent to immediately trace back to the uncompressed reality if needed.
+
+Consequently, the agent receives both the distilled summary and the exact address to return to its origin, securely delivered via the typed **Mailbox** contract by **Postman**.
 
 ### The Bridge — Vault and Graphify
 
