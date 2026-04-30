@@ -178,6 +178,10 @@ Providers attach to OpenYggdrasil by reading the **`SKILL.md`** manifest at the 
 
 OpenYggdrasil runs purely locally. The core runtime relies almost entirely on the Python Standard Library, but the Graphify-derived views and Sandbox isolations require the following minimal dependency stack:
 
+**Supported Operating Systems:**
+- **Windows / macOS / Linux**: Full support for the core memory pipeline (Vault curation, Graphify derived views, and Pathfinder retrieval).
+- **Linux / WSL2 (Windows Subsystem for Linux)**: Exclusively required if you use the optional **Reasoning Lease Sandbox**. This feature relies on `bubblewrap` for unprivileged isolation. Windows/macOS users can still use the entire base pipeline without it.
+
 **Core Prerequisite:**
 - **`Python 3.10+`**: Must be installed and accessible in the local environment.
 
