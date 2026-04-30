@@ -67,17 +67,16 @@ openyggdrasil fuses four core philosophies to prevent "memory erosion" in a frag
 ### 1. Persistent Knowledge Base (LLM Wiki)
 Inspired by Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f). Instead of injecting context via RAG on every query, we "let the LLM incrementally build and curate a persistent wiki (SOT)." However, a simple flat wiki makes it difficult to explore macroscopic contexts.
 
-### 2. Category Structuring = Defining Continents (Continents & Terrain)
-In openyggdrasil, structuring categories is equivalent to **defining Continents**. Knowledge is not a flat folder system; it is an ecosystem terrain.
-- **Amundsen (Explorer)** judges whether incoming knowledge belongs to an existing continent ('known category') or if a 'new continent' must be charted, drawing the boundaries.
-- **Map Maker** plans the relative topology and coordinates within that continent.
-- **Gardener** protects the ecosystem, ensuring knowledge isn't planted in the wrong continent, and handles the physical planting.
+### 2. Domain Separation = Defining Continents (Continents & Terrain)
+In openyggdrasil, a category is not just a folder, but an **independent knowledge domain (Continent)**. Strict role separation prevents context contamination.
+- **Amundsen** judges whether incoming knowledge belongs to an existing domain ('known continent') or if a 'new continent' must be charted, establishing the boundaries.
+- **Map Maker** plans the relative topology and reference coordinates within that domain.
+- **Gardener** protects the taxonomy, ensuring knowledge isn't miscategorized, and handles the physical file I/O operations.
 
-### 3. Tree Rings and Lineage (Evolution Tree)
-*"Time flows linearly, but context does not evolve linearly."*
-If we only retrieve the latest knowledge, crucial foundational contexts (Origins) wear away like telomeres. To prevent this, knowledge is treated as an **Evolution Tree**:
-- **Tree Ring Engraving:** Every sapling is physically engraved with its origin (`provider_id`, `session_uid`, `timestamp`).
-- Foundational decisions (Roots and Trunks) are preserved, while abandoned branches are explicitly pruned (`SUPERSEDED`). This ensures the origin and evolutionary path of knowledge can always be traced.
+### 3. Provenance Tracking and Lineage (Tree Rings & Evolution)
+If a system merely overwrites files with the latest data, crucial foundational contexts (Origins) are eventually lost. *"Time flows linearly, but context does not evolve linearly."* To prevent this, knowledge is managed as an evolving lineage.
+- **Tree Ring Engraving:** Every knowledge block is permanently engraved with its provenance (`provider_id`, `session_uid`, `timestamp`) at the data-model level.
+- Foundational decisions (Roots and Trunks) are preserved, while abandoned logic (Branches) is explicitly marked as invalid (`SUPERSEDED`) rather than physically deleted. This ensures the evolutionary path of any decision can always be traced, regardless of which provider is connected.
 
 ### 4. Structural Relationship Network (Graphify Topology)
 To transcend the physical limits of categorized knowledge, we apply Safi Shamsi's [Graphify (v5)](https://github.com/safishamsi/graphify) concept.
