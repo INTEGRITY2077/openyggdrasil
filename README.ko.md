@@ -346,10 +346,14 @@ title: 페이지 제목
 created: 2026-04-30
 updated: 2026-04-30
 type: entity | concept | comparison | query | summary
+status: ACTIVE | SUPERSEDED
 tags: [분류 태그]
 sources: [출처 참조 또는 공개 소스 경로]
 ---
 ```
+
+**실제 코드베이스 구현 (Frontmatter Parser):**
+단순한 가이드라인이 아닙니다. 시스템은 `runtime/retrieval/skill_frontmatter_parser.py`를 통해 모든 마크다운 파일의 `---` YAML 프론트매터를 추출하고, 이를 엄격한 JSON Schema 계약에 맞추어 실시간으로 파싱 및 검증합니다. Graphify와 Pathfinder는 이 파싱된 위상 데이터를 기반으로 수학적 검색망을 구축합니다.
 
 **Vault 승격 규칙 — 기록되려면:**
 - 영속적이고, 사소하지 않고, 재파생이 어렵고, 미래 세션에서 재사용 가능해야 함
@@ -892,8 +896,7 @@ openyggdrasil/
 │   └── governance/     # 페이즈 자동화
 ├── common/graphify/    # 파생 그래프/위키/인덱스 뷰 (비SOT)
 ├── providers/hermes/   # Hermes 공개 어댑터
-├── vault/              # 정규 프로젝트 메모리
-└── tests/              # 510+ 테스트
+└── vault/              # 정규 프로젝트 메모리
 ```
 
 ---

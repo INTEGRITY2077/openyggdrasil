@@ -338,10 +338,14 @@ title: Page Title
 created: 2026-04-30
 updated: 2026-04-30
 type: entity | concept | comparison | query | summary
+status: ACTIVE | SUPERSEDED
 tags: [classification tags]
 sources: [source refs or public paths]
 ---
 ```
+
+**Actual Codebase Implementation (Frontmatter Parser):**
+This is not merely theoretical documentation. The system actively utilizes `runtime/retrieval/skill_frontmatter_parser.py` to extract the `---` YAML frontmatter from all markdown files and rigorously validates it against a strict JSON Schema contract. Both Graphify and Pathfinder rely on this parsed topological data to construct their mathematical search networks.
 
 **Vault Promotion Rules — To be recorded:**
 - Must be persistent, non-trivial, hard to re-derive, and reusable in future sessions.
@@ -765,8 +769,7 @@ openyggdrasil/
 │   └── governance/     # Phase automation
 ├── common/graphify/    # Derived graph/wiki/index views (non-SOT)
 ├── providers/hermes/   # Hermes public adapter
-├── vault/              # Canonical project memory
-└── tests/              # 510+ tests
+└── vault/              # Canonical project memory
 ```
 
 ---
