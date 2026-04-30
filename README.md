@@ -182,6 +182,8 @@ OpenYggdrasil runs purely locally. The core runtime relies almost entirely on th
 - **`graphifyy`**: the core companion package for structural analysis and graph building
 - **`networkx`**: for graph derivation, node indexing, and traversal
 - **`leidenalg` & `igraph`**: for community detection and topic clustering
+- **`jsonschema`**: for strictly validating provider contracts and mailbox schemas
+- **`pyyaml`**: for reading/writing configuration and manifest files
 - **`pytest`**: for local contract verification and smoke tests
 
 **System Dependencies:**
