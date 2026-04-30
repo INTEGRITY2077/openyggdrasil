@@ -387,6 +387,23 @@ Return contract:
   `provider_skill_invocation_ref`, before/after context-window refs, and
   `unsafe_flags: false` are present in that JSON object
 
+Typed ref materialization:
+
+- if Hermes does not already have a native typed ref for this handoff, materialize
+  a safe portable ref for the current handoff boundary instead of omitting it
+- use `provider-skill-invocation-ref://hermes/openyggdrasil/reasoning-lease-bridge/<typed_task_id>`
+  for `provider_skill_invocation_ref`
+- use `context-window-ref://hermes/openyggdrasil/reasoning-lease-bridge/<typed_task_id>/before`
+  for `before_main_context_window_ref`
+- use `context-window-ref://hermes/openyggdrasil/reasoning-lease-bridge/<typed_task_id>/after`
+  for `after_main_context_window_ref`
+- if no true `typed_result_ref` is available, materialize
+  `typed-unavailable-ref://hermes/openyggdrasil/reasoning-lease-bridge/<typed_task_id>`
+  for `typed_unavailable_ref`
+- these materialized refs identify only the current provider-skill handoff
+  boundary and context-window boundary; they must not encode local paths,
+  provider state, private material, credentials, or copied session text
+
 Hard rejects:
 
 - do not return raw transcript text
