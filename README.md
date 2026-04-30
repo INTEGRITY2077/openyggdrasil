@@ -22,20 +22,65 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-> **⚠️ This project is in active live-testing and early development (WIP).**
-> While the philosophical foundation and architecture are designed, the runtime is actively migrating toward the target Programmatic Tool Calling (PTC) architecture (8th Roadmap, Phase 4). Expect breaking changes and incomplete integrations.
+### 📊 Current Status — Architecture Alignment Scorecard (As of May 2026, Phase 4)
 
-### 📊 Current Status — Architecture Alignment Scorecard (As of May 2026)
+> **⚠️ This project is not production-ready.** 
+> We are live-testing the runtime and iterating in the open towards the 8th Roadmap (PTC-based Target Architecture).
 
-This scorecard indicates how close the current runtime is to the Target Architecture:
+The table below quantifies the alignment between the architecture described in this README and the actual implementation. To prevent misunderstanding, the current state of each block is explicitly labeled with 4 levels (LIVE / PARTIAL / STUB / ABSENT).
 
-| Architecture Component | Alignment | Current State & Next Steps |
+| Rating | Meaning |
+|---|---|
+| 🟢 **LIVE** | Runtime code exists, tests PASS, or core verification complete |
+| 🟡 **PARTIAL** | Code/Contracts exist, but end-to-end trace is unverified or Subagent integration is WIP |
+| 🟠 **STUB** | File/Concept exists, but only stub code is present |
+| 🔴 **ABSENT** | No code exists; only design documents exist |
+
+#### Production Side
+| Module | Status | Remarks |
 |---|---|---|
-| **Persistent Knowledge Base (Vault SOT)** | **100%** | Strict markdown frontmatter constraints and lifecycle states (ACTIVE/SUPERSEDED) fully implemented. |
-| **Reasoning Lease** | **90%** | Inter-provider `source_ref` pointers and sandbox execution delegation are established. |
-| **Consumption Pipeline (Retrieval)** | **60%** | Transitioning from the legacy monolithic module to a true Tool-based Retrieval system. |
-| **Terrain-based Category (Map Maker)** | **40%** | Concepts of Continents and Tree Rings are introduced, but perfect routing with physical planting (Gardener) is still a WIP. |
-| **Production Pipeline (PTC Engine)** | **30%** | **(Biggest Gap)** Currently mocked by a deterministic Python chain (`thin_worker_chain.py`). Migrating to a true **Role-Polymorphic Executor** where the subagent writes code to invoke production tools is the highest priority. |
+| Session Structure Signal | 🟢 LIVE | Schema operational. Tree Rings via `provider_id` & `session_uid` established |
+| Admission Gate | 🟡 PARTIAL | Pointer (`source_ref`) contract verification works. Semantic quality gate is a stub |
+| Distiller | 🟡 PARTIAL | Guardrail contract exists. Autonomous subagent distillation loop WIP |
+| Evaluator | 🟡 PARTIAL | Evaluation tool exists. Subagent reasoning consumption testing in progress |
+| Amundsen (Categorization) | 🟡 PARTIAL | Continent branching schema and runtime logic implemented |
+| Map Maker (Topology) | 🟡 PARTIAL | Topology calculation logic works. Full Leiden algorithm integration WIP |
+| Gardener (Lifecycle Planting) | 🟡 PARTIAL | Physical directory planting and lifecycle management works. Auto-healing incomplete |
+| Postman (Receipt Delivery) | 🟡 PARTIAL | Receipt generation logic implemented. Mailbox async loop partially operational |
+| Content Hash Protection | 🔴 ABSENT | Design proposal only. No runtime code |
+| Rejection Loop | 🔴 ABSENT | Design proposal only. No self-healing loop for subagents yet |
+
+#### Consumption Side
+| Module | Status | Remarks |
+|---|---|---|
+| Pathfinder (Topology Scan) | 🟡 PARTIAL | Legacy monolithic structure being refactored into Tool-based scanning |
+| Support Bundle (Provenance) | 🟡 PARTIAL | 3-tier Tree Ring tracking works. Cross-Provider verification PASS |
+| Mailbox (Typed Inbox) | 🟠 STUB | Schema exists. Awaiting provider-specific async receive adapters |
+| Lifecycle Filter | 🟢 LIVE | Frontmatter parsing and ACTIVE/SUPERSEDED state filtering works perfectly |
+
+#### Infrastructure / Cross-Cutting
+| Module | Status | Remarks |
+|---|---|---|
+| SKILL.md Cold Start | 🟢 LIVE | Manifest file exists. Automatic provider recognition & entrypoint calling works |
+| Typed PTC Engine | 🟡 PARTIAL | Conceptual design complete. Subagent autonomous PTC invocation inside sandbox is WIP |
+| Reasoning Lease | 🟡 PARTIAL | Reasoning lease contract operational. Bubblewrap unprivileged isolation pending |
+| Vault (SOT Memory) | 🟢 LIVE | SOT structure, directory constraints, and frontmatter validation pipeline fully operational |
+| Graphify Topology View | 🟡 PARTIAL | Community derivation and node linking scripts partially working |
+| Cross-Provider Pollination | 🟡 PARTIAL | Unit tests for cross-memory access between multiple providers PASS |
+| Hermes Provider Adapter | 🟡 PARTIAL | Adapter exists. Bridge communication pipeline with subagents under repair |
+| i18n Multilingual Pipeline | 🔴 ABSENT | UX level temporary fixes only. No backend language code integration |
+| Inline Source Marking | 🔴 ABSENT | No sentence-level provenance tracking (only file-level tracking works) |
+| Atomic Rollback (Git Net) | 🔴 ABSENT | Auto-snapshotting and rollback loops per task not implemented |
+
+#### Alignment Summary
+| Domain | Total Blocks | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | Alignment (LIVE+PARTIAL) |
+|---|---|---|---|---|---|---|
+| Production | 10 | 1 | 7 | 0 | 2 | 80% |
+| Consumption | 4 | 1 | 2 | 1 | 0 | 75% |
+| Infrastructure | 10 | 2 | 5 | 0 | 3 | 70% |
+| **Total** | **24** | **4** | **14** | **1** | **5** | **75%** (Active Integration WIP) |
+
+> While a significant portion of the design has been implemented as runtime schemas and base logic (PARTIAL), the 'end-to-end PTC trace'—where the subagent drives the pipeline fully autonomously—is under active development (8th Roadmap, Phase 4). This table ensures transparent communication of the project status and will be continuously updated.
 
 ## Why This Exists
 
