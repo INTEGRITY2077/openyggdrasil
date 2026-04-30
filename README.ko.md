@@ -28,7 +28,6 @@
 > 있습니다. 공개적으로 개발 중이며, 기여와 피드백을 환영합니다.
 
 ---
-
 ## 왜 필요한가
 
 모든 AI 코딩 도구 — Hermes, Codex, Claude Code, Cursor, Gemini CLI — 는 각자의
@@ -61,253 +60,7 @@ openyggdrasil의 가장 강력한 특징은 특정 도구에 종속되지 않는
 
 이것이 가능한 이유는 모든 에이전트가 자신만의 내부 트랜스크립트 포맷을 버리고, openyggdrasil의 **엄격한 프론트매터 스키마(Markdown + YAML)** 라는 단일 진실 원천(Vault) 규격을 공유하기 때문입니다.
 
-## 실행 모델
-
-openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
-프로바이더(Hermes, Claude Code, Cursor 등)가 이 레포지토리에 진입하면
-루트의 **`SKILL.md`** 를 읽고, 거기에 정의된 진입점을 자기 토큰으로 실행합니다.
-
-```
-  프로바이더 에이전트
-       │
-       │  레포 진입 → SKILL.md 발견
-       │
-       ▼
-  ┌──────────────────────────────────────────────────┐
-  │  SKILL.md (계약서)                                │
-  │                                                  │
-  │  "캡처할 때는 이 Python 스크립트를 실행하세요"       │
-  │  "검색할 때는 이 진입점을 호출하세요"                │
-  │  "입력 형태는 이렇고, 출력 형태는 이렇습니다"        │
-  └──────────────────────────────────────────────────┘
-       │
-       ▼
-  에이전트가 자기 쉘/도구호출로 Python 진입점 실행
-  → PTC 엔진이 도구 세트와 실행 계획(Tool Plan) 제시
-  → 에이전트가 도구를 순서대로 호출하여 파이프라인 관통
-```
-
-이 구조에서 빌려 쓰는 것은 두 가지입니다:
-
-| 빌려 쓰는 것 | 설명 |
-|---|---|
-| **실행 컨텍스트** | 에이전트의 쉘/도구호출 능력으로 Python 스크립트 실행 |
-| **추론 토큰** | PTC 계약 가드레일 통과 및 복잡한 판단에 필요한 LLM 추론 능력 |
-
-**서브에이전트가 곧 파이프라인입니다.** 파이프라인 모듈 중 일부(작업 도구)는
-순수 Python으로 결정론적 실행되지만, 핵심 판단(계약 가드레일)은 에이전트의
-추론 토큰을 소비하여 동작합니다.
-
-향후 독립적인 API 키 지정을 통해 프로바이더 없이 자체 실행하는 모드도
-지원할 계획입니다.
-
----
-
-## 프로바이더 연동 & 설정
-
-openyggdrasil은 AI 프로바이더(예: Hermes, Claude Code, Cursor)에 부착되는
-콜드스타트 스킬로 동작합니다. 백그라운드 데몬을 시작하거나 별도 서버
-프로세스를 관리할 필요가 없습니다.
-
-> **⚠️ 추론 토큰 모델:**
-> openyggdrasil은 현재 **프로바이더의 추론 토큰을 빌려서 사용**합니다.
-> 자체 API 키나 LLM 인프라를 보유하지 않습니다.
-> 향후 독립적인 API 키 지정을 통한 자체 추론 지원도 계획되어 있습니다.
-
-### 1. 프로바이더가 openyggdrasil을 인식하는 방법
-
-프로바이더는 레포지토리 루트의 **`SKILL.md`** 매니페스트를 읽어 openyggdrasil에
-연결합니다:
-- 에이전트의 스킬 설정을 `SKILL.md`의 절대 경로로 지정합니다.
-- 에이전트가 이 계약을 읽으면, 메모리 검색 및 캡처를 위한 정확한 진입점,
-  명령 형태, 경계를 파악합니다.
-
-### 2. 시스템 요구사항 & 의존성 설치
-
-openyggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python 표준
-라이브러리에 거의 전적으로 의존하지만, Graphify 파생 뷰와 샌드박스 격리에
-다음 의존성 스택이 필요합니다:
-
-**지원 운영체제:**
-- **Windows / macOS / Linux**: 코어 메모리 파이프라인 전체 지원 (Vault 큐레이션, Graphify 파생 뷰, Pathfinder 검색).
-- **Linux / WSL2 (Windows Subsystem for Linux)**: **필수.** Reasoning Lease 샌드박스는 `bubblewrap`을 통한 비특권 격리에 의존하며, 이는 프로덕션 파이프라인의 필수 의존성입니다. Windows/macOS 사용자는 반드시 WSL2를 통해 이 요구사항을 충족해야 합니다.
-
-**코어 선행 요건:**
-- **`Python 3.10+`**: 로컬 환경에 설치되어 접근 가능해야 합니다.
-
-**Python 패키지 (pip):**
-- **`graphifyy`**: 구조 분석 및 그래프 구축을 위한 코어 동반 패키지
-- **`networkx`**: 그래프 파생, 노드 인덱싱, 탐색용
-- **`leidenalg` & `igraph`**: 커뮤니티 탐지 및 토픽 클러스터링용
-- **`jsonschema`**: 프로바이더 계약 및 메일박스 스키마의 엄격한 검증용
-- **`pyyaml`**: 설정 및 매니페스트 파일 읽기/쓰기용
-- **`pytest`**: 로컬 계약 검증 및 스모크 테스트용
-
-**시스템 의존성:**
-- **`bubblewrap`** (`bwrap`): Reasoning Lease 실행 시 비특권 샌드박스 격리에 **필수** (Linux/WSL).
-
-**이 의존성들은 사용자의 로컬 환경에 설치되어야 합니다.**
-
-> **⚠️ 프로바이더 필수 규칙:**
-> 콜드스타트 스킬을 처음 실행하기 전에, 프로바이더는 **반드시 사용자에게 명시적 허가를 요청**해야 합니다.
->
-> 1. 프로바이더가 의존성 누락을 감지합니다.
-> 2. 프로바이더가 중단하고 사용자에게 프롬프트: *"openyggdrasil은 로컬에 설치할 Python 의존성이 필요합니다. 허용하시겠습니까?"*
-> 3. 사용자 승인 시에만 의존성을 설치합니다. **무단 또는 프롬프트 없는 설치는 엄격히 금지됩니다.**
-
-### 3. 원터치 콜드스타트
-
-의존성이 승인되고 설치되면, 프로바이더가 `SKILL.md`에 정의된 스킬 진입점을
-실행할 수 있습니다. openyggdrasil 런타임은 **요청 시 콜드스타트**되고,
-필요한 메모리 트랜잭션을 실행한 후, 깔끔하게 종료됩니다.
-
-### 수동 설치 확인
-
-프로바이더를 연결하기 전에 설치를 확인하려면:
-
-```bash
-# 레포지토리 클론
-git clone https://github.com/INTEGRITY2077/openyggdrasil.git
-cd openyggdrasil
-
-# 의존성 설치 (사용자 주도)
-pip install -r requirements.txt
-
-# 임포트 스모크 테스트
-python runtime/import_smoke.py
-```
-
-## PTC (Programmatic Tool Calling) 개념과 아키텍처
-
-openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool Calling)** 아키텍처를 기반으로 동작합니다. 
-
-**원천 SOT (Source of Truth):**
-이 아키텍처는 Anthropic의 [Programmatic Tool Calling](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/programmatic-tool-calling) (PTC) 기능과 개방형 에이전트 루프(REPL) 철학을 모티브로 삼고 있습니다.
-
-### 원본 아키텍처 (Claude PTC)
-
-```
-  ┌──────────────────────────────────────────────────────────────┐
-  │          Anthropic Programmatic Tool Calling (PTC)           │
-  │                                                              │
-  │  1. Agent: `server_tool_use` 발생 (name: code_execution)      │
-  │  2. Sandbox: Python 스크립트 실행 시작                          │
-  │  3. Script: 내부에서 `await target_tool()` 호출                 │
-  │  4. API: Sandbox 일시정지, Host에 `tool_use` 발생             │
-  │     (payload: `caller: { type: code_execution_... }`)        │
-  │  5. Host: `tool_result` 반환                                 │
-  │  6. Sandbox: 스크립트 실행 재개 및 중간 데이터 필터링/루프 처리 │
-  │  7. Sandbox: `code_execution_tool_result` 반환                │
-  └──────────────────────────────┬───────────────────────────────┘
-                                 │ Contract: allowed_callers=["code_execution..."]
-                                 ▼
-  ┌──────────────────────────────────────────────────────────────┐
-  │                     Host (Client Tools)                      │
-  │              (Database, File system, APIs 등)                │
-  └──────────────────────────────────────────────────────────────┘
-```
-
-일반적인 PTC는 샌드박스 내부에서 에이전트가 자유롭게 Python 코드를 작성하여 여러 도구를 제어합니다:
-1. 에이전트가 스스로 루프(Loop)와 조건문(If-else)을 포함한 임의의 Python 스크립트를 작성합니다.
-2. 스크립트가 실행되며 여러 도구를 연속적으로 호출하고, 중간 데이터를 필터링하여 토큰과 지연 시간을 절약합니다.
-3. 이 방식은 효율적이고 유연하지만, 지식을 정규화하고 엄격한 생명주기를 가진 메모리로 저장하기에는 에이전트가 작성한 스크립트의 로직 무결성에 의존해야 하므로 예측 가능성이 떨어지고 런타임 환각에 취약합니다.
-
-### openyggdrasil의 변형 및 내재화 (Typed PTC Engine)
-
-```
-  ┌──────────────────────────────────────────────────────────────┐
-  │               openyggdrasil (Typed PTC Engine)               │
-  │                                                              │
-  │  1. PTC Engine: `JSON Execution Plan` 강제 주입               │
-  │     (예: ["distill_signal", "evaluate_candidate", ...])      │
-  │  2. Agent: 도구 #1 호출 (엄격한 JSON Schema 준수 필요)         │
-  │  3. Guardrail: 추론 토큰 소비 및 스키마 유효성 검사             │
-  │  4. Utility: 도구 #2 이후는 결정론적 Python 함수 자동 통과     │
-  │  5. Pipeline: `stop_reason` 발생 또는 체인 완료              │
-  └──────────────────────────────┬───────────────────────────────┘
-                                 │ Contract: Strict JSON Schema / Typed Payloads
-                                 ▼
-  ┌──────────────────────────────────────────────────────────────┐
-  │                 openyggdrasil 8-Tool Chain                   │
-  │           (결정론적, 타입 안정성, 생명주기가 관리됨)               │
-  └──────────────────────────────────────────────────────────────┘
-```
-
-openyggdrasil은 이 원본 아키텍처의 자율성을 의도적으로 제한하고, **타입 안정성이 보장된 체인(Typed Chain)** 으로 내재화했습니다.
-
-1. **블랙박스 해체:** 내부 12-모듈이 보이지 않게 자동으로 도는 블랙박스 구조를 해체하고, 모든 모듈을 서브에이전트가 명시적으로 호출할 수 있는 "단일 목적 도구(Tool)"로 노출했습니다.
-2. **자유도 제한 (JSON Tool Plan):** 에이전트가 마음대로 도구를 조합하거나 스크립트를 짜는 것을 막습니다. 대신, PTC 엔진이 상황에 맞는 **고정된 도구 순서(Execution Plan)** 를 JSON 형태로 에이전트에게 강제 주입합니다.
-3. **이중 성격의 도구:** 도구를 '계약 가드레일'(추론 토큰 소비, 엄격한 스키마 검증)과 '작업 도구'(결정론적 Python 실행)로 분리하여 에이전트의 인지 부하를 최적화했습니다.
-
-결과적으로, openyggdrasil의 PTC 모델은 에이전트의 개방형 추론 루프를 제한하고, 정의된 JSON Execution Plan에 따라 순차적 도구 호출을 강제하여 데이터 무결성을 보장하는 구조로 설계되었습니다.
-
-### PTC 도입 배경: 기존 Vector DB / ElasticSearch와의 차별점 (토큰 효율성)
-
-전통적인 RAG(검색 증강 생성) 방식은 Vector DB나 ElasticSearch에 의존하여 대량의 문서를 검색하고, 수천~수만 개의 텍스트 토큰을 에이전트의 컨텍스트 윈도우에 그대로 욱여넣습니다. 이는 **비용이 비싸고, 지연 시간(Latency)이 길며, 핵심 정보를 놓치는 현상(Lost in the middle)을 유발**합니다.
-
-openyggdrasil이 무거운 외부 인프라를 버리고 **순수 로컬 파일시스템 기반의 PTC 아키텍처**를 도입한 가장 큰 이유는 **압도적인 토큰 효율성과 구조적 필터링** 때문입니다:
-
-- **중간 처리의 컨텍스트 배제:** 에이전트가 `scan_topology`나 `filter_lifecycle` 같은 Utility 도구를 호출할 때, 수많은 중간 데이터(예: 20개의 Vault 문서 스캔)는 에이전트의 컨텍스트 윈도우에 적재되지 않습니다. 오직 순수 Python 메모리 내에서만 처리(필터링, 집계)됩니다.
-- **모델 왕복(Round-trip) 오버헤드 제거:** 10개의 지식 노드를 각각 독립된 도구로 조회하는 것은 개별적으로 LLM을 호출하므로 막대한 토큰을 소모합니다. 그러나 PTC를 통해 하나의 코드 실행 블록 내에서 10개의 문서를 읽고 요약된 결론만 반환하도록 하면 토큰 소모량을 약 **10배 이상 절약**할 수 있습니다.
-- **최종 요약본만 반환:** 에이전트에게는 검색 과정의 방대한 노이즈가 보이지 않으며, 오직 최종적으로 정제된 `bounded support bundle`(제한된 지원 번들)의 결과만 반환됩니다.
-
-<a id="ptc-코드-작성-예시"></a>
-#### PTC 코드 작성 예시 (단일 비동기 스크립트)
-
-서브에이전트는 제공된 JSON 실행 계획을 완수하기 위해 **단일 비동기 Python 스크립트**를 작성하여 샌드박스 내부에서 실행합니다. LLM이 모델 왕복(Round-trip) 없이 한 번에 8단계를 모두 관통하는 실제 스크립트 예시는 다음과 같습니다:
-
-```python
-import asyncio
-import json
-
-async def run_production_pipeline():
-    # 1. 신호 정제 (Distill)
-    distilled = await distill_signal(raw_signal="...", context="...")
-    
-    # 2. 가치 평가 및 스키마 검증 (Evaluate) - Contract Guardrail
-    verdict = await evaluate_candidate(candidate=distilled)
-    
-    # 서브에이전트의 자체 판단: 가드레일 통과 못하면 파이프라인 중단
-    if not verdict.get("is_worth_remembering"):
-        print(json.dumps({"status": "aborted"}))
-        return
-        
-    # 3. 위상 분류 (Classify)
-    route = await classify_novelty(candidate=distilled, verdict=verdict)
-    
-    # 4~7. 기계적 유틸리티 통과 (추론 없이 데이터만 넘김)
-    stamped = await stamp_provenance(candidate=distilled, route=route)
-    seed = await compose_seed(verdict=verdict, route=route, segment=stamped)
-    vault_path = await plant_to_vault(seed=seed)
-    await update_topology(seed=seed, vault_path=vault_path)
-    
-    # 8. 최종 영수증 발급
-    receipt = await deliver_receipt(seed=seed, vault_path=vault_path)
-    
-    # 이 마지막 print 문의 결과만 LLM의 컨텍스트로 반환됨 (토큰 10배 절약)
-    print(json.dumps({"status": "success", "receipt": receipt}))
-
-asyncio.run(run_production_pipeline())
-```
-
-이 스크립트가 샌드박스 내부에서 도는 동안, 방대한 중간 데이터(`distilled`, `verdict` 등)는 오직 순수 Python 메모리에만 존재하며 LLM의 컨텍스트를 전혀 오염시키지 않습니다.
-
-### 추론 모델의 한계와 마지노선 (Reasoning Model Baseline & Limitations)
-
-PTC 파이프라인에서 서브에이전트(LLM)는 샌드박스 내에서 복잡한 `JSON Execution Plan`을 기억하고, 8단계의 도구를 순서대로 호출하며, 각 도구의 엄격한 JSON 스키마 제약을 오차 없이 통과해야 합니다. 이를 강제하는 것이 openyggdrasil의 **계약 가드레일(Contract Guardrails)**입니다.
-
-이러한 고도의 제약 환경을 완주하기 위한 **추론 모델의 마지노선(Baseline)은 Claude 3.5 Sonnet 또는 GPT-4o 등급의 프론티어 모델**입니다. 
-
-**성능 미달 모델의 전형적인 실패(LLM Failure) 사례:**
-- **Execution Plan 무시:** 강제된 도구 호출 순서를 무시하고 임의의 스크립트를 작성하여 샌드박스를 우회하려 시도.
-- **가드레일 검증 실패:** 엄격한 JSON 스키마를 준수하지 못해 `evaluate` 도구에서 에러를 반환받았을 때, 스스로 코드를 수정하지 못하고 에러 루프에 빠져 타임아웃(Lease Failed) 발생.
-- **환각 및 단계 건너뛰기:** 데이터 처리 단계를 임의로 스킵하고, 환각(Hallucination)에 기반한 결과물로 파이프라인을 종료하려 시도.
-
-openyggdrasil은 모델의 선의나 자율성에 기대지 않습니다. 모델이 프롬프트를 무시하고 돌발 행동을 하더라도, 메인 시스템(Vault)은 샌드박스와 타입 검증에 의해 100% 보호받습니다. 위 마지노선을 충족하지 못하는 모델은 사전에 즉각적으로 걸러지며, 프로바이더 영수증(`hermes_routing_receipt`)에 `production_readiness_claimed` 마크를 획득할 수 없습니다.
-
----
-
-## 작동 방식
+## 핵심 철학
 
 ### 기본 철학: LLM Wiki의 'Graphify화' (위상 융합)
 
@@ -335,66 +88,6 @@ openyggdrasil은 정적인 파일 스토리지인 'LLM Wiki'의 한계를 극복
 
 이러한 **'LLM Wiki의 Graphify화'**를 통해, openyggdrasil은 단순한 텍스트 묶음을 넘어, 외부 Vector DB 없이도 스스로 관계망을 인지하는 **순수 로컬 오프라인 멀티-에이전트 메모리 시스템**으로 작동합니다.
 
-이 철학을 바탕으로, openyggdrasil은 메모리를 포착하고 큐레이션하는 **생산면(Production Side)** 과 지식을 검색하고 전달하는 **소비면(Consumption Side)** 이라는 양면 엔진으로 작동합니다.
-
-```
-                    ┌─────────────────────────────────────────────────────────────┐
-                    │                   생산면 (PRODUCTION SIDE)                    │
-                    │                                                             │
-  프로바이더 신호   │ ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │
-  (Hermes, Claude) ─┼─▶│   Distill    │────▶│ **Evaluate** │────▶│ Plant/Commit │  │
-                    │ │(신호 구조화)  │     │(가치 평가 및   │     │ (Vault에     │  │
-                    │ └──────────────┘     │ 스키마 검증)   │     │  최종 기록)   │  │
-                    │                      └──────────────┘     └──────────────┘  │
-                    └─────────────────────────────────┬───────────────────────────┘
-                                                      │ (타입이 보장된 Seed만 통과)
-                                               ┌──────┴──────┐
-                                               │    VAULT    │
-                                               │ (SOT 메모리)  │
-                                               └──────┬──────┘
-                                                      │
-                    ┌─────────────────────────────────┴───────────────────────────┐
-                    │                   소비면 (CONSUMPTION SIDE)                   │
-                    │                                                             │
-  검색 쿼리 요청    │ ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │
-  (맥락이 필요할 때)─┼─▶│  Pathfinder  │────▶│ **Mailbox**  │────▶│   Provider   │  │
-                    │ │(관련 지식 탐색 │     │(전달 계약 및   │     │   Session    │  │
-                    │ │ 및 번들 구축)  │     │구조화된 수신통)│     │(컨텍스트 반영)│  │
-                    │ └──────────────┘     └──────────────┘     └──────────────┘  │
-                    └─────────────────────────────────────────────────────────────┘
-```
-
-### 파이프라인 핵심 흐름도
-
-```text
-[ 생산 파이프라인 ]                          [ 소비 파이프라인 ]
-Provider Signal                             Provider Query
-       │                                           │
-       ▼                                           ▼
-  1. Distill (증류)                          1. Pathfinder (위상 스캔)
-  2. Evaluate (가치 평가)   ──(Vault SOT)──  2. Resolve (표면 해석)
-  3. Place (구조적 배치)    ──(Graphify)──   3. Support Bundle (출처 추적 번들)
-  4. Prune (가지치기)                        4. Postman (Mailbox 수신증 발급)
-```
-
-### 생산면 — "무엇을 기억할 것인가"
-
-생산 파이프라인은 모든 것을 맹목적으로 저장하지 않습니다. 프로바이더 신호를
-타입이 지정된 의사결정 후보로 **증류(Distill)** 하고, 기억할 가치를
-**평가(Evaluate)** 하며, 탐색 가능한 토픽 구조에 **배치(Place)** 하고,
-생명주기 전환을 통해 낡은 지식을 **가지치기(Prune)** 합니다.
-
-### 소비면 — "무엇을 전달할 것인가"
-
-소비 파이프라인은 Vault 전체를 덤프하지 않습니다. **Pathfinder**가 설명
-가능하고, 생명주기를 인식하며, **출처가 추적된 제한된 지원 번들(Provenance-tracked Bounded Support Bundle)**을 구축합니다.
-
-단순한 지식 요약본이 아니라, 이 번들(`support_bundle.v1.schema.json` 계약) 내부에는 원본 맥락을 100% 복원할 수 있는 **3단계 출처 추적 장치**가 구조적으로 포함됩니다:
-1. **Breadcrumb (`source_paths`)**: 지식이 추출된 원천 파일의 URI 배열.
-2. **Topology ID (`episode_ids`, `claim_ids`)**: Vault/Graphify 내에서 해당 지식이 생성된 맥락적 위상 좌표.
-3. **Evidence Refs (`safe_ref`)**: 필요 시 원시 대화 로그(Conversation Logs)나 터미널 실행 결과 원본으로 곧바로 찾아갈 수 있는 안전한 포인터.
-
-결과적으로 에이전트는 요약본과 함께 "최초의 탄생 맥락으로 언제든 돌아갈 수 있는 명시적 주소"를 한 번에 제공받아, **Postman**을 통해 타입이 지정된 **Mailbox** 계약으로 안전하게 수신합니다.
 
 ### 브릿지 — Vault와 Graphify의 관계
 
@@ -525,6 +218,179 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니�
 
 ---
 
+## 시스템 아키텍처
+
+### 양면 엔진 (Two-Sided Engine)
+
+이 철학을 바탕으로, openyggdrasil은 메모리를 포착하고 큐레이션하는 **생산면(Production Side)** 과 지식을 검색하고 전달하는 **소비면(Consumption Side)** 이라는 양면 엔진으로 작동합니다.
+
+```
+                    ┌─────────────────────────────────────────────────────────────┐
+                    │                   생산면 (PRODUCTION SIDE)                    │
+                    │                                                             │
+  프로바이더 신호   │ ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │
+  (Hermes, Claude) ─┼─▶│   Distill    │────▶│ **Evaluate** │────▶│ Plant/Commit │  │
+                    │ │(신호 구조화)  │     │(가치 평가 및   │     │ (Vault에     │  │
+                    │ └──────────────┘     │ 스키마 검증)   │     │  최종 기록)   │  │
+                    │                      └──────────────┘     └──────────────┘  │
+                    └─────────────────────────────────┬───────────────────────────┘
+                                                      │ (타입이 보장된 Seed만 통과)
+                                               ┌──────┴──────┐
+                                               │    VAULT    │
+                                               │ (SOT 메모리)  │
+                                               └──────┬──────┘
+                                                      │
+                    ┌─────────────────────────────────┴───────────────────────────┐
+                    │                   소비면 (CONSUMPTION SIDE)                   │
+                    │                                                             │
+  검색 쿼리 요청    │ ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │
+  (맥락이 필요할 때)─┼─▶│  Pathfinder  │────▶│ **Mailbox**  │────▶│   Provider   │  │
+                    │ │(관련 지식 탐색 │     │(전달 계약 및   │     │   Session    │  │
+                    │ │ 및 번들 구축)  │     │구조화된 수신통)│     │(컨텍스트 반영)│  │
+                    │ └──────────────┘     └──────────────┘     └──────────────┘  │
+                    └─────────────────────────────────────────────────────────────┘
+```
+
+### 생산면 — "무엇을 기억할 것인가"
+
+생산 파이프라인은 모든 것을 맹목적으로 저장하지 않습니다. 프로바이더 신호를
+타입이 지정된 의사결정 후보로 **증류(Distill)** 하고, 기억할 가치를
+**평가(Evaluate)** 하며, 탐색 가능한 토픽 구조에 **배치(Place)** 하고,
+생명주기 전환을 통해 낡은 지식을 **가지치기(Prune)** 합니다.
+
+### 소비면 — "무엇을 전달할 것인가"
+
+소비 파이프라인은 Vault 전체를 덤프하지 않습니다. **Pathfinder**가 설명
+가능하고, 생명주기를 인식하며, **출처가 추적된 제한된 지원 번들(Provenance-tracked Bounded Support Bundle)**을 구축합니다.
+
+단순한 지식 요약본이 아니라, 이 번들(`support_bundle.v1.schema.json` 계약) 내부에는 원본 맥락을 100% 복원할 수 있는 **3단계 출처 추적 장치**가 구조적으로 포함됩니다:
+1. **Breadcrumb (`source_paths`)**: 지식이 추출된 원천 파일의 URI 배열.
+2. **Topology ID (`episode_ids`, `claim_ids`)**: Vault/Graphify 내에서 해당 지식이 생성된 맥락적 위상 좌표.
+3. **Evidence Refs (`safe_ref`)**: 필요 시 원시 대화 로그(Conversation Logs)나 터미널 실행 결과 원본으로 곧바로 찾아갈 수 있는 안전한 포인터.
+
+결과적으로 에이전트는 요약본과 함께 "최초의 탄생 맥락으로 언제든 돌아갈 수 있는 명시적 주소"를 한 번에 제공받아, **Postman**을 통해 타입이 지정된 **Mailbox** 계약으로 안전하게 수신합니다.
+
+
+### Typed PTC (Programmatic Tool Calling) 엔진
+
+## PTC (Programmatic Tool Calling) 개념과 아키텍처
+
+openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool Calling)** 아키텍처를 기반으로 동작합니다. 
+
+**원천 SOT (Source of Truth):**
+이 아키텍처는 Anthropic의 [Programmatic Tool Calling](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/programmatic-tool-calling) (PTC) 기능과 개방형 에이전트 루프(REPL) 철학을 모티브로 삼고 있습니다.
+
+### 원본 아키텍처 (Claude PTC)
+
+```
+  ┌──────────────────────────────────────────────────────────────┐
+  │          Anthropic Programmatic Tool Calling (PTC)           │
+  │                                                              │
+  │  1. Agent: `server_tool_use` 발생 (name: code_execution)      │
+  │  2. Sandbox: Python 스크립트 실행 시작                          │
+  │  3. Script: 내부에서 `await target_tool()` 호출                 │
+  │  4. API: Sandbox 일시정지, Host에 `tool_use` 발생             │
+  │     (payload: `caller: { type: code_execution_... }`)        │
+  │  5. Host: `tool_result` 반환                                 │
+  │  6. Sandbox: 스크립트 실행 재개 및 중간 데이터 필터링/루프 처리 │
+  │  7. Sandbox: `code_execution_tool_result` 반환                │
+  └──────────────────────────────┬───────────────────────────────┘
+                                 │ Contract: allowed_callers=["code_execution..."]
+                                 ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │                     Host (Client Tools)                      │
+  │              (Database, File system, APIs 등)                │
+  └──────────────────────────────────────────────────────────────┘
+```
+
+일반적인 PTC는 샌드박스 내부에서 에이전트가 자유롭게 Python 코드를 작성하여 여러 도구를 제어합니다:
+1. 에이전트가 스스로 루프(Loop)와 조건문(If-else)을 포함한 임의의 Python 스크립트를 작성합니다.
+2. 스크립트가 실행되며 여러 도구를 연속적으로 호출하고, 중간 데이터를 필터링하여 토큰과 지연 시간을 절약합니다.
+3. 이 방식은 효율적이고 유연하지만, 지식을 정규화하고 엄격한 생명주기를 가진 메모리로 저장하기에는 에이전트가 작성한 스크립트의 로직 무결성에 의존해야 하므로 예측 가능성이 떨어지고 런타임 환각에 취약합니다.
+
+### openyggdrasil의 변형 및 내재화 (Typed PTC Engine)
+
+```
+  ┌──────────────────────────────────────────────────────────────┐
+  │               openyggdrasil (Typed PTC Engine)               │
+  │                                                              │
+  │  1. PTC Engine: `JSON Execution Plan` 강제 주입               │
+  │     (예: ["distill_signal", "evaluate_candidate", ...])      │
+  │  2. Agent: 도구 #1 호출 (엄격한 JSON Schema 준수 필요)         │
+  │  3. Guardrail: 추론 토큰 소비 및 스키마 유효성 검사             │
+  │  4. Utility: 도구 #2 이후는 결정론적 Python 함수 자동 통과     │
+  │  5. Pipeline: `stop_reason` 발생 또는 체인 완료              │
+  └──────────────────────────────┬───────────────────────────────┘
+                                 │ Contract: Strict JSON Schema / Typed Payloads
+                                 ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │                 openyggdrasil 8-Tool Chain                   │
+  │           (결정론적, 타입 안정성, 생명주기가 관리됨)               │
+  └──────────────────────────────────────────────────────────────┘
+```
+
+openyggdrasil은 이 원본 아키텍처의 자율성을 의도적으로 제한하고, **타입 안정성이 보장된 체인(Typed Chain)** 으로 내재화했습니다.
+
+1. **블랙박스 해체:** 내부 12-모듈이 보이지 않게 자동으로 도는 블랙박스 구조를 해체하고, 모든 모듈을 서브에이전트가 명시적으로 호출할 수 있는 "단일 목적 도구(Tool)"로 노출했습니다.
+2. **자유도 제한 (JSON Tool Plan):** 에이전트가 마음대로 도구를 조합하거나 스크립트를 짜는 것을 막습니다. 대신, PTC 엔진이 상황에 맞는 **고정된 도구 순서(Execution Plan)** 를 JSON 형태로 에이전트에게 강제 주입합니다.
+3. **이중 성격의 도구:** 도구를 '계약 가드레일'(추론 토큰 소비, 엄격한 스키마 검증)과 '작업 도구'(결정론적 Python 실행)로 분리하여 에이전트의 인지 부하를 최적화했습니다.
+
+결과적으로, openyggdrasil의 PTC 모델은 에이전트의 개방형 추론 루프를 제한하고, 정의된 JSON Execution Plan에 따라 순차적 도구 호출을 강제하여 데이터 무결성을 보장하는 구조로 설계되었습니다.
+
+### PTC 도입 배경: 기존 Vector DB / ElasticSearch와의 차별점 (토큰 효율성)
+
+전통적인 RAG(검색 증강 생성) 방식은 Vector DB나 ElasticSearch에 의존하여 대량의 문서를 검색하고, 수천~수만 개의 텍스트 토큰을 에이전트의 컨텍스트 윈도우에 그대로 욱여넣습니다. 이는 **비용이 비싸고, 지연 시간(Latency)이 길며, 핵심 정보를 놓치는 현상(Lost in the middle)을 유발**합니다.
+
+openyggdrasil이 무거운 외부 인프라를 버리고 **순수 로컬 파일시스템 기반의 PTC 아키텍처**를 도입한 가장 큰 이유는 **압도적인 토큰 효율성과 구조적 필터링** 때문입니다:
+
+- **중간 처리의 컨텍스트 배제:** 에이전트가 `scan_topology`나 `filter_lifecycle` 같은 Utility 도구를 호출할 때, 수많은 중간 데이터(예: 20개의 Vault 문서 스캔)는 에이전트의 컨텍스트 윈도우에 적재되지 않습니다. 오직 순수 Python 메모리 내에서만 처리(필터링, 집계)됩니다.
+- **모델 왕복(Round-trip) 오버헤드 제거:** 10개의 지식 노드를 각각 독립된 도구로 조회하는 것은 개별적으로 LLM을 호출하므로 막대한 토큰을 소모합니다. 그러나 PTC를 통해 하나의 코드 실행 블록 내에서 10개의 문서를 읽고 요약된 결론만 반환하도록 하면 토큰 소모량을 약 **10배 이상 절약**할 수 있습니다.
+- **최종 요약본만 반환:** 에이전트에게는 검색 과정의 방대한 노이즈가 보이지 않으며, 오직 최종적으로 정제된 `bounded support bundle`(제한된 지원 번들)의 결과만 반환됩니다.
+
+
+### SKILL.md 기반 진입 모델 (에이전트 트리거)
+
+## 실행 모델
+
+openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
+프로바이더(Hermes, Claude Code, Cursor 등)가 이 레포지토리에 진입하면
+루트의 **`SKILL.md`** 를 읽고, 거기에 정의된 진입점을 자기 토큰으로 실행합니다.
+
+```
+  프로바이더 에이전트
+       │
+       │  레포 진입 → SKILL.md 발견
+       │
+       ▼
+  ┌──────────────────────────────────────────────────┐
+  │  SKILL.md (계약서)                                │
+  │                                                  │
+  │  "캡처할 때는 이 Python 스크립트를 실행하세요"       │
+  │  "검색할 때는 이 진입점을 호출하세요"                │
+  │  "입력 형태는 이렇고, 출력 형태는 이렇습니다"        │
+  └──────────────────────────────────────────────────┘
+       │
+       ▼
+  에이전트가 자기 쉘/도구호출로 Python 진입점 실행
+  → PTC 엔진이 도구 세트와 실행 계획(Tool Plan) 제시
+  → 에이전트가 도구를 순서대로 호출하여 파이프라인 관통
+```
+
+이 구조에서 빌려 쓰는 것은 두 가지입니다:
+
+| 빌려 쓰는 것 | 설명 |
+|---|---|
+| **실행 컨텍스트** | 에이전트의 쉘/도구호출 능력으로 Python 스크립트 실행 |
+| **추론 토큰** | PTC 계약 가드레일 통과 및 복잡한 판단에 필요한 LLM 추론 능력 |
+
+**서브에이전트가 곧 파이프라인입니다.** 파이프라인 모듈 중 일부(작업 도구)는
+순수 Python으로 결정론적 실행되지만, 핵심 판단(계약 가드레일)은 에이전트의
+추론 토큰을 소비하여 동작합니다.
+
+향후 독립적인 API 키 지정을 통해 프로바이더 없이 자체 실행하는 모드도
+지원할 계획입니다.
+
+---
 ## 운영 흐름 — 트리거에서 전달까지
 
 위 다이어그램은 내부 체인을 보여주지만, 진짜 질문은:
@@ -592,6 +458,23 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니�
   출처 참조가 없는 신호는 게이트에서 거부됩니다.
 - openyggdrasil은 **요청 시 콜드스타트**됩니다. 백그라운드 데몬이 없습니다.
   프로바이더가 호출하면 실행되고, 완료되면 종료됩니다.
+
+
+## 파이프라인 흐름도
+
+### 파이프라인 핵심 흐름도
+
+```text
+[ 생산 파이프라인 ]                          [ 소비 파이프라인 ]
+Provider Signal                             Provider Query
+       │                                           │
+       ▼                                           ▼
+  1. Distill (증류)                          1. Pathfinder (위상 스캔)
+  2. Evaluate (가치 평가)   ──(Vault SOT)──  2. Resolve (표면 해석)
+  3. Place (구조적 배치)    ──(Graphify)──   3. Support Bundle (출처 추적 번들)
+  4. Prune (가지치기)                        4. Postman (Mailbox 수신증 발급)
+```
+
 
 ### 생산 파이프라인 — 서브에이전트가 지식을 기록하는 과정
 
@@ -704,6 +587,62 @@ PTC 엔진은 서브에이전트에게 8개 도구를 제공하고, 서브에이
 모든 경계에서 **타입이 지정된 계약**이 핸드오프를 검증합니다. 어떤 모듈이든
 입력을 거부하면, 체인은 타입이 지정된 `stop_reason`과 함께 정지합니다 —
 데이터를 조용히 삭제하지 않습니다.
+
+<a id="ptc-코드-작성-예시"></a>
+#### PTC 코드 작성 예시 (단일 비동기 스크립트)
+
+서브에이전트는 제공된 JSON 실행 계획을 완수하기 위해 **단일 비동기 Python 스크립트**를 작성하여 샌드박스 내부에서 실행합니다. LLM이 모델 왕복(Round-trip) 없이 한 번에 8단계를 모두 관통하는 실제 스크립트 예시는 다음과 같습니다:
+
+```python
+import asyncio
+import json
+
+async def run_production_pipeline():
+    # 1. 신호 정제 (Distill)
+    distilled = await distill_signal(raw_signal="...", context="...")
+    
+    # 2. 가치 평가 및 스키마 검증 (Evaluate) - Contract Guardrail
+    verdict = await evaluate_candidate(candidate=distilled)
+    
+    # 서브에이전트의 자체 판단: 가드레일 통과 못하면 파이프라인 중단
+    if not verdict.get("is_worth_remembering"):
+        print(json.dumps({"status": "aborted"}))
+        return
+        
+    # 3. 위상 분류 (Classify)
+    route = await classify_novelty(candidate=distilled, verdict=verdict)
+    
+    # 4~7. 기계적 유틸리티 통과 (추론 없이 데이터만 넘김)
+    stamped = await stamp_provenance(candidate=distilled, route=route)
+    seed = await compose_seed(verdict=verdict, route=route, segment=stamped)
+    vault_path = await plant_to_vault(seed=seed)
+    await update_topology(seed=seed, vault_path=vault_path)
+    
+    # 8. 최종 영수증 발급
+    receipt = await deliver_receipt(seed=seed, vault_path=vault_path)
+    
+    # 이 마지막 print 문의 결과만 LLM의 컨텍스트로 반환됨 (토큰 10배 절약)
+    print(json.dumps({"status": "success", "receipt": receipt}))
+
+asyncio.run(run_production_pipeline())
+```
+
+이 스크립트가 샌드박스 내부에서 도는 동안, 방대한 중간 데이터(`distilled`, `verdict` 등)는 오직 순수 Python 메모리에만 존재하며 LLM의 컨텍스트를 전혀 오염시키지 않습니다.
+
+### 추론 모델의 한계와 마지노선 (Reasoning Model Baseline & Limitations)
+
+PTC 파이프라인에서 서브에이전트(LLM)는 샌드박스 내에서 복잡한 `JSON Execution Plan`을 기억하고, 8단계의 도구를 순서대로 호출하며, 각 도구의 엄격한 JSON 스키마 제약을 오차 없이 통과해야 합니다. 이를 강제하는 것이 openyggdrasil의 **계약 가드레일(Contract Guardrails)**입니다.
+
+이러한 고도의 제약 환경을 완주하기 위한 **추론 모델의 마지노선(Baseline)은 Claude 3.5 Sonnet 또는 GPT-4o 등급의 프론티어 모델**입니다. 
+
+**성능 미달 모델의 전형적인 실패(LLM Failure) 사례:**
+- **Execution Plan 무시:** 강제된 도구 호출 순서를 무시하고 임의의 스크립트를 작성하여 샌드박스를 우회하려 시도.
+- **가드레일 검증 실패:** 엄격한 JSON 스키마를 준수하지 못해 `evaluate` 도구에서 에러를 반환받았을 때, 스스로 코드를 수정하지 못하고 에러 루프에 빠져 타임아웃(Lease Failed) 발생.
+- **환각 및 단계 건너뛰기:** 데이터 처리 단계를 임의로 스킵하고, 환각(Hallucination)에 기반한 결과물로 파이프라인을 종료하려 시도.
+
+openyggdrasil은 모델의 선의나 자율성에 기대지 않습니다. 모델이 프롬프트를 무시하고 돌발 행동을 하더라도, 메인 시스템(Vault)은 샌드박스와 타입 검증에 의해 100% 보호받습니다. 위 마지노선을 충족하지 못하는 모델은 사전에 즉각적으로 걸러지며, 프로바이더 영수증(`hermes_routing_receipt`)에 `production_readiness_claimed` 마크를 획득할 수 없습니다.
+
+---
 
 ### 소비 트리거 — 프로바이더가 과거 지식을 검색하는 방법
 
@@ -899,7 +838,82 @@ PTC 엔진은 서브에이전트에게 JSON Tool Plan을 제공합니다. 서브
 | ⑪ | **Mailbox** | 프로바이더 세션 수신함 | 타입 안전 소비 표면 |
 | ⑫ | **Pathfinder** | 설명 가능한 지원 자료 검색 | 모든 검색 결과는 출처와 생명주기 증거를 수반 |
 
----
+## 시스템 요구사항 및 설정
+
+## 프로바이더 연동 & 설정
+
+openyggdrasil은 AI 프로바이더(예: Hermes, Claude Code, Cursor)에 부착되는
+콜드스타트 스킬로 동작합니다. 백그라운드 데몬을 시작하거나 별도 서버
+프로세스를 관리할 필요가 없습니다.
+
+> **⚠️ 추론 토큰 모델:**
+> openyggdrasil은 현재 **프로바이더의 추론 토큰을 빌려서 사용**합니다.
+> 자체 API 키나 LLM 인프라를 보유하지 않습니다.
+> 향후 독립적인 API 키 지정을 통한 자체 추론 지원도 계획되어 있습니다.
+
+### 1. 프로바이더가 openyggdrasil을 인식하는 방법
+
+프로바이더는 레포지토리 루트의 **`SKILL.md`** 매니페스트를 읽어 openyggdrasil에
+연결합니다:
+- 에이전트의 스킬 설정을 `SKILL.md`의 절대 경로로 지정합니다.
+- 에이전트가 이 계약을 읽으면, 메모리 검색 및 캡처를 위한 정확한 진입점,
+  명령 형태, 경계를 파악합니다.
+
+### 2. 시스템 요구사항 & 의존성 설치
+
+openyggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python 표준
+라이브러리에 거의 전적으로 의존하지만, Graphify 파생 뷰와 샌드박스 격리에
+다음 의존성 스택이 필요합니다:
+
+**지원 운영체제:**
+- **Windows / macOS / Linux**: 코어 메모리 파이프라인 전체 지원 (Vault 큐레이션, Graphify 파생 뷰, Pathfinder 검색).
+- **Linux / WSL2 (Windows Subsystem for Linux)**: **필수.** Reasoning Lease 샌드박스는 `bubblewrap`을 통한 비특권 격리에 의존하며, 이는 프로덕션 파이프라인의 필수 의존성입니다. Windows/macOS 사용자는 반드시 WSL2를 통해 이 요구사항을 충족해야 합니다.
+
+**코어 선행 요건:**
+- **`Python 3.10+`**: 로컬 환경에 설치되어 접근 가능해야 합니다.
+
+**Python 패키지 (pip):**
+- **`graphifyy`**: 구조 분석 및 그래프 구축을 위한 코어 동반 패키지
+- **`networkx`**: 그래프 파생, 노드 인덱싱, 탐색용
+- **`leidenalg` & `igraph`**: 커뮤니티 탐지 및 토픽 클러스터링용
+- **`jsonschema`**: 프로바이더 계약 및 메일박스 스키마의 엄격한 검증용
+- **`pyyaml`**: 설정 및 매니페스트 파일 읽기/쓰기용
+- **`pytest`**: 로컬 계약 검증 및 스모크 테스트용
+
+**시스템 의존성:**
+- **`bubblewrap`** (`bwrap`): Reasoning Lease 실행 시 비특권 샌드박스 격리에 **필수** (Linux/WSL).
+
+**이 의존성들은 사용자의 로컬 환경에 설치되어야 합니다.**
+
+> **⚠️ 프로바이더 필수 규칙:**
+> 콜드스타트 스킬을 처음 실행하기 전에, 프로바이더는 **반드시 사용자에게 명시적 허가를 요청**해야 합니다.
+>
+> 1. 프로바이더가 의존성 누락을 감지합니다.
+> 2. 프로바이더가 중단하고 사용자에게 프롬프트: *"openyggdrasil은 로컬에 설치할 Python 의존성이 필요합니다. 허용하시겠습니까?"*
+> 3. 사용자 승인 시에만 의존성을 설치합니다. **무단 또는 프롬프트 없는 설치는 엄격히 금지됩니다.**
+
+### 3. 원터치 콜드스타트
+
+의존성이 승인되고 설치되면, 프로바이더가 `SKILL.md`에 정의된 스킬 진입점을
+실행할 수 있습니다. openyggdrasil 런타임은 **요청 시 콜드스타트**되고,
+필요한 메모리 트랜잭션을 실행한 후, 깔끔하게 종료됩니다.
+
+### 수동 설치 확인
+
+프로바이더를 연결하기 전에 설치를 확인하려면:
+
+```bash
+# 레포지토리 클론
+git clone https://github.com/INTEGRITY2077/openyggdrasil.git
+cd openyggdrasil
+
+# 의존성 설치 (사용자 주도)
+pip install -r requirements.txt
+
+# 임포트 스모크 테스트
+python runtime/import_smoke.py
+```
+
 
 ## Reasoning Lease
 
@@ -1049,3 +1063,4 @@ Graphify는 구조 분석 계층을 제공합니다 — 코드베이스와 지�
 openyggdrasil 또는 INTEGRITY2077 브랜딩을 사용하여 해당 버전을 식별할 수 없습니다.
 
 동반 의존성 고지는 [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)를 참조하세요.
+

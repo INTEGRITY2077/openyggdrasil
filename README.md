@@ -28,8 +28,6 @@
 > integrations, and rough edges. We're building in the open — contributions
 > and feedback are welcome.
 
----
-
 ## Why This Exists
 
 Every AI coding tool — Hermes, Codex, Claude Code, Cursor, Gemini CLI — has its
@@ -62,244 +60,7 @@ The most powerful feature of openyggdrasil is that it is a **"Shared Brain"** no
 
 This is possible because all agents abandon their internal transcript formats and share the same canonical Vault specification—the **strict frontmatter schema (Markdown + YAML)** of openyggdrasil.
 
-## Execution Model
-
-openyggdrasil does not have its own LLM or API keys.
-When a provider (Hermes, Claude Code, Cursor, etc.) enters this repository,
-it reads **`SKILL.md`** at the root and executes the entrypoints defined
-there using its own tokens.
-
-```
-  Provider Agent
-       │
-       │  Enters repo → discovers SKILL.md
-       │
-       ▼
-  ┌──────────────────────────────────────────────────┐
-  │  SKILL.md (Contract)                              │
-  │                                                  │
-  │  "To capture, run this Python script"             │
-  │  "To retrieve, call this entrypoint"              │
-  │  "Input shape is X, output shape is Y"            │
-  └──────────────────────────────────────────────────┘
-       │
-       ▼
-  Agent runs Python entrypoints via its own shell/tool-use
-  → PTC Engine presents a Tool Set and an Execution Plan
-  → Agent calls tools sequentially to pass through the pipeline
-```
-
-Two things are borrowed from the provider:
-
-| Borrowed | Description |
-|---|---|
-| **Execution context** | The agent's shell/tool-calling ability to run Python scripts |
-| **Reasoning tokens** | The LLM reasoning capability required to pass PTC contract guardrails and make complex decisions |
-
-**The subagent IS the pipeline.** While some pipeline modules (Utility Tools) run deterministically in pure Python, core decisions (Contract Guardrails) execute by consuming the agent's own reasoning tokens.
-
-Independent API key configuration for self-hosted execution (without a
-provider) is planned for the future.
-
----
-
-## Provider Integration & Setup
-
-openyggdrasil operates as a cold-started skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start background daemons or manage separate server processes.
-
-> **⚠️ Current Reasoning Model:**
-> openyggdrasil currently **borrows the provider's reasoning tokens** to operate.
-> It does not have its own API keys or LLM infrastructure.
-> Support for independent API key configuration is planned for the future. 
-
-### 1. How Providers Recognize openyggdrasil
-
-Providers attach to openyggdrasil by reading the **`SKILL.md`** manifest at the repository root. To initiate the connection:
-- Point your agent's skill configuration to the absolute path of `SKILL.md`.
-- The agent reads this contract, which defines the exact entrypoints, command shapes, and boundaries for memory retrieval and capture.
-
-### 2. System Requirements & Dependency Installation
-
-openyggdrasil runs purely locally. The core runtime relies almost entirely on the Python Standard Library, but the Graphify-derived views and Sandbox isolations require the following minimal dependency stack:
-
-**Supported Operating Systems:**
-- **Windows / macOS / Linux**: Full support for the core memory pipeline (Vault curation, Graphify derived views, and Pathfinder retrieval).
-- **Linux / WSL2 (Windows Subsystem for Linux)**: **Required.** The Reasoning Lease Sandbox depends on `bubblewrap` for unprivileged isolation, and this is a mandatory production dependency. Windows/macOS users must use WSL2 to satisfy this requirement.
-
-**Core Prerequisite:**
-- **`Python 3.10+`**: Must be installed and accessible in the local environment.
-
-**Python Packages (via pip):**
-- **`graphifyy`**: the core companion package for structural analysis and graph building
-- **`networkx`**: for graph derivation, node indexing, and traversal
-- **`leidenalg` & `igraph`**: for community detection and topic clustering
-- **`jsonschema`**: for strictly validating provider contracts and mailbox schemas
-- **`pyyaml`**: for reading/writing configuration and manifest files
-- **`pytest`**: for local contract verification and smoke tests
-
-**System Dependencies:**
-- **`bubblewrap`** (`bwrap`): required for unprivileged sandbox isolation during Reasoning Lease execution (Linux/WSL only).
-
-**These dependencies must be installed in the user's local environment.**
-
-> **⚠️ Mandatory Rule for Providers:**
-> Before executing the cold-start skill for the first time, the provider **MUST ask the user for explicit permission** to install these dependencies.
-> 
-> 1. Provider detects that dependencies are missing.
-> 2. Provider halts and prompts the user: *"openyggdrasil requires Python dependencies (listed in requirements) to be installed locally. Do you allow this?"*
-> 3. Only upon user approval, the provider installs the requirements. **Silent or unprompted installations are strictly forbidden.**
-
-### 3. One-Touch Cold Start
-
-Once dependencies are approved and installed, the provider can execute the skill entrypoints defined in `SKILL.md`. The openyggdrasil runtime **cold-starts itself on demand**, executes the required memory transaction, and shuts down cleanly.
-
-### Verify Installation Manually
-
-If you prefer to verify the installation before attaching a provider:
-
-```bash
-# Clone the repository
-git clone https://github.com/INTEGRITY2077/openyggdrasil.git
-cd openyggdrasil
-
-# Install dependencies (user-initiated)
-pip install -r requirements.txt # (assuming requirements exist)
-
-# Run import smoke test
-python runtime/import_smoke.py
-```
-
-## PTC (Programmatic Tool Calling) Concept & Architecture
-
-The production and consumption pipelines of openyggdrasil operate on a **PTC (Programmatic Tool Calling)** architecture.
-
-**Source of Truth (SOT):**
-This architecture is heavily inspired by Anthropic's [Programmatic Tool Calling](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/programmatic-tool-calling) (PTC) and the broader open-ended agentic loop (REPL) philosophy.
-
-### Original Architecture (Claude PTC)
-
-```
-  ┌──────────────────────────────────────────────────────────────┐
-  │          Anthropic Programmatic Tool Calling (PTC)           │
-  │                                                              │
-  │  1. Agent: Emits `server_tool_use` (name: code_execution)    │
-  │  2. Sandbox: Starts executing Python script                  │
-  │  3. Script: Calls `await target_tool()` internally           │
-  │  4. API: Pauses Sandbox, emits `tool_use` to Host            │
-  │     (payload: `caller: { type: code_execution_... }`)        │
-  │  5. Host: Returns `tool_result`                              │
-  │  6. Sandbox: Resumes execution, processes data (loops, etc.) │
-  │  7. Sandbox: Emits `code_execution_tool_result`              │
-  └──────────────────────────────┬───────────────────────────────┘
-                                 │ Contract: allowed_callers=["code_execution..."]
-                                 ▼
-  ┌──────────────────────────────────────────────────────────────┐
-  │                     Host (Client Tools)                      │
-  │             (Database, File system, APIs, etc.)              │
-  └──────────────────────────────────────────────────────────────┘
-```
-
-The standard PTC paradigm allows the agent to freely write Python code within a sandbox to control multiple tools:
-1. The agent autonomously writes a Python script containing loops and conditional logic.
-2. The script executes, calling multiple tools sequentially and filtering intermediate data, saving tokens and latency.
-3. While efficient and flexible, normalizing knowledge into a strict lifecycle memory system using this approach is highly unpredictable. It relies entirely on the logical integrity of the agent's on-the-fly script, making it vulnerable to runtime hallucinations.
-
-### openyggdrasil's Transformation (The Typed PTC Engine)
-
-```
-  ┌──────────────────────────────────────────────────────────────┐
-  │               openyggdrasil (Typed PTC Engine)               │
-  │                                                              │
-  │  1. PTC Engine: Injects `JSON Execution Plan`                │
-  │     (e.g., ["distill_signal", "evaluate_candidate", ...])    │
-  │  2. Agent: Calls Tool #1 (Requires strict JSON Schema)       │
-  │  3. Guardrail: Consumes reasoning tokens, validates payload  │
-  │  4. Utility: Auto-executes deterministic Python downstream   │
-  │  5. Pipeline: Returns `stop_reason` or completes chain       │
-  └──────────────────────────────┬───────────────────────────────┘
-                                 │ Contract: Strict JSON Schema / Typed Payloads
-                                 ▼
-  ┌──────────────────────────────────────────────────────────────┐
-  │                 openyggdrasil 8-Tool Chain                   │
-  │          (Deterministic, Type-safe, Lifecycle-managed)       │
-  └──────────────────────────────────────────────────────────────┘
-```
-
-openyggdrasil intentionally constrains this autonomy, internalizing it as a **Typed Chain**:
-
-1. **Dismantling the Black Box:** Instead of an invisible automated 12-module background loop, every module is exposed as a single-purpose "Tool" that the subagent must explicitly call.
-2. **Constraining Freedom (JSON Tool Plan):** The agent is forbidden from arbitrarily mixing tools or writing custom scripts. Instead, the PTC engine forces a contextual **Execution Plan** (JSON Tool Plan) upon the agent.
-3. **Dual-Nature Tools:** Tools are categorized into 'Contract Guardrails' (which consume reasoning tokens and enforce strict schemas) and 'Utility Tools' (deterministic Python execution), optimizing the agent's cognitive load.
-
-Consequently, openyggdrasil's PTC model restricts the agent's open-ended reasoning loop and enforces sequential tool execution according to a predefined JSON Execution Plan, ensuring data integrity by design.
-
-### Background: Why PTC over Vector DBs / ElasticSearch? (Token Efficiency)
-
-Traditional RAG (Retrieval-Augmented Generation) approaches rely on Vector DBs or ElasticSearch to retrieve massive amounts of documents, dumping thousands or tens of thousands of text tokens directly into the agent's context window. This is **expensive, slow, and causes "Lost in the middle" hallucinations**.
-
-The primary reason openyggdrasil abandoned heavy external infrastructure in favor of a **pure local-filesystem PTC architecture** is its **overwhelming token efficiency and structural filtering**:
-
-- **Context Exclusion of Intermediate Data:** When the agent calls utility tools like `scan_topology` or `filter_lifecycle`, massive amounts of intermediate data (e.g., scanning 20 Vault documents) are never loaded into the agent's context window. The data is processed, filtered, and aggregated purely within Python memory.
-- **Elimination of Model Round-Trip Overhead:** Querying 10 knowledge nodes as independent tools consumes massive tokens because it invokes the LLM individually for each query. By using PTC to read 10 documents within a single code execution block and returning only a summarized conclusion, token usage is reduced by approximately **10x or more**.
-- **Returning Only the Final Summary:** The agent is shielded from the vast noise of the search process. It only receives the final, highly refined `bounded support bundle`.
-
-<a id="ptc-code-example"></a>
-#### PTC Code Writing Example (Single Async Script)
-
-To fulfill the JSON Execution Plan, the subagent writes and executes a **single asynchronous Python script** inside the sandbox. Here is an example of the actual script the LLM emits to traverse all 8 steps without model round-trips:
-
-```python
-import asyncio
-import json
-
-async def run_production_pipeline():
-    # 1. Distill
-    distilled = await distill_signal(raw_signal="...", context="...")
-    
-    # 2. Evaluate (Contract Guardrail)
-    verdict = await evaluate_candidate(candidate=distilled)
-    
-    # Subagent's own logic: abort if guardrail fails
-    if not verdict.get("is_worth_remembering"):
-        print(json.dumps({"status": "aborted"}))
-        return
-        
-    # 3. Classify
-    route = await classify_novelty(candidate=distilled, verdict=verdict)
-    
-    # 4~7. Deterministic Utilities (pass-through only)
-    stamped = await stamp_provenance(candidate=distilled, route=route)
-    seed = await compose_seed(verdict=verdict, route=route, segment=stamped)
-    vault_path = await plant_to_vault(seed=seed)
-    await update_topology(seed=seed, vault_path=vault_path)
-    
-    # 8. Final Receipt
-    receipt = await deliver_receipt(seed=seed, vault_path=vault_path)
-    
-    # Only this final print statement is returned to the LLM's context (saving 10x tokens)
-    print(json.dumps({"status": "success", "receipt": receipt}))
-
-asyncio.run(run_production_pipeline())
-```
-
-While this script runs inside the sandbox, massive intermediate data structures (`distilled`, `verdict`, etc.) exist solely in Python memory and never pollute the LLM's context window.
-
-### Reasoning Model Baseline & Limitations
-
-In the PTC pipeline, the subagent (LLM) must retain the complex `JSON Execution Plan` within its sandbox context, invoke 8 tools in precise order, and pass strict JSON schema constraints for each tool. This rigidity is enforced by openyggdrasil's **Contract Guardrails**.
-
-To successfully navigate this highly constrained environment, the **Reasoning Model Baseline is frontier-class models like Claude 3.5 Sonnet or GPT-4o**.
-
-**Typical LLM Failure Modes for Sub-par Models:**
-- **Execution Plan Neglect:** Ignoring the enforced tool sequence and attempting to write arbitrary scripts to bypass the sandbox.
-- **Guardrail Validation Failure:** Failing to adhere to strict JSON schemas, receiving an error from the `evaluate` tool, and falling into an error loop (Timeout/Lease Failed) due to an inability to self-correct.
-- **Hallucination & Step Skipping:** Arbitrarily skipping required data processing steps and attempting to terminate the pipeline with hallucinated results.
-
-openyggdrasil does not rely on the LLM's goodwill or autonomy. Even if a model ignores prompts and acts unpredictably, the main system (Vault) is 100% protected by the sandbox and strict type validations. Models that fail to meet this baseline are immediately filtered out during prior Readiness Governance, preventing them from claiming the `production_readiness_claimed` mark in the provider receipt (`hermes_routing_receipt`).
-
----
-
-## How It Works
+## Core Philosophy
 
 ### Core Philosophy: The 'Graphification' of the LLM Wiki
 
@@ -326,67 +87,6 @@ To overcome the limitations of static file storage, openyggdrasil integrates Gra
 > *"The wiki becomes richer with every source added. A human's job is to curate the sources and ask good questions. The LLM's job is everything else."* — Karpathy
 
 Through this **'Graphification of the LLM Wiki'**, openyggdrasil operates beyond a simple collection of texts—it acts as a **pure-local offline multi-agent memory system** that natively understands relationship networks without relying on external Vector DBs.
-
-Building on this philosophy, openyggdrasil treats memory as a **two-sided engine** — a **Production Side** that captures and curates knowledge, and a **Consumption Side** that retrieves and delivers it.
-
-```
-                    ┌─────────────────────────────────────────────────────────────┐
-                    │                      PRODUCTION SIDE                        │
-                    │                                                             │
-  Provider Signal   │ ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │
-  (Hermes, Claude) ─┼─▶│   Distill    │────▶│ **Evaluate** │────▶│ Plant/Commit │  │
-                    │ │ (Structurize)│     │(Value & Schema│     │ (Record to   │  │
-                    │ └──────────────┘     │  Validation)  │     │   Vault)     │  │
-                    │                      └──────────────┘     └──────────────┘  │
-                    └─────────────────────────────────┬───────────────────────────┘
-                                                      │ (Only Type-Safe Seeds)
-                                               ┌──────┴──────┐
-                                               │    VAULT    │
-                                               │ (SOT Memory)│
-                                               └──────┬──────┘
-                                                      │
-                    ┌─────────────────────────────────┴───────────────────────────┐
-                    │                      CONSUMPTION SIDE                       │
-                    │                                                             │
-  Retrieval Query   │ ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │
-  (Needs Context)  ─┼─▶│  Pathfinder  │────▶│ **Mailbox**  │────▶│   Provider   │  │
-                    │ │ (Explore &   │     │ (Delivery    │     │   Session    │  │
-                    │ │ Bundle build)│     │  Contract)   │     │(Context Load)│  │
-                    │ └──────────────┘     └──────────────┘     └──────────────┘  │
-                    └─────────────────────────────────────────────────────────────┘
-```
-
-### Core Pipeline Flow
-
-```text
-[ Production Pipeline ]                       [ Consumption Pipeline ]
-Provider Signal                               Provider Query
-       │                                             │
-       ▼                                             ▼
-  1. Distill                                    1. Pathfinder (Topology Scan)
-  2. Evaluate          ──(Vault SOT)──          2. Resolve (Surface Read)
-  3. Place             ──(Graphify)──           3. Support Bundle (Provenance)
-  4. Prune                                      4. Postman (Mailbox Receipt)
-```
-
-### Production Side — "What to remember"
-
-The production pipeline doesn't blindly store everything. It **distills**
-provider signals into typed decision candidates, **evaluates** their worthiness,
-**places** them in navigable topic structures, and **prunes** stale knowledge
-through lifecycle transitions.
-
-### Consumption Side — "What to deliver"
-
-The consumption pipeline doesn't dump the entire vault. **Pathfinder** builds
-explainable, lifecycle-aware, and **Provenance-tracked Bounded Support Bundles**.
-
-Rather than just raw text summaries, these bundles (governed by the `support_bundle.v1.schema.json` contract) structurally embed a **3-tier provenance tracking mechanism** to allow 100% context restoration:
-1. **Breadcrumbs (`source_paths`)**: The array of URI paths to the original files where the knowledge was extracted.
-2. **Topology IDs (`episode_ids`, `claim_ids`)**: The contextual topological coordinates within Vault/Graphify where this knowledge was generated.
-3. **Evidence Refs (`safe_ref`)**: Safe pointers to the exact Raw Conversation Logs or terminal execution transcripts, allowing the agent to immediately trace back to the uncompressed reality if needed.
-
-Consequently, the agent receives both the distilled summary and the exact address to return to its origin, securely delivered via the typed **Mailbox** contract by **Postman**.
 
 ### The Bridge — Vault and Graphify
 
@@ -516,6 +216,178 @@ If a relationship suggested by Graphify cannot be verified in the Vault, it is i
 
 ---
 
+## System Architecture
+
+### Two-Sided Engine
+
+
+Building on this philosophy, openyggdrasil treats memory as a **two-sided engine** — a **Production Side** that captures and curates knowledge, and a **Consumption Side** that retrieves and delivers it.
+
+```
+                    ┌─────────────────────────────────────────────────────────────┐
+                    │                      PRODUCTION SIDE                        │
+                    │                                                             │
+  Provider Signal   │ ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │
+  (Hermes, Claude) ─┼─▶│   Distill    │────▶│ **Evaluate** │────▶│ Plant/Commit │  │
+                    │ │ (Structurize)│     │(Value & Schema│     │ (Record to   │  │
+                    │ └──────────────┘     │  Validation)  │     │   Vault)     │  │
+                    │                      └──────────────┘     └──────────────┘  │
+                    └─────────────────────────────────┬───────────────────────────┘
+                                                      │ (Only Type-Safe Seeds)
+                                               ┌──────┴──────┐
+                                               │    VAULT    │
+                                               │ (SOT Memory)│
+                                               └──────┬──────┘
+                                                      │
+                    ┌─────────────────────────────────┴───────────────────────────┐
+                    │                      CONSUMPTION SIDE                       │
+                    │                                                             │
+  Retrieval Query   │ ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │
+  (Needs Context)  ─┼─▶│  Pathfinder  │────▶│ **Mailbox**  │────▶│   Provider   │  │
+                    │ │ (Explore &   │     │ (Delivery    │     │   Session    │  │
+                    │ │ Bundle build)│     │  Contract)   │     │(Context Load)│  │
+                    │ └──────────────┘     └──────────────┘     └──────────────┘  │
+                    └─────────────────────────────────────────────────────────────┘
+```
+### Production Side — "What to remember"
+
+The production pipeline doesn't blindly store everything. It **distills**
+provider signals into typed decision candidates, **evaluates** their worthiness,
+**places** them in navigable topic structures, and **prunes** stale knowledge
+through lifecycle transitions.
+
+### Consumption Side — "What to deliver"
+
+The consumption pipeline doesn't dump the entire vault. **Pathfinder** builds
+explainable, lifecycle-aware, and **Provenance-tracked Bounded Support Bundles**.
+
+Rather than just raw text summaries, these bundles (governed by the `support_bundle.v1.schema.json` contract) structurally embed a **3-tier provenance tracking mechanism** to allow 100% context restoration:
+1. **Breadcrumbs (`source_paths`)**: The array of URI paths to the original files where the knowledge was extracted.
+2. **Topology IDs (`episode_ids`, `claim_ids`)**: The contextual topological coordinates within Vault/Graphify where this knowledge was generated.
+3. **Evidence Refs (`safe_ref`)**: Safe pointers to the exact Raw Conversation Logs or terminal execution transcripts, allowing the agent to immediately trace back to the uncompressed reality if needed.
+
+Consequently, the agent receives both the distilled summary and the exact address to return to its origin, securely delivered via the typed **Mailbox** contract by **Postman**.
+
+
+### The Typed PTC Engine
+
+## PTC (Programmatic Tool Calling) Concept & Architecture
+
+The production and consumption pipelines of openyggdrasil operate on a **PTC (Programmatic Tool Calling)** architecture.
+
+**Source of Truth (SOT):**
+This architecture is heavily inspired by Anthropic's [Programmatic Tool Calling](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/programmatic-tool-calling) (PTC) and the broader open-ended agentic loop (REPL) philosophy.
+
+### Original Architecture (Claude PTC)
+
+```
+  ┌──────────────────────────────────────────────────────────────┐
+  │          Anthropic Programmatic Tool Calling (PTC)           │
+  │                                                              │
+  │  1. Agent: Emits `server_tool_use` (name: code_execution)    │
+  │  2. Sandbox: Starts executing Python script                  │
+  │  3. Script: Calls `await target_tool()` internally           │
+  │  4. API: Pauses Sandbox, emits `tool_use` to Host            │
+  │     (payload: `caller: { type: code_execution_... }`)        │
+  │  5. Host: Returns `tool_result`                              │
+  │  6. Sandbox: Resumes execution, processes data (loops, etc.) │
+  │  7. Sandbox: Emits `code_execution_tool_result`              │
+  └──────────────────────────────┬───────────────────────────────┘
+                                 │ Contract: allowed_callers=["code_execution..."]
+                                 ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │                     Host (Client Tools)                      │
+  │             (Database, File system, APIs, etc.)              │
+  └──────────────────────────────────────────────────────────────┘
+```
+
+The standard PTC paradigm allows the agent to freely write Python code within a sandbox to control multiple tools:
+1. The agent autonomously writes a Python script containing loops and conditional logic.
+2. The script executes, calling multiple tools sequentially and filtering intermediate data, saving tokens and latency.
+3. While efficient and flexible, normalizing knowledge into a strict lifecycle memory system using this approach is highly unpredictable. It relies entirely on the logical integrity of the agent's on-the-fly script, making it vulnerable to runtime hallucinations.
+
+### openyggdrasil's Transformation (The Typed PTC Engine)
+
+```
+  ┌──────────────────────────────────────────────────────────────┐
+  │               openyggdrasil (Typed PTC Engine)               │
+  │                                                              │
+  │  1. PTC Engine: Injects `JSON Execution Plan`                │
+  │     (e.g., ["distill_signal", "evaluate_candidate", ...])    │
+  │  2. Agent: Calls Tool #1 (Requires strict JSON Schema)       │
+  │  3. Guardrail: Consumes reasoning tokens, validates payload  │
+  │  4. Utility: Auto-executes deterministic Python downstream   │
+  │  5. Pipeline: Returns `stop_reason` or completes chain       │
+  └──────────────────────────────┬───────────────────────────────┘
+                                 │ Contract: Strict JSON Schema / Typed Payloads
+                                 ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │                 openyggdrasil 8-Tool Chain                   │
+  │          (Deterministic, Type-safe, Lifecycle-managed)       │
+  └──────────────────────────────────────────────────────────────┘
+```
+
+openyggdrasil intentionally constrains this autonomy, internalizing it as a **Typed Chain**:
+
+1. **Dismantling the Black Box:** Instead of an invisible automated 12-module background loop, every module is exposed as a single-purpose "Tool" that the subagent must explicitly call.
+2. **Constraining Freedom (JSON Tool Plan):** The agent is forbidden from arbitrarily mixing tools or writing custom scripts. Instead, the PTC engine forces a contextual **Execution Plan** (JSON Tool Plan) upon the agent.
+3. **Dual-Nature Tools:** Tools are categorized into 'Contract Guardrails' (which consume reasoning tokens and enforce strict schemas) and 'Utility Tools' (deterministic Python execution), optimizing the agent's cognitive load.
+
+Consequently, openyggdrasil's PTC model restricts the agent's open-ended reasoning loop and enforces sequential tool execution according to a predefined JSON Execution Plan, ensuring data integrity by design.
+
+### Background: Why PTC over Vector DBs / ElasticSearch? (Token Efficiency)
+
+Traditional RAG (Retrieval-Augmented Generation) approaches rely on Vector DBs or ElasticSearch to retrieve massive amounts of documents, dumping thousands or tens of thousands of text tokens directly into the agent's context window. This is **expensive, slow, and causes "Lost in the middle" hallucinations**.
+
+The primary reason openyggdrasil abandoned heavy external infrastructure in favor of a **pure local-filesystem PTC architecture** is its **overwhelming token efficiency and structural filtering**:
+
+- **Context Exclusion of Intermediate Data:** When the agent calls utility tools like `scan_topology` or `filter_lifecycle`, massive amounts of intermediate data (e.g., scanning 20 Vault documents) are never loaded into the agent's context window. The data is processed, filtered, and aggregated purely within Python memory.
+- **Elimination of Model Round-Trip Overhead:** Querying 10 knowledge nodes as independent tools consumes massive tokens because it invokes the LLM individually for each query. By using PTC to read 10 documents within a single code execution block and returning only a summarized conclusion, token usage is reduced by approximately **10x or more**.
+- **Returning Only the Final Summary:** The agent is shielded from the vast noise of the search process. It only receives the final, highly refined `bounded support bundle`.
+
+
+### SKILL.md Entry Model (Agent Trigger)
+
+## Execution Model
+
+openyggdrasil does not have its own LLM or API keys.
+When a provider (Hermes, Claude Code, Cursor, etc.) enters this repository,
+it reads **`SKILL.md`** at the root and executes the entrypoints defined
+there using its own tokens.
+
+```
+  Provider Agent
+       │
+       │  Enters repo → discovers SKILL.md
+       │
+       ▼
+  ┌──────────────────────────────────────────────────┐
+  │  SKILL.md (Contract)                              │
+  │                                                  │
+  │  "To capture, run this Python script"             │
+  │  "To retrieve, call this entrypoint"              │
+  │  "Input shape is X, output shape is Y"            │
+  └──────────────────────────────────────────────────┘
+       │
+       ▼
+  Agent runs Python entrypoints via its own shell/tool-use
+  → PTC Engine presents a Tool Set and an Execution Plan
+  → Agent calls tools sequentially to pass through the pipeline
+```
+
+Two things are borrowed from the provider:
+
+| Borrowed | Description |
+|---|---|
+| **Execution context** | The agent's shell/tool-calling ability to run Python scripts |
+| **Reasoning tokens** | The LLM reasoning capability required to pass PTC contract guardrails and make complex decisions |
+
+**The subagent IS the pipeline.** While some pipeline modules (Utility Tools) run deterministically in pure Python, core decisions (Contract Guardrails) execute by consuming the agent's own reasoning tokens.
+
+Independent API key configuration for self-hosted execution (without a
+provider) is planned for the future.
+
+---
 ## Operational Flow — Trigger to Delivery
 
 The diagram above shows the internal chain, but the real question is:
@@ -578,6 +450,22 @@ choice, a debugging insight, a resolved trade-off — the provider's agent
   optional. Signals without source references are rejected at the gate.
 - openyggdrasil **cold-starts on demand**. There is no background daemon.
   The provider calls it, it runs, it exits.
+
+
+## Pipeline Flow
+
+### Core Pipeline Flow
+
+```text
+[ Production Pipeline ]                       [ Consumption Pipeline ]
+Provider Signal                               Provider Query
+       │                                             │
+       ▼                                             ▼
+  1. Distill                                    1. Pathfinder (Topology Scan)
+  2. Evaluate          ──(Vault SOT)──          2. Resolve (Surface Read)
+  3. Place             ──(Graphify)──           3. Support Bundle (Provenance)
+  4. Prune                                      4. Postman (Mailbox Receipt)
+```
 
 ### Production Pipeline — Subagent's 8-Tool Chain
 
@@ -647,6 +535,63 @@ The PTC engine orchestrates these 8 tools using one of three plans, depending on
 | `fallback` | Lease rejection | Downgrade to safe baseline or halt pipeline |
 
 If the subagent violates the **typed contracts** at any guardrail (e.g., trying to submit a string instead of an array), the chain stops with a typed `stop_reason`—it never silently drops data.
+
+<a id="ptc-code-example"></a>
+#### PTC Code Writing Example (Single Async Script)
+
+To fulfill the JSON Execution Plan, the subagent writes and executes a **single asynchronous Python script** inside the sandbox. Here is an example of the actual script the LLM emits to traverse all 8 steps without model round-trips:
+
+```python
+import asyncio
+import json
+
+async def run_production_pipeline():
+    # 1. Distill
+    distilled = await distill_signal(raw_signal="...", context="...")
+    
+    # 2. Evaluate (Contract Guardrail)
+    verdict = await evaluate_candidate(candidate=distilled)
+    
+    # Subagent's own logic: abort if guardrail fails
+    if not verdict.get("is_worth_remembering"):
+        print(json.dumps({"status": "aborted"}))
+        return
+        
+    # 3. Classify
+    route = await classify_novelty(candidate=distilled, verdict=verdict)
+    
+    # 4~7. Deterministic Utilities (pass-through only)
+    stamped = await stamp_provenance(candidate=distilled, route=route)
+    seed = await compose_seed(verdict=verdict, route=route, segment=stamped)
+    vault_path = await plant_to_vault(seed=seed)
+    await update_topology(seed=seed, vault_path=vault_path)
+    
+    # 8. Final Receipt
+    receipt = await deliver_receipt(seed=seed, vault_path=vault_path)
+    
+    # Only this final print statement is returned to the LLM's context (saving 10x tokens)
+    print(json.dumps({"status": "success", "receipt": receipt}))
+
+asyncio.run(run_production_pipeline())
+```
+
+While this script runs inside the sandbox, massive intermediate data structures (`distilled`, `verdict`, etc.) exist solely in Python memory and never pollute the LLM's context window.
+
+### Reasoning Model Baseline & Limitations
+
+In the PTC pipeline, the subagent (LLM) must retain the complex `JSON Execution Plan` within its sandbox context, invoke 8 tools in precise order, and pass strict JSON schema constraints for each tool. This rigidity is enforced by openyggdrasil's **Contract Guardrails**.
+
+To successfully navigate this highly constrained environment, the **Reasoning Model Baseline is frontier-class models like Claude 3.5 Sonnet or GPT-4o**.
+
+**Typical LLM Failure Modes for Sub-par Models:**
+- **Execution Plan Neglect:** Ignoring the enforced tool sequence and attempting to write arbitrary scripts to bypass the sandbox.
+- **Guardrail Validation Failure:** Failing to adhere to strict JSON schemas, receiving an error from the `evaluate` tool, and falling into an error loop (Timeout/Lease Failed) due to an inability to self-correct.
+- **Hallucination & Step Skipping:** Arbitrarily skipping required data processing steps and attempting to terminate the pipeline with hallucinated results.
+
+openyggdrasil does not rely on the LLM's goodwill or autonomy. Even if a model ignores prompts and acts unpredictably, the main system (Vault) is 100% protected by the sandbox and strict type validations. Models that fail to meet this baseline are immediately filtered out during prior Readiness Governance, preventing them from claiming the `production_readiness_claimed` mark in the provider receipt (`hermes_routing_receipt`).
+
+---
+
 
 ### Consumption Trigger — How providers retrieve past knowledge
 
@@ -756,7 +701,7 @@ Pathfinder returns an honest `anchor_type: "none"` result. If provenance
 can't be verified, it stops with `origin_shortcut_missing`. The agent
 always knows exactly what it's getting and why.
 
----
+
 
 ## The 12-Module Chain
 
@@ -776,6 +721,74 @@ always knows exactly what it's getting and why.
 | ⑫ | **Pathfinder** | Retrieves explainable support material | Every retrieval result carries provenance and lifecycle proof |
 
 ---
+## System Requirements & Setup
+
+## Provider Integration & Setup
+
+openyggdrasil operates as a cold-started skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start background daemons or manage separate server processes.
+
+> **⚠️ Current Reasoning Model:**
+> openyggdrasil currently **borrows the provider's reasoning tokens** to operate.
+> It does not have its own API keys or LLM infrastructure.
+> Support for independent API key configuration is planned for the future. 
+
+### 1. How Providers Recognize openyggdrasil
+
+Providers attach to openyggdrasil by reading the **`SKILL.md`** manifest at the repository root. To initiate the connection:
+- Point your agent's skill configuration to the absolute path of `SKILL.md`.
+- The agent reads this contract, which defines the exact entrypoints, command shapes, and boundaries for memory retrieval and capture.
+
+### 2. System Requirements & Dependency Installation
+
+openyggdrasil runs purely locally. The core runtime relies almost entirely on the Python Standard Library, but the Graphify-derived views and Sandbox isolations require the following minimal dependency stack:
+
+**Supported Operating Systems:**
+- **Windows / macOS / Linux**: Full support for the core memory pipeline (Vault curation, Graphify derived views, and Pathfinder retrieval).
+- **Linux / WSL2 (Windows Subsystem for Linux)**: **Required.** The Reasoning Lease Sandbox depends on `bubblewrap` for unprivileged isolation, and this is a mandatory production dependency. Windows/macOS users must use WSL2 to satisfy this requirement.
+
+**Core Prerequisite:**
+- **`Python 3.10+`**: Must be installed and accessible in the local environment.
+
+**Python Packages (via pip):**
+- **`graphifyy`**: the core companion package for structural analysis and graph building
+- **`networkx`**: for graph derivation, node indexing, and traversal
+- **`leidenalg` & `igraph`**: for community detection and topic clustering
+- **`jsonschema`**: for strictly validating provider contracts and mailbox schemas
+- **`pyyaml`**: for reading/writing configuration and manifest files
+- **`pytest`**: for local contract verification and smoke tests
+
+**System Dependencies:**
+- **`bubblewrap`** (`bwrap`): required for unprivileged sandbox isolation during Reasoning Lease execution (Linux/WSL only).
+
+**These dependencies must be installed in the user's local environment.**
+
+> **⚠️ Mandatory Rule for Providers:**
+> Before executing the cold-start skill for the first time, the provider **MUST ask the user for explicit permission** to install these dependencies.
+> 
+> 1. Provider detects that dependencies are missing.
+> 2. Provider halts and prompts the user: *"openyggdrasil requires Python dependencies (listed in requirements) to be installed locally. Do you allow this?"*
+> 3. Only upon user approval, the provider installs the requirements. **Silent or unprompted installations are strictly forbidden.**
+
+### 3. One-Touch Cold Start
+
+Once dependencies are approved and installed, the provider can execute the skill entrypoints defined in `SKILL.md`. The openyggdrasil runtime **cold-starts itself on demand**, executes the required memory transaction, and shuts down cleanly.
+
+### Verify Installation Manually
+
+If you prefer to verify the installation before attaching a provider:
+
+```bash
+# Clone the repository
+git clone https://github.com/INTEGRITY2077/openyggdrasil.git
+cd openyggdrasil
+
+# Install dependencies (user-initiated)
+pip install -r requirements.txt # (assuming requirements exist)
+
+# Run import smoke test
+python runtime/import_smoke.py
+```
+
 
 ## Reasoning Lease
 
@@ -918,3 +931,4 @@ While the code is open-source, the brand names **"openyggdrasil"** and **"INTEGR
 If you fork or distribute a modified version of this project, you must change the name and cannot use the openyggdrasil or INTEGRITY2077 branding to identify your version.
 
 See [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md) for companion dependency notices.
+
