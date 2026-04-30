@@ -166,6 +166,12 @@ deterministic modules never depend on optional LLM reasoning.
 
 ## Quick Start
 
+### One-Touch Cold Start via Skill
+
+OpenYggdrasil is designed to be injected directly into your AI coding agent as a skill. You do not need to start background daemons or manage separate server processes. 
+
+Simply point your agent to the provider adapter (e.g., `providers/hermes/`) or follow the contract in `SKILL.md`. The runtime **cold-starts itself on demand**, executes the required memory retrieval/capture, and shuts down cleanly.
+
 ### Requirements
 
 - Python 3.10+
