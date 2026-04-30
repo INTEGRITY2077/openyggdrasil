@@ -52,6 +52,46 @@ decides what to remember, what to forget, and what to deliver?*
 
 OpenYggdrasil takes a different approach.
 
+## Execution Model
+
+OpenYggdrasil does not have its own LLM or API keys.
+When a provider (Hermes, Claude Code, Cursor, etc.) enters this repository,
+it reads **`SKILL.md`** at the root and executes the entrypoints defined
+there using its own tokens.
+
+```
+  Provider Agent
+       │
+       │  Enters repo → discovers SKILL.md
+       │
+       ▼
+  ┌──────────────────────────────────────────────────┐
+  │  SKILL.md (Contract)                              │
+  │                                                  │
+  │  "To capture, run this Python script"             │
+  │  "To retrieve, call this entrypoint"              │
+  │  "Input shape is X, output shape is Y"            │
+  └──────────────────────────────────────────────────┘
+       │
+       ▼
+  Agent runs Python scripts via its own shell/tool-use
+  → 12-module chain executes deterministically
+  → Agent receives the result
+```
+
+Two things are borrowed from the provider:
+
+| Borrowed | Description |
+|---|---|
+| **Execution context** | The agent's shell/tool-calling ability to run Python scripts |
+| **Reasoning tokens** | The agent's LLM tokens, used only during Reasoning Lease |
+
+The 12-module chain itself is pure Python — it runs without LLM reasoning.
+Reasoning tokens are only consumed during the optional Reasoning Lease stage.
+
+Independent API key configuration for self-hosted execution (without a
+provider) is planned for the future.
+
 ---
 
 ## How It Works
