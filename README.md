@@ -301,28 +301,31 @@ openyggdrasil does not rely on the LLM's goodwill or autonomy. Even if a model i
 
 ## How It Works
 
-### Core Philosophy: Absorbing Karpathy's 'LLM Wiki' + Graphify Extension
+### Core Philosophy: The 'Graphification' of the LLM Wiki
 
-openyggdrasil directly implements Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) concept as its system architecture. Instead of re-deriving knowledge via RAG on every query, the system is designed so that the **LLM incrementally builds and maintains a persistent wiki**.
+openyggdrasil dismantles two massive open-source philosophies and fuses them into a single architecture.
 
-To overcome the navigational limits of a simple flat wiki, the system dismantles and integrates the structural analysis pipeline from [Graphify (v5)](https://github.com/safishamsi/graphify) as a dynamic topological layer.
+**1. Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)**
+Karpathy provided the core insight: instead of injecting context via RAG on every query, "let the LLM incrementally build and curate a persistent wiki." While this provides a strong foundation for permanently storing knowledge as Markdown files (SOT), a simple 'flat wiki' makes it difficult to explore macroscopic contexts—like "how does this concept connect to others?"
 
-| LLM Wiki + Graphify Concept | openyggdrasil Pipeline Implementation |
+**2. Safi Shamsi's [Graphify (v5)](https://github.com/safishamsi/graphify)**
+Graphify is an offline structural analysis pipeline that parses markdown/codebases to build a 'mathematical graph network' and 'community clusters' of nodes and edges. However, on its own, it cannot form a knowledge accumulation system driven by continuous interaction.
+
+**3. The Fusion: "Endowing the Wiki with Topology"**
+To overcome the limitations of static file storage, openyggdrasil integrates Graphify's analysis engine as a 'dynamic topological layer'. The system parses the frontmatter of every wiki document (Vault) recorded by the LLM in real-time, converting it into a mathematical relationship network.
+
+| Fused Architecture Concept | openyggdrasil Pipeline Implementation |
 |---|---|
 | **Raw Sources** (immutable originals) | → Provider Signal (①) — original signals are never mutated |
-| **The Wiki** (LLM-maintained knowledge) | → Vault — Canonical memory (SOT) with lifecycle states |
-| **The Schema** (CLAUDE.md rules) | → `contracts/` — Machine-readable JSON Schema boundaries |
-| **Ingest** operation | → Production Pipeline (Signal Capture → Evaluate → Topological Placement) |
-| **Query** operation | → Consumption Pipeline (Topological Search → Provenance Bundle Assembly) |
+| **The Wiki** (static knowledge) | → Vault — Canonical SOT memory (Markdown-based) with lifecycle states |
+| **Graphify Edges/Clusters** | → Map Maker — Topic/episode clustering based on the Leiden algorithm |
+| **Ingest** operation | → Production Pipeline (Signal Capture → Evaluate → **Placement in Topology**) |
+| **Query** operation | → Consumption Pipeline (**Graph Topology Search** → Provenance Bundle Assembly) |
 | **Lint** operation | → Gardener Pruning + Amundsen Consistency Checks |
-| **`index.md`** catalog | → Pathfinder's index-based retrieval |
-| **`log.md`** chronology | → Source repository with temporal edges |
-| *Graphify: Community Clustering* | → Topic clustering in Map Maker (Leiden algorithm) |
-| *Graphify: Derived Network* | → `common/graphify/` — Offline derived views built on top of the static Vault |
 
 > *"The wiki becomes richer with every source added. A human's job is to curate the sources and ask good questions. The LLM's job is everything else."* — Karpathy
 
-openyggdrasil extends this beyond a simple wiki into a **multi-provider / multi-agent** architecture equipped with typed contracts, lifecycle governance, and a **pure-local offline graph layer** without relying on external infrastructure like Vector DBs.
+Through this **'Graphification of the LLM Wiki'**, openyggdrasil operates beyond a simple collection of texts—it acts as a **pure-local offline multi-agent memory system** that natively understands relationship networks without relying on external Vector DBs.
 
 Building on this philosophy, openyggdrasil treats memory as a **two-sided engine** — a **Production Side** that captures and curates knowledge, and a **Consumption Side** that retrieves and delivers it.
 
