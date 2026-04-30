@@ -310,6 +310,14 @@ Contributions are welcome. Please read the existing `contracts/` schemas before
 proposing new module interfaces — the typed contract boundary is the most
 important architectural decision in the project.
 
-## License
+## License & Brand Guidelines
 
-See [LICENSE](./LICENSE) for details.
+This project is open-source and released under the [Apache License 2.0](./LICENSE).
+You are free to use, modify, and distribute the code under the terms of this license.
+
+**Trademark & Brand Protection (Section 6):**
+While the code is open-source, the brand names **"OpenYggdrasil"** and **"INTEGRITY2077"**, along with their associated logos and trade dress, are strictly protected. The Apache 2.0 License explicitly **does not grant** permission to use these trademarks. 
+
+If you fork or distribute a modified version of this project, you must change the name and cannot use the OpenYggdrasil or INTEGRITY2077 branding to identify your version.
+
+See [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md) for companion dependency notices.
