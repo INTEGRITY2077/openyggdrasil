@@ -906,15 +906,26 @@ PTC 엔진은 서브에이전트에게 JSON Tool Plan을 제공합니다. 서브
        │
        │  ① SKILL.md 읽기 → 검색 진입점 확인
        │  ② Provider Capability 선언 (자기 모델 추론 능력)
-       │  ③ Effort Manifest 확인 (모듈별 추론 깊이)
+       │  ③ 어포던스 계약 확인 (도구별 Use/Do NOT use 조건)
        │
        ▼
   PTC 엔진에 질의 전달
        │
        │  ④ 질의 분석 → 실행 계획(JSON Tool Plan) 생성
-       │  ⑤ 도구 7개를 순서대로 호출
-       │     locate_region → select_topic_anchor → read_origin_claims
-       │     → read_recent_claims → collect_claim_ids → read_source_paths
+       │  ⑤ 3계층 검색 파이프라인 실행 (도구 9개)
+       │
+       │     [1계층 — QMD BM25 키워드 검색]
+       │     qmd_search → vault 전체에서 BM25 후보 추림 (밀리초)
+       │
+       │     [2계층 — 구조적 위상 탐색]
+       │     locate_region → 후보에서 대륙/지역 식별
+       │     select_topic_anchor → 지역 내 토픽 앵커 선택
+       │        ↑ Graphify 힌트: graph.json에서 관련 노드/클러스터 참조
+       │
+       │     [3계층 — 출처 추적 번들 조립]
+       │     read_origin_claims → read_recent_claims
+       │     → collect_claim_ids → read_source_paths
+       │        ↑ Semantic Edge: supports/supersedes/contradicts 관계 확장
        │     → assemble_support_bundle
        │
        ▼
