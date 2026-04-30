@@ -176,7 +176,13 @@ Providers attach to OpenYggdrasil by reading the **`SKILL.md`** manifest at the 
 
 ### 2. Dependency Installation & User Consent
 
-OpenYggdrasil runs purely locally, but it relies on several Python dependencies (e.g., `networkx` for graph derivation, `pytest` for validation) to function. **These dependencies must be installed in the user's local environment.**
+OpenYggdrasil runs purely locally. The core runtime relies almost entirely on the Python Standard Library, but the Graphify-derived views and validations require the following minimal dependency stack:
+
+- **`networkx`**: for graph derivation, node indexing, and traversal
+- **`leidenalg` & `igraph`**: for community detection and topic clustering
+- **`pytest`**: for local contract verification and smoke tests
+
+**These dependencies must be installed in the user's local environment.**
 
 > **⚠️ Mandatory Rule for Providers:**
 > Before executing the cold-start skill for the first time, the provider **MUST ask the user for explicit permission** to install these dependencies.
