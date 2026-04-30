@@ -164,31 +164,45 @@ deterministic modules never depend on optional LLM reasoning.
 
 ---
 
-## Quick Start
+## Provider Integration & Setup
 
-### One-Touch Cold Start via Skill
+OpenYggdrasil operates as a cold-started skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start background daemons or manage separate server processes. 
 
-OpenYggdrasil is designed to be injected directly into your AI coding agent as a skill. You do not need to start background daemons or manage separate server processes. 
+### 1. How Providers Recognize OpenYggdrasil
 
-Simply point your agent to the provider adapter (e.g., `providers/hermes/`) or follow the contract in `SKILL.md`. The runtime **cold-starts itself on demand**, executes the required memory retrieval/capture, and shuts down cleanly.
+Providers attach to OpenYggdrasil by reading the **`SKILL.md`** manifest at the repository root. To initiate the connection:
+- Point your agent's skill configuration to the absolute path of `SKILL.md`.
+- The agent reads this contract, which defines the exact entrypoints, command shapes, and boundaries for memory retrieval and capture.
 
-### Requirements
+### 2. Dependency Installation & User Consent
 
-- Python 3.10+
-- No external infrastructure required (no database, no vector store, no Docker)
+OpenYggdrasil runs purely locally, but it relies on several Python dependencies (e.g., `networkx` for graph derivation, `pytest` for validation) to function. **These dependencies must be installed in the user's local environment.**
 
-### Verify Installation
+> **⚠️ Mandatory Rule for Providers:**
+> Before executing the cold-start skill for the first time, the provider **MUST ask the user for explicit permission** to install these dependencies.
+> 
+> 1. Provider detects that dependencies are missing.
+> 2. Provider halts and prompts the user: *"OpenYggdrasil requires Python dependencies (listed in requirements) to be installed locally. Do you allow this?"*
+> 3. Only upon user approval, the provider installs the requirements. **Silent or unprompted installations are strictly forbidden.**
+
+### 3. One-Touch Cold Start
+
+Once dependencies are approved and installed, the provider can execute the skill entrypoints defined in `SKILL.md`. The OpenYggdrasil runtime **cold-starts itself on demand**, executes the required memory transaction, and shuts down cleanly.
+
+### Verify Installation Manually
+
+If you prefer to verify the installation before attaching a provider:
 
 ```bash
 # Clone the repository
 git clone https://github.com/INTEGRITY2077/openyggdrasil.git
 cd openyggdrasil
 
+# Install dependencies (user-initiated)
+pip install -r requirements.txt # (assuming requirements exist)
+
 # Run import smoke test
 python runtime/import_smoke.py
-
-# Run the full test suite
-python -m pytest tests/ -q
 ```
 
 ### Repository Structure
