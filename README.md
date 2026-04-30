@@ -108,15 +108,54 @@ provider) is planned for the future.
 The production and consumption pipelines of OpenYggdrasil operate on a **PTC (Programmatic Tool Calling)** architecture.
 
 **Source of Truth (SOT):**
-This architecture is heavily inspired by Anthropic's [Claude Code Tool Use / MCP (Model Context Protocol)](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use) and the broader CLI REPL ecosystem philosophy.
+This architecture is heavily inspired by Anthropic's [Programmatic Tool Calling](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/programmatic-tool-calling) (PTC) and the broader open-ended agentic loop (REPL) philosophy.
 
-### Original Architecture (Claude Code Style)
+### Original Architecture (Claude PTC)
+
+```
+  ┌──────────────────────────────────────────────┐
+  │         Claude Code (Open-ended REPL)        │
+  │                                              │
+  │  1. Observe context                          │
+  │  2. Write arbitrary Bash/Python script       │
+  │  3. Execute via bash/python tool             │
+  │  4. Read stdout / stderr                     │
+  │  5. Loop autonomously until satisfied        │
+  └──────────────────────┬───────────────────────┘
+                         │ Unconstrained Autonomy
+                         ▼
+  ┌──────────────────────────────────────────────┐
+  │                  System OS                   │
+  │  (Filesystem, Shell, Arbitrary Side-effects) │
+  └──────────────────────────────────────────────┘
+```
+
 The standard agentic tool-calling paradigm is highly unconstrained:
 1. The agent freely writes Bash commands or arbitrary Python scripts to control the system.
 2. It observes the output, rewrites the code, and executes again in an **open-ended REPL (Read-Eval-Print Loop)**.
 3. While flexible, this approach lacks the predictability required to normalize knowledge and store it as memory with a strict lifecycle. It is highly vulnerable to runtime hallucinations and unexpected side effects.
 
 ### OpenYggdrasil's Transformation (The Typed PTC Engine)
+
+```
+  ┌──────────────────────────────────────────────┐
+  │       OpenYggdrasil (Typed PTC Engine)       │
+  │                                              │
+  │  1. PTC Engine injects JSON Execution Plan   │
+  │     (e.g., [distill, evaluate, amundsen])    │
+  │  2. Agent forced to use specific Tool #1     │
+  │  3. Contract Guardrail enforces strict JSON  │
+  │  4. Agent forced to use specific Tool #2     │
+  │  5. Pipeline completion                      │
+  └──────────────────────┬───────────────────────┘
+                         │ Constrained by Contracts
+                         ▼
+  ┌──────────────────────────────────────────────┐
+  │        OpenYggdrasil 12-Module Chain         │
+  │   (Deterministic, Safe, Lifecycle-managed)   │
+  └──────────────────────────────────────────────┘
+```
+
 OpenYggdrasil intentionally constrains this autonomy, internalizing it as a **Typed Chain**:
 
 1. **Dismantling the Black Box:** Instead of an invisible automated 12-module background loop, every module is exposed as a single-purpose "Tool" that the subagent must explicitly call.

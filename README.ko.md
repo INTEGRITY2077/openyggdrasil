@@ -108,15 +108,53 @@ OpenYggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 OpenYggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool Calling)** 아키텍처를 기반으로 동작합니다. 
 
 **원천 SOT (Source of Truth):**
-이 아키텍처는 Anthropic의 [Claude Code Tool Use / MCP (Model Context Protocol)](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use) 및 CLI REPL 생태계의 철학을 모티브로 삼고 있습니다.
+이 아키텍처는 Anthropic의 [Programmatic Tool Calling](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/programmatic-tool-calling) (PTC) 기능과 개방형 에이전트 루프(REPL) 철학을 모티브로 삼고 있습니다.
 
-### 원본 아키텍처 (Claude Code 스타일)
+### 원본 아키텍처 (Claude PTC)
+
+```
+  ┌──────────────────────────────────────────────┐
+  │         Claude Code (Open-ended REPL)        │
+  │                                              │
+  │  1. 맥락 관찰                                  │
+  │  2. 임의의 Bash / Python 스크립트 작성         │
+  │  3. 도구(bash/python)를 통해 실행              │
+  │  4. stdout / stderr 확인                       │
+  │  5. 목적 달성시까지 자율 반복                  │
+  └──────────────────────┬───────────────────────┘
+                         │ 무제한적 자율성
+                         ▼
+  ┌──────────────────────────────────────────────┐
+  │                  System OS                   │
+  │  (파일시스템 제어, 쉘 실행, 모든 부수효과 허용)  │
+  └──────────────────────────────────────────────┘
+```
+
 일반적인 에이전트 도구 호출 방식은 자유도가 매우 높습니다:
 1. 에이전트가 자유롭게 Bash 명령어나 임의의 Python 스크립트를 작성하여 시스템을 제어합니다.
 2. 결과를 관찰하고 다시 코드를 수정하여 실행하는 **개방형 자율 루프(Open-ended REPL)** 방식입니다.
 3. 이 방식은 유연하지만, 지식을 정규화하고 엄격한 생명주기를 가진 메모리로 저장하기에는 예측 가능성이 떨어지며 런타임 환각에 취약합니다.
 
 ### OpenYggdrasil의 변형 및 내재화 (Typed PTC Engine)
+
+```
+  ┌──────────────────────────────────────────────┐
+  │       OpenYggdrasil (Typed PTC Engine)       │
+  │                                              │
+  │  1. PTC 엔진이 JSON Execution Plan 강제 주입   │
+  │     (예: [distill, evaluate, amundsen])        │
+  │  2. 에이전트는 지정된 도구 #1 만 호출 가능      │
+  │  3. 계약 가드레일이 엄격한 JSON 스키마 검증     │
+  │  4. 통과 시 도구 #2 로 순차적 진행              │
+  └──────────────────────┬───────────────────────┘
+                         │ 계약에 의한 통제
+                         ▼
+  ┌──────────────────────────────────────────────┐
+  │        OpenYggdrasil 12-Module Chain         │
+  │     (결정론적, 안전함, 생명주기가 관리됨)        │
+  └──────────────────────────────────────────────┘
+```
+
 OpenYggdrasil은 이 원본 아키텍처의 자율성을 의도적으로 제한하고, **타입 안정성이 보장된 체인(Typed Chain)** 으로 내재화했습니다.
 
 1. **블랙박스 해체:** 내부 12-모듈이 보이지 않게 자동으로 도는 블랙박스 구조를 해체하고, 모든 모듈을 서브에이전트가 명시적으로 호출할 수 있는 "단일 목적 도구(Tool)"로 노출했습니다.
