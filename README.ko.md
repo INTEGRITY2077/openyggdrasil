@@ -1027,7 +1027,20 @@ openyggdrasil/
 
 ## 영감 & 감사
 
-openyggdrasil은 두 가지 핵심 아이디어 위에 서 있습니다 (상단의 'LLM Wiki' 파이프라인 구현 참고).
+openyggdrasil은 다음 오픈소스 프로젝트들의 아이디어 위에 서 있습니다.
+
+### [Andrej Karpathy의 LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+
+openyggdrasil의 가장 근본적인 영감입니다. "매번 RAG로 컨텍스트를 주입하는
+대신, LLM이 스스로 영속적인 위키를 구축하고 큐레이션하게 하라"는 인사이트가
+Vault SOT 아키텍처의 토대입니다:
+
+| LLM Wiki 개념 | openyggdrasil 흡수 |
+|---|---|
+| 마크다운 기반 영속 위키 | → Vault (YAML 프론트매터 + 생명주기 상태) |
+| `index.md` / `log.md` 카탈로그 | → `vault/index.md` / `vault/log.md` |
+| 소스 큐레이션 → LLM이 나머지 | → 생산 파이프라인 (Signal → Distill → Evaluate → Plant) |
+| 점진적 지식 축적 | → Cross-Provider Pollination |
 
 ### [Graphify](https://github.com/safishamsi/graphify) (v5)
 
