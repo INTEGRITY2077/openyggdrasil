@@ -72,20 +72,21 @@ OpenYggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
   └──────────────────────────────────────────────────┘
        │
        ▼
-  에이전트가 자기 쉘/도구호출로 Python 스크립트 실행
-  → 12-모듈 체인이 결정론적으로 동작
-  → 결과를 에이전트가 받아감
+  에이전트가 자기 쉘/도구호출로 Python 진입점 실행
+  → PTC 엔진이 도구 세트와 실행 계획(Tool Plan) 제시
+  → 에이전트가 도구를 순서대로 호출하여 파이프라인 관통
 ```
 
 이 구조에서 빌려 쓰는 것은 두 가지입니다:
 
 | 빌려 쓰는 것 | 설명 |
 |---|---|
-| **실행 컨텍스트** | 에이전트의 쉘/도구호출 능력으로 Python 스크립트를 실행 |
-| **추론 토큰** | Reasoning Lease에서 LLM 판단이 필요할 때 에이전트의 토큰 사용 |
+| **실행 컨텍스트** | 에이전트의 쉘/도구호출 능력으로 Python 스크립트 실행 |
+| **추론 토큰** | PTC 계약 가드레일 통과 및 복잡한 판단에 필요한 LLM 추론 능력 |
 
-12-모듈 체인 자체는 순수 Python이라 LLM 추론 없이 돌아갑니다.
-추론 토큰이 필요한 건 Reasoning Lease 단계뿐입니다.
+**서브에이전트가 곧 파이프라인입니다.** 파이프라인 모듈 중 일부(작업 도구)는
+순수 Python으로 결정론적 실행되지만, 핵심 판단(계약 가드레일)은 에이전트의
+추론 토큰을 소비하여 동작합니다.
 
 향후 독립적인 API 키 지정을 통해 프로바이더 없이 자체 실행하는 모드도
 지원할 계획입니다.
@@ -631,10 +632,11 @@ PTC 엔진은 서브에이전트에게 JSON Tool Plan을 제공합니다. 서브
 
 ## Reasoning Lease
 
-일부 작업은 결정론적 파이프라인 실행 이상을 요구합니다 — 시간 예산과
-격리 보장이 있는 확장된 LLM 추론이 필요합니다.
+일부 복잡한 신호나 모호한 트레이드오프는 단순한 PTC 도구 호출을 넘어섭니다 —
+시간 예산과 격리 보장이 있는 확장된 LLM 추론이 필요합니다.
 
-OpenYggdrasil은 이를 **Reasoning Lease** 계층으로 분리합니다:
+OpenYggdrasil은 이를 **Reasoning Lease** 계층으로 처리합니다. PTC 엔진의
+`lease_backed_llm` 모드가 활성화되면 이 계층이 동작합니다:
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -657,8 +659,9 @@ OpenYggdrasil은 이를 **Reasoning Lease** 계층으로 분리합니다:
 └───────────────────────────────────────────────────────────┘
 ```
 
-기본 파이프라인은 추론 기능이 불가능할 때도 작동합니다 —
-결정론적 모듈은 선택적 LLM 추론에 의존하지 않습니다.
+Reasoning Lease는 필수 의존성인 `bubblewrap`을 통해 비특권 샌드박스에서
+실행되어, 서브에이전트의 복잡한 자율 루프가 메인 시스템을 오염시키지 않도록
+안전하게 격리합니다.
 
 ---
 
@@ -875,237 +878,3 @@ Graphify는 구조 분석 계층을 제공합니다 — 코드베이스와 지�
 OpenYggdrasil 또는 INTEGRITY2077 브랜딩을 사용하여 해당 버전을 식별할 수 없습니다.
 
 동반 의존성 고지는 [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)를 참조하세요.
-
-
----
-
-## Reasoning Lease
-
-Some tasks require more than deterministic pipeline execution — they need
-extended LLM reasoning with time budgets and isolation guarantees.
-
-OpenYggdrasil separates this as an **optional Reasoning Lease** layer:
-
-```
-┌───────────────────────────────────────────────────────────┐
-│  Reasoning Lease = 3 patterns combined                    │
-│                                                           │
-│  ┌─────────────────┐                                     │
-│  │ Time-Budgeted   │  Fixed time budget per task          │
-│  │ Autonomous Loop  │  Agent works without human presence  │
-│  └─────────────────┘                                     │
-│           +                                               │
-│  ┌─────────────────┐                                     │
-│  │ Sandbox         │  Untrusted code runs in isolation     │
-│  │ Isolation       │  Failure → rollback, not corruption   │
-│  └─────────────────┘                                     │
-│           +                                               │
-│  ┌─────────────────┐                                     │
-│  │ Typed Contract  │  Results flow back through contracts  │
-│  │ Integration     │  Not raw stdout or untyped artifacts  │
-│  └─────────────────┘                                     │
-└───────────────────────────────────────────────────────────┘
-```
-
-The base pipeline keeps working when reasoning capability is unavailable —
-deterministic modules never depend on optional LLM reasoning.
-
----
-
-## Provider Integration & Setup
-
-OpenYggdrasil operates as a cold-started skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start background daemons or manage separate server processes. 
-
-### 1. How Providers Recognize OpenYggdrasil
-
-Providers attach to OpenYggdrasil by reading the **`SKILL.md`** manifest at the repository root. To initiate the connection:
-- Point your agent's skill configuration to the absolute path of `SKILL.md`.
-- The agent reads this contract, which defines the exact entrypoints, command shapes, and boundaries for memory retrieval and capture.
-
-### 2. System Requirements & Dependency Installation
-
-OpenYggdrasil runs purely locally. The core runtime relies almost entirely on the Python Standard Library, but the Graphify-derived views and Sandbox isolations require the following minimal dependency stack:
-
-**Supported Operating Systems:**
-- **Windows / macOS / Linux**: Full support for the core memory pipeline (Vault curation, Graphify derived views, and Pathfinder retrieval).
-- **Linux / WSL2 (Windows Subsystem for Linux)**: Exclusively required if you use the optional **Reasoning Lease Sandbox**. This feature relies on `bubblewrap` for unprivileged isolation. Windows/macOS users can still use the entire base pipeline without it.
-
-**Core Prerequisite:**
-- **`Python 3.10+`**: Must be installed and accessible in the local environment.
-
-**Python Packages (via pip):**
-- **`graphifyy`**: the core companion package for structural analysis and graph building
-- **`networkx`**: for graph derivation, node indexing, and traversal
-- **`leidenalg` & `igraph`**: for community detection and topic clustering
-- **`jsonschema`**: for strictly validating provider contracts and mailbox schemas
-- **`pyyaml`**: for reading/writing configuration and manifest files
-- **`pytest`**: for local contract verification and smoke tests
-
-**System Dependencies:**
-- **`bubblewrap`** (`bwrap`): required for unprivileged sandbox isolation during Reasoning Lease execution (Linux/WSL only).
-
-**These dependencies must be installed in the user's local environment.**
-
-> **⚠️ Mandatory Rule for Providers:**
-> Before executing the cold-start skill for the first time, the provider **MUST ask the user for explicit permission** to install these dependencies.
-> 
-> 1. Provider detects that dependencies are missing.
-> 2. Provider halts and prompts the user: *"OpenYggdrasil requires Python dependencies (listed in requirements) to be installed locally. Do you allow this?"*
-> 3. Only upon user approval, the provider installs the requirements. **Silent or unprompted installations are strictly forbidden.**
-
-### 3. One-Touch Cold Start
-
-Once dependencies are approved and installed, the provider can execute the skill entrypoints defined in `SKILL.md`. The OpenYggdrasil runtime **cold-starts itself on demand**, executes the required memory transaction, and shuts down cleanly.
-
-### Verify Installation Manually
-
-If you prefer to verify the installation before attaching a provider:
-
-```bash
-# Clone the repository
-git clone https://github.com/INTEGRITY2077/openyggdrasil.git
-cd openyggdrasil
-
-# Install dependencies (user-initiated)
-pip install -r requirements.txt # (assuming requirements exist)
-
-# Run import smoke test
-python runtime/import_smoke.py
-```
-
-### Repository Structure
-
-```
-openyggdrasil/
-├── contracts/          # JSON schemas — the API between modules
-├── runtime/
-│   ├── admission/      # Gate, Seedkeeper, Amundsen handoff
-│   ├── capture/        # Signal capture, Decision Distiller
-│   ├── evaluation/     # Evaluator, promotion worthiness
-│   ├── cultivation/    # Nursery, Gardener, lifecycle
-│   ├── placement/      # Map Maker, topic/episode placement
-│   ├── provenance/     # Source tracking, temporal edges
-│   ├── retrieval/      # Pathfinder, PTC tools, Graphify adapters
-│   ├── delivery/       # Postman, Mailbox, support bundles
-│   ├── reasoning/      # Reasoning Lease, provider gates
-│   ├── runner/         # Orchestration, regression entrypoints
-│   ├── ptc/            # Programmatic Tool Calling engine
-│   └── governance/     # Phase automation
-├── common/graphify/    # Derived graph/wiki/index views (non-SOT)
-├── providers/hermes/   # Hermes public adapter
-├── vault/              # Canonical project memory
-└── tests/              # 510+ tests
-```
-
----
-
-## Inspirations & Acknowledgements
-
-OpenYggdrasil stands on the shoulders of two key ideas.
-
-### Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
-
-Karpathy articulated the core insight: instead of re-deriving knowledge via RAG
-on every query, have the LLM **incrementally build and maintain a persistent
-wiki**. OpenYggdrasil absorbed this philosophy directly:
-
-| LLM Wiki Concept | OpenYggdrasil Absorption |
-|---|---|
-| **Raw Sources** (immutable originals) | → Provider Signal (①) — originals are never mutated |
-| **The Wiki** (LLM-maintained knowledge) | → Vault — canonical memory with lifecycle states |
-| **The Schema** (CLAUDE.md/AGENTS.md rules) | → `contracts/` — machine-readable boundaries |
-| **Ingest** operation | → Production pipeline (Signal → Gardener) |
-| **Query** operation | → Consumption pipeline (Pathfinder → Mailbox) |
-| **Lint** operation | → Gardener pruning + Amundsen consistency checks |
-| **`index.md`** catalog | → Pathfinder's index-based retrieval |
-| **`log.md`** chronological record | → Provenance store with temporal edges |
-
-> *"The wiki keeps getting richer with every source you add. The human's job is
-> to curate sources and ask good questions. The LLM's job is everything else."*
-> — Karpathy
-
-OpenYggdrasil extends this from single-user/single-LLM to
-**multi-provider/multi-agent** with typed contracts, lifecycle governance, and
-provider-neutral sharing.
-
-### [Graphify](https://github.com/safishamsi/graphify) (v5)
-
-Graphify provides the structural analysis layer — turning codebases and knowledge
-into navigable graphs:
-
-| Graphify Concept | OpenYggdrasil Absorption |
-|---|---|
-| `detect → extract → build_graph → cluster → analyze → report → export` pipeline | → `common/graphify/` derived view engine |
-| NetworkX + Leiden community clustering | → Topic/community structure for Map Maker |
-| Confidence labels (EXTRACTED / INFERRED / AMBIGUOUS) | → Provenance confidence in retrieval results |
-| Pure Python, local, offline | → **No external infrastructure dependency** |
-
----
-
-## Design Principles
-
-1. **Memory is an engine, not a text pile.** Every piece of memory has a source,
-   a lifecycle state, and a typed contract.
-
-2. **Deterministic base, optional reasoning.** The pipeline works without LLM
-   reasoning. Reasoning Lease is an opt-in enhancement.
-
-3. **Provider-neutral by default.** No provider gets special access to the vault.
-   Hermes, Codex, Claude Code, and future providers share the same contracts.
-
-4. **No external infrastructure.** Pure Python, NetworkX for graphs, filesystem
-   for storage. No database, no vector store, no Docker required for the base
-   pipeline.
-
-5. **Fail-closed, not fail-open.** When evidence is missing, the system reports
-   typed unavailability — it never fabricates readiness.
-
-6. **Derived views are never source of truth.** Graphify indexes, graph views,
-   and wiki pages are derived surfaces. The vault is the only canonical surface.
-
----
-
-## Current State — Live Testing
-
-> **This project is not production-ready.** We are live-testing the architecture
-> and iterating in public.
-
-The module chain architecture is designed with 37,000+ lines of runtime code
-and 510+ passing tests — but the end-to-end pipeline does not yet pass through
-from signal to mailbox.
-
-**What exists:**
-- 12-module chain contract definitions and internal logic
-- Provider-neutral capture, evaluation, cultivation, and retrieval implementations
-- Pathfinder retrieval with PTC (Programmatic Tool Calling) support
-- Graphify-derived snapshot views
-- Hermes provider adapter (foreground)
-
-**What does not work yet:**
-- Top-level facade wiring (35 stubs need to be connected to internal logic)
-- End-to-end pipeline pass-through (signal → mailbox)
-- Mailbox async delegation loop
-- Bubblewrap sandbox runner integration
-- Safe provider-owned gateway contract
-
-See the [SKILL.md](./SKILL.md) for the provider-facing operating contract.
-
----
-
-## Contributing
-
-Contributions are welcome. Please read the existing `contracts/` schemas before
-proposing new module interfaces — the typed contract boundary is the most
-important architectural decision in the project.
-
-## License & Brand Guidelines
-
-This project is open-source and released under the [Apache License 2.0](./LICENSE).
-You are free to use, modify, and distribute the code under the terms of this license.
-
-**Trademark & Brand Protection (Section 6):**
-While the code is open-source, the brand names **"OpenYggdrasil"** and **"INTEGRITY2077"**, along with their associated logos and trade dress, are strictly protected. The Apache 2.0 License explicitly **does not grant** permission to use these trademarks. 
-
-If you fork or distribute a modified version of this project, you must change the name and cannot use the OpenYggdrasil or INTEGRITY2077 branding to identify your version.
-
-See [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md) for companion dependency notices.
