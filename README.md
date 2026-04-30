@@ -62,31 +62,32 @@ This is possible because all agents abandon their internal transcript formats an
 
 ## Core Philosophy
 
-### Core Philosophy: The 'Graphification' of the LLM Wiki
+openyggdrasil fuses four core philosophies to prevent "memory erosion" in a fragmented multi-agent environment.
 
-openyggdrasil dismantles two massive open-source philosophies and fuses them into a single architecture.
+### 1. Persistent Knowledge Base (LLM Wiki)
+Inspired by Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f). Instead of injecting context via RAG on every query, we "let the LLM incrementally build and curate a persistent wiki (SOT)." However, a simple flat wiki makes it difficult to explore macroscopic contexts.
 
-**1. Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)**
-Karpathy provided the core insight: instead of injecting context via RAG on every query, "let the LLM incrementally build and curate a persistent wiki." While this provides a strong foundation for permanently storing knowledge as Markdown files (SOT), a simple 'flat wiki' makes it difficult to explore macroscopic contexts—like "how does this concept connect to others?"
+### 2. Terrain-based Category Structuring (Forest & Terrain)
+Knowledge is not a flat list; it is a **Terrain**.
+- **Amundsen (Explorer)** judges whether new knowledge belongs to an existing category (a known 'forest') or represents an entirely new domain (a 'new continent').
+- **Map Maker** plans the relative topology and coordinates of the knowledge.
+- **Gardener** protects the ecosystem, ensuring trees aren't planted in the wrong forest, and handles the physical planting.
 
-**2. Safi Shamsi's [Graphify (v5)](https://github.com/safishamsi/graphify)**
-Graphify is an offline structural analysis pipeline that parses markdown/codebases to build a 'mathematical graph network' and 'community clusters' of nodes and edges. However, on its own, it cannot form a knowledge accumulation system driven by continuous interaction.
+### 3. Tree Rings and Lineage (Evolution Tree)
+*"Time flows linearly, but context does not evolve linearly."*
+If we only retrieve the latest knowledge, crucial foundational contexts (Origins) wear away like telomeres. To prevent this, knowledge is treated as an **Evolution Tree**:
+- **Tree Ring Engraving:** Every sapling is physically engraved with its origin (`provider_id`, `session_uid`, `timestamp`).
+- Foundational decisions (Roots and Trunks) are preserved, while abandoned branches are explicitly pruned (`SUPERSEDED`). This ensures the origin and evolutionary path of knowledge can always be traced.
 
-**3. The Fusion: "Endowing the Wiki with Topology"**
-To overcome the limitations of static file storage, openyggdrasil integrates Graphify's analysis engine as a 'dynamic topological layer'. The system parses the frontmatter of every wiki document (Vault) recorded by the LLM in real-time, converting it into a mathematical relationship network.
+### 4. Structural Relationship Network (Graphify Topology)
+To transcend the physical limits of categorized knowledge, we apply Safi Shamsi's [Graphify (v5)](https://github.com/safishamsi/graphify) concept.
+The Markdown Vault is parsed and converted into a mathematical graph and community clusters (Leiden algorithm). This allows traversal across semantic edges, connecting related knowledge even if stored in different folders.
 
-| Fused Architecture Concept | openyggdrasil Pipeline Implementation |
-|---|---|
-| **Raw Sources** (immutable originals) | → Provider Signal (①) — original signals are never mutated |
-| **The Wiki** (static knowledge) | → Vault — Canonical SOT memory (Markdown-based) with lifecycle states |
-| **Graphify Edges/Clusters** | → Map Maker — Topic/episode clustering based on the Leiden algorithm |
-| **Ingest** operation | → Production Pipeline (Signal Capture → Evaluate → **Placement in Topology**) |
-| **Query** operation | → Consumption Pipeline (**Graph Topology Search** → Provenance Bundle Assembly) |
-| **Lint** operation | → Gardener Pruning + Amundsen Consistency Checks |
+---
 
 > *"The wiki becomes richer with every source added. A human's job is to curate the sources and ask good questions. The LLM's job is everything else."* — Karpathy
 
-Through this **'Graphification of the LLM Wiki'**, openyggdrasil operates beyond a simple collection of texts—it acts as a **pure-local offline multi-agent memory system** that natively understands relationship networks without relying on external Vector DBs.
+Through this **'Construction of a Knowledge Ecosystem and Topological Fusion'**, openyggdrasil operates beyond a simple collection of texts—it acts as a **pure-local offline multi-agent memory system** that natively understands relationship networks without relying on external Vector DBs.
 
 ### The Bridge — Vault and Graphify
 
