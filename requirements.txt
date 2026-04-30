@@ -1,3 +1,4 @@
+graphifyy>=4.0.0
 networkx>=3.0.0
 leidenalg>=0.9.0
 igraph>=0.10.0
