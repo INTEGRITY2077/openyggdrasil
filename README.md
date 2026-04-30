@@ -596,7 +596,7 @@ The PTC engine orchestrates these 8 tools using one of three plans, depending on
 | Mode | Condition | Execution Pattern |
 |---|---|---|
 | `deterministic` | Simple structural updates | Guardrails auto-pass (Rule-based) → Utility execution |
-| `lease_backed_llm` | Complex signals / ambiguity | Full reasoning (3x HIGH) → Utility execution |
+| `lease_backed_llm` | Complex signals / ambiguity | Guardrail reasoning (3x) → Utility execution |
 | `fallback` | Lease rejection | Downgrade to safe baseline or halt pipeline |
 
 If the subagent violates the **typed contracts** at any guardrail (e.g., trying to submit a string instead of an array), the chain stops with a typed `stop_reason`—it never silently drops data.

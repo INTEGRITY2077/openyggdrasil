@@ -621,46 +621,46 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
   │                                                              │
   │  [계약 가드레일 — 서브에이전트의 자체 추론을 유도 및 제약]         │
   │                                                              │
-  │  ┌─ distill_signal (예: Distiller 역할 부여 시 호출) ──────┐   │
+  │  ┌─ distill_signal (가드레일 — 어포던스 계약 참조) ─────────┐   │
   │  │  얕은 초기 신호를 깊이 있는 의사결정 후보로 심층 증류    │   │
-  │  │  추론 깊이: HIGH                                       │   │
+  │  │  역할: 가드레일 (서브에이전트 추론 소비)                 │   │
   │  └─────────────────────────────────────────────────────────┘   │
   │                      ▼                                   │
-  │  ┌─ evaluate_candidate ─────────────────────────────┐    │
+  │  ┌─ evaluate_candidate (가드레일) ───────────────────┐    │
   │  │  승격 가치 평가, 중복 제거, 임계값 게이트            │    │
-  │  │  추론 깊이: MEDIUM                                  │    │
+  │  │  역할: 가드레일 (서브에이전트 추론 소비)              │    │
   │  └──────────────────────────────────────────────────┘    │
   │                      ▼                                   │
-  │  ┌─ classify_novelty ───────────────────────────────┐    │
+  │  ┌─ classify_novelty (가드레일) ─────────────────────┐    │
   │  │  카테고리 & 새로움 분류                              │    │
-  │  │  추론 깊이: HIGH                                   │    │
+  │  │  역할: 가드레일 (서브에이전트 추론 소비)              │    │
   │  └──────────────────────────────────────────────────┘    │
   │                      ▼                                   │
   │  [작업 도구 — 반죽·굽기·포장을 돕는 Python 유틸리티]       │
   │                                                          │
-  │  ┌─ stamp_provenance ───────────────────────────────┐    │
+  │  ┌─ stamp_provenance (유틸리티) ─────────────────────┐    │
   │  │  출처 고리 부착: source_ref, origin_locator        │    │
-  │  │  추론 깊이: NONE (결정론적)                         │    │
+  │  │  역할: 유틸리티 (결정론적 Python)                    │    │
   │  └──────────────────────────────────────────────────┘    │
   │                      ▼                                   │
-  │  ┌─ compose_seed ───────────────────────────────────┐    │
+  │  ┌─ compose_seed (유틸리티) ─────────────────────────┐    │
   │  │  상류 산출물 → 최종 각인 씨앗 조합                   │    │
-  │  │  추론 깊이: NONE (결정론적)                         │    │
+  │  │  역할: 유틸리티 (결정론적 Python)                    │    │
   │  └──────────────────────────────────────────────────┘    │
   │                      ▼                                   │
-  │  ┌─ plant_to_vault ─────────────────────────────────┐    │
+  │  ┌─ plant_to_vault (유틸리티) ───────────────────────┐    │
   │  │  심기 계획 → Vault에 기록, 생명주기 전환             │    │
-  │  │  추론 깊이: NONE (결정론적)                         │    │
+  │  │  역할: 유틸리티 (결정론적 Python)                    │    │
   │  └──────────────────────────────────────────────────┘    │
   │                      ▼                                   │
-  │  ┌─ update_topology ────────────────────────────────┐    │
+  │  ┌─ update_topology (유틸리티) ──────────────────────┐    │
   │  │  대륙/토픽/에피소드 위상 갱신                        │    │
-  │  │  추론 깊이: NONE (결정론적)                         │    │
+  │  │  역할: 유틸리티 (결정론적 Python)                    │    │
   │  └──────────────────────────────────────────────────┘    │
   │                      ▼                                   │
-  │  ┌─ deliver_receipt ────────────────────────────────┐    │
+  │  ┌─ deliver_receipt (유틸리티) ──────────────────────┐    │
   │  │  Mailbox 수신증 발행                               │    │
-  │  │  추론 깊이: NONE (결정론적)                         │    │
+  │  │  역할: 유틸리티 (결정론적 Python)                    │    │
   │  └──────────────────────────────────────────────────┘    │
   └──────────────────────────────────────────────────────────┘
        │
@@ -675,14 +675,14 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 
 ```json
 [
-  { "step_id": "distill",   "capability_id": "distill_signal",     "effort": "high",   "input": { "raw_signal": "..." } },
-  { "step_id": "evaluate",  "capability_id": "evaluate_candidate", "effort": "medium", "input": { "candidate": "←distill" } },
-  { "step_id": "classify",  "capability_id": "classify_novelty",   "effort": "high",   "input": { "candidate": "←distill", "verdict": "←evaluate" } },
-  { "step_id": "stamp",     "capability_id": "stamp_provenance",   "effort": "none",   "input": { "candidate": "←distill", "route": "←classify" } },
-  { "step_id": "seed",      "capability_id": "compose_seed",       "effort": "none",   "input": { "verdict": "←evaluate", "route": "←classify", "segment": "←stamp" } },
-  { "step_id": "plant",     "capability_id": "plant_to_vault",     "effort": "none",   "input": { "seed": "←seed" } },
-  { "step_id": "topology",  "capability_id": "update_topology",    "effort": "none",   "input": { "seed": "←seed", "vault_path": "←plant" } },
-  { "step_id": "receipt",   "capability_id": "deliver_receipt",     "effort": "none",   "input": { "seed": "←seed", "vault_path": "←plant" } }
+  { "step_id": "distill",   "capability_id": "distill_signal",     "role": "guardrail", "input": { "raw_signal": "..." } },
+  { "step_id": "evaluate",  "capability_id": "evaluate_candidate", "role": "guardrail", "input": { "candidate": "←distill" } },
+  { "step_id": "classify",  "capability_id": "classify_novelty",   "role": "guardrail", "input": { "candidate": "←distill", "verdict": "←evaluate" } },
+  { "step_id": "stamp",     "capability_id": "stamp_provenance",   "role": "utility",   "input": { "candidate": "←distill", "route": "←classify" } },
+  { "step_id": "seed",      "capability_id": "compose_seed",       "role": "utility",   "input": { "verdict": "←evaluate", "route": "←classify", "segment": "←stamp" } },
+  { "step_id": "plant",     "capability_id": "plant_to_vault",     "role": "utility",   "input": { "seed": "←seed" } },
+  { "step_id": "topology",  "capability_id": "update_topology",    "role": "utility",   "input": { "seed": "←seed", "vault_path": "←plant" } },
+  { "step_id": "receipt",   "capability_id": "deliver_receipt",     "role": "utility",   "input": { "seed": "←seed", "vault_path": "←plant" } }
 ]
 ```
 
@@ -692,8 +692,8 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 
 | 모드 | 언제 | 서브에이전트 추론 소비 |
 |---|---|---|
-| `deterministic` | 신호가 단순 (hard_trigger + 명확한 결정) | 최소 (LOW로 다운그레이드 가능) |
-| `lease_backed_llm` | 신호가 복잡 (모호한 트레이드오프) | 풀 추론 (HIGH 3회) |
+| `deterministic` | 신호가 단순 (hard_trigger + 명확한 결정) | 최소 (가드레일 자동 통과) |
+| `lease_backed_llm` | 신호가 복잡 (모호한 트레이드오프) | 가드레일 3회 추론 소비 |
 | `fallback` | LLM 추론 실패 시 | 보수적 기본 판정 적용 |
 
 모든 경계에서 **타입이 지정된 계약**이 핸드오프를 검증합니다. 어떤 모듈이든
