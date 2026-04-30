@@ -251,6 +251,47 @@ openyggdrasil이 무거운 외부 인프라를 버리고 **순수 로컬 파일�
 - **모델 왕복(Round-trip) 오버헤드 제거:** 10개의 지식 노드를 각각 독립된 도구로 조회하는 것은 개별적으로 LLM을 호출하므로 막대한 토큰을 소모합니다. 그러나 PTC를 통해 하나의 코드 실행 블록 내에서 10개의 문서를 읽고 요약된 결론만 반환하도록 하면 토큰 소모량을 약 **10배 이상 절약**할 수 있습니다.
 - **최종 요약본만 반환:** 에이전트에게는 검색 과정의 방대한 노이즈가 보이지 않으며, 오직 최종적으로 정제된 `bounded support bundle`(제한된 지원 번들)의 결과만 반환됩니다.
 
+<a id="ptc-코드-작성-예시"></a>
+#### PTC 코드 작성 예시 (단일 비동기 스크립트)
+
+서브에이전트는 제공된 JSON 실행 계획을 완수하기 위해 **단일 비동기 Python 스크립트**를 작성하여 샌드박스 내부에서 실행합니다. LLM이 모델 왕복(Round-trip) 없이 한 번에 8단계를 모두 관통하는 실제 스크립트 예시는 다음과 같습니다:
+
+```python
+import asyncio
+import json
+
+async def run_production_pipeline():
+    # 1. 신호 정제 (Distill)
+    distilled = await distill_signal(raw_signal="...", context="...")
+    
+    # 2. 가치 평가 및 스키마 검증 (Evaluate) - Contract Guardrail
+    verdict = await evaluate_candidate(candidate=distilled)
+    
+    # 서브에이전트의 자체 판단: 가드레일 통과 못하면 파이프라인 중단
+    if not verdict.get("is_worth_remembering"):
+        print(json.dumps({"status": "aborted"}))
+        return
+        
+    # 3. 위상 분류 (Classify)
+    route = await classify_novelty(candidate=distilled, verdict=verdict)
+    
+    # 4~7. 기계적 유틸리티 통과 (추론 없이 데이터만 넘김)
+    stamped = await stamp_provenance(candidate=distilled, route=route)
+    seed = await compose_seed(verdict=verdict, route=route, segment=stamped)
+    vault_path = await plant_to_vault(seed=seed)
+    await update_topology(seed=seed, vault_path=vault_path)
+    
+    # 8. 최종 영수증 발급
+    receipt = await deliver_receipt(seed=seed, vault_path=vault_path)
+    
+    # 이 마지막 print 문의 결과만 LLM의 컨텍스트로 반환됨 (토큰 10배 절약)
+    print(json.dumps({"status": "success", "receipt": receipt}))
+
+asyncio.run(run_production_pipeline())
+```
+
+이 스크립트가 샌드박스 내부에서 도는 동안, 방대한 중간 데이터(`distilled`, `verdict` 등)는 오직 순수 Python 메모리에만 존재하며 LLM의 컨텍스트를 전혀 오염시키지 않습니다.
+
 ### 추론 모델의 한계와 마지노선 (Reasoning Model Baseline & Limitations)
 
 PTC 파이프라인에서 서브에이전트(LLM)는 샌드박스 내에서 복잡한 `JSON Execution Plan`을 기억하고, 8단계의 도구를 순서대로 호출하며, 각 도구의 엄격한 JSON 스키마 제약을 오차 없이 통과해야 합니다. 이를 강제하는 것이 openyggdrasil의 **계약 가드레일(Contract Guardrails)**입니다.
@@ -625,43 +666,7 @@ PTC 엔진은 서브에이전트에게 8개 도구를 제공하고, 서브에이
 ]
 ```
 
-서브에이전트는 이 계획을 완수하기 위해 **단일 비동기 Python 스크립트**를 작성하여 실행합니다. LLM이 모델 왕복(Round-trip) 없이 한 번에 8단계를 모두 관통하는 실제 스크립트 예시는 다음과 같습니다:
-
-```python
-import asyncio
-import json
-
-async def run_production_pipeline():
-    # 1. 신호 정제 (Distill)
-    distilled = await distill_signal(raw_signal="...", context="...")
-    
-    # 2. 가치 평가 및 스키마 검증 (Evaluate) - Contract Guardrail
-    verdict = await evaluate_candidate(candidate=distilled)
-    
-    # 서브에이전트의 자체 판단: 가드레일 통과 못하면 파이프라인 중단
-    if not verdict.get("is_worth_remembering"):
-        print(json.dumps({"status": "aborted"}))
-        return
-        
-    # 3. 위상 분류 (Classify)
-    route = await classify_novelty(candidate=distilled, verdict=verdict)
-    
-    # 4~7. 기계적 유틸리티 통과 (추론 없이 데이터만 넘김)
-    stamped = await stamp_provenance(candidate=distilled, route=route)
-    seed = await compose_seed(verdict=verdict, route=route, segment=stamped)
-    vault_path = await plant_to_vault(seed=seed)
-    await update_topology(seed=seed, vault_path=vault_path)
-    
-    # 8. 최종 영수증 발급
-    receipt = await deliver_receipt(seed=seed, vault_path=vault_path)
-    
-    # 이 마지막 print 문의 결과만 LLM의 컨텍스트로 반환됨 (토큰 10배 절약)
-    print(json.dumps({"status": "success", "receipt": receipt}))
-
-asyncio.run(run_production_pipeline())
-```
-
-이 스크립트가 샌드박스 내부에서 도는 동안, 방대한 중간 데이터(`distilled`, `verdict` 등)는 오직 순수 Python 메모리에만 존재하며 LLM의 컨텍스트를 전혀 오염시키지 않습니다.
+서브에이전트는 이 계획을 완수하기 위해 단일 비동기 Python 스크립트를 작성하여 샌드박스 내부에서 실행합니다. *(구체적인 파이썬 스크립트 구현 예시는 상단의 [PTC 코드 작성 예시](#ptc-코드-작성-예시)를 참조하십시오.)*
 
 **계획 생성 모드 3가지:**
 

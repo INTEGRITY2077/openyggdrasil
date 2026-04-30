@@ -243,6 +243,47 @@ The primary reason openyggdrasil abandoned heavy external infrastructure in favo
 - **Elimination of Model Round-Trip Overhead:** Querying 10 knowledge nodes as independent tools consumes massive tokens because it invokes the LLM individually for each query. By using PTC to read 10 documents within a single code execution block and returning only a summarized conclusion, token usage is reduced by approximately **10x or more**.
 - **Returning Only the Final Summary:** The agent is shielded from the vast noise of the search process. It only receives the final, highly refined `bounded support bundle`.
 
+<a id="ptc-code-example"></a>
+#### PTC Code Writing Example (Single Async Script)
+
+To fulfill the JSON Execution Plan, the subagent writes and executes a **single asynchronous Python script** inside the sandbox. Here is an example of the actual script the LLM emits to traverse all 8 steps without model round-trips:
+
+```python
+import asyncio
+import json
+
+async def run_production_pipeline():
+    # 1. Distill
+    distilled = await distill_signal(raw_signal="...", context="...")
+    
+    # 2. Evaluate (Contract Guardrail)
+    verdict = await evaluate_candidate(candidate=distilled)
+    
+    # Subagent's own logic: abort if guardrail fails
+    if not verdict.get("is_worth_remembering"):
+        print(json.dumps({"status": "aborted"}))
+        return
+        
+    # 3. Classify
+    route = await classify_novelty(candidate=distilled, verdict=verdict)
+    
+    # 4~7. Deterministic Utilities (pass-through only)
+    stamped = await stamp_provenance(candidate=distilled, route=route)
+    seed = await compose_seed(verdict=verdict, route=route, segment=stamped)
+    vault_path = await plant_to_vault(seed=seed)
+    await update_topology(seed=seed, vault_path=vault_path)
+    
+    # 8. Final Receipt
+    receipt = await deliver_receipt(seed=seed, vault_path=vault_path)
+    
+    # Only this final print statement is returned to the LLM's context (saving 10x tokens)
+    print(json.dumps({"status": "success", "receipt": receipt}))
+
+asyncio.run(run_production_pipeline())
+```
+
+While this script runs inside the sandbox, massive intermediate data structures (`distilled`, `verdict`, etc.) exist solely in Python memory and never pollute the LLM's context window.
+
 ### Reasoning Model Baseline & Limitations
 
 In the PTC pipeline, the subagent (LLM) must retain the complex `JSON Execution Plan` within its sandbox context, invoke 8 tools in precise order, and pass strict JSON schema constraints for each tool. This rigidity is enforced by openyggdrasil's **Contract Guardrails**.
@@ -571,43 +612,7 @@ These tools have a dual nature:
 
 ### PTC Execution Plan (Production)
 
-The subagent receives a JSON Tool Plan and fulfills it by writing and executing a **single asynchronous Python script**. Here is an example of the actual script the LLM emits to traverse all 8 steps without model round-trips:
-
-```python
-import asyncio
-import json
-
-async def run_production_pipeline():
-    # 1. Distill
-    distilled = await distill_signal(raw_signal="...", context="...")
-    
-    # 2. Evaluate (Contract Guardrail)
-    verdict = await evaluate_candidate(candidate=distilled)
-    
-    # Subagent's own logic: abort if guardrail fails
-    if not verdict.get("is_worth_remembering"):
-        print(json.dumps({"status": "aborted"}))
-        return
-        
-    # 3. Classify
-    route = await classify_novelty(candidate=distilled, verdict=verdict)
-    
-    # 4~7. Deterministic Utilities (pass-through only)
-    stamped = await stamp_provenance(candidate=distilled, route=route)
-    seed = await compose_seed(verdict=verdict, route=route, segment=stamped)
-    vault_path = await plant_to_vault(seed=seed)
-    await update_topology(seed=seed, vault_path=vault_path)
-    
-    # 8. Final Receipt
-    receipt = await deliver_receipt(seed=seed, vault_path=vault_path)
-    
-    # Only this final print statement is returned to the LLM's context (saving 10x tokens)
-    print(json.dumps({"status": "success", "receipt": receipt}))
-
-asyncio.run(run_production_pipeline())
-```
-
-While this script runs inside the sandbox, massive intermediate data structures (`distilled`, `verdict`, etc.) exist solely in Python memory and never pollute the LLM's context window.
+The subagent receives a JSON Tool Plan and fulfills it by writing a single asynchronous Python script to execute inside the sandbox. *(For a concrete implementation example, see the [PTC Code Writing Example](#ptc-code-example) section above.)*
 
 The PTC engine orchestrates these 8 tools using one of three plans, depending on the complexity of the signal:
 
