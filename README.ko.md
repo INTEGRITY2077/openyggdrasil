@@ -1013,28 +1013,74 @@ Graphify는 구조 분석 계층을 제공합니다 — 코드베이스와 지�
 
 ---
 
-## 현재 상태 — 라이브 테스팅
+## 현재 상태 — 아키텍처 정렬도 스코어카드
 
 > **이 프로젝트는 프로덕션 준비가 되지 않았습니다.** 아키텍처를 라이브
 > 테스팅하고 공개적으로 반복하고 있습니다.
 
-모듈 체인 아키텍처는 37,000줄 이상의 런타임 코드와 510개 이상의 통과
-테스트로 설계되었지만, 엔드투엔드 파이프라인은 아직 signal에서 mailbox까지
-관통하지 않습니다.
+아래 표는 본 README에 기술된 아키텍처와 실제 구현 간의 정렬도를
+정량화한 것입니다. **오해를 방지하기 위해**, 각 블록의 현재 상태를
+4단계(`LIVE` / `PARTIAL` / `STUB` / `ABSENT`)로 명시합니다.
 
-**존재하는 것:**
-- 12-모듈 체인 계약 정의 및 내부 로직
-- 프로바이더 중립적 캡처, 평가, 재배, 검색 구현
-- PTC (Programmatic Tool Calling) 지원 Pathfinder 검색
-- Graphify 파생 스냅샷 뷰
-- Hermes 프로바이더 어댑터 (포그라운드)
+| 등급 | 의미 |
+|---|---|
+| 🟢 **LIVE** | 런타임 코드 존재, 테스트 PASS 또는 검증 완료 |
+| 🟡 **PARTIAL** | 코드/계약 존재, 엔드투엔드 관통 미검증 또는 일부 누락 |
+| 🟠 **STUB** | 파일 존재하나 스텁 상태, 또는 설계만 완료 |
+| 🔴 **ABSENT** | 코드 미존재, 설계 문서만 있거나 없음 |
 
-**아직 작동하지 않는 것:**
-- 최상위 파사드 와이어링 (35개 스텁이 내부 로직에 연결 필요)
-- 엔드투엔드 파이프라인 관통 (signal → mailbox)
-- Mailbox 비동기 위임 루프
-- Bubblewrap 샌드박스 러너 통합
-- 안전한 프로바이더 소유 게이트웨이 계약
+### 생산면 (Production Side)
+
+| 모듈 | 상태 | 비고 |
+|---|---|---|
+| Session Structure Signal | 🟡 PARTIAL | 스키마 동작. `language_code` (ISO 639-1) 필드 미존재 |
+| Admission Gate | 🟡 PARTIAL | 계약 검증 동작. `meaningful_text_stats` 품질 게이트 미구현 |
+| Distiller (심층 증류) | 🟡 PARTIAL | 코드 존재. 실세션 LLM 추론 증류 미검증 |
+| Evaluator (가치 평가) | 🟠 STUB | 디렉토리 존재. 엔드투엔드 승격 판단 미관통 |
+| Amundsen (카테고리 분류) | 🟠 STUB | 계약 스키마 존재. 런타임 로직 스텁 |
+| Map Maker (토픽 배치) | 🟡 PARTIAL | `index.jsonl` 카탈로그 동작. 다국어 alias 병합 미구현 |
+| Gardener (생명주기 가지치기) | 🟠 STUB | 개념 존재. 자동 치유, 깨진 링크 복구 미구현 |
+| Postman (수신증 발급) | 🟡 PARTIAL | 코드 존재. Mailbox 비동기 위임 루프 미완성 |
+| 수동 편집 보호 (content_hash) | 🔴 ABSENT | 설계 제안서만 존재. 런타임 코드 없음 |
+| 피드백 루프 (Rejection Loop) | 🔴 ABSENT | 설계 제안서만 존재. 런타임 코드 없음 |
+
+### 소비면 (Consumption Side)
+
+| 모듈 | 상태 | 비고 |
+|---|---|---|
+| Pathfinder (위상 스캔 검색) | 🟡 PARTIAL | PTC 도구 7개 정의됨. 라이브 세션 검증 미완 |
+| Support Bundle (출처 추적 번들) | 🟡 PARTIAL | 계약 존재. 3-tier provenance 부분 구현 |
+| Mailbox (타입 안전 수신함) | 🟠 STUB | 스키마 존재. 비동기 위임 루프 미구현 |
+| Lifecycle Filter | 🟡 PARTIAL | 프론트매터 파서 존재. 전환 트리거 자동화 미완 |
+
+### 인프라 / 크로스커팅
+
+| 모듈 | 상태 | 비고 |
+|---|---|---|
+| SKILL.md 콜드스타트 진입 | 🟢 LIVE | 파일 존재, Hermes 프로바이더 실제 인식 확인 |
+| Typed PTC Engine | 🟡 PARTIAL | 개념 정의 완료. 서브에이전트 실제 PTC 실행 트레이스 미검증 |
+| Reasoning Lease | 🟠 STUB | 개념/디렉토리 존재. bubblewrap 통합 미완 |
+| Vault (SOT 메모리) | 🟢 LIVE | 디렉토리, 프론트매터 스키마, 파서 동작 |
+| Graphify 파생 뷰 | 🟡 PARTIAL | `common/graphify/` 존재. 7-step 파이프라인 부분 동작 |
+| Cross-Provider Pollination | 🟠 STUB | 개념 설계 완료. 멀티 프로바이더 실세션 교차 기록 미검증 |
+| Hermes Provider Adapter | 🟡 PARTIAL | 어댑터 존재. Healthy Chain PASS. 서브에이전트 브릿지 미완 |
+| i18n 다국어 파이프라인 | 🔴 ABSENT | UX 레벨 임시 대응만. 백엔드 언어 코드 패스 미존재 |
+| 인라인 출처 마킹 (`[S1]`, `[S2]`) | 🔴 ABSENT | 문장 단위 출처 추적 미구현 |
+| 원자적 롤백 (Git Safety Net) | 🔴 ABSENT | 작업 단위별 자동 스냅샷 미구현 |
+
+### 총 정렬도 요약
+
+| 영역 | 블록 수 | LIVE | PARTIAL | STUB | ABSENT | 정렬률 |
+|---|---:|---:|---:|---:|---:|---:|
+| 생산면 | 10 | 0 | 5 | 3 | 2 | **29%** |
+| 소비면 | 4 | 0 | 3 | 1 | 0 | **43%** |
+| 인프라 | 10 | 2 | 4 | 2 | 3 | **35%** |
+| **전체** | **24** | **2** | **12** | **6** | **5** | **34%** |
+
+> **설계의 약 1/3만 런타임 코드로 관통되어 있습니다.**
+> 나머지 2/3는 계약/스키마 수준이거나 아직 구현되지 않았습니다.
+> 이 표는 프로젝트의 진행 상황을 투명하게 공유하기 위한 것이며,
+> 구현이 진행될 때마다 갱신됩니다.
 
 프로바이더 대면 운영 계약은 [SKILL.md](./SKILL.md)를 참조하세요.
 
