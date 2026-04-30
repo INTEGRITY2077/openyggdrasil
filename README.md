@@ -414,42 +414,40 @@ There are two distinct invocation paths — one for **writing** knowledge
   └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Production Trigger — How providers capture knowledge
+### Production Trigger — Context Recognition and Delegation (First-Pass)
 
-When a provider session produces a decision worth remembering — a design
-choice, a debugging insight, a resolved trade-off — the provider's agent
-**invokes openyggdrasil as a skill** to capture it.
+The Provider Agent (e.g., Hermes, Claude Code) actively monitors the ongoing conversation and recognizes when an architectural decision or debugging insight is **valuable enough to be permanently recorded (wiki-fied)**. 
+
+When this need arises, the Provider Agent does not just copy-paste the entire heavy text block. Instead, it consults `SKILL.md` to construct a lightweight `Session Structure Signal`. This signal acts as a shallow request, pairing a brief summary with **exact pointers to the raw `.jsonl` conversation logs**.
 
 ```
-  Provider Agent (e.g., Hermes, Claude Code, Cursor)
+  Provider Agent (The main entity interacting with the user)
        │
-       │  ① Reads SKILL.md from the openyggdrasil repo root
-       │     → Discovers entrypoints, input shapes, boundaries
+       │  ① Recognizes a context worth wiki-fying
        │
-       │  ② Constructs a Session Structure Signal:
+       │  ② Reads SKILL.md to discover the entrypoint and rules
+       │
+       │  ③ Constructs the Session Structure Signal (Shallow Request):
        │     {
        │       provider_id:         "hermes"
        │       provider_session_id: "session-2026-04-30-abc123"
        │       trigger_type:        "hard_trigger"
        │       surface_reason:      "Decided to use gateway pattern..."
        │       turn_range:          { from: 12, to: 18 }
-       │       source_ref:          { path_hint: "sessions/abc123.jsonl" }
+       │       source_ref:          { path_hint: "sessions/abc123.jsonl" } // ⭐️ CRITICAL: The Raw Pointer
        │     }
        │
-       │  ③ Calls the capture entrypoint defined in SKILL.md
-       │     → openyggdrasil cold-starts, processes the signal, shuts down
+       │  ④ Invokes capture entrypoint & delegates Reasoning Lease
+       │     → OpenYggdrasil cold-starts and spawns a subagent
        │
        ▼
-  openyggdrasil Production Pipeline receives the signal
+  OpenYggdrasil Runtime (Receives request & assigns Role-Polymorphic Subagent)
 ```
 
 **Key rules:**
-- The provider agent **must read `SKILL.md`** to discover valid entrypoints.
-  It never guesses or hard-codes internal paths.
-- The signal must carry a **`source_ref`** — provenance is mandatory, not
-  optional. Signals without source references are rejected at the gate.
-- openyggdrasil **cold-starts on demand**. There is no background daemon.
-  The provider calls it, it runs, it exits.
+- **Pointer-Based Delegation (`source_ref` is mandatory):** The Provider Agent must not mutate or unnecessarily duplicate raw conversations. It must pass a `source_ref` pointing to the exact `.jsonl` log file. Signals missing this pointer are immediately rejected by the Admission Gate.
+- **Cold-Start Principle:** openyggdrasil **cold-starts on demand**. There is no background daemon. The provider invokes it, it runs, and it cleanly exits.
+- **Reasoning Lease:** Because OpenYggdrasil lacks its own LLM, the Provider Agent must delegate its own compute (Reasoning Lease) alongside the signal. The spawned subagent uses this leased energy to parse the raw `.jsonl` files and perform deep structuring (Distill/Evaluate).
 
 
 ## Pipeline Flow
