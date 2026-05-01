@@ -16,10 +16,6 @@
     "safety_reject_reasons",
     "provider_skill_ref",
     "provider_subagent_surface_ref",
-    "persona_or_prompt_ref",
-    "schema_ref",
-    "runtime_enforcement_ref",
-    "global_hard_nonclaims_ref",
     "reasoning_lease_ref",
     "lease_depth_or_effort",
     "lease_budget_ref",
@@ -117,18 +113,6 @@
       "$ref": "#/$defs/nullable_safe_ref"
     },
     "provider_subagent_surface_ref": {
-      "$ref": "#/$defs/nullable_safe_ref"
-    },
-    "persona_or_prompt_ref": {
-      "$ref": "#/$defs/nullable_safe_ref"
-    },
-    "schema_ref": {
-      "$ref": "#/$defs/nullable_safe_ref"
-    },
-    "runtime_enforcement_ref": {
-      "$ref": "#/$defs/nullable_safe_ref"
-    },
-    "global_hard_nonclaims_ref": {
       "$ref": "#/$defs/nullable_safe_ref"
     },
     "reasoning_lease_ref": {

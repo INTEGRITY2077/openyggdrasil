@@ -18,7 +18,7 @@ DEFAULT_MAX_RECENT_LIMIT = 8
 LEASE_BACKED_LLM_PLANNER_MODE = "lease_backed_llm_dynamic_assembly"
 EXTERNAL_LLM_PLANNER_MODE = "external_llm_dynamic_assembly"
 DETERMINISTIC_PLANNER_MODE = "deterministic_query_signals"
-FALLBACK_PLANNER_MODE = "typed_unavailable_after_llm_failure"
+FALLBACK_PLANNER_MODE = "deterministic_fallback_after_llm_failure"
 PATHFINDER_RUNTIME_APPROVED_EFFORT = "high"
 PATHFINDER_RUNTIME_LEASE_GROUP = "semantic_routing"
 ROLE_POLYMORPHIC_PTC_TELEMETRY_SCHEMA_VERSION = "ptc_role_polymorphic_telemetry.v1"
@@ -2615,14 +2615,6 @@ def materialize_provider_subagent_ptc_provider_session_executor_boundary(
     validate_provider_subagent_ptc_provider_session_invocation_boundary(
         provider_session_invocation_boundary
     )
-    
-    # R15 sandbox dependency gate
-    sandbox_unavailable = verify_sandbox_dependencies()
-    if sandbox_unavailable is not None:
-        raise ValueError(
-            f"provider/session executor boundary rejected: sandbox dependency gate returned '{sandbox_unavailable}'"
-        )
-        
     boundary_input = dict(provider_session_invocation_boundary)
     if not isinstance(executor_result_packet, Mapping):
         raise ValueError("executor_result_packet must be an object")
@@ -5172,30 +5164,8 @@ def structural_anchor_fallback_evaluator(
     return {
         "topic_key": None,
         "reason_labels": [STRUCTURAL_ANCHOR_FALLBACK_REASON_CODE],
+        "summary": "PTC structural path did not use Hermes; returning an unanchored fallback.",
     }
-
-
-def verify_sandbox_dependencies() -> str | None:
-    """
-    R15 dependency gate: Checks if the current environment meets the WSL2-first
-    sandbox runtime requirements. Returns 'typed_unavailable' if any dependency
-    (bwrap, socat) is missing or if the environment is not WSL2, establishing
-    failIfUnavailable=true fail-closed behavior.
-    """
-    import platform
-    import shutil
-    
-    try:
-        if "microsoft-standard-WSL2" not in platform.uname().release:
-            return "typed_unavailable"
-            
-        for binary in ("bwrap", "socat"):
-            if shutil.which(binary) is None:
-                return "typed_unavailable"
-    except Exception:
-        return "typed_unavailable"
-        
-    return None
 
 
 __all__ = [
@@ -5272,5 +5242,4 @@ __all__ = [
     "validate_provider_subagent_ptc_same_run_typed_ref_source",
     "validate_query_adaptive_pathfinder_plan",
     "validate_role_polymorphic_ptc_telemetry_trace",
-    "verify_sandbox_dependencies",
 ]

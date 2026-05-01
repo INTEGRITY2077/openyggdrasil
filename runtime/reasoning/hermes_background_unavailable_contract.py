@@ -106,8 +106,8 @@ def validate_hermes_background_unavailable_contract(payload: Mapping[str, Any]) 
 
 
 def _fallback_path_status(fallback_policy: str | None) -> str:
-    if fallback_policy == "deterministic_base_path" or fallback_policy == "reasoning_unavailable_degraded_path":
-        return "reasoning_unavailable_degraded_path"
+    if fallback_policy == "deterministic_base_path":
+        return "deterministic_base_path_available"
     if fallback_policy == "local_worker":
         return "local_worker_available"
     if fallback_policy == "manual_review":

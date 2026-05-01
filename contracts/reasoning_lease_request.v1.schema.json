@@ -250,7 +250,7 @@
     "fallback_policy": {
       "type": "string",
       "enum": [
-        "reasoning_unavailable_degraded_path",
+        "deterministic_base_path",
         "local_worker",
         "manual_review"
       ]

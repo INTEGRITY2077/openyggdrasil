@@ -37,7 +37,6 @@ DEFAULT_CHAIN_MODULES = (
 )
 TARGET_PLATFORM_POLICY = "wsl2_linux_first_native_windows_deferred"
 SANDBOX_BACKEND_POLICY = "sandbox-runtime:bubblewrap_on_wsl2_linux"
-REQUIRED_SANDBOX_BINARIES = ("bwrap", "socat")
 HIGH_EFFORT_LEASE_MODULES = {"distiller", "evaluator"}
 HIGH_EFFORT_LEASE_JOB_TYPES = {
     "distiller": "decision_distillation",
@@ -109,7 +108,7 @@ MODULE_EFFORT_DEFAULTS: dict[str, dict[str, Any]] = {
         "effort_justification_code": "semantic_pathfinding",
         "target_runtime_module": "runtime/ptc/engine.py",
     },
-    "graphify_extract": {
+    "graphify_builder": {
         "requires_reasoning": False,
         "min_effort": "none",
         "preferred_effort": "none",
@@ -118,17 +117,6 @@ MODULE_EFFORT_DEFAULTS: dict[str, dict[str, Any]] = {
         "lease_group": "deterministic",
         "sandbox_required": False,
         "effort_justification_code": "deterministic_map_update",
-        "target_runtime_module": "runtime/retrieval/graphify_snapshot_rebuild.py",
-    },
-    "graphify_semantic": {
-        "requires_reasoning": True,
-        "min_effort": "high",
-        "preferred_effort": "high",
-        "max_useful_effort": "xhigh",
-        "reasoning_depth_area": "response_quality",
-        "lease_group": "deep_reasoning",
-        "sandbox_required": True,
-        "effort_justification_code": "semantic_worthiness_review",
         "target_runtime_module": "runtime/retrieval/graphify_snapshot_rebuild.py",
     },
     "seedkeeper": {

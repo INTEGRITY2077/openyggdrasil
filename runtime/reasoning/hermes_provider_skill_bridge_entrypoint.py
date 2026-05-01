@@ -70,10 +70,6 @@ REF_FIELDS = (
     "provider_skill_package_ref",
     "provider_skill_invocation_ref",
     "provider_subagent_surface_ref",
-    "persona_or_prompt_ref",
-    "schema_ref",
-    "runtime_enforcement_ref",
-    "global_hard_nonclaims_ref",
     "reasoning_lease_ref",
     "lease_budget_ref",
     "ptc_or_subagent_boundary_ref",
@@ -89,10 +85,6 @@ READY_REFS = (
     "provider_skill_package_ref",
     "provider_skill_invocation_ref",
     "provider_subagent_surface_ref",
-    "persona_or_prompt_ref",
-    "schema_ref",
-    "runtime_enforcement_ref",
-    "global_hard_nonclaims_ref",
     "reasoning_lease_ref",
     "ptc_or_subagent_boundary_ref",
     "before_main_context_window_ref",
@@ -210,18 +202,6 @@ UNSAFE_FLAG_REASON_CODES = {
 DEFAULT_SAFETY_FLAGS = {
     flag_name: False for flag_name in UNSAFE_FLAG_REASON_CODES
 }
-DEFAULT_E12B_SURFACE_REFS = {
-    "persona_or_prompt_ref": "persona-ref://openyggdrasil/pathfinder/v1",
-    "schema_ref": (
-        "contract-ref://openyggdrasil/contracts/"
-        "hermes_provider_skill_bridge_entrypoint.v1.schema.json"
-    ),
-    "runtime_enforcement_ref": (
-        "runtime-module-ref://openyggdrasil/runtime/reasoning/"
-        "hermes_provider_skill_bridge_entrypoint.py"
-    ),
-    "global_hard_nonclaims_ref": "persona-ref://openyggdrasil/common/v1",
-}
 
 
 @lru_cache(maxsize=1)
@@ -315,15 +295,11 @@ def _safe_ref_from(request: Mapping[str, Any], field: str) -> str | None:
 
 
 def _safe_refs_from_request(request: Mapping[str, Any]) -> dict[str, str]:
-    safe_refs = {
+    return {
         field: safe_ref
         for field in REF_FIELDS
         if (safe_ref := _safe_ref_from(request, field)) is not None
     }
-    for field, default_ref in DEFAULT_E12B_SURFACE_REFS.items():
-        if request.get(field) is None:
-            safe_refs[field] = default_ref
-    return safe_refs
 
 
 def _unsafe_ref_fields(request: Mapping[str, Any], safe_refs: Mapping[str, str]) -> list[str]:
@@ -391,16 +367,6 @@ def _bridge_request_from_entrypoint(
         ],
         "provider_skill_ref": safe_refs["provider_skill_ref"],
         "provider_subagent_surface_ref": safe_refs["provider_subagent_surface_ref"],
-        "persona_or_prompt_ref": safe_refs["persona_or_prompt_ref"],
-        "schema_ref": (
-            "contract-ref://openyggdrasil/contracts/"
-            "hermes_subagent_reasoning_lease_bridge.v1.schema.json"
-        ),
-        "runtime_enforcement_ref": (
-            "runtime-module-ref://openyggdrasil/runtime/reasoning/"
-            "hermes_subagent_reasoning_lease_bridge.py"
-        ),
-        "global_hard_nonclaims_ref": safe_refs["global_hard_nonclaims_ref"],
         "reasoning_lease_ref": safe_refs["reasoning_lease_ref"],
         "lease_depth_or_effort": lease_depth_or_effort,
         "ptc_or_subagent_boundary_ref": safe_refs["ptc_or_subagent_boundary_ref"],
@@ -835,10 +801,6 @@ def build_hermes_provider_skill_bridge_entrypoint(
                     "ready_static_bridge_entrypoint",
                     "provider_skill_package_present",
                     "app_provider_binding_present",
-                    "persona_or_prompt_ref_present",
-                    "schema_ref_present",
-                    "runtime_enforcement_ref_present",
-                    "global_hard_nonclaims_ref_present",
                     "provider_skill_invocation_ref_mapped_to_r10_proof_ref",
                     "r10_static_bridge_contract_ready",
                 ]
@@ -881,14 +843,6 @@ def build_hermes_provider_skill_bridge_entrypoint(
         ),
         "provider_subagent_surface_ref": _output_ref(
             status, safe_refs, "provider_subagent_surface_ref"
-        ),
-        "persona_or_prompt_ref": _output_ref(status, safe_refs, "persona_or_prompt_ref"),
-        "schema_ref": _output_ref(status, safe_refs, "schema_ref"),
-        "runtime_enforcement_ref": _output_ref(
-            status, safe_refs, "runtime_enforcement_ref"
-        ),
-        "global_hard_nonclaims_ref": _output_ref(
-            status, safe_refs, "global_hard_nonclaims_ref"
         ),
         "reasoning_lease_ref": _output_ref(status, safe_refs, "reasoning_lease_ref"),
         "lease_depth_or_effort": (

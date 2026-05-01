@@ -510,7 +510,7 @@ def run_thin_worker_chain(
     role_fallbacks: RoleFallbacks | None = None,
     vault_root: Path | None = None,
 ) -> dict[str, Any]:
-    """Run R2: accepted signal to machine-verifiable role-boundary chain result.
+    """Run R2: accepted signal to deterministic role-boundary chain result.
 
     This function never writes mailbox packets and never copies provider raw sessions.
     """

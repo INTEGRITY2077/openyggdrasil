@@ -45,7 +45,6 @@ from .engine import (
     validate_provider_subagent_ptc_runner_source_boundary,
     validate_provider_subagent_ptc_same_run_typed_ref_source,
     validate_query_adaptive_pathfinder_plan,
-    verify_sandbox_dependencies,
 )
 
 __all__ = [
@@ -84,5 +83,4 @@ __all__ = [
     "validate_provider_subagent_ptc_runner_source_boundary",
     "validate_provider_subagent_ptc_same_run_typed_ref_source",
     "validate_query_adaptive_pathfinder_plan",
-    "verify_sandbox_dependencies",
 ]
