@@ -142,6 +142,11 @@ PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_HARD_NONCLAIMS = (
     "This runner response ingress is not proof of production PTC implementation.",
     "This runner response ingress is not proof of live readiness or production readiness.",
 )
+PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_PRODUCER_HARD_NONCLAIMS = (
+    "This runner response producer only assembles already-typed safe refs.",
+    "This runner response producer does not execute provider or subagent work.",
+    "This runner response producer is not proof of real provider/subagent invocation.",
+)
 PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_NO_OVERCLAIM_FLAGS = (
     *PROVIDER_SUBAGENT_PTC_INVOCATION_NO_OVERCLAIM_FLAGS,
     "runner_response_ingress_relabelled_as_invocation",
@@ -1308,6 +1313,125 @@ def _validate_runner_response_no_overclaim_flags(flags: Any) -> None:
             raise ValueError(f"unsafe provider/subagent runner response flag: {flag_name}")
 
 
+def _normalize_runner_response_producer_hard_nonclaims(
+    hard_nonclaims: Sequence[str] | None,
+) -> list[str]:
+    values = [
+        *PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_HARD_NONCLAIMS,
+        *PROVIDER_SUBAGENT_PTC_INVOCATION_HARD_NONCLAIMS,
+        *PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_HARD_NONCLAIMS,
+        *PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_PRODUCER_HARD_NONCLAIMS,
+        *_string_list(hard_nonclaims, field_name="hard_nonclaims"),
+    ]
+    _assert_additive_only_hard_nonclaims(values)
+    return values
+
+
+def produce_provider_subagent_ptc_runner_response(
+    *,
+    invocation_command: Mapping[str, Any],
+    provider_or_subagent_invocation_ref: str,
+    role_execution_refs: Mapping[str, Any],
+    before_context_ref: str,
+    after_context_ref: str,
+    typed_result_ref: str | None = None,
+    typed_unavailable_ref: str | None = None,
+    runner_response_ref: str | None = None,
+    hard_nonclaims: Sequence[str] | None = None,
+    no_overclaim_flags: Mapping[str, Any] | None = None,
+    reason_codes: Sequence[str] | None = None,
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    """Produce an R8-ingestible runner response from already-typed safe refs only.
+
+    This producer is not a provider/subagent runner. It assembles caller-supplied
+    typed refs into the exact response shape accepted by R8 ingress and then
+    validates that response through the ingress contract.
+    """
+
+    validate_provider_subagent_ptc_invocation_command(invocation_command)
+    command = dict(invocation_command)
+    active_invocation_ref = _safe_portable_ref(
+        provider_or_subagent_invocation_ref,
+        field_name="provider_or_subagent_invocation_ref",
+    )
+    active_role_execution_refs = _normalize_strict_role_map(
+        role_execution_refs,
+        field_name="role_execution_refs",
+    )
+    active_typed_result_ref = (
+        _safe_portable_ref(typed_result_ref, field_name="typed_result_ref")
+        if typed_result_ref is not None
+        else None
+    )
+    active_typed_unavailable_ref = (
+        _safe_portable_ref(typed_unavailable_ref, field_name="typed_unavailable_ref")
+        if typed_unavailable_ref is not None
+        else None
+    )
+    if (active_typed_result_ref is None) == (active_typed_unavailable_ref is None):
+        raise ValueError("runner response producer requires exactly one typed result or unavailable ref")
+    active_before_context_ref = _safe_portable_ref(
+        before_context_ref,
+        field_name="before_context_ref",
+    )
+    active_after_context_ref = _safe_portable_ref(
+        after_context_ref,
+        field_name="after_context_ref",
+    )
+    active_hard_nonclaims = _normalize_runner_response_producer_hard_nonclaims(
+        hard_nonclaims
+    )
+    active_no_overclaim_flags = dict(
+        no_overclaim_flags
+        or {flag: False for flag in PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_NO_OVERCLAIM_FLAGS}
+    )
+    _validate_runner_response_no_overclaim_flags(active_no_overclaim_flags)
+    active_reason_codes = [
+        "provider_subagent_ptc_runner_response_produced_from_typed_refs_only",
+        "producer_does_not_execute_provider_or_subagent",
+        "safe_refs_only",
+        "hard_nonclaims_preserved",
+        "r8_ingress_validation_required",
+        *_string_list(reason_codes, field_name="reason_codes"),
+    ]
+    token = _route_token(
+        command.get("command_id"),
+        command.get("typed_task_id"),
+        active_invocation_ref,
+        active_typed_result_ref,
+        active_typed_unavailable_ref,
+        active_before_context_ref,
+        active_after_context_ref,
+        tuple(active_role_execution_refs.items()),
+    )
+    active_runner_response_ref = _safe_portable_ref(
+        runner_response_ref
+        or f"provider-subagent-runner-response-ref://openyggdrasil/ptc-producer/{token}",
+        field_name="runner_response_ref",
+    )
+    response = {
+        "same_run_invocation_command": command["same_run_invocation_command"],
+        "typed_task_id": command["typed_task_id"],
+        "provider_or_subagent_invocation_ref": active_invocation_ref,
+        "role_execution_refs": active_role_execution_refs,
+        "typed_result_ref": active_typed_result_ref,
+        "typed_unavailable_ref": active_typed_unavailable_ref,
+        "before_context_ref": active_before_context_ref,
+        "after_context_ref": active_after_context_ref,
+        "hard_nonclaims": active_hard_nonclaims,
+        "no_overclaim_flags": active_no_overclaim_flags,
+        "runner_response_ref": active_runner_response_ref,
+        "reason_codes": active_reason_codes,
+        "generated_at": generated_at or _utc_now_iso(),
+    }
+    ingest_provider_subagent_ptc_runner_response(
+        invocation_command=command,
+        runner_response=response,
+    )
+    return response
+
+
 def ingest_provider_subagent_ptc_runner_response(
     *,
     invocation_command: Mapping[str, Any],
@@ -1969,6 +2093,7 @@ __all__ = [
     "PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_SCHEMA_VERSION",
     "PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_STATUS",
     "PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_NO_OVERCLAIM_FLAGS",
+    "PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_PRODUCER_HARD_NONCLAIMS",
     "REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES",
     "ROLE_POLYMORPHIC_PTC_TELEMETRY_SCHEMA_VERSION",
     "ROLE_POLYMORPHIC_PTC_TELEMETRY_STATUS",
@@ -1981,6 +2106,7 @@ __all__ = [
     "build_query_adaptive_pathfinder_plan",
     "build_role_polymorphic_ptc_telemetry_trace",
     "ingest_provider_subagent_ptc_runner_response",
+    "produce_provider_subagent_ptc_runner_response",
     "render_default_pathfinder_program",
     "render_default_pathfinder_json_plan",
     "render_query_adaptive_pathfinder_program",
