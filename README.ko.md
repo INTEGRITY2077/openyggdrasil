@@ -22,7 +22,7 @@
   <a href="#영감--감사">영감</a>
 </p>
 
-### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-01 16:15 KST, Phase 8 Target: P0-E12C, R19-R2→R19-R3)
+### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-01 17:56 KST, Phase 8 Target: P0-E12C, R19-R2→R19-R3)
 
 > **⚠️ 이 프로젝트는 프로덕션 준비가 되지 않았습니다.**
 > 8차 로드맵(PTC 기반 목표 아키텍처)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
@@ -42,7 +42,7 @@
 |---|---|---|
 | Session Structure Signal | 🟢 LIVE | 나이테 확립. Same-Run Typed Ref Source 검증 완료 |
 | Admission Gate | 🟡 PARTIAL | `source_ref` 계약 검증 동작. Quality Gate P0 이슈 발행됨 |
-| Distiller | 🟡 PARTIAL | 가드레일 + 페르소나 존재. e12c R19-R2 PASS, R19-R3 진행 중 |
+| Distiller | 🟡 PARTIAL | 가드레일 + 페르소나 존재. 기계적/의미론적 워크로드 분리(Decoupling) 제안서 발행됨 |
 | Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet 빌더 구현 완료 |
 | Amundsen | 🟡 PARTIAL | 대륙 분기 스키마 + 런타임 + 페르소나 구현 |
 | Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. NetworkX (BSD-3) Louvain 클린룸 연동 완료 |
@@ -63,10 +63,10 @@
 | 모듈 | 상태 | 비고 |
 |---|---|---|
 | SKILL.md 콜드스타트 | 🟢 LIVE | 프로바이더 자동 인식 및 진입점 호출 동작 |
-| Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586줄.** 5단 호출 체인 구현. R19-R2 PASS, R19-R3 검증 대기 |
+| Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586줄.** 기계적 워크로드 선행 아키텍처 재배치 제안됨 |
 | Persona System (9역할) | 🟢 LIVE | 9개 페르소나 완비 (effort normalizer 대체) |
-| Reasoning Lease | 🟡 PARTIAL | 위임 계약 작동. Bubblewrap 샌드박스 스텁 대기 중 (R19-R3 블로커) |
-| Vault (SOT) | 🟢 LIVE | 디렉토리 제약 및 프론트매터 검증 완벽 동작 |
+| Reasoning Lease | 🟡 PARTIAL | Multi-OS 샌드박스 (Mac/WSL2) 클린룸 제안. Windows 미지원 공식 확정 |
+| Vault (SOT) | 🟡 PARTIAL | 디렉토리 동작. **나이테(Tree Rings) 메타데이터 누락 결함 발견(이슈 발행됨)** |
 | Graphify 파생 뷰 | 🟡 PARTIAL | 커뮤니티 파생 스크립트 동작 (GPL 의존성 제거 완료) |
 | Cross-Provider | 🟡 PARTIAL | 교차 메모리 접근 테스트 PASS |
 | Hermes Adapter | 🟡 PARTIAL | e12c R19-R2 PASS. R19-R3 진행 중 |
@@ -79,8 +79,8 @@
 |---|---|---|---|---|---|---|
 | 생산면 | 10 | 1 | 7 | 2 | 0 | 80% |
 | 소비면 | 4 | 1 | 2 | 1 | 0 | 75% |
-| 인프라 | 11 | 3 | 5 | 1 | 2 | 75% |
-| **전체** | **25** | **5** | **14** | **4** | **2** | **78%** |
+| 인프라 | 11 | 2 | 6 | 1 | 2 | 72% |
+| **전체** | **25** | **4** | **15** | **4** | **2** | **76%** |
 
 
 ## 시스템 요구사항 및 설정

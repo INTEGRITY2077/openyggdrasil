@@ -22,7 +22,7 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Current Status — Architecture Alignment Scorecard (2026-05-01 16:15 KST, Phase 8 Target: P0-E12C, R19-R2→R19-R3)
+### 📊 Current Status — Architecture Alignment Scorecard (2026-05-01 17:56 KST, Phase 8 Target: P0-E12C, R19-R2→R19-R3)
 
 > **⚠️ This project is not production-ready.**
 > We are live-testing the runtime and iterating in the open towards the 8th Roadmap (PTC-based Target Architecture).
@@ -42,7 +42,7 @@ The table below quantifies the alignment between the architecture described in t
 |---|---|---|
 | Session Structure Signal | 🟢 LIVE | Tree Rings established. Same-Run Typed Ref Source verified |
 | Admission Gate | 🟡 PARTIAL | `source_ref` contract verification works. Quality Gate P0 issue raised |
-| Distiller | 🟡 PARTIAL | Guardrail + Persona exist. e12c R19-R2 PASS, R19-R3 in progress |
+| Distiller | 🟡 PARTIAL | Guardrail + Persona exist. Mechanical/Semantic Workload Decoupling proposal issued |
 | Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet builder implemented |
 | Amundsen | 🟡 PARTIAL | Continent branching schema + runtime + Persona implemented |
 | Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. NetworkX (BSD-3) Louvain clean-room integration complete |
@@ -63,10 +63,10 @@ The table below quantifies the alignment between the architecture described in t
 | Module | Status | Remarks |
 |---|---|---|
 | SKILL.md Cold Start | 🟢 LIVE | Automatic provider recognition & entrypoint calling works |
-| Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586 lines.** 5-stage invocation chain implemented. R19-R2 PASS, R19-R3 pending |
+| Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586 lines.** Mechanical workload front-loading architecture proposed |
 | Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
-| Reasoning Lease | 🟡 PARTIAL | Delegation contract works. Bubblewrap Sandbox Stub pending (R19-R3 Blocker) |
-| Vault (SOT) | 🟢 LIVE | Directory constraints & frontmatter validation fully operational |
+| Reasoning Lease | 🟡 PARTIAL | Multi-OS Sandbox (Mac/WSL2) clean-room proposed. Windows native officially unsupported |
+| Vault (SOT) | 🟡 PARTIAL | Directory works. **Tree Rings metadata missing defect found (issue raised)** |
 | Graphify Derived View | 🟡 PARTIAL | Community derivation scripts functional (GPL dependencies removed) |
 | Cross-Provider | 🟡 PARTIAL | Cross-memory access tests PASS |
 | Hermes Adapter | 🟡 PARTIAL | e12c R19-R2 PASS. R19-R3 in progress |
@@ -79,8 +79,8 @@ The table below quantifies the alignment between the architecture described in t
 |---|---|---|---|---|---|---|
 | Production | 10 | 1 | 7 | 2 | 0 | 80% |
 | Consumption | 4 | 1 | 2 | 1 | 0 | 75% |
-| Infrastructure | 11 | 3 | 5 | 1 | 2 | 75% |
-| **Total** | **25** | **5** | **14** | **4** | **2** | **78%** |
+| Infrastructure | 11 | 2 | 6 | 1 | 2 | 72% |
+| **Total** | **25** | **4** | **15** | **4** | **2** | **76%** |
 
 ## Why This Exists
 
