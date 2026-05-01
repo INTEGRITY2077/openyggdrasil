@@ -268,25 +268,11 @@ def newest_session_id(before: Sequence[str], after: Sequence[str]) -> str | None
     return latest
 
 
-def _load_env_exports() -> str:
-    env_path = PROJECT_ROOT.parent / "openyggdrasil-private-dev" / ".env"
-    if not env_path.exists():
-        return ""
-    exports = []
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line and not line.startswith("#") and "=" in line:
-            key, val = line.split("=", 1)
-            exports.append(f"export {key}={shlex.quote(val)}")
-    if exports:
-        return " ".join(exports) + " && "
-    return ""
 
 
 def _run_wsl_bash(script: str, *, timeout_seconds: int = 240) -> subprocess.CompletedProcess[str]:
-    full_script = _load_env_exports() + script
     return subprocess.run(
-        ["wsl", "-d", WSL_DISTRO, "--", "bash", "-lc", full_script],
+        ["wsl", "-d", WSL_DISTRO, "--", "bash", "-lc", script],
         text=True,
         encoding="utf-8",
         errors="replace",
@@ -347,15 +333,39 @@ def sync_probe_auth(
     probe_profile: str = DEFAULT_PROBE_PROFILE,
     clone_from: str = DEFAULT_BASE_PROFILE,
 ) -> Dict[str, Any]:
-    # auth.json sync disabled in favor of stateless .env injection
-    return {
-        "source_auth": "none",
-        "probe_auth": "none",
-        "source_exists": False,
-        "probe_exists": False,
-        "copied": False,
-        "message": "auth.json sync disabled, using .env injection instead"
-    }
+    python_code = f"""
+import json
+import pathlib
+import shutil
+
+probe_profile = {json.dumps(probe_profile)}
+clone_from = {json.dumps(clone_from)}
+
+base = pathlib.Path.home() / ".hermes" / "profiles"
+source_auth = base / clone_from / "auth.json"
+probe_auth = base / probe_profile / "auth.json"
+
+source_exists = source_auth.exists()
+probe_exists = probe_auth.exists()
+copied = False
+
+if source_exists:
+    shutil.copy2(source_auth, probe_auth)
+    copied = True
+
+print(json.dumps({{
+    "source_auth": str(source_auth),
+    "probe_auth": str(probe_auth),
+    "source_exists": source_exists,
+    "probe_exists": probe_exists,
+    "copied": copied,
+    "message": "auth.json sync enabled"
+}}))
+"""
+    completed = run_wsl_python(python_code, timeout_seconds=120, mode="heredoc")
+    if completed.returncode != 0:
+        raise RuntimeError(f"Failed to sync auth.json: {{completed.stderr}}")
+    return json.loads(completed.stdout.strip())
 
 
 def sync_probe_skill(
@@ -703,4 +713,9 @@ def run_hermes_foreground_probe(
         ],
         "attachment_summary": attachment_summary,
         "mode": "hermes-foreground-equivalent-profile-skill-resume-probe",
+        "typed_task_id": None,
+        "typed_result_ref": None,
+        "typed_unavailable_ref": "typed-unavailable-ref://openyggdrasil/foreground-probe-blocked",
+        "before_main_context_window_ref": None,
+        "after_main_context_window_ref": None,
     }
