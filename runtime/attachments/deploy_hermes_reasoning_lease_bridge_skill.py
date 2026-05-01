@@ -35,6 +35,8 @@ ENTRYPOINT_CONTRACT_REF = (
     "contract-ref://openyggdrasil/contracts/"
     "hermes_provider_skill_bridge_entrypoint.v1.schema.json"
 )
+PERSONA_OR_PROMPT_REF = "persona-ref://openyggdrasil/pathfinder/v1"
+GLOBAL_HARD_NONCLAIMS_REF = "persona-ref://openyggdrasil/common/v1"
 SELF_ASSESSMENT_CONTRACT_REF = (
     "contract-ref://openyggdrasil/contracts/"
     "provider_reasoning_self_assessment.v1.schema.json"
@@ -80,6 +82,10 @@ ENTRYPOINT_REQUIRED_FIELDS = (
     "provider_skill_package_ref",
     "provider_skill_invocation_ref",
     "provider_subagent_surface_ref",
+    "persona_or_prompt_ref",
+    "schema_ref",
+    "runtime_enforcement_ref",
+    "global_hard_nonclaims_ref",
     "reasoning_lease_ref",
     "typed_task_id",
     "typed_result_ref_or_typed_unavailable_ref",
@@ -94,6 +100,10 @@ ENVIRONMENT_REQUIRED_FIELDS = (
     "provider_skill_ref",
     "provider_skill_package_ref",
     "provider_subagent_surface_ref",
+    "persona_or_prompt_ref",
+    "schema_ref",
+    "runtime_enforcement_ref",
+    "global_hard_nonclaims_ref",
     "entrypoint_runtime_ref",
     "entrypoint_contract_ref",
     "typed_task_id",
@@ -101,6 +111,9 @@ ENVIRONMENT_REQUIRED_FIELDS = (
     "before_main_context_window_ref",
     "after_main_context_window_ref",
     "unsafe_flags_false",
+)
+SAFE_ARTIFACT_METADATA_STRINGS = frozenset(
+    (*ENTRYPOINT_REQUIRED_FIELDS, *ENVIRONMENT_REQUIRED_FIELDS)
 )
 
 
@@ -151,6 +164,8 @@ def _contains_unsafe_string_value(payload: Any) -> bool:
     if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes)):
         return any(_contains_unsafe_string_value(value) for value in payload)
     if isinstance(payload, str):
+        if payload in SAFE_ARTIFACT_METADATA_STRINGS:
+            return False
         lowered = payload.lower()
         return any(fragment in lowered for fragment in UNSAFE_REF_FRAGMENTS)
     return False
@@ -344,11 +359,42 @@ Provider refs:
 - provider_skill_ref: `{provider_skill_ref}`
 - provider_skill_package_ref: `{provider_skill_package_ref}`
 - provider_subagent_surface_ref: `{provider_subagent_surface_ref}`
+- persona_or_prompt_ref: `{PERSONA_OR_PROMPT_REF}`
+- schema_ref: `{ENTRYPOINT_CONTRACT_REF}`
+- runtime_enforcement_ref: `{ENTRYPOINT_RUNTIME_REF}`
+- global_hard_nonclaims_ref: `{GLOBAL_HARD_NONCLAIMS_REF}`
 - entrypoint_runtime_ref: `{ENTRYPOINT_RUNTIME_REF}`
 - entrypoint_contract_ref: `{ENTRYPOINT_CONTRACT_REF}`
 - provider_reasoning_self_assessment_contract_ref: `{SELF_ASSESSMENT_CONTRACT_REF}`
 - provider_reasoning_effort_normalization_contract_ref: `{EFFORT_NORMALIZATION_CONTRACT_REF}`
 {environment_ref_line}
+
+LLM-facing contract:
+
+Use this when:
+- Hermes is voluntarily handing a typed task to openyggdrasil through this
+  provider skill.
+
+Do not use this when:
+- the task needs raw transcript, raw prompt, credential/profile/state material,
+  Hermes source patching, MCP, a generic gateway, or an agent-adapter.
+
+If ambiguous:
+- self-check local typed refs and return typed unavailable instead of guessing.
+
+Typed unavailable when:
+- provider skill refs, persona refs, schema refs, runtime enforcement refs,
+  typed task/result refs, or before/after context refs cannot be named.
+
+Required evidence refs:
+- `provider_skill_ref`, `provider_subagent_surface_ref`,
+  `persona_or_prompt_ref`, `schema_ref`, `runtime_enforcement_ref`,
+  `reasoning_lease_ref`, typed task/result refs, and before/after context refs.
+
+Hard nonclaims:
+- this handoff is not R10 complete, Reasoning Lease solved, live readiness,
+  production readiness, production PTC implemented, Hermes answer quality, or
+  full product readiness.
 
 Cold-start environment contract:
 
@@ -443,6 +489,10 @@ def build_hermes_reasoning_lease_bridge_package_artifact(
         "provider_skill_ref": provider_skill_ref,
         "provider_skill_package_ref": provider_skill_package_ref,
         "provider_subagent_surface_ref": provider_subagent_surface_ref,
+        "persona_or_prompt_ref": PERSONA_OR_PROMPT_REF,
+        "schema_ref": ENTRYPOINT_CONTRACT_REF,
+        "runtime_enforcement_ref": ENTRYPOINT_RUNTIME_REF,
+        "global_hard_nonclaims_ref": GLOBAL_HARD_NONCLAIMS_REF,
         "skill_markdown_sha256": _markdown_digest(skill_markdown),
         "entrypoint_runtime_ref": ENTRYPOINT_RUNTIME_REF,
         "entrypoint_contract_ref": ENTRYPOINT_CONTRACT_REF,
@@ -484,6 +534,10 @@ def build_hermes_reasoning_lease_bridge_environment_contract(
         "provider_skill_ref": package_artifact["provider_skill_ref"],
         "provider_skill_package_ref": package_artifact["provider_skill_package_ref"],
         "provider_subagent_surface_ref": package_artifact["provider_subagent_surface_ref"],
+        "persona_or_prompt_ref": package_artifact["persona_or_prompt_ref"],
+        "schema_ref": package_artifact["schema_ref"],
+        "runtime_enforcement_ref": package_artifact["runtime_enforcement_ref"],
+        "global_hard_nonclaims_ref": package_artifact["global_hard_nonclaims_ref"],
         "entrypoint_runtime_ref": ENTRYPOINT_RUNTIME_REF,
         "entrypoint_contract_ref": ENTRYPOINT_CONTRACT_REF,
         "entrypoint_required_fields": list(ENTRYPOINT_REQUIRED_FIELDS),
@@ -523,6 +577,10 @@ def build_hermes_reasoning_lease_bridge_binding_artifact(
         "provider_skill_ref": package_artifact["provider_skill_ref"],
         "provider_skill_package_ref": package_artifact["provider_skill_package_ref"],
         "provider_subagent_surface_ref": package_artifact["provider_subagent_surface_ref"],
+        "persona_or_prompt_ref": package_artifact["persona_or_prompt_ref"],
+        "schema_ref": package_artifact["schema_ref"],
+        "runtime_enforcement_ref": package_artifact["runtime_enforcement_ref"],
+        "global_hard_nonclaims_ref": package_artifact["global_hard_nonclaims_ref"],
         "entrypoint_runtime_ref": ENTRYPOINT_RUNTIME_REF,
         "entrypoint_contract_ref": ENTRYPOINT_CONTRACT_REF,
         "entrypoint_required_fields": list(ENTRYPOINT_REQUIRED_FIELDS),
@@ -776,6 +834,10 @@ def cold_start_sync_hermes_reasoning_lease_bridge_skill(
             "provider_skill_ref": package_artifact["provider_skill_ref"],
             "provider_skill_package_ref": package_artifact["provider_skill_package_ref"],
             "provider_subagent_surface_ref": package_artifact["provider_subagent_surface_ref"],
+            "persona_or_prompt_ref": package_artifact["persona_or_prompt_ref"],
+            "schema_ref": package_artifact["schema_ref"],
+            "runtime_enforcement_ref": package_artifact["runtime_enforcement_ref"],
+            "global_hard_nonclaims_ref": package_artifact["global_hard_nonclaims_ref"],
         }
     )
 
@@ -960,6 +1022,10 @@ def warm_start_check_hermes_reasoning_lease_bridge_skill(
         "provider_skill_ref",
         "provider_skill_package_ref",
         "provider_subagent_surface_ref",
+        "persona_or_prompt_ref",
+        "schema_ref",
+        "runtime_enforcement_ref",
+        "global_hard_nonclaims_ref",
         "environment_contract_ref",
     ):
         value = environment_contract.get(key) or binding_artifact.get(key)
@@ -1070,6 +1136,10 @@ def validate_hermes_reasoning_lease_bridge_deploy_result(result: Mapping[str, An
                 "provider_skill_ref",
                 "provider_skill_package_ref",
                 "provider_subagent_surface_ref",
+                "persona_or_prompt_ref",
+                "schema_ref",
+                "runtime_enforcement_ref",
+                "global_hard_nonclaims_ref",
                 "app_provider_binding_ref",
                 "sync_artifact_ref",
                 "entrypoint_runtime_ref",
