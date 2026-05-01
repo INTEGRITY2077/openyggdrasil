@@ -66,7 +66,7 @@
 | Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586줄.** 기계적 워크로드 선행 아키텍처 재배치 제안됨 |
 | Persona System (9역할) | 🟢 LIVE | 9개 페르소나 완비 (effort normalizer 대체) |
 | Reasoning Lease | 🟡 PARTIAL | Multi-OS 샌드박스 (Mac/WSL2) 클린룸 제안. Windows 미지원 공식 확정 |
-| Vault (SOT) | 🟡 PARTIAL | 디렉토리 동작. **나이테(Tree Rings) 메타데이터 누락 결함 발견(이슈 발행됨)** |
+| Vault (SOT) | 🟡 PARTIAL | 디렉토리 동작. 나이테(Tree Rings) 메타데이터 누락 결함 발견(이슈 발행됨) |
 | Graphify 파생 뷰 | 🟡 PARTIAL | 커뮤니티 파생 스크립트 동작 (GPL 의존성 제거 완료) |
 | Cross-Provider | 🟡 PARTIAL | 교차 메모리 접근 테스트 PASS |
 | Hermes Adapter | 🟡 PARTIAL | e12c R19-R2 PASS. R19-R3 진행 중 |

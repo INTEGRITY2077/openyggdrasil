@@ -66,7 +66,7 @@ The table below quantifies the alignment between the architecture described in t
 | Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586 lines.** Mechanical workload front-loading architecture proposed |
 | Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
 | Reasoning Lease | 🟡 PARTIAL | Multi-OS Sandbox (Mac/WSL2) clean-room proposed. Windows native officially unsupported |
-| Vault (SOT) | 🟡 PARTIAL | Directory works. **Tree Rings metadata missing defect found (issue raised)** |
+| Vault (SOT) | 🟡 PARTIAL | Directory works. Tree Rings metadata missing defect found (issue raised) |
 | Graphify Derived View | 🟡 PARTIAL | Community derivation scripts functional (GPL dependencies removed) |
 | Cross-Provider | 🟡 PARTIAL | Cross-memory access tests PASS |
 | Hermes Adapter | 🟡 PARTIAL | e12c R19-R2 PASS. R19-R3 in progress |
