@@ -126,6 +126,7 @@
       ],
       "enum": [
         "deterministic_base_path",
+        "reasoning_unavailable_degraded_path",
         "local_worker",
         "manual_review",
         null
@@ -135,6 +136,7 @@
       "type": "string",
       "enum": [
         "deterministic_base_path_available",
+        "reasoning_unavailable_degraded_path",
         "local_worker_available",
         "manual_review_available",
         "fallback_policy_unavailable"
