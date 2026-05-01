@@ -183,6 +183,32 @@ PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_INVOCATION_BOUNDARY_NO_OVERCLAIM_FLAGS = 
     "provider_session_invocation_completed_claimed",
     "provider_run_refs_fabricated",
 )
+PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_RESULT_SCHEMA_VERSION = (
+    "provider_subagent_ptc_provider_session_runner_result.v1"
+)
+PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_RESULT_STATUS = (
+    "provider_session_runner_typed_unavailable"
+)
+PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_CLAIM_SCOPE = (
+    "provider_session_runner_enablement_not_live_invocation_proof"
+)
+PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_RESULT_KIND = (
+    "safe_provider_session_runner_typed_unavailable_result"
+)
+PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_UNAVAILABLE_REASON = (
+    "provider_session_runner_executor_unavailable"
+)
+PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_HARD_NONCLAIMS = (
+    "This provider/session runner surface returns typed unavailable without executing provider work.",
+    "This provider/session runner surface does not prove real provider/subagent invocation.",
+    "This provider/session runner surface is not proof of live readiness or production readiness.",
+)
+PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_NO_OVERCLAIM_FLAGS = (
+    *PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_INVOCATION_BOUNDARY_NO_OVERCLAIM_FLAGS,
+    "provider_session_runner_relabelled_as_live",
+    "provider_session_runner_completed_invocation_claimed",
+    "provider_run_refs_fabricated_by_runner",
+)
 PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_SCHEMA_VERSION = (
     "provider_subagent_ptc_runner_response_ingress.v1"
 )
@@ -424,6 +450,62 @@ PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_INVOCATION_BOUNDARY_ALLOWED_FIELDS = (
     "boundary_surface_only",
     "safe_provider_session_invocation_boundary",
     "provider_runner_required",
+    "provider_gateway_called",
+    "provider_state_read",
+    "raw_provider_material_included",
+    "raw_transcript_included",
+    "raw_prompt_included",
+    "credential_material_included",
+    "provider_profile_material_included",
+    "provider_state_db_material_included",
+    "provider_profile_or_state_accessed",
+    "provider_cli_executed",
+    "mcp_generic_gateway_or_agent_adapter_used",
+    "real_provider_subagent_invocation_claimed",
+    "hard_nonclaims_preserved",
+    "additive_only_hard_nonclaims",
+    "hard_nonclaims",
+    "no_overclaim_flags",
+    "llm_facing_contract",
+    "runtime_owner",
+    "reason_codes",
+    "generated_at",
+)
+PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_RESULT_ALLOWED_FIELDS = (
+    "schema_version",
+    "runner_result_id",
+    "runner_result_status",
+    "runner_result_kind",
+    "claim_scope",
+    "same_run_invocation_command",
+    "boundary_id",
+    "boundary_status",
+    "boundary_schema_version",
+    "boundary_claim_scope",
+    "provider_session_ref",
+    "provider_session_ref_validated",
+    "typed_task_id",
+    "typed_task_ref",
+    "invocation_request_ref",
+    "provider_or_subagent_invocation_ref",
+    "provider_or_subagent_invocation_typed_unavailable_ref",
+    "provider_or_subagent_invocation_unavailable",
+    "typed_result_ref",
+    "typed_unavailable_ref",
+    "before_context_ref",
+    "before_context_typed_unavailable_ref",
+    "before_context_unavailable",
+    "after_context_ref",
+    "after_context_typed_unavailable_ref",
+    "after_context_unavailable",
+    "role_execution_refs",
+    "role_execution_typed_unavailable_refs",
+    "role_execution_refs_unavailable",
+    "required_provider_run_refs",
+    "runner_surface_only",
+    "provider_runner_executor_available",
+    "safe_typed_unavailable_refs_emitted",
+    "row_8_live_status",
     "provider_gateway_called",
     "provider_state_read",
     "raw_provider_material_included",
@@ -1859,6 +1941,418 @@ def validate_provider_subagent_ptc_provider_session_invocation_boundary(
             "provider/session invocation boundary runtime_owner must be runtime/ptc/engine.py"
         )
     reason_codes = boundary.get("reason_codes")
+    if (
+        not isinstance(reason_codes, Sequence)
+        or isinstance(reason_codes, (str, bytes))
+        or not reason_codes
+    ):
+        raise ValueError("reason_codes are required")
+
+
+def _validate_provider_session_runner_result_payload_fields(
+    payload: Mapping[str, Any],
+) -> None:
+    forbidden = [
+        field
+        for field in PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_FORBIDDEN_FIELDS
+        if field in payload
+    ]
+    if forbidden:
+        raise ValueError(
+            "provider/session runner result contains unsupported raw provider material fields: "
+            + ", ".join(forbidden)
+        )
+    unsupported = [
+        field
+        for field in payload
+        if field not in PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_RESULT_ALLOWED_FIELDS
+    ]
+    if unsupported:
+        raise ValueError(
+            "provider/session runner result contains unsupported fields: "
+            + ", ".join(sorted(unsupported))
+        )
+
+
+def _normalize_provider_session_runner_hard_nonclaims(
+    hard_nonclaims: Sequence[str] | None,
+) -> list[str]:
+    values = [
+        *PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_HARD_NONCLAIMS,
+        *PROVIDER_SUBAGENT_PTC_INVOCATION_HARD_NONCLAIMS,
+        *PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_REF_HARD_NONCLAIMS,
+        *PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_INVOCATION_BOUNDARY_HARD_NONCLAIMS,
+        *PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_HARD_NONCLAIMS,
+        *_string_list(hard_nonclaims, field_name="hard_nonclaims"),
+    ]
+    _assert_additive_only_hard_nonclaims(values)
+    return values
+
+
+def _validate_provider_session_runner_hard_nonclaims(hard_nonclaims: Any) -> None:
+    values = _string_list(hard_nonclaims, field_name="hard_nonclaims")
+    if not values:
+        raise ValueError("provider/session runner result requires hard_nonclaims")
+    missing = [
+        hard_nonclaim
+        for hard_nonclaim in (
+            *PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_HARD_NONCLAIMS,
+            *PROVIDER_SUBAGENT_PTC_INVOCATION_HARD_NONCLAIMS,
+            *PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_REF_HARD_NONCLAIMS,
+            *PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_INVOCATION_BOUNDARY_HARD_NONCLAIMS,
+            *PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_HARD_NONCLAIMS,
+        )
+        if hard_nonclaim not in values
+    ]
+    if missing:
+        raise ValueError("provider/session runner result missing hard nonclaims")
+    _assert_additive_only_hard_nonclaims(values)
+
+
+def _validate_provider_session_runner_no_overclaim_flags(flags: Any) -> None:
+    if not isinstance(flags, Mapping):
+        raise ValueError(
+            "provider/session runner result no_overclaim_flags must be an object"
+        )
+    missing = [
+        flag
+        for flag in PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_NO_OVERCLAIM_FLAGS
+        if flag not in flags
+    ]
+    if missing:
+        raise ValueError(
+            "provider/session runner result no_overclaim_flags missing: "
+            + ", ".join(missing)
+        )
+    for flag_name, value in flags.items():
+        if value is not False:
+            raise ValueError(f"unsafe provider/session runner result flag: {flag_name}")
+
+
+def _default_provider_session_runner_llm_contract(
+    hard_nonclaims: Sequence[str],
+) -> dict[str, Any]:
+    return {
+        "Use this when": (
+            "R25 verified that a safe provider/session runner for "
+            "openyggdrasil.provider_session.invoke.v1 is missing and R26 needs "
+            "a fail-closed runner result surface."
+        ),
+        "Do not use this when": (
+            "Claiming real provider/subagent invocation, executing provider CLIs, "
+            "scraping transcripts, reading prompts, credentials, provider profiles, "
+            "state DBs, MCP, generic gateways, or agent adapters."
+        ),
+        "If ambiguous": (
+            "Return typed unavailable refs with exact missing provider-run terms "
+            "instead of using unsafe provider material."
+        ),
+        "Typed unavailable when": (
+            "No safe provider runner executor is available to return a real "
+            "provider_or_subagent_invocation_ref, before_context_ref, "
+            "after_context_ref, and role_execution_refs."
+        ),
+        "Required evidence refs": [
+            "provider_session_ref",
+            "typed_task_ref",
+            "provider_or_subagent_invocation_ref_or_typed_unavailable_ref",
+            "typed_result_ref_or_typed_unavailable_ref",
+            "before_context_ref_or_typed_unavailable_ref",
+            "after_context_ref_or_typed_unavailable_ref",
+            "role_execution_refs_or_typed_unavailable_refs",
+            "Worker4_row_8_verification",
+        ],
+        "Hard nonclaims": list(hard_nonclaims),
+    }
+
+
+def _validate_provider_session_runner_llm_contract(contract: Any) -> None:
+    if not isinstance(contract, Mapping):
+        raise ValueError("llm_facing_contract must be an object")
+    missing = [
+        section
+        for section in PROVIDER_SUBAGENT_PTC_INVOCATION_LLM_CONTRACT_SECTIONS
+        if section not in contract
+    ]
+    if missing:
+        raise ValueError(f"llm_facing_contract missing sections: {', '.join(missing)}")
+    for section in PROVIDER_SUBAGENT_PTC_INVOCATION_LLM_CONTRACT_SECTIONS:
+        value = contract.get(section)
+        if value is None or value == "" or value == []:
+            raise ValueError(f"llm_facing_contract section is empty: {section}")
+    _validate_provider_session_runner_hard_nonclaims(contract.get("Hard nonclaims"))
+
+
+def build_provider_subagent_ptc_provider_session_runner_typed_unavailable_result(
+    *,
+    provider_session_invocation_boundary: Mapping[str, Any],
+    unavailable_reason_code: str = (
+        PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_UNAVAILABLE_REASON
+    ),
+    typed_unavailable_ref: str | None = None,
+    hard_nonclaims: Sequence[str] | None = None,
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    """Build a fail-closed provider/session runner result from an R24 boundary.
+
+    This is a runner surface enablement, not a provider executor. When no safe
+    executor is available it emits typed-unavailable refs for the required
+    provider-run terms and preserves the bounded R24 command contract.
+    """
+
+    validate_provider_subagent_ptc_provider_session_invocation_boundary(
+        provider_session_invocation_boundary
+    )
+    boundary = dict(provider_session_invocation_boundary)
+    active_reason = _safe_identifier(
+        unavailable_reason_code,
+        field_name="unavailable_reason_code",
+    )
+    token = _route_token(
+        boundary["boundary_id"],
+        boundary["typed_task_ref"],
+        active_reason,
+    )
+    base_unavailable_ref = typed_unavailable_ref or (
+        f"typed-unavailable-ref://openyggdrasil/provider-session-runner/{token}"
+    )
+    active_typed_unavailable_ref = _safe_portable_ref(
+        base_unavailable_ref,
+        field_name="typed_unavailable_ref",
+    )
+    provider_invocation_typed_unavailable_ref = _safe_portable_ref(
+        f"{active_typed_unavailable_ref}/provider-or-subagent-invocation",
+        field_name="provider_or_subagent_invocation_typed_unavailable_ref",
+    )
+    before_context_typed_unavailable_ref = _safe_portable_ref(
+        f"{active_typed_unavailable_ref}/before-context",
+        field_name="before_context_typed_unavailable_ref",
+    )
+    after_context_typed_unavailable_ref = _safe_portable_ref(
+        f"{active_typed_unavailable_ref}/after-context",
+        field_name="after_context_typed_unavailable_ref",
+    )
+    role_execution_typed_unavailable_refs = {
+        role: f"{active_typed_unavailable_ref}/role/{role}"
+        for role in REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES
+    }
+    normalized_role_unavailable_refs = _normalize_strict_role_map(
+        role_execution_typed_unavailable_refs,
+        field_name="role_execution_typed_unavailable_refs",
+    )
+    active_hard_nonclaims = _normalize_provider_session_runner_hard_nonclaims(
+        hard_nonclaims
+    )
+    result = {
+        "schema_version": (
+            PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_RESULT_SCHEMA_VERSION
+        ),
+        "runner_result_id": f"provider-session-runner-result-{token}",
+        "runner_result_status": (
+            PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_RESULT_STATUS
+        ),
+        "runner_result_kind": (
+            PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_RESULT_KIND
+        ),
+        "claim_scope": PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_CLAIM_SCOPE,
+        "same_run_invocation_command": boundary["same_run_invocation_command"],
+        "boundary_id": boundary["boundary_id"],
+        "boundary_status": boundary["boundary_status"],
+        "boundary_schema_version": boundary["schema_version"],
+        "boundary_claim_scope": boundary["claim_scope"],
+        "provider_session_ref": boundary["provider_session_ref"],
+        "provider_session_ref_validated": True,
+        "typed_task_id": boundary["typed_task_id"],
+        "typed_task_ref": boundary["typed_task_ref"],
+        "invocation_request_ref": boundary["invocation_request_ref"],
+        "provider_or_subagent_invocation_ref": None,
+        "provider_or_subagent_invocation_typed_unavailable_ref": (
+            provider_invocation_typed_unavailable_ref
+        ),
+        "provider_or_subagent_invocation_unavailable": active_reason,
+        "typed_result_ref": None,
+        "typed_unavailable_ref": active_typed_unavailable_ref,
+        "before_context_ref": None,
+        "before_context_typed_unavailable_ref": before_context_typed_unavailable_ref,
+        "before_context_unavailable": "before_context_ref_not_returned_without_provider_runner",
+        "after_context_ref": None,
+        "after_context_typed_unavailable_ref": after_context_typed_unavailable_ref,
+        "after_context_unavailable": "after_context_ref_not_returned_without_provider_runner",
+        "role_execution_refs": None,
+        "role_execution_typed_unavailable_refs": normalized_role_unavailable_refs,
+        "role_execution_refs_unavailable": (
+            "role_execution_refs_not_returned_without_provider_runner"
+        ),
+        "required_provider_run_refs": boundary["required_provider_run_refs"],
+        "runner_surface_only": True,
+        "provider_runner_executor_available": False,
+        "safe_typed_unavailable_refs_emitted": True,
+        "row_8_live_status": "RUNNER_TYPED_UNAVAILABLE_NOT_LIVE",
+        "provider_gateway_called": False,
+        "provider_state_read": False,
+        "raw_provider_material_included": False,
+        "raw_transcript_included": False,
+        "raw_prompt_included": False,
+        "credential_material_included": False,
+        "provider_profile_material_included": False,
+        "provider_state_db_material_included": False,
+        "provider_profile_or_state_accessed": False,
+        "provider_cli_executed": False,
+        "mcp_generic_gateway_or_agent_adapter_used": False,
+        "real_provider_subagent_invocation_claimed": False,
+        "hard_nonclaims_preserved": True,
+        "additive_only_hard_nonclaims": True,
+        "hard_nonclaims": active_hard_nonclaims,
+        "no_overclaim_flags": {
+            flag: False
+            for flag in PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_NO_OVERCLAIM_FLAGS
+        },
+        "llm_facing_contract": _default_provider_session_runner_llm_contract(
+            active_hard_nonclaims
+        ),
+        "runtime_owner": "runtime/ptc/engine.py",
+        "reason_codes": [
+            "provider_session_runner_typed_unavailable_surface_built",
+            active_reason,
+            "provider_session_invocation_boundary_validated",
+            "unsafe_provider_material_not_used",
+            "hard_nonclaims_preserved",
+        ],
+        "generated_at": generated_at or _utc_now_iso(),
+    }
+    validate_provider_subagent_ptc_provider_session_runner_result(result)
+    return result
+
+
+def validate_provider_subagent_ptc_provider_session_runner_result(
+    payload: Mapping[str, Any],
+) -> None:
+    result = dict(payload)
+    _validate_provider_session_runner_result_payload_fields(result)
+    if (
+        result.get("schema_version")
+        != PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_RESULT_SCHEMA_VERSION
+    ):
+        raise ValueError("invalid provider/session runner result schema_version")
+    if (
+        result.get("runner_result_status")
+        != PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_RESULT_STATUS
+    ):
+        raise ValueError("invalid provider/session runner result status")
+    if (
+        result.get("runner_result_kind")
+        != PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_RESULT_KIND
+    ):
+        raise ValueError("invalid provider/session runner result kind")
+    if (
+        result.get("claim_scope")
+        != PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_CLAIM_SCOPE
+    ):
+        raise ValueError("invalid provider/session runner result claim_scope")
+    if (
+        result.get("same_run_invocation_command")
+        != PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_INVOCATION_COMMAND_NAME
+    ):
+        raise ValueError("invalid provider/session runner result command")
+    if (
+        result.get("boundary_schema_version")
+        != PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_INVOCATION_BOUNDARY_SCHEMA_VERSION
+    ):
+        raise ValueError("invalid provider/session runner boundary schema")
+    if (
+        result.get("boundary_status")
+        != PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_INVOCATION_BOUNDARY_STATUS
+    ):
+        raise ValueError("invalid provider/session runner boundary status")
+    if (
+        result.get("boundary_claim_scope")
+        != PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_INVOCATION_BOUNDARY_CLAIM_SCOPE
+    ):
+        raise ValueError("invalid provider/session runner boundary claim_scope")
+    _safe_identifier(result.get("runner_result_id"), field_name="runner_result_id")
+    _safe_identifier(result.get("boundary_id"), field_name="boundary_id")
+    _safe_identifier(result.get("typed_task_id"), field_name="typed_task_id")
+    _safe_identifier(
+        result.get("provider_or_subagent_invocation_unavailable"),
+        field_name="provider_or_subagent_invocation_unavailable",
+    )
+    for field in (
+        "provider_session_ref",
+        "typed_task_ref",
+        "invocation_request_ref",
+        "provider_or_subagent_invocation_typed_unavailable_ref",
+        "typed_unavailable_ref",
+        "before_context_typed_unavailable_ref",
+        "after_context_typed_unavailable_ref",
+    ):
+        _safe_portable_ref(result.get(field), field_name=field)
+    if result.get("provider_or_subagent_invocation_ref") is not None:
+        raise ValueError(
+            "provider/session runner typed-unavailable result must not claim provider_or_subagent_invocation_ref"
+        )
+    if result.get("typed_result_ref") is not None:
+        raise ValueError(
+            "provider/session runner typed-unavailable result must not claim typed_result_ref"
+        )
+    if result.get("before_context_ref") is not None:
+        raise ValueError(
+            "provider/session runner typed-unavailable result must not claim before_context_ref"
+        )
+    if result.get("after_context_ref") is not None:
+        raise ValueError(
+            "provider/session runner typed-unavailable result must not claim after_context_ref"
+        )
+    if result.get("role_execution_refs") is not None:
+        raise ValueError(
+            "provider/session runner typed-unavailable result must not claim role_execution_refs"
+        )
+    role_unavailable_refs = _normalize_strict_role_map(
+        result.get("role_execution_typed_unavailable_refs") or {},
+        field_name="role_execution_typed_unavailable_refs",
+    )
+    if result.get("role_execution_typed_unavailable_refs") != role_unavailable_refs:
+        raise ValueError("role_execution_typed_unavailable_refs must be normalized")
+    for field in (
+        "before_context_unavailable",
+        "after_context_unavailable",
+        "role_execution_refs_unavailable",
+    ):
+        _safe_identifier(result.get(field), field_name=field)
+    if result.get("required_provider_run_refs") != list(
+        PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_INVOCATION_REQUIRED_OUTPUT_REFS
+    ):
+        raise ValueError(
+            "required_provider_run_refs must match provider/session invocation boundary contract"
+        )
+    for field in (
+        "provider_session_ref_validated",
+        "runner_surface_only",
+        "safe_typed_unavailable_refs_emitted",
+        "hard_nonclaims_preserved",
+        "additive_only_hard_nonclaims",
+    ):
+        if result.get(field) is not True:
+            raise ValueError(f"provider/session runner result requires {field}=True")
+    if result.get("provider_runner_executor_available") is not False:
+        raise ValueError(
+            "provider/session runner result requires provider_runner_executor_available=False"
+        )
+    if result.get("row_8_live_status") != "RUNNER_TYPED_UNAVAILABLE_NOT_LIVE":
+        raise ValueError("provider/session runner result must keep row_8 not live")
+    _validate_provider_material_absence(result)
+    for field in ("provider_profile_or_state_accessed", "provider_cli_executed"):
+        if result.get(field) is not False:
+            raise ValueError(f"provider/session runner result requires {field}=False")
+    _validate_provider_session_runner_hard_nonclaims(result.get("hard_nonclaims"))
+    _validate_provider_session_runner_no_overclaim_flags(
+        result.get("no_overclaim_flags")
+    )
+    _validate_provider_session_runner_llm_contract(result.get("llm_facing_contract"))
+    if result.get("runtime_owner") != "runtime/ptc/engine.py":
+        raise ValueError(
+            "provider/session runner result runtime_owner must be runtime/ptc/engine.py"
+        )
+    reason_codes = result.get("reason_codes")
     if (
         not isinstance(reason_codes, Sequence)
         or isinstance(reason_codes, (str, bytes))
@@ -4028,6 +4522,10 @@ __all__ = [
     "PROVIDER_SUBAGENT_PTC_INVOCATION_UNAVAILABLE_RESULT_SCHEMA_VERSION",
     "PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_INVOCATION_BOUNDARY_SCHEMA_VERSION",
     "PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_INVOCATION_BOUNDARY_STATUS",
+    "PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_HARD_NONCLAIMS",
+    "PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_NO_OVERCLAIM_FLAGS",
+    "PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_RESULT_SCHEMA_VERSION",
+    "PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_RUNNER_RESULT_STATUS",
     "PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_REF_SCHEMA_VERSION",
     "PROVIDER_SUBAGENT_PTC_PROVIDER_SESSION_REF_STATUS",
     "PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_SCHEMA_VERSION",
@@ -4053,6 +4551,7 @@ __all__ = [
     "build_provider_subagent_ptc_invocation_unavailable_result",
     "build_provider_subagent_ptc_provider_session_invocation_boundary",
     "build_provider_subagent_ptc_provider_session_ref",
+    "build_provider_subagent_ptc_provider_session_runner_typed_unavailable_result",
     "build_query_adaptive_pathfinder_plan",
     "build_role_polymorphic_ptc_telemetry_trace",
     "ingest_provider_subagent_ptc_runner_response",
@@ -4070,6 +4569,7 @@ __all__ = [
     "validate_provider_subagent_ptc_invocation_unavailable_result",
     "validate_provider_subagent_ptc_provider_session_invocation_boundary",
     "validate_provider_subagent_ptc_provider_session_ref",
+    "validate_provider_subagent_ptc_provider_session_runner_result",
     "validate_provider_subagent_ptc_runner_response_ingress",
     "validate_provider_subagent_ptc_runner_source_boundary",
     "validate_provider_subagent_ptc_same_run_typed_ref_source",
