@@ -128,6 +128,58 @@ PROVIDER_SUBAGENT_PTC_INVOCATION_NO_OVERCLAIM_FLAGS = (
     "provider_state_read",
     "command_surface_relabelled_as_invocation",
 )
+PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_SCHEMA_VERSION = (
+    "provider_subagent_ptc_runner_response_ingress.v1"
+)
+PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_STATUS = "runner_response_ingress_validated"
+PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_CLAIM_SCOPE = (
+    "safe_runner_response_ingress_not_live_invocation_proof"
+)
+PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_HARD_NONCLAIMS = (
+    "This runner response ingress validates safe refs only.",
+    "This runner response ingress is not a provider or subagent runner.",
+    "This runner response ingress does not prove a real Hermes live invocation.",
+    "This runner response ingress is not proof of production PTC implementation.",
+    "This runner response ingress is not proof of live readiness or production readiness.",
+)
+PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_NO_OVERCLAIM_FLAGS = (
+    *PROVIDER_SUBAGENT_PTC_INVOCATION_NO_OVERCLAIM_FLAGS,
+    "runner_response_ingress_relabelled_as_invocation",
+    "runner_response_ingress_claimed_live_proof",
+    "raw_runner_payload_material_included",
+)
+PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_ALLOWED_FIELDS = (
+    "same_run_invocation_command",
+    "typed_task_id",
+    "provider_or_subagent_invocation_ref",
+    "role_execution_refs",
+    "typed_result_ref",
+    "typed_unavailable_ref",
+    "before_context_ref",
+    "after_context_ref",
+    "hard_nonclaims",
+    "no_overclaim_flags",
+    "runner_response_ref",
+    "reason_codes",
+    "generated_at",
+)
+PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_FORBIDDEN_FIELDS = (
+    "raw_provider_material",
+    "raw_runner_payload",
+    "raw_transcript",
+    "transcript",
+    "raw_prompt",
+    "prompt",
+    "credentials",
+    "credential_material",
+    "provider_profile",
+    "provider_state",
+    "provider_state_db",
+    "state_db",
+    "mcp_result",
+    "generic_gateway_result",
+    "agent_adapter_result",
+)
 HARD_NONCLAIM_WEAKENING_TOKENS = (
     "override global",
     "weaken global",
@@ -1185,6 +1237,301 @@ def validate_provider_subagent_ptc_invocation_unavailable_result(
         raise ValueError("reason_codes are required")
 
 
+def _validate_runner_response_payload_fields(runner_response: Mapping[str, Any]) -> None:
+    forbidden = [
+        field
+        for field in PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_FORBIDDEN_FIELDS
+        if field in runner_response
+    ]
+    if forbidden:
+        raise ValueError(
+            "runner response contains unsupported raw provider material fields: "
+            + ", ".join(forbidden)
+        )
+    unsupported = [
+        field
+        for field in runner_response
+        if field not in PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_ALLOWED_FIELDS
+    ]
+    if unsupported:
+        raise ValueError(
+            "runner response contains unsupported fields: " + ", ".join(sorted(unsupported))
+        )
+
+
+def _normalize_runner_response_hard_nonclaims(
+    hard_nonclaims: Sequence[str] | None,
+) -> list[str]:
+    runner_hard_nonclaims = _string_list(hard_nonclaims, field_name="runner_response.hard_nonclaims")
+    if not runner_hard_nonclaims:
+        raise ValueError("runner response requires hard_nonclaims")
+    values = [
+        *PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_HARD_NONCLAIMS,
+        *PROVIDER_SUBAGENT_PTC_INVOCATION_HARD_NONCLAIMS,
+        *PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_HARD_NONCLAIMS,
+        *runner_hard_nonclaims,
+    ]
+    _assert_additive_only_hard_nonclaims(values)
+    return values
+
+
+def _validate_runner_response_hard_nonclaims(hard_nonclaims: Any) -> None:
+    values = _string_list(hard_nonclaims, field_name="hard_nonclaims")
+    if not values:
+        raise ValueError("runner response ingress requires hard_nonclaims")
+    missing = [
+        hard_nonclaim
+        for hard_nonclaim in (
+            *PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_HARD_NONCLAIMS,
+            *PROVIDER_SUBAGENT_PTC_INVOCATION_HARD_NONCLAIMS,
+            *PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_HARD_NONCLAIMS,
+        )
+        if hard_nonclaim not in values
+    ]
+    if missing:
+        raise ValueError("runner response ingress missing hard nonclaims")
+    _assert_additive_only_hard_nonclaims(values)
+
+
+def _validate_runner_response_no_overclaim_flags(flags: Any) -> None:
+    if not isinstance(flags, Mapping):
+        raise ValueError("runner response no_overclaim_flags must be an object")
+    missing = [
+        flag
+        for flag in PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_NO_OVERCLAIM_FLAGS
+        if flag not in flags
+    ]
+    if missing:
+        raise ValueError(f"runner response no_overclaim_flags missing: {', '.join(missing)}")
+    for flag_name, value in flags.items():
+        if value is not False:
+            raise ValueError(f"unsafe provider/subagent runner response flag: {flag_name}")
+
+
+def ingest_provider_subagent_ptc_runner_response(
+    *,
+    invocation_command: Mapping[str, Any],
+    runner_response: Mapping[str, Any],
+    runner_response_ref: str | None = None,
+    ingress_ref: str | None = None,
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    """Validate and ingest safe refs from a provider/subagent runner response.
+
+    This ingress does not execute a provider/subagent and does not prove live
+    invocation. It only accepts the typed refs needed for a later verifier.
+    """
+
+    validate_provider_subagent_ptc_invocation_command(invocation_command)
+    command = dict(invocation_command)
+    if not isinstance(runner_response, Mapping):
+        raise ValueError("runner_response must be an object")
+    response = dict(runner_response)
+    _validate_runner_response_payload_fields(response)
+    if response.get("same_run_invocation_command") != command.get("same_run_invocation_command"):
+        raise ValueError("runner response command must match invocation command")
+    if response.get("same_run_invocation_command") != PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_NAME:
+        raise ValueError("invalid provider/subagent runner response command")
+    active_typed_task_id = _safe_identifier(
+        response.get("typed_task_id"),
+        field_name="typed_task_id",
+    )
+    if active_typed_task_id != command.get("typed_task_id"):
+        raise ValueError("runner response typed_task_id must match invocation command")
+    active_invocation_ref = _safe_portable_ref(
+        response.get("provider_or_subagent_invocation_ref"),
+        field_name="provider_or_subagent_invocation_ref",
+    )
+    active_role_execution_refs = _normalize_strict_role_map(
+        response.get("role_execution_refs") or {},
+        field_name="role_execution_refs",
+    )
+    active_typed_result_ref = (
+        _safe_portable_ref(response.get("typed_result_ref"), field_name="typed_result_ref")
+        if response.get("typed_result_ref") is not None
+        else None
+    )
+    active_typed_unavailable_ref = (
+        _safe_portable_ref(
+            response.get("typed_unavailable_ref"),
+            field_name="typed_unavailable_ref",
+        )
+        if response.get("typed_unavailable_ref") is not None
+        else None
+    )
+    if (active_typed_result_ref is None) == (active_typed_unavailable_ref is None):
+        raise ValueError("runner response requires exactly one typed result or typed unavailable ref")
+    active_before_context_ref = _safe_portable_ref(
+        response.get("before_context_ref"),
+        field_name="before_context_ref",
+    )
+    active_after_context_ref = _safe_portable_ref(
+        response.get("after_context_ref"),
+        field_name="after_context_ref",
+    )
+    active_hard_nonclaims = _normalize_runner_response_hard_nonclaims(
+        response.get("hard_nonclaims")
+    )
+    _validate_runner_response_no_overclaim_flags(response.get("no_overclaim_flags"))
+    response_reason_codes = _string_list(
+        response.get("reason_codes"),
+        field_name="runner_response.reason_codes",
+    )
+    token = _route_token(
+        command.get("command_id"),
+        active_typed_task_id,
+        active_invocation_ref,
+        active_typed_result_ref,
+        active_typed_unavailable_ref,
+        active_before_context_ref,
+        active_after_context_ref,
+        tuple(active_role_execution_refs.items()),
+    )
+    active_runner_response_ref = _safe_portable_ref(
+        runner_response_ref
+        or response.get("runner_response_ref")
+        or f"provider-subagent-runner-response-ref://openyggdrasil/ptc/{token}",
+        field_name="runner_response_ref",
+    )
+    active_ingress_ref = _safe_portable_ref(
+        ingress_ref or f"runner-response-ingress-ref://openyggdrasil/ptc/{token}",
+        field_name="ingress_ref",
+    )
+    ingress = {
+        "schema_version": PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_SCHEMA_VERSION,
+        "ingress_id": f"provider-subagent-ptc-runner-response-ingress-{token}",
+        "ingress_ref": active_ingress_ref,
+        "ingress_status": PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_STATUS,
+        "claim_scope": PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_CLAIM_SCOPE,
+        "same_run_invocation_command": command["same_run_invocation_command"],
+        "command_id": command["command_id"],
+        "typed_task_id": active_typed_task_id,
+        "typed_task_ref": command["typed_task_ref"],
+        "invocation_request_ref": command["invocation_request_ref"],
+        "execution_trace_ref": command["execution_trace_ref"],
+        "ptc_telemetry_ref": command["ptc_telemetry_ref"],
+        "runner_response_ref": active_runner_response_ref,
+        "provider_or_subagent_invocation_ref": active_invocation_ref,
+        "role_execution_refs": active_role_execution_refs,
+        "typed_result_ref": active_typed_result_ref,
+        "typed_unavailable_ref": active_typed_unavailable_ref,
+        "before_context_ref": active_before_context_ref,
+        "after_context_ref": active_after_context_ref,
+        "required_response_refs": list(PROVIDER_SUBAGENT_PTC_INVOCATION_REQUIRED_RESPONSE_REFS),
+        "typed_result_unavailable_contract": command["typed_result_unavailable_contract"],
+        "context_ref_contract": command["context_ref_contract"],
+        "role_execution_ref_contract": command["role_execution_ref_contract"],
+        "provider_boundary_contract": command["provider_boundary_contract"],
+        "command_validated": True,
+        "runner_response_validated": True,
+        "runner_response_ingress_only": True,
+        "role_execution_refs_validated": True,
+        "typed_result_contract_validated": True,
+        "context_refs_validated": True,
+        "safe_refs_only": True,
+        "provider_gateway_called": False,
+        "provider_state_read": False,
+        "raw_provider_material_included": False,
+        "raw_transcript_included": False,
+        "raw_prompt_included": False,
+        "credential_material_included": False,
+        "provider_profile_material_included": False,
+        "provider_state_db_material_included": False,
+        "mcp_generic_gateway_or_agent_adapter_used": False,
+        "real_provider_subagent_invocation_claimed": False,
+        "additive_only_hard_nonclaims": True,
+        "hard_nonclaims": active_hard_nonclaims,
+        "no_overclaim_flags": {
+            flag: False for flag in PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_NO_OVERCLAIM_FLAGS
+        },
+        "runtime_owner": "runtime/ptc/engine.py",
+        "reason_codes": [
+            "provider_subagent_ptc_runner_response_ingress_validated",
+            "invocation_command_validated",
+            "runner_response_safe_refs_validated",
+            "typed_result_or_unavailable_validated",
+            "before_after_context_refs_validated",
+            "role_execution_refs_validated",
+            "hard_nonclaims_preserved",
+            *response_reason_codes,
+        ],
+        "generated_at": generated_at or _utc_now_iso(),
+    }
+    validate_provider_subagent_ptc_runner_response_ingress(ingress)
+    return ingress
+
+
+def validate_provider_subagent_ptc_runner_response_ingress(
+    payload: Mapping[str, Any],
+) -> None:
+    ingress = dict(payload)
+    if ingress.get("schema_version") != PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_SCHEMA_VERSION:
+        raise ValueError("invalid provider/subagent runner response ingress schema_version")
+    if ingress.get("ingress_status") != PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_STATUS:
+        raise ValueError("invalid provider/subagent runner response ingress status")
+    if ingress.get("claim_scope") != PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_CLAIM_SCOPE:
+        raise ValueError("invalid provider/subagent runner response ingress claim_scope")
+    if ingress.get("same_run_invocation_command") != PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_NAME:
+        raise ValueError("invalid provider/subagent runner response ingress command")
+    _safe_identifier(ingress.get("typed_task_id"), field_name="typed_task_id")
+    for field in (
+        "ingress_ref",
+        "typed_task_ref",
+        "invocation_request_ref",
+        "execution_trace_ref",
+        "ptc_telemetry_ref",
+        "runner_response_ref",
+        "provider_or_subagent_invocation_ref",
+        "before_context_ref",
+        "after_context_ref",
+    ):
+        _safe_portable_ref(ingress.get(field), field_name=field)
+    role_refs = _normalize_strict_role_map(
+        ingress.get("role_execution_refs") or {},
+        field_name="role_execution_refs",
+    )
+    if ingress.get("role_execution_refs") != role_refs:
+        raise ValueError("role_execution_refs must be normalized required role refs")
+    active_typed_result_ref = ingress.get("typed_result_ref")
+    active_typed_unavailable_ref = ingress.get("typed_unavailable_ref")
+    if active_typed_result_ref is not None:
+        _safe_portable_ref(active_typed_result_ref, field_name="typed_result_ref")
+    if active_typed_unavailable_ref is not None:
+        _safe_portable_ref(active_typed_unavailable_ref, field_name="typed_unavailable_ref")
+    if (active_typed_result_ref is None) == (active_typed_unavailable_ref is None):
+        raise ValueError("runner response ingress requires exactly one typed result or unavailable ref")
+    if ingress.get("required_response_refs") != list(
+        PROVIDER_SUBAGENT_PTC_INVOCATION_REQUIRED_RESPONSE_REFS
+    ):
+        raise ValueError("required_response_refs must match provider/subagent invocation contract")
+    for field in (
+        "typed_result_unavailable_contract",
+        "context_ref_contract",
+        "role_execution_ref_contract",
+        "provider_boundary_contract",
+    ):
+        if not str(ingress.get(field) or "").strip():
+            raise ValueError(f"{field} is required")
+    for field in (
+        "command_validated",
+        "runner_response_validated",
+        "runner_response_ingress_only",
+        "role_execution_refs_validated",
+        "typed_result_contract_validated",
+        "context_refs_validated",
+        "safe_refs_only",
+        "additive_only_hard_nonclaims",
+    ):
+        if ingress.get(field) is not True:
+            raise ValueError(f"provider/subagent runner response ingress requires {field}=True")
+    _validate_provider_material_absence(ingress)
+    _validate_runner_response_hard_nonclaims(ingress.get("hard_nonclaims"))
+    _validate_runner_response_no_overclaim_flags(ingress.get("no_overclaim_flags"))
+    reason_codes = ingress.get("reason_codes")
+    if not isinstance(reason_codes, Sequence) or isinstance(reason_codes, (str, bytes)) or not reason_codes:
+        raise ValueError("reason_codes are required")
+
+
 def _clamp_int(value: int, *, minimum: int, maximum: int) -> int:
     return max(minimum, min(int(value), maximum))
 
@@ -1619,6 +1966,9 @@ __all__ = [
     "PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_SCHEMA_VERSION",
     "PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_STATUS",
     "PROVIDER_SUBAGENT_PTC_INVOCATION_UNAVAILABLE_RESULT_SCHEMA_VERSION",
+    "PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_SCHEMA_VERSION",
+    "PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_STATUS",
+    "PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_NO_OVERCLAIM_FLAGS",
     "REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES",
     "ROLE_POLYMORPHIC_PTC_TELEMETRY_SCHEMA_VERSION",
     "ROLE_POLYMORPHIC_PTC_TELEMETRY_STATUS",
@@ -1630,6 +1980,7 @@ __all__ = [
     "build_provider_subagent_ptc_invocation_unavailable_result",
     "build_query_adaptive_pathfinder_plan",
     "build_role_polymorphic_ptc_telemetry_trace",
+    "ingest_provider_subagent_ptc_runner_response",
     "render_default_pathfinder_program",
     "render_default_pathfinder_json_plan",
     "render_query_adaptive_pathfinder_program",
@@ -1638,6 +1989,7 @@ __all__ = [
     "validate_provider_subagent_ptc_execution_trace_packet",
     "validate_provider_subagent_ptc_invocation_command",
     "validate_provider_subagent_ptc_invocation_unavailable_result",
+    "validate_provider_subagent_ptc_runner_response_ingress",
     "validate_query_adaptive_pathfinder_plan",
     "validate_role_polymorphic_ptc_telemetry_trace",
 ]
