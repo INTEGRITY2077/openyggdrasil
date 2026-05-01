@@ -46,7 +46,7 @@
 | Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet 빌더 구현 완료 |
 | Amundsen | 🟡 PARTIAL | 대륙 분기 스키마 + 런타임 + 페르소나 구현 |
 | Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. NetworkX (BSD-3) Louvain 클린룸 연동 완료 |
-| Gardener | 🟡 PARTIAL | 물리적 식재 + **페르소나 신규 추가**. 자동 치유 미완 |
+| Gardener | 🟡 PARTIAL | 물리적 식재 + 페르소나 신규 추가. 자동 치유 미완 |
 | Postman | 🟡 PARTIAL | Runner Source Packet Producer 커밋(`37b2dac`). R19-R2 PASS |
 | 수동 편집 보호 | 🟠 STUB | P1 이슈 및 설계 제안서 발행됨 |
 | 피드백 루프 | 🟠 STUB | P1 이슈 발행됨. 런타임 코드 미착수 |
@@ -56,14 +56,14 @@
 |---|---|---|
 | Pathfinder | 🟡 PARTIAL | 페르소나 존재. Tool-based 스캔 + PTC 도구 7개 정의 |
 | Support Bundle | 🟡 PARTIAL | 3-tier 나이테 추적. Cross-Provider 검증 PASS |
-| Mailbox | 🟠 STUB | 스키마 존재. **Receipt Consumer 페르소나 신규 추가** |
+| Mailbox | 🟠 STUB | 스키마 존재. Receipt Consumer 페르소나 신규 추가 |
 | Lifecycle Filter | 🟢 LIVE | 프론트매터 파싱 및 ACTIVE/SUPERSEDED 상태 필터링 완벽 작동 |
 
 #### 인프라 / 크로스커팅
 | 모듈 | 상태 | 비고 |
 |---|---|---|
 | SKILL.md 콜드스타트 | 🟢 LIVE | 프로바이더 자동 인식 및 진입점 호출 동작 |
-| Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586줄.** 기계적 워크로드 선행 아키텍처 재배치 제안됨 |
+| Typed PTC Engine | 🟡 PARTIAL | `engine.py` 2,586줄. 기계적 워크로드 선행 아키텍처 재배치 제안됨 |
 | Persona System (9역할) | 🟢 LIVE | 9개 페르소나 완비 (effort normalizer 대체) |
 | Reasoning Lease | 🟡 PARTIAL | Multi-OS 샌드박스 (Mac/WSL2) 클린룸 제안. Windows 미지원 공식 확정 |
 | Vault (SOT) | 🟡 PARTIAL | 디렉토리 동작. 나이테(Tree Rings) 메타데이터 누락 결함 발견(이슈 발행됨) |

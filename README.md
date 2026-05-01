@@ -46,7 +46,7 @@ The table below quantifies the alignment between the architecture described in t
 | Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet builder implemented |
 | Amundsen | 🟡 PARTIAL | Continent branching schema + runtime + Persona implemented |
 | Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. NetworkX (BSD-3) Louvain clean-room integration complete |
-| Gardener | 🟡 PARTIAL | Physical planting + **new Persona added**. Auto-healing incomplete |
+| Gardener | 🟡 PARTIAL | Physical planting + new Persona added. Auto-healing incomplete |
 | Postman | 🟡 PARTIAL | Runner Source Packet Producer committed (`37b2dac`). R19-R2 PASS |
 | Content Hash Protection | 🟠 STUB | P1 issue and design proposal raised |
 | Rejection Loop | 🟠 STUB | P1 issue raised. No runtime code yet |
@@ -56,14 +56,14 @@ The table below quantifies the alignment between the architecture described in t
 |---|---|---|
 | Pathfinder | 🟡 PARTIAL | Persona exists. Tool-based scan + 7 PTC tools defined |
 | Support Bundle | 🟡 PARTIAL | 3-tier Tree Ring tracking. Cross-Provider verification PASS |
-| Mailbox | 🟠 STUB | Schema exists. **Receipt Consumer Persona newly added** |
+| Mailbox | 🟠 STUB | Schema exists. Receipt Consumer Persona newly added |
 | Lifecycle Filter | 🟢 LIVE | Frontmatter parsing and ACTIVE/SUPERSEDED state filtering works perfectly |
 
 #### Infrastructure / Cross-Cutting
 | Module | Status | Remarks |
 |---|---|---|
 | SKILL.md Cold Start | 🟢 LIVE | Automatic provider recognition & entrypoint calling works |
-| Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586 lines.** Mechanical workload front-loading architecture proposed |
+| Typed PTC Engine | 🟡 PARTIAL | `engine.py` 2,586 lines. Mechanical workload front-loading architecture proposed |
 | Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
 | Reasoning Lease | 🟡 PARTIAL | Multi-OS Sandbox (Mac/WSL2) clean-room proposed. Windows native officially unsupported |
 | Vault (SOT) | 🟡 PARTIAL | Directory works. Tree Rings metadata missing defect found (issue raised) |
