@@ -35,7 +35,8 @@
         "gardener",
         "postman",
         "ptc_substrate",
-        "graphify_builder"
+        "graphify_extract",
+        "graphify_semantic"
       ]
     },
     "requires_reasoning": {

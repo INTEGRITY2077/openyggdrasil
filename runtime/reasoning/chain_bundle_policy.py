@@ -33,7 +33,7 @@ CHAIN_BUNDLE_POLICIES: dict[str, dict[str, Any]] = {
         "schema_version": POLICY_SCHEMA_VERSION,
         "chain_id": "maintenance_chain",
         "status": "declared_phase5",
-        "module_ids": ("gardener", "graphify_builder"),
+        "module_ids": ("gardener", "graphify_extract"),
         "bundle_strategy": "deferred",
         "collection_window_ms": 100,
         "max_time_budget_seconds": 600,
