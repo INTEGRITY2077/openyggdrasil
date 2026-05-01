@@ -47,7 +47,8 @@ SOFTWARE.
 
 - Upstream project: `dulwich`
 - Upstream repository: <https://github.com/jelmer/dulwich>
-- Upstream license: Apache License 2.0
+- Upstream license: Apache License 2.0 OR GPL-2.0-or-later (Dual License)
+- Selected license: Apache License 2.0
 - openyggdrasil usage: `AtomicVaultWriter` for atomic Git commit and rollback mechanisms.
 
 Source: <https://github.com/jelmer/dulwich/blob/master/COPYING>
