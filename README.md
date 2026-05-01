@@ -115,11 +115,11 @@ Instead of using heavy vector databases or ElasticSearch, openyggdrasil achieves
 
 ### Cross-Provider Pollination
 
-The most powerful feature of openyggdrasil is that it is a **"Shared Brain"** not locked into any specific tool.
+openyggdrasil functions as a shared knowledge repository that is not locked into any specific tool.
 
-- **Hermes writes:** In a Hermes session, you decide on an architecture and it gets recorded in the Vault. (Source: `provider_id: hermes`)
-- **Claude Code reads and updates:** Days later, you open Claude Code. It searches for, reads the document Hermes wrote, and continues the work. If the decision changes, Claude pushes the old knowledge to `SUPERSEDED` and writes the new knowledge.
-- **Hermes recognizes it again:** The next time Hermes connects, it doesn't read the stale knowledge it wrote in the past, but the updated knowledge maintained by Claude Code.
+- **Agent A writes:** In a session with Agent A (e.g., Cursor), you decide on an architecture and it gets recorded in the Vault. (Source: `provider_id: cursor`)
+- **Agent B reads and updates:** Days later, you open Agent B (e.g., Claude Code). It searches for, reads the document Agent A wrote, and continues the work. If the decision changes, Agent B pushes the old knowledge to `SUPERSEDED` and writes the new knowledge.
+- **Agent A recognizes it again:** The next time Agent A connects, it doesn't read the stale knowledge it wrote in the past, but the updated knowledge maintained by Agent B.
 
 This is possible because all agents abandon their internal transcript formats and share the same canonical Vault specification—the **strict frontmatter schema (Markdown + YAML)** of openyggdrasil.
 
