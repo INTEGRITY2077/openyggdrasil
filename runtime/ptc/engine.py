@@ -167,6 +167,11 @@ PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_HARD_NONCLAIMS = (
     "This same-run typed ref source does not execute provider or subagent work.",
     "This same-run typed ref source is not proof of real provider/subagent invocation.",
 )
+PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_PACKET_PRODUCER_HARD_NONCLAIMS = (
+    "This runner source packet producer only assembles typed non-fixture refs.",
+    "This runner source packet producer does not execute provider or subagent work.",
+    "This runner source packet producer is not proof of real provider/subagent invocation.",
+)
 PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_NO_OVERCLAIM_FLAGS = (
     *PROVIDER_SUBAGENT_PTC_INVOCATION_NO_OVERCLAIM_FLAGS,
     "runner_response_ingress_relabelled_as_invocation",
@@ -178,6 +183,11 @@ PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_NO_OVERCLAIM_FLAGS = (
     "same_run_typed_ref_source_relabelled_as_invocation",
     "same_run_typed_ref_source_claimed_live_proof",
     "fixture_refs_used",
+)
+PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_PACKET_PRODUCER_NO_OVERCLAIM_FLAGS = (
+    *PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_NO_OVERCLAIM_FLAGS,
+    "runner_source_packet_producer_relabelled_as_invocation",
+    "runner_source_packet_producer_claimed_live_proof",
 )
 PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_ALLOWED_FIELDS = (
     "same_run_invocation_command",
@@ -1463,6 +1473,40 @@ def _validate_same_run_typed_ref_source_no_overclaim_flags(flags: Any) -> None:
             raise ValueError(f"unsafe same-run typed ref source flag: {flag_name}")
 
 
+def _normalize_runner_source_packet_producer_hard_nonclaims(
+    hard_nonclaims: Sequence[str] | None,
+) -> list[str]:
+    values = [
+        *PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_HARD_NONCLAIMS,
+        *PROVIDER_SUBAGENT_PTC_INVOCATION_HARD_NONCLAIMS,
+        *PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_HARD_NONCLAIMS,
+        *PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_PRODUCER_HARD_NONCLAIMS,
+        *PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_HARD_NONCLAIMS,
+        *PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_PACKET_PRODUCER_HARD_NONCLAIMS,
+        *_string_list(hard_nonclaims, field_name="hard_nonclaims"),
+    ]
+    _assert_additive_only_hard_nonclaims(values)
+    return values
+
+
+def _validate_runner_source_packet_producer_no_overclaim_flags(flags: Any) -> None:
+    if not isinstance(flags, Mapping):
+        raise ValueError("runner source packet producer no_overclaim_flags must be an object")
+    missing = [
+        flag
+        for flag in PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_PACKET_PRODUCER_NO_OVERCLAIM_FLAGS
+        if flag not in flags
+    ]
+    if missing:
+        raise ValueError(
+            "runner source packet producer no_overclaim_flags missing: "
+            + ", ".join(missing)
+        )
+    for flag_name, value in flags.items():
+        if value is not False:
+            raise ValueError(f"unsafe runner source packet producer flag: {flag_name}")
+
+
 def _normalize_runner_response_producer_hard_nonclaims(
     hard_nonclaims: Sequence[str] | None,
 ) -> list[str]:
@@ -1475,6 +1519,149 @@ def _normalize_runner_response_producer_hard_nonclaims(
     ]
     _assert_additive_only_hard_nonclaims(values)
     return values
+
+
+def produce_provider_subagent_ptc_runner_source_packet(
+    *,
+    invocation_command: Mapping[str, Any],
+    same_run_witness_ref: str,
+    provider_or_subagent_invocation_ref: str,
+    role_execution_refs: Mapping[str, Any],
+    before_context_ref: str,
+    after_context_ref: str,
+    typed_result_ref: str | None = None,
+    typed_unavailable_ref: str | None = None,
+    source_packet_ref: str | None = None,
+    hard_nonclaims: Sequence[str] | None = None,
+    no_overclaim_flags: Mapping[str, Any] | None = None,
+    reason_codes: Sequence[str] | None = None,
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    """Produce an R12-compatible source packet from typed non-fixture refs only.
+
+    This producer does not execute provider/subagent work. It assembles safe refs
+    supplied by an upstream runner boundary into the packet shape accepted by the
+    same-run typed ref source materializer, then validates that packet.
+    """
+
+    validate_provider_subagent_ptc_invocation_command(invocation_command)
+    command = dict(invocation_command)
+    active_same_run_witness_ref = _safe_portable_ref(
+        same_run_witness_ref,
+        field_name="same_run_witness_ref",
+    )
+    active_invocation_ref = _safe_portable_ref(
+        provider_or_subagent_invocation_ref,
+        field_name="provider_or_subagent_invocation_ref",
+    )
+    active_role_execution_refs = _normalize_strict_role_map(
+        role_execution_refs,
+        field_name="role_execution_refs",
+    )
+    active_typed_result_ref = (
+        _safe_portable_ref(typed_result_ref, field_name="typed_result_ref")
+        if typed_result_ref is not None
+        else None
+    )
+    active_typed_unavailable_ref = (
+        _safe_portable_ref(typed_unavailable_ref, field_name="typed_unavailable_ref")
+        if typed_unavailable_ref is not None
+        else None
+    )
+    if (active_typed_result_ref is None) == (active_typed_unavailable_ref is None):
+        raise ValueError(
+            "runner source packet producer requires exactly one typed result or unavailable ref"
+        )
+    active_before_context_ref = _safe_portable_ref(
+        before_context_ref,
+        field_name="before_context_ref",
+    )
+    active_after_context_ref = _safe_portable_ref(
+        after_context_ref,
+        field_name="after_context_ref",
+    )
+    _reject_fixture_typed_ref_terms(
+        active_same_run_witness_ref,
+        active_invocation_ref,
+        active_role_execution_refs,
+        active_typed_result_ref,
+        active_typed_unavailable_ref,
+        active_before_context_ref,
+        active_after_context_ref,
+    )
+    active_hard_nonclaims = _normalize_runner_source_packet_producer_hard_nonclaims(
+        hard_nonclaims
+    )
+    active_no_overclaim_flags = dict(
+        no_overclaim_flags
+        or {
+            flag: False
+            for flag in PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_PACKET_PRODUCER_NO_OVERCLAIM_FLAGS
+        }
+    )
+    _validate_runner_source_packet_producer_no_overclaim_flags(active_no_overclaim_flags)
+    active_reason_codes = [
+        "provider_subagent_ptc_runner_source_packet_produced_from_typed_refs_only",
+        "producer_does_not_execute_provider_or_subagent",
+        "r12_source_packet_validation_required",
+        "non_fixture_refs_only",
+        "hard_nonclaims_preserved",
+        *_string_list(reason_codes, field_name="reason_codes"),
+    ]
+    token = _route_token(
+        command.get("command_id"),
+        command.get("typed_task_id"),
+        active_same_run_witness_ref,
+        active_invocation_ref,
+        active_typed_result_ref,
+        active_typed_unavailable_ref,
+        active_before_context_ref,
+        active_after_context_ref,
+        tuple(active_role_execution_refs.items()),
+    )
+    active_source_packet_ref = _safe_portable_ref(
+        source_packet_ref
+        or f"same-run-source-packet-ref://openyggdrasil/ptc-source-producer/{token}",
+        field_name="source_packet_ref",
+    )
+    _reject_fixture_typed_ref_terms(active_source_packet_ref)
+    source_packet = {
+        "source_packet_ref": active_source_packet_ref,
+        "source_kind": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_KIND,
+        "source_evidence_status": (
+            PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_EVIDENCE_STATUS
+        ),
+        "same_run_witness_ref": active_same_run_witness_ref,
+        "same_run_invocation_command": command["same_run_invocation_command"],
+        "typed_task_id": command["typed_task_id"],
+        "provider_or_subagent_invocation_ref": active_invocation_ref,
+        "role_execution_refs": active_role_execution_refs,
+        "typed_result_ref": active_typed_result_ref,
+        "typed_unavailable_ref": active_typed_unavailable_ref,
+        "before_context_ref": active_before_context_ref,
+        "after_context_ref": active_after_context_ref,
+        "fixture_refs_used": False,
+        "non_fixture_refs_only": True,
+        "provider_gateway_called": False,
+        "provider_state_read": False,
+        "raw_provider_material_included": False,
+        "raw_transcript_included": False,
+        "raw_prompt_included": False,
+        "credential_material_included": False,
+        "provider_profile_material_included": False,
+        "provider_state_db_material_included": False,
+        "mcp_generic_gateway_or_agent_adapter_used": False,
+        "real_provider_subagent_invocation_claimed": False,
+        "hard_nonclaims": active_hard_nonclaims,
+        "no_overclaim_flags": active_no_overclaim_flags,
+        "reason_codes": active_reason_codes,
+        "generated_at": generated_at or _utc_now_iso(),
+    }
+    materialize_provider_subagent_ptc_same_run_typed_refs(
+        invocation_command=command,
+        source_packet=source_packet,
+    )
+    return source_packet
 
 
 def materialize_provider_subagent_ptc_same_run_typed_refs(
@@ -2556,6 +2743,8 @@ __all__ = [
     "PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_SCHEMA_VERSION",
     "PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_STATUS",
     "PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_NO_OVERCLAIM_FLAGS",
+    "PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_PACKET_PRODUCER_HARD_NONCLAIMS",
+    "PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_PACKET_PRODUCER_NO_OVERCLAIM_FLAGS",
     "REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES",
     "ROLE_POLYMORPHIC_PTC_TELEMETRY_SCHEMA_VERSION",
     "ROLE_POLYMORPHIC_PTC_TELEMETRY_STATUS",
@@ -2570,6 +2759,7 @@ __all__ = [
     "ingest_provider_subagent_ptc_runner_response",
     "materialize_provider_subagent_ptc_same_run_typed_refs",
     "produce_provider_subagent_ptc_runner_response",
+    "produce_provider_subagent_ptc_runner_source_packet",
     "render_default_pathfinder_program",
     "render_default_pathfinder_json_plan",
     "render_query_adaptive_pathfinder_program",
