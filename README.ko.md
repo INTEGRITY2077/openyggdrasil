@@ -108,8 +108,8 @@ openyggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python
 다음 의존성 스택이 필요합니다:
 
 **지원 운영체제:**
-- **Linux / WSL2 전용**: openyggdrasil의 핵심인 Reasoning Lease 샌드박스는 `bubblewrap`을 통한 비특권 리눅스 컨테이너 격리 환경에 절대적으로 의존합니다.
-  - **주의:** AI 프로바이더 본체(예: Cursor, Claude Code) 역시 **반드시 동일한 Linux/WSL2 환경 안에서 직접 구동**되어야 합니다. Windows 네이티브에서 프로바이더를 띄우고 WSL2로 넘어가는 교차 실행(Tunneling)은 보안 모델상 지원하지 않습니다. Windows/macOS 사용자는 WSL2 내부에서 프로젝트를 열고 에이전트를 실행해야 합니다.
+- **Linux / WSL2 전용**: openyggdrasil의 핵심인 Reasoning Lease 샌드박스는 `bubblewrap`을 통한 비특권 리눅스 컨테이너 격리 환경에 의존합니다.
+  - **주의 (Cross-OS 교차 실행):** Windows 네이티브 환경에 설치된 프로바이더에서 WSL2 내부의 openyggdrasil을 호출하는 교차 실행(Cross-border Tunneling)은 물리적으로 가능하지만 **강력히 비권장(Not Recommended)**합니다. Windows-WSL2 간 경로 번역(Path Translation)의 복잡성, 9P 프로토콜에 의한 I/O 성능의 급격한 저하, 그리고 파이프(Stdin/Stdout) 인코딩 차이로 인한 데드락 발생 확률이 매우 높기 때문입니다. 안정적인 작동을 위해 프로바이더 본체 역시 가급적 WSL2 내부에서 직접 실행하는 것을 권장합니다.
 
 **코어 선행 요건:**
 - **`Python 3.10+`**: 로컬 환경에 설치되어 접근 가능해야 합니다.

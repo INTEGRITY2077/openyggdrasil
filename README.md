@@ -219,8 +219,8 @@ Providers attach to openyggdrasil by reading the **`SKILL.md`** manifest at the 
 openyggdrasil runs purely locally. The core runtime relies almost entirely on the Python Standard Library, but the Graphify-derived views and Sandbox isolations require the following minimal dependency stack:
 
 **Supported Operating Systems:**
-- **Linux / WSL2 Only**: openyggdrasil's core Reasoning Lease Sandbox depends entirely on `bubblewrap` for unprivileged Linux container isolation.
-  - **Note:** The AI provider itself (e.g., Cursor, Claude Code) must also be **running directly inside the same Linux/WSL2 environment**. Cross-environment tunneling (e.g., running the provider natively on Windows and reaching into WSL2) is not supported under this security model. Windows/macOS users must open their project and run the agent entirely within WSL2.
+- **Linux / WSL2 Focus**: openyggdrasil's core Reasoning Lease Sandbox depends on `bubblewrap` for unprivileged Linux container isolation.
+  - **Note (Cross-OS Execution):** While it is physically possible to call openyggdrasil inside WSL2 from a provider running natively on Windows (Cross-border Tunneling), it is **strongly discouraged**. This is due to the extreme complexity of Windows-WSL2 path translation, severe I/O performance degradation (via 9P protocol), and a high risk of deadlocks caused by Stdin/Stdout encoding differences. For stable operation, we highly recommend running the AI provider directly within the same WSL2 environment.
 
 **Core Prerequisite:**
 - **`Python 3.10+`**: Must be installed and accessible in the local environment.
