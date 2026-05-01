@@ -45,7 +45,7 @@
 | Distiller | 🟡 PARTIAL | 가드레일 + 페르소나 존재. e12c R14 PASS, R15 진행 중 |
 | Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet 빌더 구현 완료 |
 | Amundsen | 🟡 PARTIAL | 대륙 분기 스키마 + 런타임 + 페르소나 구현 |
-| Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. Leiden 연동 작업 중 |
+| Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. NetworkX Louvain 연동 예정 |
 | Gardener | 🟡 PARTIAL | 물리적 식재 + **페르소나 신규 추가**. 자동 치유 미완 |
 | Postman | 🟡 PARTIAL | Runner Source Packet Producer 커밋(`37b2dac`). R14 37테스트 PASS |
 | 수동 편집 보호 | 🟠 STUB | P1 이슈 및 설계 제안서 발행됨 |
@@ -119,8 +119,7 @@ openyggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python
 
 **Python 패키지 (pip):**
 - **`graphifyy`**: 구조 분석 및 그래프 구축을 위한 코어 동반 패키지
-- **`networkx`**: 그래프 파생, 노드 인덱싱, 탐색용
-- **`leidenalg` & `igraph`**: 커뮤니티 탐지 및 토픽 클러스터링용
+- **`networkx`**: 그래프 파생, 노드 인덱싱, 탐색, Louvain 커뮤니티 탐지용
 - **`jsonschema`**: 프로바이더 계약 및 메일박스 스키마의 엄격한 검증용
 - **`pyyaml`**: 설정 및 매니페스트 파일 읽기/쓰기용
 - **`pytest`**: 로컬 계약 검증 및 스모크 테스트용
@@ -214,7 +213,7 @@ openyggdrasil에서 카테고리는 단순한 폴더가 아니라 **독립된 �
 
 ### 4. 구조적 관계망 (Graphify의 위상 융합)
 분류된 지식의 물리적 한계를 넘기 위해 Safi Shamsi의 [Graphify (v5)](https://github.com/safishamsi/graphify) 개념을 적용합니다. 
-마크다운 Vault를 파싱하여 수학적 그래프와 커뮤니티(Leiden 알고리즘)로 변환합니다. 이를 통해 폴더가 달라도 의미적으로 연결된 지식(Semantic Edge)을 넘나들며 탐색할 수 있습니다.
+마크다운 Vault를 파싱하여 수학적 그래프와 NetworkX Louvain 커뮤니티로 변환합니다. 이를 통해 폴더가 달라도 의미적으로 연결된 지식(Semantic Edge)을 넘나들며 탐색할 수 있습니다.
 
 ---
 
@@ -355,7 +354,7 @@ Vault 위에 그래프/위키/인덱스 뷰를 구축하는 **파생 계층**입
 | 문제 | Graphify의 해결 |
 |---|---|
 | Vault 페이지가 쌓이면 탐색 불가 | 노드/엣지 그래프로 관계 시각화 |
-| "이 개념이 어디에 연결되지?" | Leiden 커뮤니티 클러스터링으로 토픽 군집 자동 탐지 |
+| "이 개념이 어디에 연결되지?" | NetworkX Louvain 커뮤니티 탐지로 토픽 군집 자동 탐지 |
 | 검색 결과에 구조적 맥락 부재 | God Node, Surprising Connection 분석으로 핵심 허브 식별 |
 | 외부 인프라(벡터 DB, 임베딩 서비스) 의존 | 순수 Python + NetworkX, 로컬 오프라인 실행 |
 
@@ -374,7 +373,7 @@ Vault 위에 그래프/위키/인덱스 뷰를 구축하는 **파생 계층**입
   │  extract   → AST/구조 추출                                │
   │  semantic  → 의미 관계 추출 (프로바이더 토큰 사용)           │
   │  build     → NetworkX 그래프 구축                          │
-  │  cluster   → Leiden 커뮤니티 클러스터링                     │
+  │  cluster   → NetworkX Louvain 커뮤니티 탐지                  │
   │  analyze   → God Node, Surprising Connection 분석         │
   │  report    → GRAPH_REPORT.md + graph.json + graph.html    │
   │                                                          │
@@ -1107,7 +1106,7 @@ Graphify는 구조 분석 계층을 제공합니다 — 코드베이스와 지�
 | Graphify 개념 | openyggdrasil 흡수 |
 |---|---|
 | `detect → extract → build_graph → cluster → analyze → report → export` 파이프라인 | → `common/graphify/` 파생 뷰 엔진 |
-| NetworkX + Leiden 커뮤니티 클러스터링 | → Map Maker를 위한 토픽/커뮤니티 구조 |
+| NetworkX Louvain 커뮤니티 탐지 | → Map Maker를 위한 토픽/커뮤니티 구조 |
 | 신뢰도 라벨 (EXTRACTED / INFERRED / AMBIGUOUS) | → 검색 결과의 출처 신뢰도 |
 | 순수 Python, 로컬, 오프라인 | → **외부 인프라 의존성 없음** |
 
@@ -1184,4 +1183,3 @@ openyggdrasil은 LSP를 직접 사용하지 않지만, 그 **capability negotiat
 openyggdrasil 또는 INTEGRITY2077 브랜딩을 사용하여 해당 버전을 식별할 수 없습니다.
 
 동반 의존성 고지는 [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)를 참조하세요.
-

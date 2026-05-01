@@ -45,7 +45,7 @@ The table below quantifies the alignment between the architecture described in t
 | Distiller | 🟡 PARTIAL | Guardrail + Persona exist. e12c R14 PASS, R15 in progress |
 | Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet builder implemented |
 | Amundsen | 🟡 PARTIAL | Continent branching schema + runtime + Persona implemented |
-| Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. Leiden integration WIP |
+| Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. NetworkX Louvain integration planned |
 | Gardener | 🟡 PARTIAL | Physical planting + **new Persona added**. Auto-healing incomplete |
 | Postman | 🟡 PARTIAL | Runner Source Packet Producer committed (`37b2dac`). R14 37 tests PASS |
 | Content Hash Protection | 🟠 STUB | P1 issue and design proposal raised |
@@ -136,7 +136,7 @@ If a system merely overwrites files with the latest data, crucial foundational c
 
 ### 4. Structural Relationship Network (Graphify Topology)
 To transcend the physical limits of categorized knowledge, we apply Safi Shamsi's [Graphify (v5)](https://github.com/safishamsi/graphify) concept.
-The Markdown Vault is parsed and converted into a mathematical graph and community clusters (Leiden algorithm). This allows traversal across semantic edges, connecting related knowledge even if stored in different folders.
+The Markdown Vault is parsed and converted into a mathematical graph and community clusters using NetworkX Louvain community detection. This allows traversal across semantic edges, connecting related knowledge even if stored in different folders.
 
 ---
 
@@ -223,8 +223,7 @@ openyggdrasil runs purely locally. The core runtime relies almost entirely on th
 
 **Python Packages (via pip):**
 - **`graphifyy`**: the core companion package for structural analysis and graph building
-- **`networkx`**: for graph derivation, node indexing, and traversal
-- **`leidenalg` & `igraph`**: for community detection and topic clustering
+- **`networkx`**: for graph derivation, node indexing, traversal, and Louvain community detection
 - **`jsonschema`**: for strictly validating provider contracts and mailbox schemas
 - **`pyyaml`**: for reading/writing configuration and manifest files
 - **`pytest`**: for local contract verification and smoke tests
@@ -280,7 +279,7 @@ This is a **derived layer** that builds graph/wiki/index views over the Vault.
 | Problem | Graphify's Solution |
 |---|---|
 | Unnavigable as Vault pages pile up | Visualizes relationships as a node/edge graph |
-| "Where does this concept connect?" | Automatically detects topic clusters via Leiden community clustering |
+| "Where does this concept connect?" | Automatically detects topic clusters via NetworkX Louvain community detection |
 | Lack of structural context in search | Identifies core hubs via God Node and Surprising Connection analysis |
 | Dependency on external infra (Vector DBs) | Pure Python + NetworkX, runs locally offline |
 
@@ -299,7 +298,7 @@ This is a **derived layer** that builds graph/wiki/index views over the Vault.
   │  extract   → Extracts AST/structure                      │
   │  semantic  → Extracts semantic relations (uses tokens)   │
   │  build     → Builds NetworkX graph                       │
-  │  cluster   → Leiden community clustering                 │
+  │  cluster   → NetworkX Louvain community detection        │
   │  analyze   → God Node, Surprising Connection analysis    │
   │  report    → GRAPH_REPORT.md + graph.json + graph.html   │
   │                                                          │
@@ -915,7 +914,7 @@ into navigable graphs:
 | Graphify Concept | openyggdrasil Absorption |
 |---|---|
 | `detect → extract → build_graph → cluster → analyze → report → export` pipeline | → `common/graphify/` derived view engine |
-| NetworkX + Leiden community clustering | → Topic/community structure for Map Maker |
+| NetworkX Louvain community detection | → Topic/community structure for Map Maker |
 | Confidence labels (EXTRACTED / INFERRED / AMBIGUOUS) | → Provenance confidence in retrieval results |
 | Pure Python, local, offline | → **No external infrastructure dependency** |
 
@@ -961,4 +960,3 @@ While the code is open-source, the brand names **"openyggdrasil"** and **"INTEGR
 If you fork or distribute a modified version of this project, you must change the name and cannot use the openyggdrasil or INTEGRITY2077 branding to identify your version.
 
 See [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md) for companion dependency notices.
-
