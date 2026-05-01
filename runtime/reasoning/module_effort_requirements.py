@@ -37,6 +37,7 @@ DEFAULT_CHAIN_MODULES = (
 )
 TARGET_PLATFORM_POLICY = "wsl2_linux_first_native_windows_deferred"
 SANDBOX_BACKEND_POLICY = "sandbox-runtime:bubblewrap_on_wsl2_linux"
+REQUIRED_SANDBOX_BINARIES = ("bwrap", "socat")
 HIGH_EFFORT_LEASE_MODULES = {"distiller", "evaluator"}
 HIGH_EFFORT_LEASE_JOB_TYPES = {
     "distiller": "decision_distillation",

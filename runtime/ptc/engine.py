@@ -2615,6 +2615,14 @@ def materialize_provider_subagent_ptc_provider_session_executor_boundary(
     validate_provider_subagent_ptc_provider_session_invocation_boundary(
         provider_session_invocation_boundary
     )
+    
+    # R15 sandbox dependency gate
+    sandbox_unavailable = verify_sandbox_dependencies()
+    if sandbox_unavailable is not None:
+        raise ValueError(
+            f"provider/session executor boundary rejected: sandbox dependency gate returned '{sandbox_unavailable}'"
+        )
+        
     boundary_input = dict(provider_session_invocation_boundary)
     if not isinstance(executor_result_packet, Mapping):
         raise ValueError("executor_result_packet must be an object")
@@ -5164,8 +5172,30 @@ def structural_anchor_fallback_evaluator(
     return {
         "topic_key": None,
         "reason_labels": [STRUCTURAL_ANCHOR_FALLBACK_REASON_CODE],
-        "summary": "PTC structural path did not use Hermes; returning an unanchored fallback.",
     }
+
+
+def verify_sandbox_dependencies() -> str | None:
+    """
+    R15 dependency gate: Checks if the current environment meets the WSL2-first
+    sandbox runtime requirements. Returns 'typed_unavailable' if any dependency
+    (bwrap, socat) is missing or if the environment is not WSL2, establishing
+    failIfUnavailable=true fail-closed behavior.
+    """
+    import platform
+    import shutil
+    
+    try:
+        if "microsoft-standard-WSL2" not in platform.uname().release:
+            return "typed_unavailable"
+            
+        for binary in ("bwrap", "socat"):
+            if shutil.which(binary) is None:
+                return "typed_unavailable"
+    except Exception:
+        return "typed_unavailable"
+        
+    return None
 
 
 __all__ = [
@@ -5242,4 +5272,5 @@ __all__ = [
     "validate_provider_subagent_ptc_same_run_typed_ref_source",
     "validate_query_adaptive_pathfinder_plan",
     "validate_role_polymorphic_ptc_telemetry_trace",
+    "verify_sandbox_dependencies",
 ]
