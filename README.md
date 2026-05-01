@@ -206,10 +206,9 @@ sources: [source refs or public paths]
 
 openyggdrasil operates as a cold-started skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start background daemons or manage separate server processes.
 
-> **⚠️ Current Reasoning Model:**
-> openyggdrasil currently **borrows the provider's reasoning tokens** to operate.
-> It does not have its own API keys or LLM infrastructure.
-> Support for independent API key configuration is planned for the future. 
+> **⚠️ Reasoning Lease Model:**
+> openyggdrasil does not have its own API keys; it **borrows (leases) the reasoning tokens of the provider agent (IDE) in reverse**.
+> The Python script does not directly hit LLM APIs. Instead, it prints a **Task Contract (Prompt)** to standard output (`stdout`) saying "Read this data and decide between A/B". The provider agent reads this prompt from the terminal, uses its own context and API key to make the decision, and feeds the answer back into the Python script's next standard input (`stdin`). This creates a mechanical 'reverse-call ping-pong' architecture. 
 
 ### 1. How Providers Recognize openyggdrasil
 
@@ -229,7 +228,7 @@ openyggdrasil runs purely locally. The core runtime relies almost entirely on th
 - **`Python 3.10+`**: Must be installed and accessible in the local environment.
 
 **Python Packages (via pip):**
-- **`graphifyy`**: the core companion package for structural analysis and graph building
+- **`graphifyy`**: (Note: The conceptual name is Graphify(v5), but the PyPI package name is `graphifyy`) The core companion package for structural analysis and graph building
 - **`networkx`**: for graph derivation, node indexing, traversal, and Louvain community detection
 - **`jsonschema`**: for strictly validating provider contracts and mailbox schemas
 - **`pyyaml`**: for reading/writing configuration and manifest files
