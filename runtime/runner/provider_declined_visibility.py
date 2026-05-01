@@ -47,7 +47,7 @@ KNOWN_FAULT_DOMAINS = {
 }
 
 KNOWN_FALLBACK_PATH_STATUSES = {
-    "deterministic_base_path_available",
+    "reasoning_unavailable_degraded_path",
     "local_worker_available",
     "manual_review_available",
     "fallback_policy_unavailable",
@@ -82,7 +82,7 @@ def _fallback_path_status(output: Mapping[str, Any]) -> str:
         return status
     fallback_policy = output.get("fallback_policy")
     if fallback_policy == "deterministic_base_path":
-        return "deterministic_base_path_available"
+        return "reasoning_unavailable_degraded_path"
     if fallback_policy == "local_worker":
         return "local_worker_available"
     if fallback_policy == "manual_review":
