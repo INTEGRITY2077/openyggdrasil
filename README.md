@@ -45,7 +45,7 @@ The table below quantifies the alignment between the architecture described in t
 | Distiller | 🟡 PARTIAL | Guardrail + Persona exist. Mechanical/Semantic Workload Decoupling proposal issued |
 | Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet builder implemented |
 | Amundsen | 🟡 PARTIAL | Continent branching schema + runtime + Persona implemented |
-| Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. NetworkX (BSD-3) Louvain clean-room integration complete |
+| Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. NetworkX (BSD-3) Louvain integration complete |
 | Gardener | 🟡 PARTIAL | Physical planting + new Persona added. Auto-healing incomplete |
 | Postman | 🟡 PARTIAL | Runner Source Packet Producer committed (`37b2dac`). R19-R2 PASS |
 | Content Hash Protection | 🟠 STUB | P1 issue and design proposal raised |
@@ -65,7 +65,7 @@ The table below quantifies the alignment between the architecture described in t
 | SKILL.md Cold Start | 🟢 LIVE | Automatic provider recognition & entrypoint calling works |
 | Typed PTC Engine | 🟡 PARTIAL | `engine.py` 2,586 lines. Mechanical workload front-loading architecture proposed |
 | Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
-| Reasoning Lease | 🟡 PARTIAL | Multi-OS Sandbox (Mac/WSL2) clean-room proposed. Windows native officially unsupported |
+| Reasoning Lease | 🟡 PARTIAL | Multi-OS Sandbox (Mac/WSL2) proposed. Windows native officially unsupported |
 | Vault (SOT) | 🟡 PARTIAL | Directory works. Tree Rings metadata missing defect found (issue raised) |
 | Graphify Derived View | 🟡 PARTIAL | Community derivation scripts functional (GPL dependencies removed) |
 | Cross-Provider | 🟡 PARTIAL | Cross-memory access tests PASS |
