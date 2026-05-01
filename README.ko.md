@@ -82,8 +82,6 @@
 | 인프라 | 11 | 3 | 5 | 1 | 2 | 75% |
 | **전체** | **25** | **5** | **14** | **4** | **2** | **78%** |
 
-> PTC 엔진 2,586줄로 물질화. 5단 호출 체인(Packet→Command→Ingress→Producer→RefSource) 구현 완료. 페르소나 9역할이 effort normalizer를 대체. **e12c R14 PASS** (9+10+10+11=37테스트, compileall PASS, 커밋 `37b2dac`). R15 진행 중.
-
 
 ## 시스템 요구사항 및 설정
 

@@ -82,8 +82,6 @@ The table below quantifies the alignment between the architecture described in t
 | Infrastructure | 11 | 3 | 5 | 1 | 2 | 75% |
 | **Total** | **25** | **5** | **14** | **4** | **2** | **78%** |
 
-> PTC engine materialized at 2,586 lines. 5-stage invocation chain (Packet→Command→Ingress→Producer→RefSource) implemented. 9-role Persona system replaced effort normalizer. **e12c R14 PASS** (9+10+10+11=37 tests, compileall PASS, commit `37b2dac`). R15 in progress.
-
 ## Why This Exists
 
 Every AI coding tool — Hermes, Codex, Claude Code, Cursor, Gemini CLI — has its
