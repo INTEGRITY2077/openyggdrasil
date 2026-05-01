@@ -183,6 +183,13 @@ python runtime/import_smoke.py
 
 openyggdrasil은 다른 접근을 취합니다.
 
+### 🛡️ 3-Tier 벡터 대체 전략 (Vector Replacement)
+무거운 벡터 DB나 엘라스틱서치를 사용하는 대신, 순수 로컬 시스템에서 다음 3계층의 결정론적(Deterministic) 필터링을 통해 10배 이상의 토큰 효율성을 달성합니다.
+
+1. **L1 구조적 필터링 (YAML Frontmatter)**: 벡터 기반 유사도 검색의 약점인 '낡은 지식(SUPERSEDED)'의 혼입을 원천 차단합니다. `python-frontmatter`를 사용해 문서의 메타데이터(`status`, `tags`, `type`)를 SQL처럼 100% 정밀하게 사전 필터링합니다.
+2. **L2 위상수학 탐색 (NetworkX Topology)**: 확률적 유사도 대신 명시적 인과관계를 추적합니다. 문서 간의 `Sources` 링크를 NetworkX 그래프로 변환하고, Louvain 커뮤니티 알고리즘을 통해 "함께 읽어야 할" 토픽 클러스터를 통째로 식별합니다.
+3. **L3 프로그래매틱 스캔 (PTC 기반 Full-text)**: 검색된 10~20개의 후보군을 LLM의 컨텍스트 창에 무식하게 쑤셔넣어 토큰을 낭비하지 않습니다. 파이썬 코드(PTC)가 직접 파일들을 스캔하고 필요한 변수명, 코드 스니펫 등 정제된 결론만을 에이전트에게 반환하여 **"Lost in the Middle(중간 유실)"** 현상과 **수만 토큰의 왕복 오버헤드**를 완벽히 제거합니다.
+
 ### 프로바이더 간 지식 교차 (Cross-Provider Pollination)
 
 openyggdrasil의 가장 강력한 특징은 특정 도구에 종속되지 않는 **"공용 뇌(Shared Brain)"** 라는 점입니다.

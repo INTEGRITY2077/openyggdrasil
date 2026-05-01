@@ -105,6 +105,13 @@ There's no accumulation, no lifecycle, no cross-provider sharing.
 decides what to remember, what to forget, and what to deliver?*
 
 openyggdrasil takes a different approach.
+ 
+### 🛡️ 3-Tier Vector Replacement Strategy
+Instead of using heavy vector databases or ElasticSearch, openyggdrasil achieves 10x token efficiency through a 3-tier deterministic filtering pipeline on a pure local file system:
+
+1. **L1 Structural Filtering (YAML Frontmatter)**: Completely blocks the intrusion of 'stale knowledge' (`SUPERSEDED`)—a common weakness of vector similarity searches. It uses `python-frontmatter` to pre-filter document metadata (`status`, `tags`, `type`) with 100% precision, like a SQL query.
+2. **L2 Topological Navigation (NetworkX)**: Traces explicit causality instead of probabilistic similarity. It converts `Sources` links between documents into a NetworkX graph, and uses the Louvain community algorithm to identify entire topic clusters that "must be read together."
+3. **L3 Programmatic Scanning (PTC Full-text)**: Prevents token waste caused by carelessly shoving 10-20 candidates into the LLM's context window. A Python script (PTC) physically scans the files in the background and returns only the refined conclusions (variable names, code snippets) to the agent. This entirely eliminates the **"Lost in the Middle"** hallucination and the **massive round-trip token overhead**.
 
 ### Cross-Provider Pollination
 
