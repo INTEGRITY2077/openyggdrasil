@@ -22,7 +22,7 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Current Status — Architecture Alignment Scorecard (2026-05-01 15:30 KST, Phase 4-E12 R14→R15)
+### 📊 Current Status — Architecture Alignment Scorecard (2026-05-01 15:40 KST, Phase 8 Target: E12D, R14→R15)
 
 > **⚠️ This project is not production-ready.**
 > We are live-testing the runtime and iterating in the open towards the 8th Roadmap (PTC-based Target Architecture).
