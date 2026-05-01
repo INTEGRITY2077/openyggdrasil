@@ -183,15 +183,15 @@ python runtime/import_smoke.py
 openyggdrasil은 다른 접근을 취합니다.
 
 ### 🛡️ 3-Tier 벡터 대체 전략 (Vector Replacement)
-무거운 벡터 DB나 엘라스틱서치를 사용하는 대신, 순수 로컬 시스템에서 다음 3계층의 결정론적(Deterministic) 필터링을 통해 10배 이상의 토큰 효율성을 달성합니다.
+순수 로컬 시스템에서 다음 3계층의 필터링을 통해 검색 효율성을 높입니다.
 
-1. **L1 구조적 필터링 (YAML Frontmatter)**: 벡터 기반 유사도 검색의 약점인 '낡은 지식(SUPERSEDED)'의 혼입을 원천 차단합니다. `python-frontmatter`를 사용해 문서의 메타데이터(`status`, `tags`, `type`)를 SQL처럼 100% 정밀하게 사전 필터링합니다.
-2. **L2 위상수학 탐색 (NetworkX Topology)**: 확률적 유사도 대신 명시적 인과관계를 추적합니다. 문서 간의 `Sources` 링크를 NetworkX 그래프로 변환하고, Louvain 커뮤니티 알고리즘을 통해 "함께 읽어야 할" 토픽 클러스터를 통째로 식별합니다.
-3. **L3 프로그래매틱 스캔 (PTC 기반 Full-text)**: 검색된 10~20개의 후보군을 LLM의 컨텍스트 창에 무식하게 쑤셔넣어 토큰을 낭비하지 않습니다. 파이썬 코드(PTC)가 직접 파일들을 스캔하고 필요한 변수명, 코드 스니펫 등 정제된 결론만을 에이전트에게 반환하여 **"Lost in the Middle(중간 유실)"** 현상과 **수만 토큰의 왕복 오버헤드**를 완벽히 제거합니다.
+1. **L1 구조적 필터링 (YAML Frontmatter)**: `python-frontmatter`를 사용하여 문서의 메타데이터(`status`, `tags`, `type`)를 필터링합니다. 이를 통해 'SUPERSEDED' 상태의 문서가 검색에 포함되는 것을 방지합니다.
+2. **L2 그래프 탐색 (NetworkX Topology)**: 문서 간의 `Sources` 속성을 NetworkX 그래프로 변환합니다. Louvain 커뮤니티 감지 알고리즘을 사용하여 연관된 토픽 클러스터를 식별합니다.
+3. **L3 프로그래매틱 스캔 (PTC 기반 Full-text)**: Python 스크립트(PTC)가 검색된 후보 문서들을 로컬에서 직접 스캔합니다. 필요한 코드 스니펫이나 변수명 등의 결과만 추출하여 LLM에 반환함으로써 컨텍스트 윈도우의 토큰 사용량을 최소화합니다.
 
 ### 프로바이더 간 지식 교차 (Cross-Provider Pollination)
 
-openyggdrasil의 가장 강력한 특징은 특정 도구에 종속되지 않는 **"공용 뇌(Shared Brain)"** 라는 점입니다.
+openyggdrasil은 특정 도구에 종속되지 않는 공용 지식 저장소로 작동합니다.
 
 - **Hermes가 씁니다:** Hermes 세션에서 아키텍처를 결정하고 Vault에 기록합니다. (출처: `provider_id: hermes`)
 - **Claude Code가 읽고 갱신합니다:** 며칠 뒤 Claude Code가 켜지면, Hermes가 쓴 문서를 검색해서 읽고 그 위에서 작업을 이어갑니다. 만약 결정이 변경되면 Claude가 기존 지식을 `SUPERSEDED`(대체됨)로 밀어내고 새 지식을 씁니다.
@@ -217,15 +217,14 @@ openyggdrasil에서 카테고리는 단순한 폴더가 아니라 **독립된 �
 - **나이테(Ring) 각인:** 저장되는 모든 지식 블록에는 기원 정보(`provider_id`, `session_uid`, `timestamp`)가 데이터 모델 레벨에서 영구적으로 각인됩니다.
 - 가장 기초가 되는 결정(Root/Trunk)은 보존되고, 폐기된 로직(Branch)은 물리적 삭제 대신 명시적으로 무효화(`SUPERSEDED`) 처리됩니다. 이를 통해 어떤 프로바이더가 접속하든 지식의 변경 이력을 완벽하게 역추적할 수 있습니다.
 
-### 4. 구조적 관계망 (Graphify의 위상 융합)
-분류된 지식의 물리적 한계를 넘기 위해 Safi Shamsi의 [Graphify (v5)](https://github.com/safishamsi/graphify) 개념을 적용합니다. 
-마크다운 Vault를 파싱하여 수학적 그래프와 NetworkX Louvain 커뮤니티로 변환합니다. 이를 통해 폴더가 달라도 의미적으로 연결된 지식(Semantic Edge)을 넘나들며 탐색할 수 있습니다.
+### 4. 구조적 관계망 (Graphify 연동)
+Safi Shamsi의 [Graphify (v5)](https://github.com/safishamsi/graphify) 개념을 적용하여 마크다운 문서를 NetworkX 그래프 및 Louvain 커뮤니티로 변환합니다. 이를 통해 디렉토리가 달라도 의미적으로 연결된 지식을 탐색할 수 있습니다.
 
 ---
 
 > *"위키는 소스를 추가할 때마다 더 풍부해집니다. 사람의 일은 소스를 큐레이션하고 좋은 질문을 하는 것입니다. LLM의 일은 나머지 전부입니다."* — Karpathy
 
-이러한 **'지식 생태계의 구축과 위상 융합'**을 통해, openyggdrasil은 단순한 텍스트 묶음을 넘어, 외부 Vector DB 없이도 스스로 관계망을 인지하는 **순수 로컬 오프라인 멀티-에이전트 메모리 시스템**으로 작동합니다.
+openyggdrasil은 외부 Vector DB 없이 작동하는 순수 로컬 기반의 멀티-에이전트 메모리 시스템입니다.
 
 
 ### 추론 의사결정 재구조화 (8차 북극성)
@@ -253,25 +252,17 @@ openyggdrasil에서 카테고리는 단순한 폴더가 아니라 **독립된 �
 
 | 어포던스 필드 | 역할 |
 |---|---|
-| `Use this when` | 이 도구/판단을 사용해야 하는 상황 |
+| `Use this when` | 도구/판단 사용 상황 |
 | `Do NOT use this when` | 사용하면 안 되는 상황 |
 | `If ambiguous` | 모호할 때의 기본 행동 |
 | `Typed unavailable when` | 도구가 기능할 수 없는 조건 |
-| `Hard nonclaims` | 이 도구/판단이 **절대 주장하지 않는 것** |
+| `Hard nonclaims` | 이 도구/판단이 보증하지 않는 내용 |
 
-**effort의 격하:** `effort`는 더 이상 추론 품질의 primary behavior driver가
-아닙니다. 호환성 메타데이터(compatibility metadata)로 격하되었으며,
-추론 품질의 실제 판단 근거는 페르소나 어포던스 계약이 담당합니다.
+**effort의 격하:** `effort`는 호환성 메타데이터로 격하되었으며,
+추론 품질의 판단 근거는 페르소나 어포던스 계약이 담당합니다.
 
 **Hard Nonclaims 모델:**
-2계층 가산적(additive-only) 제약 모델입니다. 글로벌 규칙은 모든 패킷에
-적용되고, 패킷 특수 규칙은 추가만 가능합니다 — **글로벌 규칙을 해제하거나
-약화시키는 것은 불가능합니다.**
-
-이 아키텍처는 Microsoft의
-[Language Server Protocol](https://github.com/microsoft/language-server-protocol)의
-capability negotiation 패턴에서 영감을 받았습니다 — 서버가 "나는 이걸 할 수
-있다"를 선언하고, 클라이언트는 선언된 기능만 요청하는 구조입니다.
+글로벌 규칙은 모든 패킷에 적용되고, 패킷 특수 규칙은 추가만 가능합니다. 글로벌 규칙을 완화하는 것은 불가능합니다.
 
 ### 3계층 검색 아키텍처
 
@@ -343,8 +334,8 @@ sources: [출처 참조 또는 공개 소스 경로]
 ---
 ```
 
-**실제 코드베이스 구현 (Frontmatter Parser):**
-단순한 가이드라인이 아닙니다. 시스템은 `runtime/retrieval/skill_frontmatter_parser.py`를 통해 모든 마크다운 파일의 `---` YAML 프론트매터를 추출하고, 이를 엄격한 JSON Schema 계약에 맞추어 실시간으로 파싱 및 검증합니다. Graphify와 Pathfinder는 이 파싱된 위상 데이터를 기반으로 수학적 검색망을 구축합니다.
+**코드베이스 구현 (Frontmatter Parser):**
+`runtime/retrieval/skill_frontmatter_parser.py`를 통해 마크다운 파일의 YAML 프론트매터를 추출하고 JSON Schema로 검증합니다. Graphify와 Pathfinder는 이 데이터를 기반으로 동작합니다.
 
 **Vault 승격 규칙 — 기록되려면:**
 - 영속적이고, 사소하지 않고, 재파생이 어렵고, 미래 세션에서 재사용 가능해야 함
@@ -541,11 +532,11 @@ openyggdrasil은 이 원본 아키텍처의 자율성을 의도적으로 제한�
 
 전통적인 RAG(검색 증강 생성) 방식은 Vector DB나 ElasticSearch에 의존하여 대량의 문서를 검색하고, 수천~수만 개의 텍스트 토큰을 에이전트의 컨텍스트 윈도우에 그대로 욱여넣습니다. 이는 **비용이 비싸고, 지연 시간(Latency)이 길며, 핵심 정보를 놓치는 현상(Lost in the middle)을 유발**합니다.
 
-openyggdrasil이 무거운 외부 인프라를 버리고 **순수 로컬 파일시스템 기반의 PTC 아키텍처**를 도입한 가장 큰 이유는 **압도적인 토큰 효율성과 구조적 필터링** 때문입니다:
+openyggdrasil이 **순수 로컬 파일시스템 기반의 PTC 아키텍처**를 도입한 주된 이유는 **토큰 효율성과 데이터 필터링**을 위해서입니다:
 
 - **중간 처리의 컨텍스트 배제:** 에이전트가 `scan_topology`나 `filter_lifecycle` 같은 Utility 도구를 호출할 때, 수많은 중간 데이터(예: 20개의 Vault 문서 스캔)는 에이전트의 컨텍스트 윈도우에 적재되지 않습니다. 오직 순수 Python 메모리 내에서만 처리(필터링, 집계)됩니다.
-- **모델 왕복(Round-trip) 오버헤드 제거:** 10개의 지식 노드를 각각 독립된 도구로 조회하는 것은 개별적으로 LLM을 호출하므로 막대한 토큰을 소모합니다. 그러나 PTC를 통해 하나의 코드 실행 블록 내에서 10개의 문서를 읽고 요약된 결론만 반환하도록 하면 토큰 소모량을 약 **10배 이상 절약**할 수 있습니다.
-- **최종 요약본만 반환:** 에이전트에게는 검색 과정의 방대한 노이즈가 보이지 않으며, 오직 최종적으로 정제된 `bounded support bundle`(제한된 지원 번들)의 결과만 반환됩니다.
+- **도구 호출 오버헤드 감소:** PTC를 통해 하나의 코드 블록 내에서 여러 문서를 읽고 처리함으로써 LLM 반복 호출을 줄이고 토큰 사용량을 절약합니다.
+- **정제된 결과 반환:** 검색 중 발생하는 중간 데이터 대신 정제된 `support bundle`만 반환합니다.
 
 
 ## 실행 모델
