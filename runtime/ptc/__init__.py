@@ -22,6 +22,7 @@ from .engine import (
     build_provider_subagent_ptc_invocation_unavailable_result,
     build_query_adaptive_pathfinder_plan,
     ingest_provider_subagent_ptc_runner_response,
+    materialize_provider_subagent_ptc_same_run_typed_refs,
     produce_provider_subagent_ptc_runner_response,
     render_default_pathfinder_json_plan,
     render_default_pathfinder_program,
@@ -31,6 +32,7 @@ from .engine import (
     validate_provider_subagent_ptc_invocation_command,
     validate_provider_subagent_ptc_invocation_unavailable_result,
     validate_provider_subagent_ptc_runner_response_ingress,
+    validate_provider_subagent_ptc_same_run_typed_ref_source,
     validate_query_adaptive_pathfinder_plan,
 )
 
@@ -47,6 +49,7 @@ __all__ = [
     "build_provider_subagent_ptc_invocation_unavailable_result",
     "build_query_adaptive_pathfinder_plan",
     "ingest_provider_subagent_ptc_runner_response",
+    "materialize_provider_subagent_ptc_same_run_typed_refs",
     "produce_provider_subagent_ptc_runner_response",
     "render_default_pathfinder_json_plan",
     "render_default_pathfinder_program",
@@ -56,5 +59,6 @@ __all__ = [
     "validate_provider_subagent_ptc_invocation_command",
     "validate_provider_subagent_ptc_invocation_unavailable_result",
     "validate_provider_subagent_ptc_runner_response_ingress",
+    "validate_provider_subagent_ptc_same_run_typed_ref_source",
     "validate_query_adaptive_pathfinder_plan",
 ]
