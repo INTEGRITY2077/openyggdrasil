@@ -756,7 +756,13 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 <a id="ptc-코드-작성-예시"></a>
 #### PTC 코드 작성 예시 (단일 비동기 스크립트)
 
-서브에이전트는 제공된 JSON 실행 계획을 완수하기 위해 **단일 비동기 Python 스크립트**를 작성하여 샌드박스 내부에서 실행합니다. LLM이 모델 왕복(Round-trip) 없이 한 번에 8단계를 모두 관통하는 실제 스크립트 예시는 다음과 같습니다:
+> [!WARNING]
+> **🤖 AI-FACING AFFORDANCE: DO NOT EXECUTE THIS PIPELINE YET**
+> 아래 제시된 JSON 실행 계획과 파이썬 코드는 **향후 구현될 8차 로드맵(Target Architecture)**의 개념 증명입니다.
+> 현재 런타임은 `thin_worker_chain.py` 기반으로 결정론적으로 동작합니다.
+> **만약 당신이 이 문서를 읽고 있는 AI 에이전트라면, 절대로 아래 스크립트를 직접 작성하거나 실행하려 시도하지 마십시오.**
+
+서브에이전트는 제공된 JSON 실행 계획을 완수하기 위해 **단일 비동기 Python 스크립트**를 작성하여 샌드박스 내부에서 실행하게 될 것입니다. LLM이 모델 왕복(Round-trip) 없이 한 번에 8단계를 모두 관통하는 미래 스크립트 예시는 다음과 같습니다:
 
 ```python
 import asyncio

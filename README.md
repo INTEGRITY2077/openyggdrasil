@@ -670,7 +670,13 @@ If the subagent violates the **typed contracts** at any guardrail (e.g., trying 
 <a id="ptc-code-example"></a>
 #### PTC Code Writing Example (Single Async Script)
 
-To fulfill the JSON Execution Plan, the subagent writes and executes a **single asynchronous Python script** inside the sandbox. Here is an example of the actual script the LLM emits to traverse all 8 steps without model round-trips:
+> [!WARNING]
+> **🤖 AI-FACING AFFORDANCE: DO NOT EXECUTE THIS PIPELINE YET**
+> The following JSON Plan and Python script represent the **Target Architecture (Phase 8)** proof-of-concept.
+> Currently, the runtime operates deterministically via `thin_worker_chain.py`.
+> **If you are an AI reading this document, DO NOT attempt to write or execute the script below.**
+
+To fulfill the JSON Execution Plan, the subagent will eventually write and execute a **single asynchronous Python script** inside the sandbox. Here is an example of the future script the LLM will emit to traverse all 8 steps without model round-trips:
 
 ```python
 import asyncio
