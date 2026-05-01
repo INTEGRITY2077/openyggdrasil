@@ -22,7 +22,7 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Current Status — Architecture Alignment Scorecard (2026-05-01 15:40 KST, Phase 8 Target: E12D, R14→R15)
+### 📊 Current Status — Architecture Alignment Scorecard (2026-05-01 16:15 KST, Phase 8 Target: P0-E12C, R19-R2→R19-R3)
 
 > **⚠️ This project is not production-ready.**
 > We are live-testing the runtime and iterating in the open towards the 8th Roadmap (PTC-based Target Architecture).
@@ -42,12 +42,12 @@ The table below quantifies the alignment between the architecture described in t
 |---|---|---|
 | Session Structure Signal | 🟢 LIVE | Tree Rings established. Same-Run Typed Ref Source verified |
 | Admission Gate | 🟡 PARTIAL | `source_ref` contract verification works. Quality Gate P0 issue raised |
-| Distiller | 🟡 PARTIAL | Guardrail + Persona exist. e12c R14 PASS, R15 in progress |
+| Distiller | 🟡 PARTIAL | Guardrail + Persona exist. e12c R19-R2 PASS, R19-R3 in progress |
 | Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet builder implemented |
 | Amundsen | 🟡 PARTIAL | Continent branching schema + runtime + Persona implemented |
 | Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. NetworkX (BSD-3) Louvain clean-room integration complete |
 | Gardener | 🟡 PARTIAL | Physical planting + **new Persona added**. Auto-healing incomplete |
-| Postman | 🟡 PARTIAL | Runner Source Packet Producer committed (`37b2dac`). R14 37 tests PASS |
+| Postman | 🟡 PARTIAL | Runner Source Packet Producer committed (`37b2dac`). R19-R2 PASS |
 | Content Hash Protection | 🟠 STUB | P1 issue and design proposal raised |
 | Rejection Loop | 🟠 STUB | P1 issue raised. No runtime code yet |
 
@@ -63,13 +63,13 @@ The table below quantifies the alignment between the architecture described in t
 | Module | Status | Remarks |
 |---|---|---|
 | SKILL.md Cold Start | 🟢 LIVE | Automatic provider recognition & entrypoint calling works |
-| Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586 lines.** 5-stage invocation chain implemented. R14 PASS, R15 live |
+| Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586 lines.** 5-stage invocation chain implemented. R19-R2 PASS, R19-R3 pending |
 | Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
-| Reasoning Lease | 🟡 PARTIAL | Delegation contract works. Bubblewrap Sandbox Stub pending (R15 Blocker) |
+| Reasoning Lease | 🟡 PARTIAL | Delegation contract works. Bubblewrap Sandbox Stub pending (R19-R3 Blocker) |
 | Vault (SOT) | 🟢 LIVE | Directory constraints & frontmatter validation fully operational |
 | Graphify Derived View | 🟡 PARTIAL | Community derivation scripts functional (GPL dependencies removed) |
 | Cross-Provider | 🟡 PARTIAL | Cross-memory access tests PASS |
-| Hermes Adapter | 🟡 PARTIAL | e12c R14 PASS (37 tests). R15 in progress |
+| Hermes Adapter | 🟡 PARTIAL | e12c R19-R2 PASS. R19-R3 in progress |
 | i18n Pipeline | 🔴 ABSENT | P1 issue raised. No backend language code path |
 | Inline Source Marking | 🔴 ABSENT | File-level tracking only |
 | Atomic Rollback | 🟠 STUB | Dulwich Porcelain-based Atomic Vault Writer POC (testbed) complete |
