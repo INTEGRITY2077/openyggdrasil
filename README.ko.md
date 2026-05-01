@@ -22,7 +22,7 @@
   <a href="#영감--감사">영감</a>
 </p>
 
-### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-01 14:35 KST, Phase 4-E12 R14→R15)
+### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-01 15:30 KST, Phase 4-E12 R14→R15)
 
 > **⚠️ 이 프로젝트는 프로덕션 준비가 되지 않았습니다.**
 > 8차 로드맵(PTC 기반 목표 아키텍처)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
@@ -45,7 +45,7 @@
 | Distiller | 🟡 PARTIAL | 가드레일 + 페르소나 존재. e12c R14 PASS, R15 진행 중 |
 | Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet 빌더 구현 완료 |
 | Amundsen | 🟡 PARTIAL | 대륙 분기 스키마 + 런타임 + 페르소나 구현 |
-| Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. NetworkX Louvain 연동 예정 |
+| Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. NetworkX (BSD-3) Louvain 클린룸 연동 완료 |
 | Gardener | 🟡 PARTIAL | 물리적 식재 + **페르소나 신규 추가**. 자동 치유 미완 |
 | Postman | 🟡 PARTIAL | Runner Source Packet Producer 커밋(`37b2dac`). R14 37테스트 PASS |
 | 수동 편집 보호 | 🟠 STUB | P1 이슈 및 설계 제안서 발행됨 |
@@ -65,22 +65,22 @@
 | SKILL.md 콜드스타트 | 🟢 LIVE | 프로바이더 자동 인식 및 진입점 호출 동작 |
 | Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586줄.** 5단 호출 체인 구현. R14 PASS, R15 라이브 |
 | Persona System (9역할) | 🟢 LIVE | 9개 페르소나 완비 (effort normalizer 대체) |
-| Reasoning Lease | 🟡 PARTIAL | 위임 계약 작동. Bubblewrap 격리 적용 전 |
+| Reasoning Lease | 🟡 PARTIAL | 위임 계약 작동. Bubblewrap 샌드박스 스텁 대기 중 (R15 블로커) |
 | Vault (SOT) | 🟢 LIVE | 디렉토리 제약 및 프론트매터 검증 완벽 동작 |
-| Graphify 파생 뷰 | 🟡 PARTIAL | 커뮤니티 파생 스크립트 부분 동작 |
+| Graphify 파생 뷰 | 🟡 PARTIAL | 커뮤니티 파생 스크립트 동작 (GPL 의존성 제거 완료) |
 | Cross-Provider | 🟡 PARTIAL | 교차 메모리 접근 테스트 PASS |
 | Hermes Adapter | 🟡 PARTIAL | e12c R14 PASS(37테스트). R15 진행 중 |
 | i18n 파이프라인 | 🔴 ABSENT | P1 이슈 발행됨. 백엔드 언어 코드 패스 없음 |
 | 인라인 출처 마킹 | 🔴 ABSENT | 파일 단위 추적만 동작 |
-| 원자적 롤백 | 🔴 ABSENT | 자동 스냅샷 미구현 |
+| 원자적 롤백 | 🟠 STUB | Dulwich Porcelain 기반 Atomic Vault Writer POC (testbed) 완료 |
 
 #### 총 정렬도 요약
 | 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
 |---|---|---|---|---|---|---|
 | 생산면 | 10 | 1 | 7 | 2 | 0 | 80% |
 | 소비면 | 4 | 1 | 2 | 1 | 0 | 75% |
-| 인프라 | 11 | 3 | 5 | 0 | 3 | 73% |
-| **전체** | **25** | **5** | **14** | **3** | **3** | **76%** |
+| 인프라 | 11 | 3 | 5 | 1 | 2 | 75% |
+| **전체** | **25** | **5** | **14** | **4** | **2** | **78%** |
 
 > PTC 엔진 2,586줄로 물질화. 5단 호출 체인(Packet→Command→Ingress→Producer→RefSource) 구현 완료. 페르소나 9역할이 effort normalizer를 대체. **e12c R14 PASS** (9+10+10+11=37테스트, compileall PASS, 커밋 `37b2dac`). R15 진행 중.
 

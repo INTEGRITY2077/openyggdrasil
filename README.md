@@ -22,7 +22,7 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Current Status — Architecture Alignment Scorecard (2026-05-01 14:35 KST, Phase 4-E12 R14→R15)
+### 📊 Current Status — Architecture Alignment Scorecard (2026-05-01 15:30 KST, Phase 4-E12 R14→R15)
 
 > **⚠️ This project is not production-ready.**
 > We are live-testing the runtime and iterating in the open towards the 8th Roadmap (PTC-based Target Architecture).
@@ -45,7 +45,7 @@ The table below quantifies the alignment between the architecture described in t
 | Distiller | 🟡 PARTIAL | Guardrail + Persona exist. e12c R14 PASS, R15 in progress |
 | Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet builder implemented |
 | Amundsen | 🟡 PARTIAL | Continent branching schema + runtime + Persona implemented |
-| Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. NetworkX Louvain integration planned |
+| Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. NetworkX (BSD-3) Louvain clean-room integration complete |
 | Gardener | 🟡 PARTIAL | Physical planting + **new Persona added**. Auto-healing incomplete |
 | Postman | 🟡 PARTIAL | Runner Source Packet Producer committed (`37b2dac`). R14 37 tests PASS |
 | Content Hash Protection | 🟠 STUB | P1 issue and design proposal raised |
@@ -65,22 +65,22 @@ The table below quantifies the alignment between the architecture described in t
 | SKILL.md Cold Start | 🟢 LIVE | Automatic provider recognition & entrypoint calling works |
 | Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586 lines.** 5-stage invocation chain implemented. R14 PASS, R15 live |
 | Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
-| Reasoning Lease | 🟡 PARTIAL | Delegation contract works. Bubblewrap isolation pending |
+| Reasoning Lease | 🟡 PARTIAL | Delegation contract works. Bubblewrap Sandbox Stub pending (R15 Blocker) |
 | Vault (SOT) | 🟢 LIVE | Directory constraints & frontmatter validation fully operational |
-| Graphify Topology View | 🟡 PARTIAL | Community derivation scripts partially working |
+| Graphify Derived View | 🟡 PARTIAL | Community derivation scripts functional (GPL dependencies removed) |
 | Cross-Provider | 🟡 PARTIAL | Cross-memory access tests PASS |
 | Hermes Adapter | 🟡 PARTIAL | e12c R14 PASS (37 tests). R15 in progress |
 | i18n Pipeline | 🔴 ABSENT | P1 issue raised. No backend language code path |
 | Inline Source Marking | 🔴 ABSENT | File-level tracking only |
-| Atomic Rollback | 🔴 ABSENT | Auto-snapshotting not implemented |
+| Atomic Rollback | 🟠 STUB | Dulwich Porcelain-based Atomic Vault Writer POC (testbed) complete |
 
 #### Alignment Summary
 | Domain | Total | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | Alignment |
 |---|---|---|---|---|---|---|
 | Production | 10 | 1 | 7 | 2 | 0 | 80% |
 | Consumption | 4 | 1 | 2 | 1 | 0 | 75% |
-| Infrastructure | 11 | 3 | 5 | 0 | 3 | 73% |
-| **Total** | **25** | **5** | **14** | **3** | **3** | **76%** |
+| Infrastructure | 11 | 3 | 5 | 1 | 2 | 75% |
+| **Total** | **25** | **5** | **14** | **4** | **2** | **78%** |
 
 > PTC engine materialized at 2,586 lines. 5-stage invocation chain (Packet→Command→Ingress→Producer→RefSource) implemented. 9-role Persona system replaced effort normalizer. **e12c R14 PASS** (9+10+10+11=37 tests, compileall PASS, commit `37b2dac`). R15 in progress.
 
