@@ -108,7 +108,7 @@ MODULE_EFFORT_DEFAULTS: dict[str, dict[str, Any]] = {
         "effort_justification_code": "semantic_pathfinding",
         "target_runtime_module": "runtime/ptc/engine.py",
     },
-    "graphify_builder": {
+    "graphify_extract": {
         "requires_reasoning": False,
         "min_effort": "none",
         "preferred_effort": "none",
@@ -117,6 +117,17 @@ MODULE_EFFORT_DEFAULTS: dict[str, dict[str, Any]] = {
         "lease_group": "deterministic",
         "sandbox_required": False,
         "effort_justification_code": "deterministic_map_update",
+        "target_runtime_module": "runtime/retrieval/graphify_snapshot_rebuild.py",
+    },
+    "graphify_semantic": {
+        "requires_reasoning": True,
+        "min_effort": "high",
+        "preferred_effort": "high",
+        "max_useful_effort": "xhigh",
+        "reasoning_depth_area": "response_quality",
+        "lease_group": "deep_reasoning",
+        "sandbox_required": True,
+        "effort_justification_code": "semantic_worthiness_review",
         "target_runtime_module": "runtime/retrieval/graphify_snapshot_rebuild.py",
     },
     "seedkeeper": {
