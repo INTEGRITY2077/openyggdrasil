@@ -45,7 +45,7 @@
 | Distiller | 🟡 PARTIAL | 가드레일 + 페르소나 존재. 기계적/의미론적 워크로드 분리(Decoupling) 제안서 발행됨 |
 | Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet 빌더 구현 완료 |
 | Amundsen | 🟡 PARTIAL | 대륙 분기 스키마 + 런타임 + 페르소나 구현 |
-| Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. NetworkX (BSD-3) Louvain 클린룸 연동 완료 |
+| Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. NetworkX (BSD-3) Louvain 연동 |
 | Gardener | 🟡 PARTIAL | 물리적 식재 + 페르소나 신규 추가. 자동 치유 미완 |
 | Postman | 🟡 PARTIAL | Runner Source Packet Producer 커밋(`37b2dac`). R19-R2 PASS |
 | 수동 편집 보호 | 🟠 STUB | P1 이슈 및 설계 제안서 발행됨 |
