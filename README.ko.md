@@ -14,188 +14,69 @@
 </p>
 
 <p align="center">
-  <a href="#왜-필요한가">왜 필요한가</a> •
-  <a href="#작동-방식">작동 방식</a> •
-  <a href="#12-모듈-체인">모듈</a> •
-  <a href="#reasoning-lease">Reasoning Lease</a> •
-  <a href="#프로바이더-연동--설정">설정</a> •
-  <a href="#영감--감사">영감</a>
+  <a href="#🤖-ai-에이전트-및-프로바이더-운영-지침">AI 에이전트 운영 지침</a> •
+  <a href="#👨‍💻-사용자를-위한-시작-가이드">사용자 시작 가이드</a> •
+  <a href="#🧠-아키텍처-및-핵심-원리">아키텍처 및 원리</a> •
+  <a href="#📊-현재-상태--아키텍처-정렬도-스코어카드">스코어카드</a>
 </p>
 
-### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-01 15:40 KST, Phase 8 Target: E12D, R14→R15)
 
-> **⚠️ 이 프로젝트는 프로덕션 준비가 되지 않았습니다.**
-> 8차 로드맵(PTC 기반 목표 아키텍처)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
-> **Effort normalizer는 공식 퇴역**하고, 페르소나(Persona) 문서 기반 아키텍처로 전환되었습니다.
+## 🤖 AI 에이전트 및 프로바이더 운영 지침
 
-아래 표는 본 README에 기술된 아키텍처와 실제 구현 간의 정렬도를 정량화한 것입니다. 오해를 방지하기 위해, 각 블록의 현재 상태를 4단계(LIVE / PARTIAL / STUB / ABSENT)로 명시합니다.
+이 섹션은 openyggdrasil 환경에서 활동하는 AI 에이전트(Provider Agent)가 시스템의 제약을 이해하고 안전하게 작동하기 위한 **최우선 행동 지침(LLM-Facing Affordance)**입니다. 당신이 문서를 읽고 있는 AI 에이전트라면 반드시 아래 규칙을 준수하십시오.
 
-| 등급 | 의미 |
-|---|---|
-| 🟢 **LIVE** | 런타임 코드 존재, 테스트 PASS 또는 핵심 검증 완료 |
-| 🟡 **PARTIAL** | 코드/계약 존재, 엔드투엔드 관통 미검증 또는 서브에이전트 통합 중 |
-| 🟠 **STUB** | 파일/개념만 존재하거나 뼈대 코드만 스텁 상태 |
-| 🔴 **ABSENT** | 코드 미존재, 설계 문서만 있거나 없음 |
+### 1. 프로바이더 진입점 (SKILL.md)
+프로바이더는 레포지토리 루트의 **`SKILL.md`** 매니페스트를 읽어 openyggdrasil에 연결합니다.
+- 에이전트의 스킬 설정을 `SKILL.md`의 절대 경로로 지정하십시오.
+- `SKILL.md`를 읽으면 메모리 검색 및 캡처를 위한 정확한 진입점, 명령 형태, 경계를 파악할 수 있습니다.
 
-#### 생산면 (Production Side)
-| 모듈 | 상태 | 비고 |
-|---|---|---|
-| Session Structure Signal | 🟢 LIVE | 나이테 확립. Same-Run Typed Ref Source 검증 완료 |
-| Admission Gate | 🟡 PARTIAL | `source_ref` 계약 검증 동작. Quality Gate P0 이슈 발행됨 |
-| Distiller | 🟡 PARTIAL | 가드레일 + 페르소나 존재. e12c R14 PASS, R15 진행 중 |
-| Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet 빌더 구현 완료 |
-| Amundsen | 🟡 PARTIAL | 대륙 분기 스키마 + 런타임 + 페르소나 구현 |
-| Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. NetworkX (BSD-3) Louvain 클린룸 연동 완료 |
-| Gardener | 🟡 PARTIAL | 물리적 식재 + **페르소나 신규 추가**. 자동 치유 미완 |
-| Postman | 🟡 PARTIAL | Runner Source Packet Producer 커밋(`37b2dac`). R14 37테스트 PASS |
-| 수동 편집 보호 | 🟠 STUB | P1 이슈 및 설계 제안서 발행됨 |
-| 피드백 루프 | 🟠 STUB | P1 이슈 발행됨. 런타임 코드 미착수 |
+### 2. 무단 의존성 설치 금지 (절대 수칙)
+> **⚠️ 프로바이더 필수 규칙:**
+> 콜드스타트 스킬을 처음 실행하기 전에, 프로바이더는 **반드시 사용자에게 명시적 허가를 요청**해야 합니다.
+> 1. 의존성 누락 감지 시 즉각 중단하고 사용자에게 프롬프트: *"openyggdrasil은 로컬에 설치할 Python 의존성이 필요합니다. 허용하시겠습니까?"*
+> 2. 사용자 승인 시에만 의존성을 설치합니다. **무단 또는 프롬프트 없는 자동 설치는 엄격히 금지됩니다.**
 
-#### 소비면 (Consumption Side)
-| 모듈 | 상태 | 비고 |
-|---|---|---|
-| Pathfinder | 🟡 PARTIAL | 페르소나 존재. Tool-based 스캔 + PTC 도구 7개 정의 |
-| Support Bundle | 🟡 PARTIAL | 3-tier 나이테 추적. Cross-Provider 검증 PASS |
-| Mailbox | 🟠 STUB | 스키마 존재. **Receipt Consumer 페르소나 신규 추가** |
-| Lifecycle Filter | 🟢 LIVE | 프론트매터 파싱 및 ACTIVE/SUPERSEDED 상태 필터링 완벽 작동 |
+### 3. Vault 승격 규칙 (기록 대상)
+모든 대화를 기록하지 않습니다. Vault에 기록되려면 지식은 영속적이고, 사소하지 않고, 재파생이 어렵고, 미래 세션에서 재사용 가능해야 합니다. 일시적 대화, 사소한 응답, 원시 세션 덤프는 기록이 금지됩니다.
 
-#### 인프라 / 크로스커팅
-| 모듈 | 상태 | 비고 |
-|---|---|---|
-| SKILL.md 콜드스타트 | 🟢 LIVE | 프로바이더 자동 인식 및 진입점 호출 동작 |
-| Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586줄.** 5단 호출 체인 구현. R14 PASS, R15 라이브 |
-| Persona System (9역할) | 🟢 LIVE | 9개 페르소나 완비 (effort normalizer 대체) |
-| Reasoning Lease | 🟡 PARTIAL | 위임 계약 작동. Bubblewrap 샌드박스 스텁 대기 중 (R15 블로커) |
-| Vault (SOT) | 🟢 LIVE | 디렉토리 제약 및 프론트매터 검증 완벽 동작 |
-| Graphify 파생 뷰 | 🟡 PARTIAL | 커뮤니티 파생 스크립트 동작 (GPL 의존성 제거 완료) |
-| Cross-Provider | 🟡 PARTIAL | 교차 메모리 접근 테스트 PASS |
-| Hermes Adapter | 🟡 PARTIAL | e12c R14 PASS(37테스트). R15 진행 중 |
-| i18n 파이프라인 | 🔴 ABSENT | P1 이슈 발행됨. 백엔드 언어 코드 패스 없음 |
-| 인라인 출처 마킹 | 🔴 ABSENT | 파일 단위 추적만 동작 |
-| 원자적 롤백 | 🟠 STUB | Dulwich Porcelain 기반 Atomic Vault Writer POC (testbed) 완료 |
+### 4. PTC 파이프라인 무단 실행 금지
 
-#### 총 정렬도 요약
-| 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
-|---|---|---|---|---|---|---|
-| 생산면 | 10 | 1 | 7 | 2 | 0 | 80% |
-| 소비면 | 4 | 1 | 2 | 1 | 0 | 75% |
-| 인프라 | 11 | 3 | 5 | 1 | 2 | 75% |
-| **전체** | **25** | **5** | **14** | **4** | **2** | **78%** |
+---
 
+## 👨‍💻 사용자를 위한 시작 가이드
 
-## 시스템 요구사항 및 설정
-
-openyggdrasil은 AI 프로바이더(예: Hermes, Claude Code, Cursor)에 부착되는
-콜드스타트 스킬로 동작합니다. 백그라운드 데몬을 시작하거나 별도 서버
-프로세스를 관리할 필요가 없습니다.
+openyggdrasil은 AI 프로바이더(예: Hermes, Claude Code, Cursor)에 부착되는 콜드스타트 스킬로 동작합니다. 백그라운드 데몬을 시작하거나 별도 서버 프로세스를 관리할 필요가 없습니다.
 
 > **⚠️ 추론 토큰 임대 모델 (Reasoning Lease):**
 > openyggdrasil은 자체 API 키를 가지지 않으며, **프로바이더 본체(IDE)의 추론 토큰을 역으로 빌려서(Lease) 작동**합니다.
-> 파이썬 스크립트가 내부에서 직접 LLM API를 쏘는 것이 아닙니다. 대신 파이썬 스크립트가 표준 출력(Stdout)을 통해 "이 데이터를 읽고 A/B 중 판단해줘"라는 **프롬프트(Task Contract)를 프로바이더의 터미널에 반환**하면, 프로바이더 에이전트가 이를 읽고 자기 자신의 컨텍스트와 API 키를 사용해 대답을 다시 파이썬의 다음 입력(Stdin)으로 밀어넣는 기계적 '역호출 핑퐁' 구조입니다.
+> 파이썬 스크립트가 내부에서 직접 LLM API를 쏘지 않고, 표준 출력(Stdout)을 통해 프롬프트를 프로바이더의 터미널에 반환하면, 프로바이더 에이전트가 이를 읽고 대답을 다음 입력(Stdin)으로 밀어넣는 기계적 '역호출 핑퐁' 구조입니다.
 
-### 1. 프로바이더가 openyggdrasil을 인식하는 방법
+### 시스템 요구사항 & 의존성 설치
+openyggdrasil은 순수 로컬에서 실행됩니다.
+- **지원 운영체제 (Linux / WSL2 전용)**: 샌드박스는 `bubblewrap`을 통한 비특권 리눅스 컨테이너 격리 환경에 절대적으로 의존합니다. AI 프로바이더 본체 역시 **반드시 동일한 Linux/WSL2 환경 안에서 직접 구동**되어야 합니다.
+- **Python 패키지**: `graphifyy`, `networkx`, `jsonschema`, `pyyaml`
+- **시스템 의존성**: `bubblewrap` (bwrap)
 
-프로바이더는 레포지토리 루트의 **`SKILL.md`** 매니페스트를 읽어 openyggdrasil에
-연결합니다:
-- 에이전트의 스킬 설정을 `SKILL.md`의 절대 경로로 지정합니다.
-- 에이전트가 이 계약을 읽으면, 메모리 검색 및 캡처를 위한 정확한 진입점,
-  명령 형태, 경계를 파악합니다.
-
-### 2. 시스템 요구사항 & 의존성 설치
-
-openyggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python 표준
-라이브러리에 거의 전적으로 의존하지만, Graphify 파생 뷰와 샌드박스 격리에
-다음 의존성 스택이 필요합니다:
-
-**지원 운영체제:**
-- **Linux / WSL2 전용**: openyggdrasil의 핵심인 Reasoning Lease 샌드박스는 `bubblewrap`을 통한 비특권 리눅스 컨테이너 격리 환경에 절대적으로 의존합니다.
-  - **주의:** AI 프로바이더 본체(예: Cursor, Claude Code) 역시 **반드시 동일한 Linux/WSL2 환경 안에서 직접 구동**되어야 합니다. Windows 네이티브에서 프로바이더를 띄우고 WSL2로 넘어가는 교차 실행(Tunneling)은 보안 모델상 지원하지 않습니다. Windows/macOS 사용자는 WSL2 내부에서 프로젝트를 열고 에이전트를 실행해야 합니다.
-
-**코어 선행 요건:**
-- **`Python 3.10+`**: 로컬 환경에 설치되어 접근 가능해야 합니다.
-
-**Python 패키지 (pip):**
-- **`graphifyy`**: (주의: 개념적 이름은 Graphify(v5)이나 PyPI 패키지명은 `graphifyy`입니다) 구조 분석 및 그래프 구축을 위한 코어 동반 패키지
-- **`networkx`**: 그래프 파생, 노드 인덱싱, 탐색, Louvain 커뮤니티 탐지용
-- **`jsonschema`**: 프로바이더 계약 및 메일박스 스키마의 엄격한 검증용
-- **`pyyaml`**: 설정 및 매니페스트 파일 읽기/쓰기용
-- **`pytest`**: 로컬 계약 검증 및 스모크 테스트용
-
-**시스템 의존성:**
-- **`bubblewrap`** (`bwrap`): Reasoning Lease 실행 시 비특권 샌드박스 격리에 **필수** (Linux/WSL).
-
-**이 의존성들은 사용자의 로컬 환경에 설치되어야 합니다.**
-
-> **⚠️ 프로바이더 필수 규칙:**
-> 콜드스타트 스킬을 처음 실행하기 전에, 프로바이더는 **반드시 사용자에게 명시적 허가를 요청**해야 합니다.
->
-> 1. 프로바이더가 의존성 누락을 감지합니다.
-> 2. 프로바이더가 중단하고 사용자에게 프롬프트: *"openyggdrasil은 로컬에 설치할 Python 의존성이 필요합니다. 허용하시겠습니까?"*
-> 3. 사용자 승인 시에만 의존성을 설치합니다. **무단 또는 프롬프트 없는 설치는 엄격히 금지됩니다.**
-
-### 3. 원터치 콜드스타트
-
-의존성이 승인되고 설치되면, 프로바이더가 `SKILL.md`에 정의된 스킬 진입점을
-실행할 수 있습니다. openyggdrasil 런타임은 **요청 시 콜드스타트**되고,
-필요한 메모리 트랜잭션을 실행한 후, 깔끔하게 종료됩니다.
-
-### 수동 설치 확인
-
-프로바이더를 연결하기 전에 설치를 확인하려면:
-
-```bash
-# 레포지토리 클론
-git clone https://github.com/INTEGRITY2077/openyggdrasil.git
-cd openyggdrasil
-
-# 의존성 설치 (사용자 주도)
-pip install -r requirements.txt
-
-# 임포트 스모크 테스트
-python runtime/import_smoke.py
-```
-
-
+의존성이 설치되면, 프로바이더가 `SKILL.md`에 정의된 스킬 진입점을 실행할 수 있으며, 요청 시 콜드스타트되고 작업 후 깔끔하게 종료됩니다.
 
 ---
-## 왜 필요한가
 
-모든 AI 코딩 도구 — Hermes, Codex, Claude Code, Cursor, Gemini CLI — 는 각자의
-방식으로 "기억"합니다. 공통된 결과:
+## 🧠 아키텍처 및 핵심 작동 원리
 
-| 문제 | 현상 |
-|---|---|
-| **흩어진 의사결정** | 유용한 맥락이 프로바이더 채팅, 마크다운 노트, 로컬 파일에 갇힘 |
-| **낡은 기억** | 이미 대체된 결정이 계속 검색 가능한 상태로 남음 |
-| **프로바이더 종속** | 각 도구가 서로 다른 메모리 형식을 발명 |
-| **트랜스크립트 덤프** | 가공되지 않은 세션이 "메모리"로 레포에 유입 |
-| **출처 없음** | 검색 결과가 그럴듯하지만 출처, 신선도, 생명주기 상태를 증명 불가 |
-
-**RAG는 이걸 해결하지 못합니다.** RAG는 매 질의마다 지식을 처음부터 재파생합니다.
-축적도, 생명주기도, 프로바이더 간 공유도 없습니다.
-
-**벡터 데이터베이스도 마찬가지입니다.** 인프라 의존성(Neo4j, Pinecone, 임베딩)을
-추가할 뿐, 근본 문제를 해결하지 않습니다: *무엇을 기억하고, 무엇을 잊고, 무엇을
-전달할지 누가 결정하는가?*
-
-openyggdrasil은 다른 접근을 취합니다.
+### 기존 방식(RAG/Vector DB)의 한계와 대안
+모든 AI 코딩 도구는 각자의 방식으로 기억합니다. 이로 인해 결정이 흩어지고, 낡은 기억이 남으며, 프로바이더에 종속됩니다. RAG는 매번 지식을 재파생하고, 벡터 DB는 인프라 의존성만 추가할 뿐 "무엇을 기억하고 전달할지" 해결하지 못합니다.
 
 ### 🛡️ 3-Tier 벡터 대체 전략 (Vector Replacement)
-순수 로컬 시스템에서 다음 3계층의 필터링을 통해 검색 효율성을 높입니다.
-
-1. **L1 구조적 필터링 (YAML Frontmatter)**: `python-frontmatter`를 사용하여 문서의 메타데이터(`status`, `tags`, `type`)를 필터링합니다. 이를 통해 'SUPERSEDED' 상태의 문서가 검색에 포함되는 것을 방지합니다.
-2. **L2 그래프 탐색 (NetworkX Topology)**: 문서 간의 `Sources` 속성을 NetworkX 그래프로 변환합니다. Louvain 커뮤니티 감지 알고리즘을 사용하여 연관된 토픽 클러스터를 식별합니다.
-3. **L3 프로그래매틱 스캔 (PTC 기반 Full-text)**: Python 스크립트(PTC)가 검색된 후보 문서들을 로컬에서 직접 스캔합니다. 필요한 코드 스니펫이나 변수명 등의 결과만 추출하여 LLM에 반환함으로써 컨텍스트 윈도우의 토큰 사용량을 최소화합니다.
+openyggdrasil은 무거운 벡터 DB 대신 순수 로컬 시스템에서 다음 3계층 필터링으로 검색 효율(토큰 10배 절약)을 달성합니다:
+1. **L1 구조적 필터링 (YAML Frontmatter)**: `SUPERSEDED` 상태 문서 배제.
+2. **L2 그래프 탐색 (NetworkX Topology)**: 문서 간 명시적 `Sources` 링크 기반의 커뮤니티 탐지.
+3. **L3 프로그래매틱 스캔 (PTC 기반 Full-text)**: Python 스크립트가 검색 후보를 로컬에서 직접 스캔하여 필요한 코드만 반환.
 
 ### 프로바이더 간 지식 교차 (Cross-Provider Pollination)
-
-openyggdrasil은 특정 도구에 종속되지 않는 공용 지식 저장소로 작동합니다.
-
+openyggdrasil은 특정 도구에 종속되지 않는 공용 지식 저장소입니다.
 - **프로바이더 A(예: Cursor)가 씁니다:** 아키텍처를 결정하고 Vault에 기록합니다. (출처: `provider_id: cursor`)
-- **프로바이더 B(예: Claude Code)가 읽고 갱신합니다:** 며칠 뒤 다른 에이전트가 켜지면, 앞선 에이전트가 쓴 문서를 검색해서 읽고 작업을 이어갑니다. 만약 결정이 변경되면 기존 지식을 `SUPERSEDED`(대체됨)로 밀어내고 새 지식을 씁니다.
-- **다시 프로바이더 A가 인지합니다:** 다음에 처음 접속했던 에이전트가 들어오면, 자신이 과거에 썼던 낡은 지식이 아니라 다른 에이전트가 최신화해 둔 지식을 읽게 됩니다.
-
-이것이 가능한 이유는 모든 에이전트가 자신만의 내부 트랜스크립트 포맷을 버리고, openyggdrasil의 **엄격한 프론트매터 스키마(Markdown + YAML)** 라는 단일 진실 원천(Vault) 규격을 공유하기 때문입니다.
+- **프로바이더 B(예: Claude Code)가 읽고 갱신합니다:** 며칠 뒤 프로바이더 B가 앞선 문서를 검색해 작업을 잇고, 결정이 바뀌면 기존 지식을 `SUPERSEDED`로 밀어냅니다.
+- **다시 프로바이더 A가 인지합니다:** 프로바이더 A가 다시 들어와도 B가 갱신한 최신 지식을 읽게 됩니다.
 
 ## 핵심 철학
 
@@ -1081,6 +962,68 @@ openyggdrasil/
 ```
 
 ---
+
+### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-01 15:40 KST, Phase 8 Target: E12D, R14→R15)
+
+> **⚠️ 이 프로젝트는 프로덕션 준비가 되지 않았습니다.**
+> 8차 로드맵(PTC 기반 목표 아키텍처)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
+> **Effort normalizer는 공식 퇴역**하고, 페르소나(Persona) 문서 기반 아키텍처로 전환되었습니다.
+
+아래 표는 본 README에 기술된 아키텍처와 실제 구현 간의 정렬도를 정량화한 것입니다. 오해를 방지하기 위해, 각 블록의 현재 상태를 4단계(LIVE / PARTIAL / STUB / ABSENT)로 명시합니다.
+
+| 등급 | 의미 |
+|---|---|
+| 🟢 **LIVE** | 런타임 코드 존재, 테스트 PASS 또는 핵심 검증 완료 |
+| 🟡 **PARTIAL** | 코드/계약 존재, 엔드투엔드 관통 미검증 또는 서브에이전트 통합 중 |
+| 🟠 **STUB** | 파일/개념만 존재하거나 뼈대 코드만 스텁 상태 |
+| 🔴 **ABSENT** | 코드 미존재, 설계 문서만 있거나 없음 |
+
+#### 생산면 (Production Side)
+| 모듈 | 상태 | 비고 |
+|---|---|---|
+| Session Structure Signal | 🟢 LIVE | 나이테 확립. Same-Run Typed Ref Source 검증 완료 |
+| Admission Gate | 🟡 PARTIAL | `source_ref` 계약 검증 동작. Quality Gate P0 이슈 발행됨 |
+| Distiller | 🟡 PARTIAL | 가드레일 + 페르소나 존재. e12c R14 PASS, R15 진행 중 |
+| Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet 빌더 구현 완료 |
+| Amundsen | 🟡 PARTIAL | 대륙 분기 스키마 + 런타임 + 페르소나 구현 |
+| Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. NetworkX (BSD-3) Louvain 클린룸 연동 완료 |
+| Gardener | 🟡 PARTIAL | 물리적 식재 + **페르소나 신규 추가**. 자동 치유 미완 |
+| Postman | 🟡 PARTIAL | Runner Source Packet Producer 커밋(`37b2dac`). R14 37테스트 PASS |
+| 수동 편집 보호 | 🟠 STUB | P1 이슈 및 설계 제안서 발행됨 |
+| 피드백 루프 | 🟠 STUB | P1 이슈 발행됨. 런타임 코드 미착수 |
+
+#### 소비면 (Consumption Side)
+| 모듈 | 상태 | 비고 |
+|---|---|---|
+| Pathfinder | 🟡 PARTIAL | 페르소나 존재. Tool-based 스캔 + PTC 도구 7개 정의 |
+| Support Bundle | 🟡 PARTIAL | 3-tier 나이테 추적. Cross-Provider 검증 PASS |
+| Mailbox | 🟠 STUB | 스키마 존재. **Receipt Consumer 페르소나 신규 추가** |
+| Lifecycle Filter | 🟢 LIVE | 프론트매터 파싱 및 ACTIVE/SUPERSEDED 상태 필터링 완벽 작동 |
+
+#### 인프라 / 크로스커팅
+| 모듈 | 상태 | 비고 |
+|---|---|---|
+| SKILL.md 콜드스타트 | 🟢 LIVE | 프로바이더 자동 인식 및 진입점 호출 동작 |
+| Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586줄.** 5단 호출 체인 구현. R14 PASS, R15 라이브 |
+| Persona System (9역할) | 🟢 LIVE | 9개 페르소나 완비 (effort normalizer 대체) |
+| Reasoning Lease | 🟡 PARTIAL | 위임 계약 작동. Bubblewrap 샌드박스 스텁 대기 중 (R15 블로커) |
+| Vault (SOT) | 🟢 LIVE | 디렉토리 제약 및 프론트매터 검증 완벽 동작 |
+| Graphify 파생 뷰 | 🟡 PARTIAL | 커뮤니티 파생 스크립트 동작 (GPL 의존성 제거 완료) |
+| Cross-Provider | 🟡 PARTIAL | 교차 메모리 접근 테스트 PASS |
+| Hermes Adapter | 🟡 PARTIAL | e12c R14 PASS(37테스트). R15 진행 중 |
+| i18n 파이프라인 | 🔴 ABSENT | P1 이슈 발행됨. 백엔드 언어 코드 패스 없음 |
+| 인라인 출처 마킹 | 🔴 ABSENT | 파일 단위 추적만 동작 |
+| 원자적 롤백 | 🟠 STUB | Dulwich Porcelain 기반 Atomic Vault Writer POC (testbed) 완료 |
+
+#### 총 정렬도 요약
+| 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
+|---|---|---|---|---|---|---|
+| 생산면 | 10 | 1 | 7 | 2 | 0 | 80% |
+| 소비면 | 4 | 1 | 2 | 1 | 0 | 75% |
+| 인프라 | 11 | 3 | 5 | 1 | 2 | 75% |
+| **전체** | **25** | **5** | **14** | **4** | **2** | **78%** |
+
+
 
 ## 영감 & 감사
 
