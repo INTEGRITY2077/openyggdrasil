@@ -25,6 +25,8 @@ ROLE_PERSONA_FILES = {
     "pathfinder": "PERSONA_PATHFINDER.md",
     "postman": "PERSONA_POSTMAN.md",
     "map_maker": "PERSONA_MAP_MAKER.md",
+    "gardener": "PERSONA_GARDENER.md",
+    "receipt_consumer": "PERSONA_RECEIPT_CONSUMER.md",
 }
 
 REQUIRED_SECTIONS = (

@@ -78,7 +78,9 @@
         "amundsen",
         "pathfinder",
         "postman",
-        "map_maker"
+        "map_maker",
+        "gardener",
+        "receipt_consumer"
       ]
     },
     "safe_ref": {
