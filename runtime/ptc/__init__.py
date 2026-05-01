@@ -17,11 +17,13 @@ from .compat import (
 from .engine import (
     build_lease_backed_query_adaptive_pathfinder_plan,
     build_pathfinder_ptc_routing_trace,
+    build_provider_subagent_ptc_execution_trace_packet,
     build_query_adaptive_pathfinder_plan,
     render_default_pathfinder_json_plan,
     render_default_pathfinder_program,
     render_query_adaptive_pathfinder_program,
     validate_pathfinder_json_tool_plan,
+    validate_provider_subagent_ptc_execution_trace_packet,
     validate_query_adaptive_pathfinder_plan,
 )
 
@@ -33,10 +35,12 @@ __all__ = [
     "compatibility_policy",
     "build_lease_backed_query_adaptive_pathfinder_plan",
     "build_pathfinder_ptc_routing_trace",
+    "build_provider_subagent_ptc_execution_trace_packet",
     "build_query_adaptive_pathfinder_plan",
     "render_default_pathfinder_json_plan",
     "render_default_pathfinder_program",
     "render_query_adaptive_pathfinder_program",
     "validate_pathfinder_json_tool_plan",
+    "validate_provider_subagent_ptc_execution_trace_packet",
     "validate_query_adaptive_pathfinder_plan",
 ]

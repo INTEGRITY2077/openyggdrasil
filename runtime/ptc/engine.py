@@ -28,6 +28,13 @@ ROLE_POLYMORPHIC_PTC_CLAIM_SCOPE = (
 )
 ROLE_POLYMORPHIC_SAME_RUN_SOURCE_KIND = "physical_live_same_run"
 ROLE_POLYMORPHIC_EVIDENCE_CHAIN_STATUS = "upstream_verified"
+PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_PACKET_SCHEMA_VERSION = (
+    "provider_subagent_ptc_execution_trace_packet.v1"
+)
+PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_PACKET_STATUS = "packet_surface_ready"
+PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_CLAIM_SCOPE = (
+    "provider_subagent_execution_trace_packet_surface_not_live_invocation_proof"
+)
 REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES = (
     "distiller",
     "evaluator",
@@ -50,6 +57,47 @@ UNSAFE_PORTABLE_REF_TOKENS = (
     "transcripts/",
     "auth.json",
     ".env",
+)
+PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_HARD_NONCLAIMS = (
+    "This packet surface does not prove a real Hermes live invocation.",
+    "This packet surface is not proof of production PTC implementation.",
+    "This packet surface is not proof that Reasoning Lease is solved or R10 is complete.",
+    "This packet surface is not proof of live readiness or production readiness.",
+)
+PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_NO_OVERCLAIM_FLAGS = (
+    "real_hermes_live_invocation_claimed",
+    "provider_answer_quality_claimed",
+    "reasoning_lease_solved_claimed",
+    "r10_complete_claimed",
+    "live_readiness_claimed",
+    "production_readiness_claimed",
+    "production_ptc_implemented_claimed",
+    "public_runtime_integration_complete_claimed",
+    "background_live_integration_claimed",
+    "consumer_ux_complete_claimed",
+    "wiki_production_safety_complete_claimed",
+    "full_product_readiness_claimed",
+    "thin_worker_chain_relabelled_as_execution",
+    "static_bridge_relabelled_as_execution",
+    "mcp_generic_gateway_or_agent_adapter_used",
+    "raw_transcript_included",
+    "raw_prompt_included",
+    "credential_material_included",
+    "provider_profile_material_included",
+    "provider_state_db_material_included",
+)
+HARD_NONCLAIM_WEAKENING_TOKENS = (
+    "override global",
+    "weaken global",
+    "remove global",
+    "ignore global",
+    "relax global",
+    "waive global",
+    "claim reasoning lease solved",
+    "claim live readiness",
+    "claim production readiness",
+    "claim production ptc implemented",
+    "claim full product readiness",
 )
 
 PATHFINDER_JSON_TOOL_CAPABILITIES = {
@@ -224,6 +272,21 @@ def _safe_identifier(value: Any, *, field_name: str) -> str:
     return text
 
 
+def _string_list(values: Sequence[str] | None, *, field_name: str) -> list[str]:
+    if values is None:
+        return []
+    if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+        raise ValueError(f"{field_name} must be a string list")
+    return [str(value).strip() for value in values if str(value).strip()]
+
+
+def _assert_additive_only_hard_nonclaims(hard_nonclaims: Sequence[str]) -> None:
+    normalized = "\n".join(str(value) for value in hard_nonclaims).lower()
+    for token in HARD_NONCLAIM_WEAKENING_TOKENS:
+        if token in normalized:
+            raise ValueError("hard_nonclaims must not weaken global hard nonclaims")
+
+
 def _normalize_role_map(
     values: Mapping[str, Any],
     *,
@@ -239,6 +302,20 @@ def _normalize_role_map(
         role: _safe_portable_ref(normalized[role], field_name=f"{field_name}.{role}")
         for role in REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES
     }
+
+
+def _normalize_strict_role_map(
+    values: Mapping[str, Any],
+    *,
+    field_name: str,
+) -> dict[str, str]:
+    if not isinstance(values, Mapping):
+        raise ValueError(f"{field_name} must be a role ref map")
+    normalized_keys = {str(key).strip().lower().replace("-", "_") for key in values}
+    unknown = sorted(normalized_keys - set(REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES))
+    if unknown:
+        raise ValueError(f"{field_name} has unsupported roles: {', '.join(unknown)}")
+    return _normalize_role_map(values, field_name=field_name)
 
 
 def _normalize_same_run_ptc_context(same_run_context: Mapping[str, Any]) -> dict[str, str]:
@@ -478,6 +555,205 @@ def validate_role_polymorphic_ptc_telemetry_trace(payload: Mapping[str, Any]) ->
     ):
         if trace.get(flag) is not False:
             raise ValueError(f"unsafe role-polymorphic PTC flag: {flag}")
+
+
+def _role_execution_refs_from_ptc_telemetry(
+    ptc_telemetry_trace: Mapping[str, Any],
+) -> dict[str, str]:
+    validate_role_polymorphic_ptc_telemetry_trace(ptc_telemetry_trace)
+    role_rows = ptc_telemetry_trace.get("role_prompt_contexts") or []
+    return {
+        str(row["role"]): str(row["role_execution_ref"])
+        for row in role_rows
+        if isinstance(row, Mapping)
+    }
+
+
+def _normalize_execution_trace_hard_nonclaims(
+    packet_hard_nonclaims: Sequence[str] | None,
+) -> list[str]:
+    hard_nonclaims = [
+        *PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_HARD_NONCLAIMS,
+        *_string_list(packet_hard_nonclaims, field_name="hard_nonclaims"),
+    ]
+    _assert_additive_only_hard_nonclaims(hard_nonclaims)
+    return hard_nonclaims
+
+
+def _validate_execution_trace_hard_nonclaims(hard_nonclaims: Any) -> None:
+    values = _string_list(hard_nonclaims, field_name="hard_nonclaims")
+    if not values:
+        raise ValueError("provider/subagent execution trace packet requires hard_nonclaims")
+    missing = [
+        hard_nonclaim
+        for hard_nonclaim in PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_HARD_NONCLAIMS
+        if hard_nonclaim not in values
+    ]
+    if missing:
+        raise ValueError("provider/subagent execution trace packet missing hard nonclaims")
+    _assert_additive_only_hard_nonclaims(values)
+
+
+def _validate_no_overclaim_flags(flags: Any) -> None:
+    if not isinstance(flags, Mapping):
+        raise ValueError("no_overclaim_flags must be an object")
+    missing = [
+        flag
+        for flag in PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_NO_OVERCLAIM_FLAGS
+        if flag not in flags
+    ]
+    if missing:
+        raise ValueError(f"no_overclaim_flags missing required flags: {', '.join(missing)}")
+    for flag_name, value in flags.items():
+        if value is not False:
+            raise ValueError(f"unsafe provider/subagent execution trace flag: {flag_name}")
+
+
+def build_provider_subagent_ptc_execution_trace_packet(
+    *,
+    provider_or_subagent_invocation_ref: str,
+    ptc_telemetry_trace: Mapping[str, Any],
+    role_execution_refs: Mapping[str, Any] | None = None,
+    execution_trace_ref: str | None = None,
+    typed_result_ref: str | None = None,
+    typed_unavailable_ref: str | None = None,
+    hard_nonclaims: Sequence[str] | None = None,
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    """Build a fail-closed packet surface for provider/subagent PTC execution refs.
+
+    The packet validates the shape needed by a later provider/subagent run. It
+    does not call Hermes, inspect provider state, copy raw transcripts, or prove
+    that a real live invocation happened.
+    """
+
+    active_invocation_ref = _safe_portable_ref(
+        provider_or_subagent_invocation_ref,
+        field_name="provider_or_subagent_invocation_ref",
+    )
+    telemetry_role_refs = _role_execution_refs_from_ptc_telemetry(ptc_telemetry_trace)
+    active_role_refs = _normalize_strict_role_map(
+        role_execution_refs or telemetry_role_refs,
+        field_name="role_execution_refs",
+    )
+    if active_role_refs != telemetry_role_refs:
+        raise ValueError("role_execution_refs must match the validated PTC telemetry trace")
+
+    active_typed_result_ref = (
+        _safe_portable_ref(typed_result_ref, field_name="typed_result_ref")
+        if typed_result_ref is not None
+        else None
+    )
+    active_typed_unavailable_ref = (
+        _safe_portable_ref(typed_unavailable_ref, field_name="typed_unavailable_ref")
+        if typed_unavailable_ref is not None
+        else None
+    )
+    if active_typed_result_ref is None and active_typed_unavailable_ref is None:
+        raise ValueError("typed_result_ref or typed_unavailable_ref is required")
+
+    telemetry_ref = _safe_portable_ref(
+        ptc_telemetry_trace.get("telemetry_ref"),
+        field_name="ptc_telemetry_ref",
+    )
+    token = _route_token(
+        active_invocation_ref,
+        telemetry_ref,
+        tuple(active_role_refs.items()),
+        active_typed_result_ref,
+        active_typed_unavailable_ref,
+    )
+    active_execution_trace_ref = _safe_portable_ref(
+        execution_trace_ref
+        or f"execution-trace-ref://openyggdrasil/provider-subagent-ptc/{token}",
+        field_name="execution_trace_ref",
+    )
+    packet = {
+        "schema_version": PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_PACKET_SCHEMA_VERSION,
+        "execution_trace_id": f"provider-subagent-ptc-execution-trace-{token}",
+        "execution_trace_ref": active_execution_trace_ref,
+        "execution_trace_status": PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_PACKET_STATUS,
+        "claim_scope": PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_CLAIM_SCOPE,
+        "provider_or_subagent_invocation_ref": active_invocation_ref,
+        "role_execution_refs": active_role_refs,
+        "ptc_telemetry_ref": telemetry_ref,
+        "ptc_telemetry_schema_version": ptc_telemetry_trace.get("schema_version"),
+        "ptc_telemetry_claim_scope": ptc_telemetry_trace.get("claim_scope"),
+        "typed_result_ref": active_typed_result_ref,
+        "typed_unavailable_ref": active_typed_unavailable_ref,
+        "required_roles": list(REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES),
+        "role_count": len(active_role_refs),
+        "same_run_context": dict(ptc_telemetry_trace.get("same_run_context") or {}),
+        "ptc_telemetry_trace_validated": True,
+        "role_execution_refs_match_ptc_telemetry": True,
+        "packet_surface_only": True,
+        "safe_refs_only": True,
+        "provider_subagent_invocation_material_included": False,
+        "additive_only_hard_nonclaims": True,
+        "hard_nonclaims": _normalize_execution_trace_hard_nonclaims(hard_nonclaims),
+        "no_overclaim_flags": {
+            flag: False for flag in PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_NO_OVERCLAIM_FLAGS
+        },
+        "runtime_owner": "runtime/ptc/engine.py",
+        "reason_codes": [
+            "provider_subagent_ptc_execution_trace_packet_surface_built",
+            "ptc_telemetry_trace_validated",
+            "role_execution_refs_match_ptc_telemetry",
+            "hard_nonclaims_preserved",
+            "live_invocation_not_claimed",
+            "production_ptc_not_claimed",
+        ],
+        "generated_at": generated_at or _utc_now_iso(),
+    }
+    validate_provider_subagent_ptc_execution_trace_packet(packet)
+    return packet
+
+
+def validate_provider_subagent_ptc_execution_trace_packet(payload: Mapping[str, Any]) -> None:
+    packet = dict(payload)
+    if packet.get("schema_version") != PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_PACKET_SCHEMA_VERSION:
+        raise ValueError("invalid provider/subagent PTC execution trace packet schema_version")
+    if packet.get("execution_trace_status") != PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_PACKET_STATUS:
+        raise ValueError("invalid provider/subagent PTC execution trace packet status")
+    if packet.get("claim_scope") != PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_CLAIM_SCOPE:
+        raise ValueError("invalid provider/subagent PTC execution trace claim_scope")
+    for field in (
+        "execution_trace_ref",
+        "provider_or_subagent_invocation_ref",
+        "ptc_telemetry_ref",
+    ):
+        _safe_portable_ref(packet.get(field), field_name=field)
+    if packet.get("typed_result_ref") is None and packet.get("typed_unavailable_ref") is None:
+        raise ValueError("typed result or typed unavailable ref is required")
+    if packet.get("typed_result_ref") is not None:
+        _safe_portable_ref(packet.get("typed_result_ref"), field_name="typed_result_ref")
+    if packet.get("typed_unavailable_ref") is not None:
+        _safe_portable_ref(packet.get("typed_unavailable_ref"), field_name="typed_unavailable_ref")
+    if packet.get("required_roles") != list(REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES):
+        raise ValueError("required_roles must match role-polymorphic PTC roles")
+    role_refs = _normalize_strict_role_map(
+        packet.get("role_execution_refs") or {},
+        field_name="role_execution_refs",
+    )
+    if packet.get("role_count") != len(role_refs):
+        raise ValueError("role_count must match role_execution_refs count")
+    _normalize_same_run_ptc_context(packet.get("same_run_context") or {})
+    for field in (
+        "ptc_telemetry_trace_validated",
+        "role_execution_refs_match_ptc_telemetry",
+        "packet_surface_only",
+        "safe_refs_only",
+        "additive_only_hard_nonclaims",
+    ):
+        if packet.get(field) is not True:
+            raise ValueError(f"provider/subagent execution trace packet requires {field}=True")
+    if packet.get("provider_subagent_invocation_material_included") is not False:
+        raise ValueError("provider/subagent execution trace packet must not include provider material")
+    _validate_execution_trace_hard_nonclaims(packet.get("hard_nonclaims"))
+    _validate_no_overclaim_flags(packet.get("no_overclaim_flags"))
+    reason_codes = packet.get("reason_codes")
+    if not isinstance(reason_codes, Sequence) or isinstance(reason_codes, (str, bytes)) or not reason_codes:
+        raise ValueError("reason_codes are required")
 
 
 def _clamp_int(value: int, *, minimum: int, maximum: int) -> int:
@@ -908,12 +1184,15 @@ __all__ = [
     "LEASE_BACKED_LLM_PLANNER_MODE",
     "QUERY_ADAPTIVE_PLAN_SCHEMA_VERSION",
     "QUERY_ADAPTIVE_PLAN_STATUS",
+    "PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_PACKET_SCHEMA_VERSION",
+    "PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_PACKET_STATUS",
     "REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES",
     "ROLE_POLYMORPHIC_PTC_TELEMETRY_SCHEMA_VERSION",
     "ROLE_POLYMORPHIC_PTC_TELEMETRY_STATUS",
     "STRUCTURAL_ANCHOR_FALLBACK_REASON_CODE",
     "build_lease_backed_query_adaptive_pathfinder_plan",
     "build_pathfinder_ptc_routing_trace",
+    "build_provider_subagent_ptc_execution_trace_packet",
     "build_query_adaptive_pathfinder_plan",
     "build_role_polymorphic_ptc_telemetry_trace",
     "render_default_pathfinder_program",
@@ -921,6 +1200,7 @@ __all__ = [
     "render_query_adaptive_pathfinder_program",
     "structural_anchor_fallback_evaluator",
     "validate_pathfinder_json_tool_plan",
+    "validate_provider_subagent_ptc_execution_trace_packet",
     "validate_query_adaptive_pathfinder_plan",
     "validate_role_polymorphic_ptc_telemetry_trace",
 ]
