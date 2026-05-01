@@ -22,7 +22,7 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Current Status — Architecture Alignment Scorecard (2026-05-01 13:55 KST, Phase 4-E12)
+### 📊 Current Status — Architecture Alignment Scorecard (2026-05-01 14:35 KST, Phase 4-E12 R14→R15)
 
 > **⚠️ This project is not production-ready.**
 > We are live-testing the runtime and iterating in the open towards the 8th Roadmap (PTC-based Target Architecture).
@@ -42,12 +42,12 @@ The table below quantifies the alignment between the architecture described in t
 |---|---|---|
 | Session Structure Signal | 🟢 LIVE | Tree Rings established. Same-Run Typed Ref Source verified |
 | Admission Gate | 🟡 PARTIAL | `source_ref` contract verification works. Quality Gate P0 issue raised |
-| Distiller | 🟡 PARTIAL | Guardrail + Persona exist. e12c round 13 verification in progress |
+| Distiller | 🟡 PARTIAL | Guardrail + Persona exist. e12c R14 PASS, R15 in progress |
 | Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet builder implemented |
 | Amundsen | 🟡 PARTIAL | Continent branching schema + runtime + Persona implemented |
 | Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. Leiden integration WIP |
 | Gardener | 🟡 PARTIAL | Physical planting + **new Persona added**. Auto-healing incomplete |
-| Postman | 🟡 PARTIAL | Runner Response Producer + Ingress gate implemented |
+| Postman | 🟡 PARTIAL | Runner Source Packet Producer committed (`37b2dac`). R14 37 tests PASS |
 | Content Hash Protection | 🟠 STUB | P1 issue and design proposal raised |
 | Rejection Loop | 🟠 STUB | P1 issue raised. No runtime code yet |
 
@@ -63,13 +63,13 @@ The table below quantifies the alignment between the architecture described in t
 | Module | Status | Remarks |
 |---|---|---|
 | SKILL.md Cold Start | 🟢 LIVE | Automatic provider recognition & entrypoint calling works |
-| Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586 lines.** 5-stage invocation chain implemented. Live verification in progress |
+| Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586 lines.** 5-stage invocation chain implemented. R14 PASS, R15 live |
 | Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
 | Reasoning Lease | 🟡 PARTIAL | Delegation contract works. Bubblewrap isolation pending |
 | Vault (SOT) | 🟢 LIVE | Directory constraints & frontmatter validation fully operational |
 | Graphify Topology View | 🟡 PARTIAL | Community derivation scripts partially working |
 | Cross-Provider | 🟡 PARTIAL | Cross-memory access tests PASS |
-| Hermes Adapter | 🟡 PARTIAL | e12c round 13 verification in progress |
+| Hermes Adapter | 🟡 PARTIAL | e12c R14 PASS (37 tests). R15 in progress |
 | i18n Pipeline | 🔴 ABSENT | P1 issue raised. No backend language code path |
 | Inline Source Marking | 🔴 ABSENT | File-level tracking only |
 | Atomic Rollback | 🔴 ABSENT | Auto-snapshotting not implemented |
@@ -82,7 +82,7 @@ The table below quantifies the alignment between the architecture described in t
 | Infrastructure | 11 | 3 | 5 | 0 | 3 | 73% |
 | **Total** | **25** | **5** | **14** | **3** | **3** | **76%** |
 
-> PTC engine materialized at 2,586 lines. 5-stage invocation chain (Packet→Command→Ingress→Producer→RefSource) implemented. 9-role Persona system replaced effort normalizer. e12c round 13 iterative verification in progress.
+> PTC engine materialized at 2,586 lines. 5-stage invocation chain (Packet→Command→Ingress→Producer→RefSource) implemented. 9-role Persona system replaced effort normalizer. **e12c R14 PASS** (9+10+10+11=37 tests, compileall PASS, commit `37b2dac`). R15 in progress.
 
 ## Why This Exists
 
