@@ -935,8 +935,10 @@ into navigable graphs:
 1. **Memory is an engine, not a text pile.** Every piece of memory has a source,
    a lifecycle state, and a typed contract.
 
-2. **Deterministic base, optional reasoning.** The pipeline works without LLM
-   reasoning. Reasoning Lease is an opt-in enhancement.
+2. **Mechanical base, mandatory reasoning.** The pipeline's structural skeleton
+   (schema validation, AST extraction, topological clustering) runs deterministically,
+   but meaningful knowledge production (Distill, Semantic Edge) requires LLM
+   reasoning through Reasoning Lease.
 
 3. **Provider-neutral by default.** No provider gets special access to the vault.
    Hermes, Codex, Claude Code, and future providers share the same contracts.
