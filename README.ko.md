@@ -22,10 +22,11 @@
   <a href="#영감--감사">영감</a>
 </p>
 
-### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (As of May 2026, Phase 4)
+### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-01 13:55 KST, Phase 4-E12)
 
-> **⚠️ 이 프로젝트는 프로덕션 준비가 되지 않았습니다.** 
+> **⚠️ 이 프로젝트는 프로덕션 준비가 되지 않았습니다.**
 > 8차 로드맵(PTC 기반 목표 아키텍처)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
+> **Effort normalizer는 공식 퇴역**하고, 페르소나(Persona) 문서 기반 아키텍처로 전환되었습니다.
 
 아래 표는 본 README에 기술된 아키텍처와 실제 구현 간의 정렬도를 정량화한 것입니다. 오해를 방지하기 위해, 각 블록의 현재 상태를 4단계(LIVE / PARTIAL / STUB / ABSENT)로 명시합니다.
 
@@ -39,48 +40,49 @@
 #### 생산면 (Production Side)
 | 모듈 | 상태 | 비고 |
 |---|---|---|
-| Session Structure Signal | 🟢 LIVE | 스키마 정상 동작. `provider_id`, `session_uid` 기반 나이테 확립 |
-| Admission Gate | 🟡 PARTIAL | 포인터(`source_ref`) 계약 검증 동작. 의미론적 품질 게이트는 스텁 상태 |
-| Distiller (심층 증류) | 🟡 PARTIAL | 가드레일 계약 존재. 서브에이전트 자율 증류 루프 미관통 |
-| Evaluator (가치 평가) | 🟡 PARTIAL | 가치평가 도구 존재. 서브에이전트 추론 소비 테스트 진행 중 |
-| Amundsen (카테고리 분류) | 🟡 PARTIAL | 대륙(Continent) 분기 스키마 및 런타임 로직 구현됨 |
-| Map Maker (토픽 배치) | 🟡 PARTIAL | 위상 계산 로직 구현. Leiden 알고리즘 완전 연동 작업 중 |
-| Gardener (생명주기 식재) | 🟡 PARTIAL | 물리적 디렉토리 식재 및 생명주기 관리 구현. 자동 치유 미완 |
-| Postman (수신증 발급) | 🟡 PARTIAL | 영수증 생성 로직 구현. 메일박스 비동기 루프 부분 동작 |
-| 수동 편집 보호 (content_hash) | 🔴 ABSENT | 설계 제안서만 존재. 런타임 코드 없음 |
-| 피드백 루프 (Rejection Loop) | 🔴 ABSENT | 반려 시 서브에이전트 자가 수정 루프 설계만 존재 |
+| Session Structure Signal | 🟢 LIVE | 나이테 확립. Same-Run Typed Ref Source 검증 완료 |
+| Admission Gate | 🟡 PARTIAL | `source_ref` 계약 검증 동작. Quality Gate P0 이슈 발행됨 |
+| Distiller | 🟡 PARTIAL | 가드레일 + 페르소나 존재. e12c 13라운드 검증 중 |
+| Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet 빌더 구현 완료 |
+| Amundsen | 🟡 PARTIAL | 대륙 분기 스키마 + 런타임 + 페르소나 구현 |
+| Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. Leiden 연동 작업 중 |
+| Gardener | 🟡 PARTIAL | 물리적 식재 + **페르소나 신규 추가**. 자동 치유 미완 |
+| Postman | 🟡 PARTIAL | Runner Response Producer + Ingress 게이트 구현 |
+| 수동 편집 보호 | 🟠 STUB | P1 이슈 및 설계 제안서 발행됨 |
+| 피드백 루프 | 🟠 STUB | P1 이슈 발행됨. 런타임 코드 미착수 |
 
 #### 소비면 (Consumption Side)
 | 모듈 | 상태 | 비고 |
 |---|---|---|
-| Pathfinder (위상 스캔 검색) | 🟡 PARTIAL | 기존 모놀리식 구조 폐기 후 Tool-based 스캔으로 리팩토링 중 |
-| Support Bundle (출처 번들) | 🟡 PARTIAL | 3-tier 나이테 추적 작동. 교차 프로바이더(Cross-Provider) 검증 PASS |
-| Mailbox (타입 안전 수신함) | 🟠 STUB | 스키마 존재. 프로바이더별 수신 어댑터 비동기 대기 중 |
+| Pathfinder | 🟡 PARTIAL | 페르소나 존재. Tool-based 스캔 + PTC 도구 7개 정의 |
+| Support Bundle | 🟡 PARTIAL | 3-tier 나이테 추적. Cross-Provider 검증 PASS |
+| Mailbox | 🟠 STUB | 스키마 존재. **Receipt Consumer 페르소나 신규 추가** |
 | Lifecycle Filter | 🟢 LIVE | 프론트매터 파싱 및 ACTIVE/SUPERSEDED 상태 필터링 완벽 작동 |
 
 #### 인프라 / 크로스커팅
 | 모듈 | 상태 | 비고 |
 |---|---|---|
-| SKILL.md 콜드스타트 진입 | 🟢 LIVE | 매니페스트 파일 존재. 프로바이더 자동 인식 및 진입점 호출 동작 |
-| Typed PTC Engine | 🟡 PARTIAL | 개념 설계 완료. 샌드박스 내부 서브에이전트의 PTC 자율 호출 검증 중 |
-| Reasoning Lease | 🟡 PARTIAL | 추론 자원 위임 계약 작동. Bubblewrap 비특권 격리 보안 적용 전 |
-| Vault (SOT 메모리) | 🟢 LIVE | SOT 구조, 디렉토리 제약 및 프론트매터 검증 파이프라인 완벽 동작 |
-| Graphify 파생 뷰 | 🟡 PARTIAL | 커뮤니티 파생 및 노드 연결 스크립트 부분 동작 |
-| Cross-Provider Pollination | 🟡 PARTIAL | 다중 프로바이더 간 교차 메모리 접근 단위 테스트 PASS |
-| Hermes Provider Adapter | 🟡 PARTIAL | 어댑터 존재. 서브에이전트와의 브릿지 통신 연결 파이프라인 정비 중 |
-| i18n 다국어 파이프라인 | 🔴 ABSENT | UX 레벨 임시 대응만. 백엔드 언어 코드(alias) 통합 패스 없음 |
-| 인라인 출처 마킹 | 🔴 ABSENT | 문장 단위 출처 추적 없음 (파일 단위 추적만 동작) |
-| 원자적 롤백 (Git Safety Net) | 🔴 ABSENT | 작업 단위별 자동 스냅샷 및 롤백 루프 미구현 |
+| SKILL.md 콜드스타트 | 🟢 LIVE | 프로바이더 자동 인식 및 진입점 호출 동작 |
+| Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586줄.** 5단 호출 체인 구현. 라이브 검증 중 |
+| Persona System (9역할) | 🟢 LIVE | 9개 페르소나 완비 (effort normalizer 대체) |
+| Reasoning Lease | 🟡 PARTIAL | 위임 계약 작동. Bubblewrap 격리 적용 전 |
+| Vault (SOT) | 🟢 LIVE | 디렉토리 제약 및 프론트매터 검증 완벽 동작 |
+| Graphify 파생 뷰 | 🟡 PARTIAL | 커뮤니티 파생 스크립트 부분 동작 |
+| Cross-Provider | 🟡 PARTIAL | 교차 메모리 접근 테스트 PASS |
+| Hermes Adapter | 🟡 PARTIAL | e12c 라운드 검증 13회차 진행 중 |
+| i18n 파이프라인 | 🔴 ABSENT | P1 이슈 발행됨. 백엔드 언어 코드 패스 없음 |
+| 인라인 출처 마킹 | 🔴 ABSENT | 파일 단위 추적만 동작 |
+| 원자적 롤백 | 🔴 ABSENT | 자동 스냅샷 미구현 |
 
 #### 총 정렬도 요약
-| 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률(LIVE+PARTIAL) |
+| 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
 |---|---|---|---|---|---|---|
-| 생산면 | 10 | 1 | 7 | 0 | 2 | 80% |
+| 생산면 | 10 | 1 | 7 | 2 | 0 | 80% |
 | 소비면 | 4 | 1 | 2 | 1 | 0 | 75% |
-| 인프라 | 10 | 2 | 5 | 0 | 3 | 70% |
-| **전체** | **24** | **4** | **14** | **1** | **5** | **75%** (활성 통합 진행중) |
+| 인프라 | 11 | 3 | 5 | 0 | 3 | 73% |
+| **전체** | **25** | **5** | **14** | **3** | **3** | **76%** |
 
-> 설계의 상당 부분이 런타임 스키마와 기본 로직(PARTIAL)으로 반영되었으나, 서브에이전트가 이를 완전 자율적으로 운전하는 '엔드투엔드 PTC 관통'은 개발(8차 로드맵, Phase 4) 중입니다. 이 표는 프로젝트 상황을 투명하게 공유하기 위함이며 진행 상황에 맞춰 지속 갱신됩니다.
+> PTC 엔진 2,586줄로 물질화. 5단 호출 체인(Packet→Command→Ingress→Producer→RefSource) 구현 완료. 페르소나 9역할이 effort normalizer를 대체. e12c 13라운드 반복 검증 진행 중.
 
 
 ## 시스템 요구사항 및 설정

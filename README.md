@@ -22,10 +22,11 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Current Status — Architecture Alignment Scorecard (As of May 2026, Phase 4)
+### 📊 Current Status — Architecture Alignment Scorecard (2026-05-01 13:55 KST, Phase 4-E12)
 
-> **⚠️ This project is not production-ready.** 
+> **⚠️ This project is not production-ready.**
 > We are live-testing the runtime and iterating in the open towards the 8th Roadmap (PTC-based Target Architecture).
+> **Effort normalizer has been officially retired** and replaced by a Persona document-based architecture.
 
 The table below quantifies the alignment between the architecture described in this README and the actual implementation. To prevent misunderstanding, the current state of each block is explicitly labeled with 4 levels (LIVE / PARTIAL / STUB / ABSENT).
 
@@ -39,48 +40,49 @@ The table below quantifies the alignment between the architecture described in t
 #### Production Side
 | Module | Status | Remarks |
 |---|---|---|
-| Session Structure Signal | 🟢 LIVE | Schema operational. Tree Rings via `provider_id` & `session_uid` established |
-| Admission Gate | 🟡 PARTIAL | Pointer (`source_ref`) contract verification works. Semantic quality gate is a stub |
-| Distiller | 🟡 PARTIAL | Guardrail contract exists. Autonomous subagent distillation loop WIP |
-| Evaluator | 🟡 PARTIAL | Evaluation tool exists. Subagent reasoning consumption testing in progress |
-| Amundsen (Categorization) | 🟡 PARTIAL | Continent branching schema and runtime logic implemented |
-| Map Maker (Topology) | 🟡 PARTIAL | Topology calculation logic works. Full Leiden algorithm integration WIP |
-| Gardener (Lifecycle Planting) | 🟡 PARTIAL | Physical directory planting and lifecycle management works. Auto-healing incomplete |
-| Postman (Receipt Delivery) | 🟡 PARTIAL | Receipt generation logic implemented. Mailbox async loop partially operational |
-| Content Hash Protection | 🔴 ABSENT | Design proposal only. No runtime code |
-| Rejection Loop | 🔴 ABSENT | Design proposal only. No self-healing loop for subagents yet |
+| Session Structure Signal | 🟢 LIVE | Tree Rings established. Same-Run Typed Ref Source verified |
+| Admission Gate | 🟡 PARTIAL | `source_ref` contract verification works. Quality Gate P0 issue raised |
+| Distiller | 🟡 PARTIAL | Guardrail + Persona exist. e12c round 13 verification in progress |
+| Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet builder implemented |
+| Amundsen | 🟡 PARTIAL | Continent branching schema + runtime + Persona implemented |
+| Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. Leiden integration WIP |
+| Gardener | 🟡 PARTIAL | Physical planting + **new Persona added**. Auto-healing incomplete |
+| Postman | 🟡 PARTIAL | Runner Response Producer + Ingress gate implemented |
+| Content Hash Protection | 🟠 STUB | P1 issue and design proposal raised |
+| Rejection Loop | 🟠 STUB | P1 issue raised. No runtime code yet |
 
 #### Consumption Side
 | Module | Status | Remarks |
 |---|---|---|
-| Pathfinder (Topology Scan) | 🟡 PARTIAL | Legacy monolithic structure being refactored into Tool-based scanning |
-| Support Bundle (Provenance) | 🟡 PARTIAL | 3-tier Tree Ring tracking works. Cross-Provider verification PASS |
-| Mailbox (Typed Inbox) | 🟠 STUB | Schema exists. Awaiting provider-specific async receive adapters |
+| Pathfinder | 🟡 PARTIAL | Persona exists. Tool-based scan + 7 PTC tools defined |
+| Support Bundle | 🟡 PARTIAL | 3-tier Tree Ring tracking. Cross-Provider verification PASS |
+| Mailbox | 🟠 STUB | Schema exists. **Receipt Consumer Persona newly added** |
 | Lifecycle Filter | 🟢 LIVE | Frontmatter parsing and ACTIVE/SUPERSEDED state filtering works perfectly |
 
 #### Infrastructure / Cross-Cutting
 | Module | Status | Remarks |
 |---|---|---|
-| SKILL.md Cold Start | 🟢 LIVE | Manifest file exists. Automatic provider recognition & entrypoint calling works |
-| Typed PTC Engine | 🟡 PARTIAL | Conceptual design complete. Subagent autonomous PTC invocation inside sandbox is WIP |
-| Reasoning Lease | 🟡 PARTIAL | Reasoning lease contract operational. Bubblewrap unprivileged isolation pending |
-| Vault (SOT Memory) | 🟢 LIVE | SOT structure, directory constraints, and frontmatter validation pipeline fully operational |
-| Graphify Topology View | 🟡 PARTIAL | Community derivation and node linking scripts partially working |
-| Cross-Provider Pollination | 🟡 PARTIAL | Unit tests for cross-memory access between multiple providers PASS |
-| Hermes Provider Adapter | 🟡 PARTIAL | Adapter exists. Bridge communication pipeline with subagents under repair |
-| i18n Multilingual Pipeline | 🔴 ABSENT | UX level temporary fixes only. No backend language code integration |
-| Inline Source Marking | 🔴 ABSENT | No sentence-level provenance tracking (only file-level tracking works) |
-| Atomic Rollback (Git Net) | 🔴 ABSENT | Auto-snapshotting and rollback loops per task not implemented |
+| SKILL.md Cold Start | 🟢 LIVE | Automatic provider recognition & entrypoint calling works |
+| Typed PTC Engine | 🟡 PARTIAL | **`engine.py` 2,586 lines.** 5-stage invocation chain implemented. Live verification in progress |
+| Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
+| Reasoning Lease | 🟡 PARTIAL | Delegation contract works. Bubblewrap isolation pending |
+| Vault (SOT) | 🟢 LIVE | Directory constraints & frontmatter validation fully operational |
+| Graphify Topology View | 🟡 PARTIAL | Community derivation scripts partially working |
+| Cross-Provider | 🟡 PARTIAL | Cross-memory access tests PASS |
+| Hermes Adapter | 🟡 PARTIAL | e12c round 13 verification in progress |
+| i18n Pipeline | 🔴 ABSENT | P1 issue raised. No backend language code path |
+| Inline Source Marking | 🔴 ABSENT | File-level tracking only |
+| Atomic Rollback | 🔴 ABSENT | Auto-snapshotting not implemented |
 
 #### Alignment Summary
-| Domain | Total Blocks | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | Alignment (LIVE+PARTIAL) |
+| Domain | Total | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | Alignment |
 |---|---|---|---|---|---|---|
-| Production | 10 | 1 | 7 | 0 | 2 | 80% |
+| Production | 10 | 1 | 7 | 2 | 0 | 80% |
 | Consumption | 4 | 1 | 2 | 1 | 0 | 75% |
-| Infrastructure | 10 | 2 | 5 | 0 | 3 | 70% |
-| **Total** | **24** | **4** | **14** | **1** | **5** | **75%** (Active Integration WIP) |
+| Infrastructure | 11 | 3 | 5 | 0 | 3 | 73% |
+| **Total** | **25** | **5** | **14** | **3** | **3** | **76%** |
 
-> While a significant portion of the design has been implemented as runtime schemas and base logic (PARTIAL), the 'end-to-end PTC trace'—where the subagent drives the pipeline fully autonomously—is under active development (8th Roadmap, Phase 4). This table ensures transparent communication of the project status and will be continuously updated.
+> PTC engine materialized at 2,586 lines. 5-stage invocation chain (Packet→Command→Ingress→Producer→RefSource) implemented. 9-role Persona system replaced effort normalizer. e12c round 13 iterative verification in progress.
 
 ## Why This Exists
 
