@@ -22,10 +22,10 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Current Status — Architecture Alignment Scorecard (2026-05-02 14:00 KST, Phase 8 Target: P0-E12E, E12D Rows 10-14 BOUNDED_VERIFIED)
+### 📊 Current Status — Architecture Alignment Scorecard (2026-05-03 05:20 KST, Phase 9 Target: P0-E12G, CQRS Operator Loop)
 
 > **⚠️ This project is not production-ready.**
-> We are live-testing the runtime and iterating in the open towards the 8th Roadmap (PTC-based Target Architecture).
+> We are live-testing the runtime and iterating in the open towards the 9th Roadmap (CQRS Operator Loop + Mailing Protocol Target Architecture).
 > **Effort normalizer has been officially retired** and replaced by a Persona document-based architecture.
 
 The table below quantifies the alignment between the architecture described in this README and the actual implementation. To prevent misunderstanding, the current state of each block is explicitly labeled with 4 levels (LIVE / PARTIAL / STUB / ABSENT).
@@ -54,9 +54,9 @@ The table below quantifies the alignment between the architecture described in t
 #### Consumption Side
 | Module | Status | Remarks |
 |---|---|---|
-| Pathfinder | 🟡 PARTIAL | Persona exists. Tool-based scan + 7 PTC tools defined |
+| Pathfinder | 🟡 PARTIAL | Persona exists. Tool-based scan + 7 PTC tools defined. Consumer PTC POC 4/4 PASS |
 | Support Bundle | 🟡 PARTIAL | 3-tier Tree Ring tracking. Facade chain-through to mailbox verified |
-| Mailbox | 🟡 PARTIAL | Schema version shared across executor/tollgate. 3 tests PASS |
+| Mailbox | 🟡 PARTIAL | Mailing Protocol Mock 19/19 PASS. Integrated E2E 4/4 PASS. Physical Session Separation 3/3 PASS |
 | Lifecycle Filter | 🟢 LIVE | Frontmatter parsing and ACTIVE/SUPERSEDED state filtering works perfectly |
 
 #### Infrastructure / Cross-Cutting
@@ -345,37 +345,43 @@ If a relationship suggested by Graphify cannot be verified in the Vault, it is i
 
 ## System Architecture
 
-### Two-Sided Engine
-
+### Two-Sided Engine + CQRS Operator Loop (9th North Star)
 
 Building on this philosophy, openyggdrasil treats memory as a **two-sided engine** — a **Production Side** that captures and curates knowledge, and a **Consumption Side** that retrieves and delivers it.
 
+From the 9th North Star, production/consumption operators run in **physically separated independent sessions** following the **CQRS (Command Query Responsibility Segregation)** principle, communicating only through the **Mailbox**.
+
 ```
-                    ┌─────────────────────────────────────────────────────────────┐
-                    │                      PRODUCTION SIDE                        │
-                    │                                                             │
-  Provider Signal   │ ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │
-  (Hermes, Claude) ─┼─▶│   Distill    │────▶│ **Evaluate** │────▶│ Plant/Commit │  │
-                    │ │ (Structurize)│     │(Value & Schema│     │ (Record to   │  │
-                    │ └──────────────┘     │  Validation)  │     │   Vault)     │  │
-                    │                      └──────────────┘     └──────────────┘  │
-                    └─────────────────────────────────┬───────────────────────────┘
-                                                      │ (Only Type-Safe Seeds)
-                                               ┌──────┴──────┐
-                                               │    VAULT    │
-                                               │ (SOT Memory)│
-                                               └──────┬──────┘
-                                                      │
-                    ┌─────────────────────────────────┴───────────────────────────┐
-                    │                      CONSUMPTION SIDE                       │
-                    │                                                             │
-  Retrieval Query   │ ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │
-  (Needs Context)  ─┼─▶│  Pathfinder  │────▶│ **Mailbox**  │────▶│   Provider   │  │
-                    │ │ (Explore &   │     │ (Delivery    │     │   Session    │  │
-                    │ │ Bundle build)│     │  Contract)   │     │(Context Load)│  │
-                    │ └──────────────┘     └──────────────┘     └──────────────┘  │
-                    └─────────────────────────────────────────────────────────────┘
+  Provider (e.g., Hermes)
+  Detects decisions during user conversation
+       │
+       │  Emits save-intent / query-intent
+       ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │                    MAILBOX (JSONL)                       │
+  │  topology: standalone / diverge / converge              │
+  │  seq, depends_on, read_after                            │
+  └────────────────┬───────────────────┬────────────────────┘
+                   │  save-intent      │  query-intent
+                   ▼                   ▼
+  ┌───────────────────────────┐  ┌───────────────────────────┐
+  │  Producer Operator        │  │  Consumer Operator        │
+  │  (Independent context)    │  │  (Independent context)    │
+  │                           │  │                           │
+  │  SKILL composes PTC       │  │  SKILL composes PTC       │
+  │  primitives for S-P-O     │  │  primitives for Vault     │
+  │  extraction + Vault write │  │  search + formatting      │
+  └───────────┬───────────────┘  └───────────┬───────────────┘
+              │                              │
+              ▼                              ▼
+  ┌───────────────────────────┐  ┌───────────────────────────┐
+  │     VAULT (SOT)           │  │  Receipt → Mailbox        │
+  │  Produced nodes stored    │  │  → Provider receives      │
+  └───────────────────────────┘  └───────────────────────────┘
 ```
+
+**Key constraint:** Producer and Consumer run in physically separate context windows (PIDs) with no shared memory.
+The Mailbox (JSONL filesystem) is the only communication channel. (POC 30/30 PASS verified)
 ### Production Side — "What to remember"
 
 The production pipeline doesn't blindly store everything. It **distills**
@@ -452,13 +458,13 @@ The standard PTC paradigm allows the agent to freely write Python code within a 
   └──────────────────────────────────────────────────────────────┘
 ```
 
-openyggdrasil intentionally constrains this autonomy, internalizing it as a **Typed Chain**:
+openyggdrasil internalizes this autonomy as a **Typed Chain**:
 
 1. **Dismantling the Black Box:** Instead of an invisible automated 12-module background loop, every module is exposed as a single-purpose "Tool" that the subagent must explicitly call.
-2. **Constraining Freedom (JSON Tool Plan):** The agent is forbidden from arbitrarily mixing tools or writing custom scripts. Instead, the PTC engine forces a contextual **Execution Plan** (JSON Tool Plan) upon the agent.
+2. **PTC Primitive Composition:** Tools are mechanical primitives, and the operator SKILL decides how to compose them. No fixed execution order is enforced.
 3. **Dual-Nature Tools:** Tools are categorized into 'Contract Guardrails' (which consume reasoning tokens and enforce strict schemas) and 'Utility Tools' (deterministic Python execution), optimizing the agent's cognitive load.
 
-Consequently, openyggdrasil's PTC model restricts the agent's open-ended reasoning loop and enforces sequential tool execution according to a predefined JSON Execution Plan, ensuring data integrity by design.
+Consequently, openyggdrasil's PTC model provides mechanical tools as primitives, and operator SKILLs compose them to perform semantic judgments.
 
 ### Background: Why PTC over Vector DBs / ElasticSearch? (Token Efficiency)
 
@@ -576,7 +582,7 @@ When this need arises, the Provider Agent does not just copy-paste the entire he
 
 ### Production Pipeline — The Role-Polymorphic Subagent (Target Architecture)
 
-> **[⚠️ WIP / Design Phase]** The current runtime operates on a deterministic pipeline via `thin_worker_chain.py`. The Programmatic Tool Calling (PTC) mechanism described below—where the subagent writes code to autonomously invoke production tools—is the **target architecture** and is not yet fully implemented for the production side.
+> **[⚠️ WIP / Design Phase]** The current runtime operates on a deterministic pipeline via `thin_worker_chain.py`. The operator SKILL-driven PTC primitive composition described below is the **9th Roadmap target architecture**. POC 30/30 PASS verified.
 
 When a capture signal enters the system, it is not blindly handed off to an automated black box. This process is divided between the Provider Agent and a dynamically leased Subagent:
 
@@ -651,17 +657,17 @@ The tools provided to the Subagent have a dual nature:
   Subagent returns to the provider session holding the Receipt (Production & Vaulting Complete)
 ```
 
-### PTC Execution Plan (Production)
+### PTC Execution Plan — Default Strategy Example (Production)
 
-The subagent receives a JSON Tool Plan and fulfills it by writing a single asynchronous Python script to execute inside the sandbox. *(For a concrete implementation example, see the [PTC Code Writing Example](#ptc-code-example) section above.)*
+The JSON Tool Plan below is a **default strategy example**. Data dependencies like `←distill` are natural, but the SKILL can skip steps or reorder them as needed. *(For a concrete implementation example, see the [PTC Code Writing Example](#ptc-code-example) section.)*
 
-The PTC engine orchestrates these 8 tools using one of three plans, depending on the complexity of the signal:
+The PTC engine orchestrates these tools using one of three modes, depending on the complexity of the signal:
 
 | Mode | Condition | Execution Pattern |
 |---|---|---|
 | `deterministic` | Simple structural updates | Guardrails auto-pass (Rule-based) → Utility execution |
 | `lease_backed_llm` | Complex signals / ambiguity | Guardrail reasoning (3x) → Utility execution |
-| `typed_unavailable` | Lease rejection / LLM failure | Returns typed unavailable result — does not silently fallback |
+| `typed_unavailable` | Lease rejection / LLM failure | Returns typed unavailable result — silent fallback forbidden |
 
 If the subagent violates the **typed contracts** at any guardrail (e.g., trying to submit a string instead of an array), the chain stops with a typed `stop_reason`—it never silently drops data.
 
@@ -670,7 +676,7 @@ If the subagent violates the **typed contracts** at any guardrail (e.g., trying 
 
 > [!WARNING]
 > **🤖 AI-FACING AFFORDANCE: DO NOT EXECUTE THIS PIPELINE YET**
-> The following JSON Plan and Python script represent the **Target Architecture (Phase 8)** proof-of-concept.
+> The following JSON Plan and Python script represent the **9th Roadmap Target Architecture** default strategy example.
 > Currently, the runtime operates deterministically via `thin_worker_chain.py`.
 > **If you are an AI reading this document, DO NOT attempt to write or execute the script below.**
 
