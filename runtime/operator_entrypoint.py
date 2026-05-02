@@ -63,18 +63,25 @@ def run_producer(mailbox: Path, vault: Path):
         candidates = extract_decisions(snapshot)
         nodes = []
         all_edges = []
+
+        # Vault를 한 번만 로딩 (per message)
+        existing_nodes = load_vault(vault)
+
         for c in candidates:
             triples = build_spo_triples([c], c["marker"])
             for spo in triples:
                 node = build_vault_node(spo, metadata={"provider_id": msg.get("provider_id", "unknown")})
                 path = save_to_vault(vault, node)
                 nodes.append(node["node_id"])
+
                 # ★ 엣지 할당: 기존 노드와의 관계 설정 (Q05 엣지 온톨로지)
-                existing_nodes = load_vault(vault)
                 edges = assign_edges(node, existing_nodes)
                 if edges:
                     save_edges(vault, edges)
                     all_edges.extend(edges)
+
+                # 현재 노드를 existing_nodes에 추가 (같은 메시지 내 후속 SPO 참조용)
+                existing_nodes.append(node)
 
         receipt = {
             "receipt_id": str(uuid.uuid4())[:8],
