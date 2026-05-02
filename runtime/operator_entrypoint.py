@@ -29,6 +29,9 @@ from ptc.primitives import (
     search_vault_by_keyword,
     format_consumer_result,
     load_vault,
+    assign_edges,
+    save_edges,
+    load_edges,
 )
 
 
@@ -59,12 +62,19 @@ def run_producer(mailbox: Path, vault: Path):
         snapshot = msg["payload"]["context_snapshot"]
         candidates = extract_decisions(snapshot)
         nodes = []
+        all_edges = []
         for c in candidates:
-            triples = build_spo_triples(c["sentence"], c["marker"], c["category"])
+            triples = build_spo_triples([c], c["marker"])
             for spo in triples:
                 node = build_vault_node(spo, provider_id=msg.get("provider_id", "unknown"))
                 path = save_to_vault(vault, node)
                 nodes.append(node["node_id"])
+                # ★ 엣지 할당: 기존 노드와의 관계 설정 (Q05 엣지 온톨로지)
+                existing_nodes = load_vault(vault)
+                edges = assign_edges(node, existing_nodes)
+                if edges:
+                    save_edges(vault, edges)
+                    all_edges.extend(edges)
 
         receipt = {
             "receipt_id": str(uuid.uuid4())[:8],
