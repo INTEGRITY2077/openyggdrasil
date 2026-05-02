@@ -22,10 +22,10 @@
   <a href="#영감--감사">영감</a>
 </p>
 
-### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-02 14:00 KST, Phase 8 Target: P0-E12E, E12D Rows 10-14 BOUNDED_VERIFIED)
+### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-03 05:20 KST, Phase 9 Target: P0-E12G, CQRS Operator Loop)
 
 > **⚠️ 이 프로젝트는 프로덕션 준비가 되지 않았습니다.**
-> 8차 로드맵(PTC 기반 목표 아키텍처)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
+> 9차 로드맵(CQRS 오퍼레이터 루프 + 메일링 프로토콜 기반 목표 아키텍처)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
 > **Effort normalizer는 공식 퇴역**하고, 페르소나(Persona) 문서 기반 아키텍처로 전환되었습니다.
 
 아래 표는 본 README에 기술된 아키텍처와 실제 구현 간의 정렬도를 정량화한 것입니다. 오해를 방지하기 위해, 각 블록의 현재 상태를 4단계(LIVE / PARTIAL / STUB / ABSENT)로 명시합니다.
@@ -54,9 +54,9 @@
 #### 소비면 (Consumption Side)
 | 모듈 | 상태 | 비고 |
 |---|---|---|
-| Pathfinder | 🟡 PARTIAL | 페르소나 존재. Tool-based 스캔 + PTC 도구 7개 정의 |
+| Pathfinder | 🟡 PARTIAL | 페르소나 존재. Tool-based 스캔 + PTC 도구 7개 정의. Consumer PTC POC 4/4 PASS |
 | Support Bundle | 🟡 PARTIAL | 3-tier 나이테 추적. Facade chain-through to mailbox 검증 완료 |
-| Mailbox | 🟡 PARTIAL | 스키마 버전 executor/tollgate 간 공유 검증. 3개 테스트 PASS |
+| Mailbox | 🟡 PARTIAL | 메일링 프로토콜 Mock 19/19 PASS. 통합 E2E 4/4 PASS. 물리적 세션 분리 3/3 PASS |
 | Lifecycle Filter | 🟢 LIVE | 프론트매터 파싱 및 ACTIVE/SUPERSEDED 상태 필터링 완벽 작동 |
 
 #### 인프라 / 크로스커팅
@@ -225,10 +225,11 @@ Safi Shamsi의 [Graphify (v5)](https://github.com/safishamsi/graphify) 개념을
 openyggdrasil은 외부 Vector DB 없이 작동하는 순수 로컬 기반의 멀티-에이전트 메모리 시스템입니다.
 
 
-### 추론 의사결정 재구조화 (8차 북극성)
+### 추론 의사결정 재구조화 (9차 북극성)
 
-> **[8차 로드맵 핵심 전환]** 추론 파이프라인의 중심축이 `effort` 기반 정규화에서
-> **LLM-facing 어포던스 계약** 기반으로 전환되었습니다.
+> **[9차 로드맵 핵심 전환]** 추론 파이프라인의 중심축이 `effort` 기반 정규화에서
+> **LLM-facing 어포던스 계약** 기반으로 전환되었으며, 오퍼레이터가 CQRS 분리된
+> Producer/Consumer 세션에서 SKILL 어포던스 아래 PTC 도구를 자유롭게 조합합니다.
 
 **기존 관점:** *"이 작업은 high effort인가 medium effort인가?"*
 **새 관점:** *"이 판단은 누가, 어떤 역할로, 어떤 근거를 보고, 언제 멈춰야 하는가?"*
@@ -518,13 +519,13 @@ openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool C
   └──────────────────────────────────────────────────────────────┘
 ```
 
-openyggdrasil은 이 원본 아키텍처의 자율성을 의도적으로 제한하고, **타입 안정성이 보장된 체인(Typed Chain)** 으로 내재화했습니다.
+openyggdrasil은 이 원본 아키텍처의 자율성을 **타입 안정성이 보장된 체인(Typed Chain)** 으로 내재화했습니다.
 
 1. **블랙박스 해체:** 내부 12-모듈이 보이지 않게 자동으로 도는 블랙박스 구조를 해체하고, 모든 모듈을 서브에이전트가 명시적으로 호출할 수 있는 "단일 목적 도구(Tool)"로 노출했습니다.
-2. **자유도 제한 (JSON Tool Plan):** 에이전트가 마음대로 도구를 조합하거나 스크립트를 짜는 것을 막습니다. 대신, PTC 엔진이 상황에 맞는 **고정된 도구 순서(Execution Plan)** 를 JSON 형태로 에이전트에게 강제 주입합니다.
+2. **PTC Primitive 조합:** 도구는 기계적 원시 연산(primitive)이되, 오퍼레이터 SKILL이 이 primitive들을 어떤 순서로 조합할지 결정합니다. 고정된 실행 순서를 강제하지 않습니다.
 3. **이중 성격의 도구:** 도구를 '계약 가드레일'(추론 토큰 소비, 엄격한 스키마 검증)과 '작업 도구'(결정론적 Python 실행)로 분리하여 에이전트의 인지 부하를 최적화했습니다.
 
-결과적으로, openyggdrasil의 PTC 모델은 에이전트의 개방형 추론 루프를 제한하고, 정의된 JSON Execution Plan에 따라 순차적 도구 호출을 강제하여 데이터 무결성을 보장하는 구조로 설계되었습니다.
+결과적으로, openyggdrasil의 PTC 모델은 기계적 도구를 primitive로 제공하고, 오퍼레이터 SKILL이 이를 조합하여 의미적 판단을 수행하는 구조로 설계되었습니다.
 
 ### PTC 도입 배경: 기존 Vector DB / ElasticSearch와의 차별점 (토큰 효율성)
 
@@ -644,7 +645,7 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 
 ### 생산 파이프라인 — 역할 가변 추론 임대 실행체 (목표 설계: Target Architecture)
 
-> **[⚠️ 미완성/설계 상태]** 현재 런타임 코드는 `thin_worker_chain.py` 기반의 결정론적(Deterministic) 파이프라인으로 작동하고 있습니다. 아래 설명된 서브에이전트가 직접 코드를 작성하여 생산 도구를 호출하는 PTC(Programmatic Tool Calling) 구조는 향후 달성할 **목표 아키텍처**입니다.
+> **[⚠️ 미완성/설계 상태]** 현재 런타임 코드는 `thin_worker_chain.py` 기반의 결정론적(Deterministic) 파이프라인으로 작동하고 있습니다. 아래 설명된 오퍼레이터가 SKILL 어포던스 아래에서 PTC primitive를 자유롭게 조합하는 구조는 9차 로드맵의 **목표 아키텍처**입니다. POC 30/30 PASS 검증 완료.
 
 캡처 신호가 시스템에 들어오면, 이를 단순히 자동화된 블랙박스에 넘기지 않습니다. 이 과정은 프로바이더 본체와 서브에이전트의 명확한 역할 분담을 통해 이루어집니다:
 
@@ -950,7 +951,7 @@ PTC 엔진은 서브에이전트에게 JSON Tool Plan을 제공합니다. 서브
 |---|---|---|
 | `deterministic` | 질의 신호만으로 계획 결정 가능 | 없음 (순수 Python) |
 | `lease_backed_llm` | Reasoning Lease로 LLM이 계획 생성 | 서브에이전트 토큰 소비 |
-| `fallback` | LLM 계획 생성 실패 시 기본 계획 | 없음 (결정론적 폴백) |
+| `typed_unavailable` | LLM 추론 실패 시 | typed unavailable 결과 반환 — 묵시적 폴백 금지 |
 
 ### 서브에이전트 시점의 전체 검색 여정
 
