@@ -22,7 +22,7 @@
   <a href="#영감--감사">영감</a>
 </p>
 
-### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-03 05:20 KST, Phase 9 Target: P0-E12G, CQRS Operator Loop)
+### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-03 05:55 KST, Phase 9: E12G LIVE 42/42 PASS)
 
 > **⚠️ 이 프로젝트는 프로덕션 준비가 되지 않았습니다.**
 > 9차 로드맵(CQRS 오퍼레이터 루프 + 메일링 프로토콜 기반 목표 아키텍처)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
@@ -54,8 +54,8 @@
 #### 소비면 (Consumption Side)
 | 모듈 | 상태 | 비고 |
 |---|---|---|
-| Pathfinder | 🟡 PARTIAL | 페르소나 존재. Tool-based 스캔 + PTC 도구 7개 정의. Consumer PTC POC 4/4 PASS |
-| Support Bundle | 🟡 PARTIAL | 3-tier 나이테 추적. Facade chain-through to mailbox 검증 완료 |
+| Pathfinder | 🟡 PARTIAL | 페르소나 존재. Tool-based 스캔 + PTC 도구 7개 정의. Consumer 라이브 프루프 6/6 PASS |
+| Support Bundle | 🟡 PARTIAL | 3-tier 나이테 추적. Bounded bundle (max 3 facts) 라이브 검증 완료 |
 | Mailbox | 🟡 PARTIAL | 메일링 프로토콜 Mock 19/19 PASS. 통합 E2E 4/4 PASS. 물리적 세션 분리 3/3 PASS |
 | Lifecycle Filter | 🟢 LIVE | 프론트매터 파싱 및 ACTIVE/SUPERSEDED 상태 필터링 완벽 작동 |
 

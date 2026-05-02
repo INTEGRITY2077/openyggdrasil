@@ -22,7 +22,7 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Current Status — Architecture Alignment Scorecard (2026-05-03 05:20 KST, Phase 9 Target: P0-E12G, CQRS Operator Loop)
+### 📊 Current Status — Architecture Alignment Scorecard (2026-05-03 05:55 KST, Phase 9: E12G LIVE 42/42 PASS)
 
 > **⚠️ This project is not production-ready.**
 > We are live-testing the runtime and iterating in the open towards the 9th Roadmap (CQRS Operator Loop + Mailing Protocol Target Architecture).
@@ -54,9 +54,9 @@ The table below quantifies the alignment between the architecture described in t
 #### Consumption Side
 | Module | Status | Remarks |
 |---|---|---|
-| Pathfinder | 🟡 PARTIAL | Persona exists. Tool-based scan + 7 PTC tools defined. Consumer PTC POC 4/4 PASS |
-| Support Bundle | 🟡 PARTIAL | 3-tier Tree Ring tracking. Facade chain-through to mailbox verified |
-| Mailbox | 🟡 PARTIAL | Mailing Protocol Mock 19/19 PASS. Integrated E2E 4/4 PASS. Physical Session Separation 3/3 PASS |
+| Pathfinder | 🟡 PARTIAL | Persona exists. Tool-based scan + 7 PTC tools defined. Consumer live proof 6/6 PASS |
+| Support Bundle | 🟡 PARTIAL | 3-tier Tree Ring tracking. Bounded bundle (max 3 facts) live verified |
+| Mailbox | 🟡 PARTIAL | E12G Live Proof 42/42 PASS (Mock 19 + PTC 4 + E2E 4 + Session 3 + Live 12) |
 | Lifecycle Filter | 🟢 LIVE | Frontmatter parsing and ACTIVE/SUPERSEDED state filtering works perfectly |
 
 #### Infrastructure / Cross-Cutting
