@@ -22,7 +22,7 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Current Status — Architecture Alignment Scorecard (2026-05-01 17:56 KST, Phase 8 Target: P0-E12C, R19-R2→R19-R3)
+### 📊 Current Status — Architecture Alignment Scorecard (2026-05-02 14:00 KST, Phase 8 Target: P0-E12E, E12D Rows 10-14 BOUNDED_VERIFIED)
 
 > **⚠️ This project is not production-ready.**
 > We are live-testing the runtime and iterating in the open towards the 8th Roadmap (PTC-based Target Architecture).
@@ -48,39 +48,39 @@ The table below quantifies the alignment between the architecture described in t
 | Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. NetworkX (BSD-3) Louvain integration complete |
 | Gardener | 🟡 PARTIAL | Physical planting + new Persona added. Auto-healing incomplete |
 | Postman | 🟡 PARTIAL | Runner Source Packet Producer committed (`37b2dac`). R19-R2 PASS |
-| Content Hash Protection | 🟠 STUB | P1 issue and design proposal raised |
+| Content Hash Protection | 🟢 LIVE | `wiki_write_guard.py` content hash guard + atomic write. 5 tests PASS |
 | Rejection Loop | 🟠 STUB | P1 issue raised. No runtime code yet |
 
 #### Consumption Side
 | Module | Status | Remarks |
 |---|---|---|
 | Pathfinder | 🟡 PARTIAL | Persona exists. Tool-based scan + 7 PTC tools defined |
-| Support Bundle | 🟡 PARTIAL | 3-tier Tree Ring tracking. Cross-Provider verification PASS |
-| Mailbox | 🟠 STUB | Schema exists. Receipt Consumer Persona newly added |
+| Support Bundle | 🟡 PARTIAL | 3-tier Tree Ring tracking. Facade chain-through to mailbox verified |
+| Mailbox | 🟡 PARTIAL | Schema version shared across executor/tollgate. 3 tests PASS |
 | Lifecycle Filter | 🟢 LIVE | Frontmatter parsing and ACTIVE/SUPERSEDED state filtering works perfectly |
 
 #### Infrastructure / Cross-Cutting
 | Module | Status | Remarks |
 |---|---|---|
 | SKILL.md Cold Start | 🟢 LIVE | Automatic provider recognition & entrypoint calling works |
-| Typed PTC Engine | 🟡 PARTIAL | `engine.py` 2,586 lines. Mechanical workload front-loading architecture proposed |
+| Typed PTC Engine | 🟡 PARTIAL | `engine.py` 5,246 lines. Overclaim correction applied (typed_unavailable) |
 | Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
-| Reasoning Lease | 🟡 PARTIAL | Multi-OS Sandbox (Mac/WSL2) proposed. Windows native officially unsupported |
-| Vault (SOT) | 🟡 PARTIAL | Directory works. Tree Rings metadata missing defect found (issue raised) |
+| Reasoning Lease | 🟡 PARTIAL | Multi-OS Sandbox (Mac/WSL2) clean-room proposed. Windows native officially unsupported |
+| Vault (SOT) | 🟡 PARTIAL | Directory works. Atomic write guard with content hash protection (wiki_write_guard.py) |
 | Graphify Derived View | 🟡 PARTIAL | Community derivation scripts functional (GPL dependencies removed) |
 | Cross-Provider | 🟡 PARTIAL | Cross-memory access tests PASS |
-| Hermes Adapter | 🟡 PARTIAL | e12c R19-R2 PASS. R19-R3 in progress |
-| i18n Pipeline | 🔴 ABSENT | P1 issue raised. No backend language code path |
-| Inline Source Marking | 🔴 ABSENT | File-level tracking only |
-| Atomic Rollback | 🟠 STUB | Dulwich Porcelain-based Atomic Vault Writer POC (testbed) complete |
+| Hermes Adapter | 🟡 PARTIAL | Background gateway contract bounded verification PASS |
+| i18n Pipeline | 🟡 PARTIAL | `wiki_capture_signal.py` language_code fail-closed validation. 1 test PASS |
+| Inline Source Marking | 🟡 PARTIAL | `wiki_production_safety_gate.py` provenance_refs gate + source_trace_path. 2 tests PASS |
+| Atomic Rollback | 🟡 PARTIAL | `atomic_write_wiki_page` temp file + os.replace with guard-before-write. 2 tests PASS |
 
 #### Alignment Summary
 | Domain | Total | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | Alignment |
 |---|---|---|---|---|---|---|
-| Production | 10 | 1 | 7 | 2 | 0 | 80% |
-| Consumption | 4 | 1 | 2 | 1 | 0 | 75% |
-| Infrastructure | 11 | 2 | 6 | 1 | 2 | 72% |
-| **Total** | **25** | **4** | **15** | **4** | **2** | **76%** |
+| Production | 10 | 2 | 7 | 1 | 0 | 90% |
+| Consumption | 4 | 1 | 3 | 0 | 0 | 87% |
+| Infrastructure | 11 | 2 | 9 | 0 | 0 | 90% |
+| **Total** | **25** | **5** | **19** | **1** | **0** | **89%** |
 
 ## Why This Exists
 
@@ -661,7 +661,7 @@ The PTC engine orchestrates these 8 tools using one of three plans, depending on
 |---|---|---|
 | `deterministic` | Simple structural updates | Guardrails auto-pass (Rule-based) → Utility execution |
 | `lease_backed_llm` | Complex signals / ambiguity | Guardrail reasoning (3x) → Utility execution |
-| `fallback` | Lease rejection | Downgrade to safe baseline or halt pipeline |
+| `typed_unavailable` | Lease rejection / LLM failure | Returns typed unavailable result — does not silently fallback |
 
 If the subagent violates the **typed contracts** at any guardrail (e.g., trying to submit a string instead of an array), the chain stops with a typed `stop_reason`—it never silently drops data.
 

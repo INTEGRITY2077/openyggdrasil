@@ -22,7 +22,7 @@
   <a href="#영감--감사">영감</a>
 </p>
 
-### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-01 17:56 KST, Phase 8 Target: P0-E12C, R19-R2→R19-R3)
+### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-02 14:00 KST, Phase 8 Target: P0-E12E, E12D Rows 10-14 BOUNDED_VERIFIED)
 
 > **⚠️ 이 프로젝트는 프로덕션 준비가 되지 않았습니다.**
 > 8차 로드맵(PTC 기반 목표 아키텍처)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
@@ -48,39 +48,39 @@
 | Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. NetworkX (BSD-3) Louvain 연동 |
 | Gardener | 🟡 PARTIAL | 물리적 식재 + 페르소나 신규 추가. 자동 치유 미완 |
 | Postman | 🟡 PARTIAL | Runner Source Packet Producer 커밋(`37b2dac`). R19-R2 PASS |
-| 수동 편집 보호 | 🟠 STUB | P1 이슈 및 설계 제안서 발행됨 |
+| 수동 편집 보호 | 🟢 LIVE | `wiki_write_guard.py` 콘텐츠 해시 가드 + atomic write. 5개 테스트 PASS |
 | 피드백 루프 | 🟠 STUB | P1 이슈 발행됨. 런타임 코드 미착수 |
 
 #### 소비면 (Consumption Side)
 | 모듈 | 상태 | 비고 |
 |---|---|---|
 | Pathfinder | 🟡 PARTIAL | 페르소나 존재. Tool-based 스캔 + PTC 도구 7개 정의 |
-| Support Bundle | 🟡 PARTIAL | 3-tier 나이테 추적. Cross-Provider 검증 PASS |
-| Mailbox | 🟠 STUB | 스키마 존재. Receipt Consumer 페르소나 신규 추가 |
+| Support Bundle | 🟡 PARTIAL | 3-tier 나이테 추적. Facade chain-through to mailbox 검증 완료 |
+| Mailbox | 🟡 PARTIAL | 스키마 버전 executor/tollgate 간 공유 검증. 3개 테스트 PASS |
 | Lifecycle Filter | 🟢 LIVE | 프론트매터 파싱 및 ACTIVE/SUPERSEDED 상태 필터링 완벽 작동 |
 
 #### 인프라 / 크로스커팅
 | 모듈 | 상태 | 비고 |
 |---|---|---|
 | SKILL.md 콜드스타트 | 🟢 LIVE | 프로바이더 자동 인식 및 진입점 호출 동작 |
-| Typed PTC Engine | 🟡 PARTIAL | `engine.py` 2,586줄. 기계적 워크로드 선행 아키텍처 재배치 제안됨 |
+| Typed PTC Engine | 🟡 PARTIAL | `engine.py` 5,246줄. 과대주장 교정 적용 (typed_unavailable) |
 | Persona System (9역할) | 🟢 LIVE | 9개 페르소나 완비 (effort normalizer 대체) |
 | Reasoning Lease | 🟡 PARTIAL | Multi-OS 샌드박스 (Mac/WSL2) 클린룸 제안. Windows 미지원 공식 확정 |
-| Vault (SOT) | 🟡 PARTIAL | 디렉토리 동작. 나이테(Tree Rings) 메타데이터 누락 결함 발견(이슈 발행됨) |
+| Vault (SOT) | 🟡 PARTIAL | 디렉토리 동작. Atomic write guard + 콘텐츠 해시 보호 (wiki_write_guard.py) |
 | Graphify 파생 뷰 | 🟡 PARTIAL | 커뮤니티 파생 스크립트 동작 (GPL 의존성 제거 완료) |
 | Cross-Provider | 🟡 PARTIAL | 교차 메모리 접근 테스트 PASS |
-| Hermes Adapter | 🟡 PARTIAL | e12c R19-R2 PASS. R19-R3 진행 중 |
-| i18n 파이프라인 | 🔴 ABSENT | P1 이슈 발행됨. 백엔드 언어 코드 패스 없음 |
-| 인라인 출처 마킹 | 🔴 ABSENT | 파일 단위 추적만 동작 |
-| 원자적 롤백 | 🟠 STUB | Dulwich Porcelain 기반 Atomic Vault Writer POC (testbed) 완료 |
+| Hermes Adapter | 🟡 PARTIAL | Background gateway contract bounded verification PASS |
+| i18n 파이프라인 | 🟡 PARTIAL | `wiki_capture_signal.py` language_code fail-closed 검증. 1개 테스트 PASS |
+| 인라인 출처 마킹 | 🟡 PARTIAL | `wiki_production_safety_gate.py` provenance_refs 게이트 + source_trace_path. 2개 테스트 PASS |
+| 원자적 롤백 | 🟡 PARTIAL | `atomic_write_wiki_page` temp file + os.replace + guard-before-write. 2개 테스트 PASS |
 
 #### 총 정렬도 요약
 | 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
 |---|---|---|---|---|---|---|
-| 생산면 | 10 | 1 | 7 | 2 | 0 | 80% |
-| 소비면 | 4 | 1 | 2 | 1 | 0 | 75% |
-| 인프라 | 11 | 2 | 6 | 1 | 2 | 72% |
-| **전체** | **25** | **4** | **15** | **4** | **2** | **76%** |
+| 생산면 | 10 | 2 | 7 | 1 | 0 | 90% |
+| 소비면 | 4 | 1 | 3 | 0 | 0 | 87% |
+| 인프라 | 11 | 2 | 9 | 0 | 0 | 90% |
+| **전체** | **25** | **5** | **19** | **1** | **0** | **89%** |
 
 
 ## 시스템 요구사항 및 설정
@@ -745,7 +745,7 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 |---|---|---|
 | `deterministic` | 신호가 단순 (hard_trigger + 명확한 결정) | 최소 (가드레일 자동 통과) |
 | `lease_backed_llm` | 신호가 복잡 (모호한 트레이드오프) | 가드레일 3회 추론 소비 |
-| `fallback` | LLM 추론 실패 시 | 보수적 기본 판정 적용 |
+| `typed_unavailable` | LLM 추론 실패 시 | typed unavailable 결과 반환 — 묵시적 폴백 금지 |
 
 모든 경계에서 **타입이 지정된 계약**이 핸드오프를 검증합니다. 어떤 모듈이든
 입력을 거부하면, 체인은 타입이 지정된 `stop_reason`과 함께 정지합니다 —
