@@ -224,20 +224,104 @@ def format_consumer_result(
 # ─── Vault I/O (기계적) ───
 
 def save_to_vault(vault_path: Path, node: dict[str, Any]) -> Path:
-    """노드를 Vault에 물리적으로 저장."""
+    """노드를 Vault에 YAML 프론트매터 Markdown으로 저장."""
     vault_path.mkdir(parents=True, exist_ok=True)
-    file_path = vault_path / f"{node['node_id']}.json"
-    file_path.write_text(json.dumps(node, ensure_ascii=False, indent=2), encoding="utf-8")
+    spo = node.get("spo", {})
+    category = spo.get("category", "concept")
+
+    # Vault 서브디렉토리 결정
+    type_map = {
+        "decision": "concepts", "policy": "concepts",
+        "fact": "entities", "architecture": "concepts",
+    }
+    sub_dir = vault_path / type_map.get(category, "concepts")
+    sub_dir.mkdir(parents=True, exist_ok=True)
+
+    now = node.get("created_at", datetime.now(timezone.utc).isoformat())
+    date_str = now[:10] if len(now) >= 10 else now
+    title = spo.get("subject", node["node_id"])[:80]
+    tags_list = [category, spo.get("predicate", "")]
+    tags_str = ", ".join(t for t in tags_list if t)
+
+    frontmatter = (
+        f"---\n"
+        f"title: \"{title}\"\n"
+        f"created: {date_str}\n"
+        f"updated: {date_str}\n"
+        f"type: {category}\n"
+        f"status: ACTIVE\n"
+        f"tags: [{tags_str}]\n"
+        f"sources: []\n"
+        f"node_id: \"{node['node_id']}\"\n"
+        f"content_hash: \"{node.get('content_hash', '')}\"\n"
+        f"---\n"
+    )
+
+    body = f"\n# {title}\n\n"
+    body += f"**Category:** {category}\n\n"
+    body += f"## S-P-O Triple\n\n"
+    body += f"- **Subject:** {spo.get('subject', '')}\n"
+    body += f"- **Predicate:** {spo.get('predicate', '')}\n"
+    body += f"- **Object:** {spo.get('object', '')}\n\n"
+    body += f"## Source\n\n"
+    body += f"> {spo.get('source_sentence', '')}\n\n"
+    body += f"## Metadata\n\n"
+    body += f"```json\n{json.dumps(node.get('metadata', {}), ensure_ascii=False, indent=2)}\n```\n"
+
+    file_path = sub_dir / f"{node['node_id']}.md"
+    file_path.write_text(frontmatter + body, encoding="utf-8")
     return file_path
 
 
 def load_vault(vault_path: Path) -> list[dict[str, Any]]:
-    """Vault의 모든 노드를 로드."""
+    """Vault의 모든 노드를 YAML 프론트매터에서 로드."""
     if not vault_path.exists():
         return []
     nodes = []
-    for f in vault_path.glob("N-*.json"):
-        nodes.append(json.loads(f.read_text(encoding="utf-8")))
+    for f in vault_path.rglob("N-*.md"):
+        text = f.read_text(encoding="utf-8")
+        # Parse YAML frontmatter
+        if not text.startswith("---"):
+            continue
+        end = text.find("---", 3)
+        if end < 0:
+            continue
+        fm_text = text[3:end].strip()
+        fm = {}
+        for line in fm_text.split("\n"):
+            if ":" in line:
+                k, v = line.split(":", 1)
+                v = v.strip().strip('"').strip("'")
+                if v.startswith("[") and v.endswith("]"):
+                    v = [x.strip() for x in v[1:-1].split(",") if x.strip()]
+                fm[k.strip()] = v
+
+        # Reconstruct node dict for search compatibility
+        node = {
+            "node_id": fm.get("node_id", f.stem),
+            "spo": {
+                "subject": fm.get("title", ""),
+                "predicate": "",
+                "object": "",
+                "category": fm.get("type", ""),
+                "source_sentence": "",
+            },
+            "metadata": fm,
+            "created_at": fm.get("created", ""),
+            "content_hash": fm.get("content_hash", ""),
+        }
+        # Extract S-P-O from body
+        body = text[end+3:]
+        for line in body.split("\n"):
+            if line.startswith("- **Subject:**"):
+                node["spo"]["subject"] = line.split(":**", 1)[1].strip()
+            elif line.startswith("- **Predicate:**"):
+                node["spo"]["predicate"] = line.split(":**", 1)[1].strip()
+            elif line.startswith("- **Object:**"):
+                node["spo"]["object"] = line.split(":**", 1)[1].strip()
+            elif line.startswith("> ") and not node["spo"]["source_sentence"]:
+                node["spo"]["source_sentence"] = line[2:].strip()
+        nodes.append(node)
     return nodes
 
 
