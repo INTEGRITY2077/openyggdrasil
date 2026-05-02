@@ -66,7 +66,7 @@ def run_producer(mailbox: Path, vault: Path):
         for c in candidates:
             triples = build_spo_triples([c], c["marker"])
             for spo in triples:
-                node = build_vault_node(spo, provider_id=msg.get("provider_id", "unknown"))
+                node = build_vault_node(spo, metadata={"provider_id": msg.get("provider_id", "unknown")})
                 path = save_to_vault(vault, node)
                 nodes.append(node["node_id"])
                 # ★ 엣지 할당: 기존 노드와의 관계 설정 (Q05 엣지 온톨로지)
