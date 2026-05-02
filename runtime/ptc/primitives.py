@@ -341,6 +341,43 @@ def search_vault_by_category(
     return [n for n in vault_nodes if n.get("spo", {}).get("category") == category]
 
 
+def search_vault_bm25(
+    vault_nodes: list[dict[str, Any]],
+    query: str,
+    *,
+    top_k: int = 20,
+    bm25_k1: float = 1.5,
+    bm25_b: float = 0.75,
+) -> list[dict[str, Any]]:
+    """
+    [9차 로드맵 — QMD BM25 어댑터 스터브]
+
+    Q02 보고서 기반: BM25 Okapi 알고리즘으로 Vault 노드 검색.
+    현재는 서브프로세스 QMD 연동 전 단순 문자열 폴백으로 동작.
+
+    의도: 대규모 Vault(10,000+ 노드)에서 밀리초 단위 사전 필터링.
+    향후 `subprocess` 기반 QMD CLI 래퍼로 교체 예정.
+
+    Args:
+        vault_nodes: load_vault() 반환 노드 목록
+        query: 검색 질의 (한국어/영어 혼용)
+        top_k: 반환할 최대 결과 수
+        bm25_k1: 단어 빈도 포화도 (기본 1.5)
+        bm25_b: 문서 길이 정규화 강도 (기본 0.75)
+
+    Returns:
+        _match_score 기준 상위 top_k 노드 목록
+    """
+    # ── QMD 연동 전 임시 폴백 ──
+    results = search_vault_by_keyword(vault_nodes, query)
+    results.sort(key=lambda r: r.get("_match_score", 0), reverse=True)
+    top = results[:top_k]
+    for node in top:
+        node["_bm25_stub"] = True
+        node["_bm25_params"] = {"k1": bm25_k1, "b": bm25_b}
+    return top
+
+
 def search_vault_by_edge(
     vault_nodes: list[dict[str, Any]],
     edges: list[dict[str, str]],

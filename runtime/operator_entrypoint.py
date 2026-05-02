@@ -141,6 +141,57 @@ def run_consumer(mailbox: Path, vault: Path):
     print(json.dumps({"status": "consumer_done", "pid": os.getpid()}))
 
 
+# ─── 양방향 Mailbox 통신 (9차 로드맵 — Reverse Push 스터브) ───
+
+def deliver_receipt(
+    mailbox: Path,
+    mail_id: str,
+    *,
+    status: str = "delivered",
+    result_bundle: dict | None = None,
+    produced_count: int = 0,
+    node_ids: list[str] | None = None,
+) -> dict:
+    """
+    [9차 로드맵 — 메일박스 Reverse Push 스터브]
+
+    Q10 보고서 기반: Operator가 처리 완료된 결과를 Provider에게 역방향 통지.
+    현재는 delivery_receipts.jsonl에 단순 Append.
+    향후 SQLite WAL 기반 우선순위 큐(postman)와 연동 예정.
+
+    Args:
+        mailbox: 메일박스 디렉토리 경로
+        mail_id: 응답 대상 메시지 ID
+        status: 배달 상태 (delivered / failed / typed_unavailable)
+        result_bundle: Consumer 검색 결과 번들 (consumer 모드 시)
+        produced_count: Producer가 생성한 노드 수
+        node_ids: 생성된 노드 ID 목록
+
+    Returns:
+        발행된 영수증 dict
+    """
+    mailbox.mkdir(parents=True, exist_ok=True)
+    delivery_file = mailbox / "delivery_receipts.jsonl"
+
+    receipt = {
+        "receipt_id": str(uuid.uuid4())[:8],
+        "in_reply_to": mail_id,
+        "status": status,
+        "produced_count": produced_count,
+        "nodes": node_ids or [],
+        "bundle": result_bundle,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "operator_pid": os.getpid(),
+        "_stub_q10_reverse_push": True,
+        "_stub_note": "향후 postman 데몬이 이 파일을 감시하여 Provider에게 역방향 배달",
+    }
+
+    with open(delivery_file, "a", encoding="utf-8") as f:
+        f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+
+    return receipt
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="openyggdrasil Operator Entrypoint")
     parser.add_argument("mode", choices=["produce", "consume"])
