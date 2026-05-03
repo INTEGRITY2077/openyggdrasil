@@ -50,7 +50,7 @@
 | Gardener | 🟢 LIVE | 물리적 식재 + 페르소나. `_handle_prune`로 SUPERSEDED archive 격리 + `_run_hygiene_check`(5항목 H1~H5 위생점검). Phase C-live C1+C2+C3 PASS — prune→분류→archive 풀체인 검증 |
 | Postman | 🟢 LIVE | `deliver_receipt` 구현 완료 + `run_producer`/`run_consumer` 통합. POC Phase 1-6 18/18 PASS |
 | 수동 편집 보호 | 🟢 LIVE | `wiki_write_guard.py` 콘텐츠 해시 가드 + atomic write. 5개 테스트 PASS |
-| 피드백 루프 | 🟡 PARTIAL | `_run_feedback_loop` 구현 — Gardener receipts → prune/curate intent 자동 발행. `run_producer` 말미 통합. 12차 P1 승급 (STUB→PARTIAL) |
+| 피드백 루프 | 🟢 LIVE | `_run_feedback_loop` + `_handle_prune` gardener_receipts 기록 → prune/curate intent 자동 발행. 왕복 검증 완료. 13차 승급 (STUB→PARTIAL→LIVE) |
 
 #### 소비면 (Consumption Side)
 | 모듈 | 상태 | 비고 |
@@ -69,7 +69,7 @@
 | Reasoning Lease | 🟢 LIVE | Multi-OS 샌드박스 (Mac/WSL2) 클린룸 제안. Windows 미지원은 설계 결정 (12차 Phase 1 승급) |
 | Vault (SOT) | 🟢 LIVE | 디렉토리 동작. Atomic write guard + 콘텐츠 해시 보호 (wiki_write_guard.py). 운영 메트릭 + 무결성 해시 검증 (vault_integrity.py). 12차 P2 승급 |
 | Graphify 파생 뷰 | 🟢 LIVE | 커뮤니티 파생 스크립트 동작 (GPL 의존성 제거 완료). 구조 커버리지 리포트(graphify_coverage.json) + freshness guard 동작 확인. 12차 승급 |
-| Cross-Provider | 🟡 PARTIAL | 교차 메모리 접근 테스트 PASS |
+| Cross-Provider | 🟢 LIVE | 멀티프로바이더 Mailbox POC Phase 1-6 18/18 PASS. Provider 간 교차 메모리 실증 완료. 13차 승급 |
 | Hermes Adapter | 🟢 LIVE | Background gateway contract bounded verification PASS. 계약 완전성 문서화 (`hermes_provider_skill_bridge_entrypoint.py`). 12차 승급 |
 | i18n 파이프라인 | 🟢 LIVE | `wiki_capture_signal.py` language_code fail-closed 검증. 다국어 왕복 테스트. 12차 P2 승급 |
 | 인라인 출처 마킹 | 🟢 LIVE | `wiki_production_safety_gate.py` provenance_refs 게이트 + source_trace_path. 추적 자동화 완료. 12차 P2 승급 |
@@ -78,10 +78,10 @@
 #### 총 정렬도 요약
 | 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
 |---|---|---|---|---|---|---|
-| 생산면 | 10 | 9 | 1 | 0 | 0 | 98% |
+| 생산면 | 10 | 10 | 0 | 0 | 0 | 100% |
 | 소비면 | 4 | 4 | 0 | 0 | 0 | 100% |
-| 인프라 | 11 | 10 | 1 | 0 | 0 | 99% |
-| **전체** | **25** | **23** | **2** | **0** | **0** | **99%** |
+| 인프라 | 11 | 11 | 0 | 0 | 0 | 100% |
+| **전체** | **25** | **25** | **0** | **0** | **0** | **100%** |
 
 
 ## 시스템 요구사항 및 설정

@@ -49,7 +49,7 @@ The table below quantifies the alignment between the architecture described in t
 | Gardener | 🟢 LIVE | Physical planting + Persona. `_handle_prune` with SUPERSEDED archive isolation + `_run_hygiene_check` (5항목 H1~H5 위생점검). Phase C-live C1+C2+C3 PASS — prune→분류→archive 풀체인 검증 |
 | Postman | 🟢 LIVE | `deliver_receipt` implemented + integrated into `run_producer`/`run_consumer`. POC Phase 1-6 18/18 PASS |
 | Content Hash Protection | 🟢 LIVE | `wiki_write_guard.py` content hash guard + atomic write. 5 tests PASS |
-| Feedback Loop | 🟡 PARTIAL | `_run_feedback_loop` implemented — Gardener receipts to prune/curate intent auto-issue. Integrated at end of `run_producer`. 12th P1 promotion (STUB→PARTIAL) |
+| Feedback Loop | 🟢 LIVE | `_run_feedback_loop` + `_handle_prune` gardener_receipts → prune/curate intent auto-issue. Round-trip verified. 13th promotion (STUB→PARTIAL→LIVE) |
 
 #### Consumption Side
 | Module | Status | Remarks |
@@ -68,7 +68,7 @@ The table below quantifies the alignment between the architecture described in t
 | Reasoning Lease | 🟢 LIVE | Multi-OS Sandbox (Mac/WSL2) clean-room proposed. Windows native officially unsupported by design decision (12th Phase 1 promotion) |
 | Vault (SOT) | 🟢 LIVE | Directory works. Atomic write guard with content hash protection (wiki_write_guard.py). Operational metrics + integrity hash (vault_integrity.py). 12th P2 promotion |
 | Graphify Derived View | 🟢 LIVE | Community derivation scripts functional (GPL dependencies removed). Structure coverage report (graphify_coverage.json) + freshness guard verified. 12th promotion |
-| Cross-Provider | 🟡 PARTIAL | Cross-memory access tests PASS |
+| Cross-Provider | 🟢 LIVE | Multi-provider Mailbox POC Phase 1-6 18/18 PASS. Cross-provider memory access verified. 13th promotion |
 | Hermes Adapter | 🟢 LIVE | Background gateway contract bounded verification PASS. Contract completeness documented (`hermes_provider_skill_bridge_entrypoint.py`). 12th promotion |
 | i18n Pipeline | 🟢 LIVE | `wiki_capture_signal.py` language_code fail-closed validation. Multi-language round-trip test. 12th P2 promotion |
 | Inline Source Marking | 🟢 LIVE | `wiki_production_safety_gate.py` provenance_refs gate + source_trace_path. Trace automation complete. 12th P2 promotion |
@@ -77,10 +77,10 @@ The table below quantifies the alignment between the architecture described in t
 #### Alignment Summary
 | Domain | Total | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | Alignment |
 |---|---|---|---|---|---|---|
-| Production | 10 | 9 | 1 | 0 | 0 | 98% |
+| Production | 10 | 10 | 0 | 0 | 0 | 100% |
 | Consumption | 4 | 4 | 0 | 0 | 0 | 100% |
-| Infrastructure | 11 | 10 | 1 | 0 | 0 | 99% |
-| **Total** | **25** | **23** | **2** | **0** | **0** | **99%** |
+| Infrastructure | 11 | 11 | 0 | 0 | 0 | 100% |
+| **Total** | **25** | **25** | **0** | **0** | **0** | **100%** |
 
 ## Why This Exists
 
