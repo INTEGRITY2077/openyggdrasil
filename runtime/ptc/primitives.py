@@ -160,10 +160,16 @@ def build_vault_node(
     content = json.dumps(spo_triple, ensure_ascii=False, sort_keys=True)
     node_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
 
+    title = spo_triple.get("subject", "untitled")
+    source_sentence = spo_triple.get("source_sentence", "")
+
     return {
         "node_id": f"N-{node_hash}",
+        "title": title,
         "spo": spo_triple,
+        "content": {"text": source_sentence},
         "metadata": metadata or {},
+        "source": {"source_type": spo_triple.get("category", "unknown")},
         "created_at": now,
         "content_hash": node_hash,
     }

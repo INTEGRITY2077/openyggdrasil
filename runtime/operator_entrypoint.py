@@ -472,6 +472,25 @@ def _handle_prune(mailbox: Path, vault: Path, msg: dict) -> None:
                 dest = archive_dir / md_file.name
                 md_file.rename(dest)
 
+    # ★ 12차 P1: gardener_receipts.jsonl 기록 (Feedback Loop 입력)
+    gardener_receipts = mailbox / "gardener_receipts.jsonl"
+    for nid in consolidated:
+        with open(gardener_receipts, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "action": "prune",
+                "node_id": nid,
+                "disposition": "consolidated",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }, ensure_ascii=False) + "\n")
+    for nid in pruned:
+        with open(gardener_receipts, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "action": "prune",
+                "node_id": nid,
+                "disposition": "pruned",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }, ensure_ascii=False) + "\n")
+
 
 def _classify_prune_target(edges, vault_nodes, target_ids):
     """[Step 1] consolidated/pruned 분류"""
