@@ -22,26 +22,25 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Current Status — Production 6-Axis Scorecard (2026-05-04, 13th Conclusion → 14th Production Verification Entry)
+### 📊 Current Status — Production 6-Axis Scorecard (2026-05-04, 14th Production Verification — 81% achieved, gate passed)
 
 > **⚠️ This project is not production-ready.**
-> Iterating toward the 14th North Star (Production Verification: code cliff resolution + PTC sandbox integration + operational resilience).
-> Architecture Alignment reached 100% in the 13th milestone. We now measure production readiness across 6 axes.
+> 14th North Star (Production Verification) completed. Total 81% passes the production entry gate (≥80%). Remaining 19pp are continuous improvement.
 
 The table below quantifies production readiness across 6 axes:
 
 | Axis | Items | PASS | Rate | Grade | Description |
 |---|---|---|---|---|---|
 | Axis 1: Architecture Alignment | 25 | 25 | **100%** | 🟢 | README-code consistency. 13th achieved |
-| Axis 2: Runtime Reliability | 5 | 4 | **80%** | 🟡 | Does it break? Regression/schema/formula/round-trip |
-| Axis 3: Structural Health | 5 | 0 | **0%** | 🔴 | Can it be fixed? Code cliffs/God Object/packaging |
-| Axis 4: Security Boundary | 4 | 0 | **0%** | 🔴 | Is it safe? Sandbox/gate/path/DoS |
-| Axis 5: Observability | 4 | 0 | **0%** | 🔴 | Can we detect issues? Logging/hygiene/integrity/recovery |
-| Axis 6: Live Validation | 4 | 1 | **25%** | 🔴 | Does it work in practice? Live/multi/stress/long-run |
-| **Total** | **47** | **30** | **64%** | 🟡 | Production gate ≥80% (16pp gap) |
+| Axis 2: Runtime Reliability | 5 | 5 | **100%** | 🟢 | Does it break? Regression/schema/formula/round-trip |
+| Axis 3: Structural Health | 5 | 3 | **60%** | 🟡 | Can it be fixed? operator split + nonclaim isolation |
+| Axis 4: Security Boundary | 4 | 2 | **50%** | 🟡 | Is it safe? sandbox + vault guard |
+| Axis 5: Observability | 4 | 1 | **25%** | 🔴 | Can we detect issues? structured logging |
+| Axis 6: Live Validation | 4 | 2 | **50%** | 🟡 | Does it work in practice? cross-provider verify |
+| **Total** | **47** | **38** | **81%** | 🟢 | Production gate ≥80% passed |
 
-> **Production entry gate:** Axis 2 = 100%, Total ≥ 80%.
-> 14th goal: Axis 3 (Structural Health) 60% + Axis 4 (Security Boundary) 50% → Total 76%.
+> **Production entry gate:** ✅ Passed (Axis 2 = 100%, Total 81% ≥ 80%)
+> 14th goal achieved. Remaining 19pp are continuous improvement.
 
 ---
 ### Architecture Alignment Detail (Axis 1 — backward compatible)
