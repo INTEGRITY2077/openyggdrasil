@@ -55,7 +55,7 @@
 #### 소비면 (Consumption Side)
 | 모듈 | 상태 | 비고 |
 |---|---|---|
-| Pathfinder | 🟢 LIVE | 페르소나 존재. rank-bm25 (순수 BM25) + ACTIVE 필터 + `_boost_by_edges` 3-stage 검색 파이프라인 구현. `qmd_bridge.py` 서브프로세스 연동 (11차 Rev.3 Step C) |
+| Pathfinder | 🟢 LIVE | 페르소나 존재. rank-bm25 (순수 BM25) + ACTIVE 필터 + `_boost_by_edges` 3-stage 검색 파이프라인 구현. No Heavy Deps (11차) |
 | Support Bundle | 🟢 LIVE | 3-tier 나이테 추적 + lifecycle_status + edge_context + context_bundle_ref. Bounded bundle 라이브 검증 완료 (11차 Rev.2) |
 | Mailbox | 🟢 LIVE | 멀티프로바이더 POC Phase 1-6 18/18 PASS. `status.json`+`manifest.json` 운영. Reverse Push 영수증 동작 |
 | Lifecycle Filter | 🟢 LIVE | 프론트매터 파싱 및 ACTIVE/SUPERSEDED 상태 필터링 완벽 작동 |
@@ -1138,17 +1138,21 @@ Graphify는 구조 분석 계층을 제공합니다 — 코드베이스와 지�
 | 신뢰도 라벨 (EXTRACTED / INFERRED / AMBIGUOUS) | → 검색 결과의 출처 신뢰도 |
 | 순수 Python, 로컬, 오프라인 | → **외부 인프라 의존성 없음** |
 
-### [QMD](https://github.com/nicobailey/qmd)
+### [rank-bm25](https://github.com/dorianbrown/rank_bm25)
 
-QMD는 on-device 마크다운 검색엔진입니다. openyggdrasil은 QMD의 BM25
-(SQLite FTS5) 키워드 검색만을 PTC 도구로 사용합니다:
+rank-bm25는 순수 Python BM25 Okapi 구현체입니다. openyggdrasil은
+의존성 없는 순수 BM25 키워드 검색만을 Pathfinder의 1단계 검색으로 사용합니다:
 
-| QMD 개념 | openyggdrasil 흡수 |
+| rank-bm25 개념 | openyggdrasil 흡수 |
 |---|---|
-| SQLite FTS5 기반 BM25 검색 | → `qmd_search` PTC 도구 (소비면 1단계) |
-| CLI: `qmd search "query" --json` | → `subprocess` 래퍼로 PTC 핸들러 구현 |
-| 밀리초 단위 응답 | → `select_topic_anchor` 전 후보 추림으로 토큰 절감 |
-| 벡터/리랭킹 기능 | → **사용하지 않음** (BM25만 사용) |
+| BM25 Okapi 알고리즘 | → Pathfinder 검색 파이프라인 (소비면 1단계) |
+| 순수 Python, 의존성 0, ~10KB | → `pip install rank-bm25` 1초 설치 |
+| 밀리초 단위 응답 | → Vault 전체 대상 사전 필터링으로 토큰 절감 |
+| 벡터 임베딩 / LLM / CUDA | → **의도적 배제** (No Heavy Deps 철학) |
+
+> **QMD → rank-bm25 전환 (2026-05-03):** 초기 QMD는 SQLite FTS5 기반 경량 BM25로 평가했으나,
+> pip 패키지가 sentence-transformers + torch(~3.5GB)를 강제 의존성으로 번들링함을 확인.
+> 우리 방향(No Heavy Deps, 순수 BM25)과 일치하지 않아 rank-bm25로 교체.
 
 ### [Language Server Protocol](https://github.com/microsoft/language-server-protocol) (LSP)
 
