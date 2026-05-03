@@ -202,7 +202,7 @@ sources: [source refs or public paths]
 
 ## System Requirements & Setup
 
-openyggdrasil operates as a cold-started skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start background daemons or manage separate server processes.
+openyggdrasil operates as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start system-level background daemons or manage separate server processes. Operator Sessions are bound to their Provider Session's lifetime and exit cleanly on timeout or completion.
 
 > **⚠️ Reasoning Lease Model:**
 > openyggdrasil does not have its own API keys; it **borrows (leases) the reasoning tokens of the provider agent (IDE) in reverse**.
@@ -238,15 +238,15 @@ openyggdrasil runs purely locally. The core runtime relies almost entirely on th
 **These dependencies must be installed in the user's local environment.**
 
 > **⚠️ Mandatory Rule for Providers:**
-> Before executing the cold-start skill for the first time, the provider **MUST ask the user for explicit permission** to install these dependencies.
+> Before executing the initial setup (Cold Start) skill for the first time, the provider **MUST ask the user for explicit permission** to install these dependencies.
 > 
 > 1. Provider detects that dependencies are missing.
 > 2. Provider halts and prompts the user: *"openyggdrasil requires Python dependencies (listed in requirements) to be installed locally. Do you allow this?"*
 > 3. Only upon user approval, the provider installs the requirements. **Silent or unprompted installations are strictly forbidden.**
 
-### 3. One-Touch Cold Start
+### 3. Session-Scoped Cold Start
 
-Once dependencies are approved and installed, the provider can execute the skill entrypoints defined in `SKILL.md`. The openyggdrasil runtime **cold-starts itself on demand**, executes the required memory transaction, and shuts down cleanly.
+Once dependencies are approved and installed, the provider can execute the skill entrypoints defined in `SKILL.md`. The openyggdrasil runtime **cold-starts per Provider Session**. There are no system-level background daemons, but Operator Sessions bound to a Provider Session may persist via Mailbox polling for the session's lifetime. They exit cleanly on timeout or Provider Session termination.
 
 ### Verify Installation Manually
 
@@ -602,7 +602,7 @@ When this need arises, the Provider Agent does not just copy-paste the entire he
 
 **Key rules:**
 - **Pointer-Based Delegation (`source_ref` is mandatory):** The Provider Agent must not mutate or unnecessarily duplicate raw conversations. It must pass a `source_ref` pointing to the exact `.jsonl` log file. Signals missing this pointer are immediately rejected by the Admission Gate.
-- **Cold-Start Principle:** openyggdrasil **cold-starts on demand**. There is no background daemon. The provider invokes it, it runs, and it cleanly exits.
+- **Cold-Start Principle (Session-Scoped):** openyggdrasil **cold-starts per Provider Session**. There are no system-level background daemons, but Operator Sessions bound to a Provider Session may persist via Mailbox for the session's lifetime. They exit cleanly on timeout or Provider Session termination.
 - **Reasoning Lease:** Because OpenYggdrasil lacks its own LLM, the Provider Agent must delegate its own compute (Reasoning Lease) alongside the signal. The spawned Operator Session uses this leased energy to parse the raw `.jsonl` files and perform deep structuring (Distill/Evaluate).
 
 
