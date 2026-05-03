@@ -22,7 +22,7 @@
   <a href="#영감--감사">영감</a>
 </p>
 
-### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-03, POC Phase 1-6 완료)
+### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-03, Demand-Driven GC POC 완료)
 
 > **⚠️ 이 프로젝트는 프로덕션 준비가 되지 않았습니다.**
 > 9차 로드맵(CQRS 오퍼레이터 세션 루프 + 메일링 프로토콜 기반 목표 아키텍처)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
@@ -43,11 +43,11 @@
 |---|---|---|
 | Session Structure Signal | 🟢 LIVE | 나이테 확립. Same-Run Typed Ref Source 검증 완료 |
 | Admission Gate | 🟡 PARTIAL | `source_ref` 계약 검증 동작. Quality Gate P0 이슈 발행됨 |
-| Distiller | 🟡 PARTIAL | 가드레일 + 페르소나 존재. SPO 추출(`build_spo_triples`) 구현 완료 |
+| Distiller | 🟡 PARTIAL | 가드레일 + 페르소나 존재. 한국어 sentence 기반 SPO 추출(`_extract_subject`/`_extract_predicate`) 구현 완료 |
 | Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet 빌더 구현 완료 |
 | Amundsen | 🟡 PARTIAL | 대륙 분기 스키마 + 런타임 + 페르소나 구현 |
 | Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. Q05 엣지 판정(`_determine_edge_type`) 결정론적 구현 완료 |
-| Gardener | 🟡 PARTIAL | 물리적 식재 + 페르소나 신규 추가. 자동 치유 미완 |
+| Gardener | 🟡 PARTIAL | 물리적 식재 + 페르소나. `_handle_prune`로 SUPERSEDED archive 격리 + 기생형 큐레이터(`_run_piggybacked_gardener`). 수요 기반 GC POC 6/6 PASS |
 | Postman | 🟢 LIVE | `deliver_receipt` 구현 완료 + `run_producer`/`run_consumer` 통합. POC Phase 1-6 18/18 PASS |
 | 수동 편집 보호 | 🟢 LIVE | `wiki_write_guard.py` 콘텐츠 해시 가드 + atomic write. 5개 테스트 PASS |
 | 피드백 루프 | 🟠 STUB | P1 이슈 발행됨. 런타임 코드 미착수 |
@@ -64,7 +64,7 @@
 | 모듈 | 상태 | 비고 |
 |---|---|---|
 | SKILL.md 콜드스타트 | 🟢 LIVE | 프로바이더 자동 인식 및 진입점 호출 동작 |
-| Typed PTC Engine | 🟡 PARTIAL | `primitives.py` SPO+엣지+BM25 스터브 추가 (+300줄). 과대주장 교정 유지 |
+| Typed PTC Engine | 🟡 PARTIAL | `primitives.py` SPO+엣지+BM25+prune 처리 (+400줄). `_determine_edge_type` Q05 6종 판정. `_handle_prune` Gardener 연동 |
 | Persona System (9역할) | 🟢 LIVE | 9개 페르소나 완비 (effort normalizer 대체) |
 | Reasoning Lease | 🟡 PARTIAL | Multi-OS 샌드박스 (Mac/WSL2) 클린룸 제안. Windows 미지원 공식 확정 |
 | Vault (SOT) | 🟡 PARTIAL | 디렉토리 동작. Atomic write guard + 콘텐츠 해시 보호 (wiki_write_guard.py) |
