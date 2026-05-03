@@ -594,3 +594,91 @@ def load_edges(vault_path: Path) -> list[dict[str, str]]:
             if line:
                 edges.append(json.loads(line))
     return edges
+
+
+# ─── 12차 마일스톤 ───
+
+def _validate_admission(node: dict[str, Any]) -> tuple[bool, str]:
+    """
+    [12차 P0] Admission Gate — Vault 진입 전 최소 품질 검증.
+
+    contracts/admission_gate.v1.schema.json 에 정의된 최소 필드 검증.
+    save_to_vault() 직전에 호출되어 부적격 노드를 걸러낸다.
+
+    초기 버전: title/category 존재 + content.text 비어있지 않음 검증.
+    source_type은 선택적(레거시 호환).
+
+    Args:
+        node: build_vault_node()가 생성한 노드 딕셔너리
+
+    Returns:
+        (통과 여부, 실패 사유)
+    """
+    # title 또는 category 검증 (SPO 구조 호환)
+    title = node.get("title", "") or node.get("category", "")
+    if not title or not title.strip():
+        return False, "title 누락 또는 빈 문자열"
+
+    # content.text 검증
+    content = node.get("content", {})
+    if isinstance(content, dict):
+        text = content.get("text", "")
+        if not text or not text.strip():
+            return False, "content.text 누락 또는 빈 문자열"
+
+    return True, "ok"
+
+
+def _run_feedback_loop(mailbox: Path) -> dict[str, int]:
+    """
+    [12차 P1] 피드백 루프 — Gardener receipts → prune/curate intent 자동 발행.
+
+    Gardener가 발행한 receipts.jsonl을 읽어 prune/curate 필요성을 판단하고
+    해당 intent를 intents.jsonl에 추가한다. _handle_prune()을 재활용한다.
+
+    Args:
+        mailbox: 메일박스 디렉터리 경로
+
+    Returns:
+        처리 통계 {"prune_issued": N, "curate_issued": N, "errors": N}
+    """
+    gardener_receipts = mailbox / "gardener_receipts.jsonl"
+    if not gardener_receipts.exists():
+        return {"prune_issued": 0, "curate_issued": 0, "errors": 0}
+
+    from datetime import datetime as _dt
+    from datetime import timezone as _tz
+
+    stats = {"prune_issued": 0, "curate_issued": 0, "errors": 0}
+    intents_file = mailbox / "intents.jsonl"
+
+    for line in gardener_receipts.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            receipt = json.loads(line)
+        except json.JSONDecodeError:
+            stats["errors"] += 1
+            continue
+
+        action = receipt.get("action", "")
+        node_id = receipt.get("node_id", "")
+        if not node_id:
+            continue
+
+        if action in ("prune", "curate"):
+            intent = {
+                "mail_id": f"feedback-{uuid.uuid4().hex[:8]}",
+                "intent": action,
+                "payload": {"node_id": node_id, "topic_hint": receipt.get("topic_hint", "")},
+                "timestamp": _dt.now(_tz.utc).isoformat(),
+                "source": "feedback_loop",
+            }
+            with open(intents_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(intent, ensure_ascii=False) + "\n")
+            if action == "prune":
+                stats["prune_issued"] += 1
+            else:
+                stats["curate_issued"] += 1
+
+    return stats

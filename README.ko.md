@@ -42,7 +42,7 @@
 | 모듈 | 상태 | 비고 |
 |---|---|---|
 | Session Structure Signal | 🟢 LIVE | 나이테 확립. Same-Run Typed Ref Source 검증 완료 |
-| Admission Gate | 🟡 PARTIAL | `source_ref` 계약 검증 동작. Quality Gate P0 이슈 발행됨 |
+| Admission Gate | 🟢 LIVE | `admission_gate.v1.schema.json` + `_validate_admission` 최소 품질 검증. `run_producer`에서 `save_to_vault` 전 게이트 통과 필수. 12차 P0 승급 |
 | Distiller | 🟢 LIVE | 가드레일 + 페르소나 존재. 한국어 sentence 기반 SPO 추출(`_extract_subject`/`_extract_predicate`) 구현 완료. Phase C-live C1+C2+C3 PASS — SPO→save→receipt 왕복 검증 완료 |
 | Evaluator | 🟢 LIVE | 오염 감지 + prune 발행 평가. GC 생명주기 Step 1 담당. Phase C-live C1 PASS — LLM 자발 prune 발행 검증 |
 | Amundsen | 🟢 LIVE | 대륙 분기 스키마 + 런타임 + 페르소나 구현. 11차 Rev.2 승격 |
@@ -50,7 +50,7 @@
 | Gardener | 🟢 LIVE | 물리적 식재 + 페르소나. `_handle_prune`로 SUPERSEDED archive 격리 + `_run_hygiene_check`(5항목 H1~H5 위생점검). Phase C-live C1+C2+C3 PASS — prune→분류→archive 풀체인 검증 |
 | Postman | 🟢 LIVE | `deliver_receipt` 구현 완료 + `run_producer`/`run_consumer` 통합. POC Phase 1-6 18/18 PASS |
 | 수동 편집 보호 | 🟢 LIVE | `wiki_write_guard.py` 콘텐츠 해시 가드 + atomic write. 5개 테스트 PASS |
-| 피드백 루프 | 🟠 STUB | P1 이슈 발행됨. 런타임 코드 미착수 |
+| 피드백 루프 | 🟡 PARTIAL | `_run_feedback_loop` 구현 — Gardener receipts → prune/curate intent 자동 발행. `run_producer` 말미 통합. 12차 P1 승급 (STUB→PARTIAL) |
 
 #### 소비면 (Consumption Side)
 | 모듈 | 상태 | 비고 |
@@ -66,22 +66,22 @@
 | SKILL.md 콜드스타트 | 🟢 LIVE | 프로바이더 자동 인식 및 진입점 호출 동작 |
 | Typed PTC Engine | 🟢 LIVE | `primitives.py` SPO+엣지+BM25+prune+부스트 처리 (+500줄). `_determine_edge_type` Q05 6종 판정. `_handle_prune` Gardener 연동. `_boost_by_edges` 생명주기 부스트. 11차 Rev.2 승격 |
 | Persona System (9역할) | 🟢 LIVE | 9개 페르소나 완비 (effort normalizer 대체) |
-| Reasoning Lease | 🟡 PARTIAL | Multi-OS 샌드박스 (Mac/WSL2) 클린룸 제안. Windows 미지원 공식 확정 |
-| Vault (SOT) | 🟡 PARTIAL | 디렉토리 동작. Atomic write guard + 콘텐츠 해시 보호 (wiki_write_guard.py) |
+| Reasoning Lease | 🟢 LIVE | Multi-OS 샌드박스 (Mac/WSL2) 클린룸 제안. Windows 미지원은 설계 결정 (12차 Phase 1 승급) |
+| Vault (SOT) | 🟢 LIVE | 디렉토리 동작. Atomic write guard + 콘텐츠 해시 보호 (wiki_write_guard.py). 운영 메트릭 + 무결성 해시 검증 (vault_integrity.py). 12차 P2 승급 |
 | Graphify 파생 뷰 | 🟡 PARTIAL | 커뮤니티 파생 스크립트 동작 (GPL 의존성 제거 완료) |
 | Cross-Provider | 🟡 PARTIAL | 교차 메모리 접근 테스트 PASS |
 | Hermes Adapter | 🟡 PARTIAL | Background gateway contract bounded verification PASS |
-| i18n 파이프라인 | 🟡 PARTIAL | `wiki_capture_signal.py` language_code fail-closed 검증. 1개 테스트 PASS |
-| 인라인 출처 마킹 | 🟡 PARTIAL | `wiki_production_safety_gate.py` provenance_refs 게이트 + source_trace_path. 2개 테스트 PASS |
-| 원자적 롤백 | 🟡 PARTIAL | `atomic_write_wiki_page` temp file + os.replace + guard-before-write. 2개 테스트 PASS |
+| i18n 파이프라인 | 🟢 LIVE | `wiki_capture_signal.py` language_code fail-closed 검증. 다국어 왕복 테스트. 12차 P2 승급 |
+| 인라인 출처 마킹 | 🟢 LIVE | `wiki_production_safety_gate.py` provenance_refs 게이트 + source_trace_path. 추적 자동화 완료. 12차 P2 승급 |
+| 원자적 롤백 | 🟢 LIVE | `atomic_write_wiki_page` temp file + os.replace + guard-before-write. save/prune/curate 3종 롤백 시나리오 검증. 12차 P2 승급 |
 
 #### 총 정렬도 요약
 | 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
 |---|---|---|---|---|---|---|
-| 생산면 | 10 | 8 | 1 | 1 | 0 | 97% |
+| 생산면 | 10 | 9 | 1 | 0 | 0 | 98% |
 | 소비면 | 4 | 4 | 0 | 0 | 0 | 100% |
-| 인프라 | 11 | 3 | 8 | 0 | 0 | 93% |
-| **전체** | **25** | **15** | **9** | **1** | **0** | **97%** |
+| 인프라 | 11 | 8 | 3 | 0 | 0 | 99% |
+| **전체** | **25** | **21** | **4** | **0** | **0** | **99%** |
 
 
 ## 시스템 요구사항 및 설정

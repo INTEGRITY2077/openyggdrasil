@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://openyggdrasil.org/contracts/admission_gate.v1.schema.json",
+  "title": "Admission Gate v1",
+  "description": "Vault 진입 전 최소 품질 검증. save_to_vault() 직전에 호출됨.",
+  "type": "object",
+  "required": ["title", "content", "source"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "노드 제목. 비어 있을 수 없음."
+    },
+    "content": {
+      "type": "object",
+      "description": "노드 본문. text 필드가 비어 있지 않아야 함.",
+      "required": ["text"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "description": "출처 정보. source_type 필수.",
+      "required": ["source_type"],
+      "properties": {
+        "source_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_url": {
+          "type": "string"
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ACTIVE", "SUPERSEDED", "DRAFT", "ARCHIVED"],
+      "default": "ACTIVE"
+    },
+    "node_id": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

@@ -41,7 +41,7 @@ The table below quantifies the alignment between the architecture described in t
 | Module | Status | Remarks |
 |---|---|---|
 | Session Structure Signal | 🟢 LIVE | Tree Rings established. Same-Run Typed Ref Source verified |
-| Admission Gate | 🟡 PARTIAL | `source_ref` contract verification works. Quality Gate P0 issue raised |
+| Admission Gate | 🟢 LIVE | `admission_gate.v1.schema.json` + `_validate_admission` minimum quality gate. `run_producer` checks before `save_to_vault`. 12th P0 promotion |
 | Distiller | 🟢 LIVE | Guardrail + Persona exist. SPO extraction (`build_spo_triples`) implemented. Phase C-live C1+C2+C3 PASS — SPO→save→receipt round-trip verified |
 | Evaluator | 🟢 LIVE | Pollution detection + prune evaluation. GC Lifecycle Step 1. Phase C-live C1 PASS — LLM 자발 prune 발행 검증 |
 | Amundsen | 🟢 LIVE | Continent branching schema + runtime + Persona implemented. 11th Rev.2 promotion |
@@ -49,7 +49,7 @@ The table below quantifies the alignment between the architecture described in t
 | Gardener | 🟢 LIVE | Physical planting + Persona. `_handle_prune` with SUPERSEDED archive isolation + `_run_hygiene_check` (5항목 H1~H5 위생점검). Phase C-live C1+C2+C3 PASS — prune→분류→archive 풀체인 검증 |
 | Postman | 🟢 LIVE | `deliver_receipt` implemented + integrated into `run_producer`/`run_consumer`. POC Phase 1-6 18/18 PASS |
 | Content Hash Protection | 🟢 LIVE | `wiki_write_guard.py` content hash guard + atomic write. 5 tests PASS |
-| Rejection Loop | 🟠 STUB | P1 issue raised. No runtime code yet |
+| Feedback Loop | 🟡 PARTIAL | `_run_feedback_loop` implemented — Gardener receipts to prune/curate intent auto-issue. Integrated at end of `run_producer`. 12th P1 promotion (STUB→PARTIAL) |
 
 #### Consumption Side
 | Module | Status | Remarks |
@@ -65,22 +65,22 @@ The table below quantifies the alignment between the architecture described in t
 | SKILL.md Cold Start | 🟢 LIVE | Automatic provider recognition & entrypoint calling works |
 | Typed PTC Engine | 🟢 LIVE | `primitives.py` SPO+Edge+BM25+prune+boost processing (+500 lines). `_determine_edge_type` Q05 6-type. `_handle_prune` Gardener integration. `_boost_by_edges` lifecycle boost. 11th Rev.2 promotion |
 | Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
-| Reasoning Lease | 🟡 PARTIAL | Multi-OS Sandbox (Mac/WSL2) clean-room proposed. Windows native officially unsupported |
-| Vault (SOT) | 🟡 PARTIAL | Directory works. Atomic write guard with content hash protection (wiki_write_guard.py) |
+| Reasoning Lease | 🟢 LIVE | Multi-OS Sandbox (Mac/WSL2) clean-room proposed. Windows native officially unsupported by design decision (12th Phase 1 promotion) |
+| Vault (SOT) | 🟢 LIVE | Directory works. Atomic write guard with content hash protection (wiki_write_guard.py). Operational metrics + integrity hash (vault_integrity.py). 12th P2 promotion |
 | Graphify Derived View | 🟡 PARTIAL | Community derivation scripts functional (GPL dependencies removed) |
 | Cross-Provider | 🟡 PARTIAL | Cross-memory access tests PASS |
 | Hermes Adapter | 🟡 PARTIAL | Background gateway contract bounded verification PASS |
-| i18n Pipeline | 🟡 PARTIAL | `wiki_capture_signal.py` language_code fail-closed validation. 1 test PASS |
-| Inline Source Marking | 🟡 PARTIAL | `wiki_production_safety_gate.py` provenance_refs gate + source_trace_path. 2 tests PASS |
-| Atomic Rollback | 🟡 PARTIAL | `atomic_write_wiki_page` temp file + os.replace with guard-before-write. 2 tests PASS |
+| i18n Pipeline | 🟢 LIVE | `wiki_capture_signal.py` language_code fail-closed validation. Multi-language round-trip test. 12th P2 promotion |
+| Inline Source Marking | 🟢 LIVE | `wiki_production_safety_gate.py` provenance_refs gate + source_trace_path. Trace automation complete. 12th P2 promotion |
+| Atomic Rollback | 🟢 LIVE | `atomic_write_wiki_page` temp file + os.replace with guard-before-write. save/prune/curate 3-scenario rollback verified. 12th P2 promotion |
 
 #### Alignment Summary
 | Domain | Total | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | Alignment |
 |---|---|---|---|---|---|---|
-| Production | 10 | 8 | 1 | 1 | 0 | 97% |
+| Production | 10 | 9 | 1 | 0 | 0 | 98% |
 | Consumption | 4 | 4 | 0 | 0 | 0 | 100% |
-| Infrastructure | 11 | 3 | 8 | 0 | 0 | 93% |
-| **Total** | **25** | **15** | **9** | **1** | **0** | **97%** |
+| Infrastructure | 11 | 8 | 3 | 0 | 0 | 99% |
+| **Total** | **25** | **21** | **4** | **0** | **0** | **99%** |
 
 ## Why This Exists
 

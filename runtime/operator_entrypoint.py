@@ -35,6 +35,8 @@ from ptc.primitives import (
     save_edges,
     load_edges,
     _boost_by_edges,
+    _validate_admission,
+    _run_feedback_loop,
 )
 
 
@@ -133,6 +135,20 @@ def run_producer(mailbox: Path, vault: Path):
             triples = build_spo_triples([c], c["marker"])
             for spo in triples:
                 node = build_vault_node(spo, metadata={"provider_id": msg.get("provider_id", "unknown")})
+                # P0 Admission Gate: Vault 진입 전 최소 품질 검증
+                passed, reason = _validate_admission(node)
+                if not passed:
+                    rejection_receipt = {
+                        "receipt_id": str(uuid.uuid4())[:8],
+                        "in_reply_to": msg["mail_id"],
+                        "status": "rejected",
+                        "reason": reason,
+                        "gate": "admission_gate.v1",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                    with open(receipts_file, "a", encoding="utf-8") as f:
+                        f.write(json.dumps(rejection_receipt, ensure_ascii=False) + "\n")
+                    continue
                 path = save_to_vault(vault, node)
                 nodes.append(node["node_id"])
 
@@ -184,6 +200,11 @@ def run_producer(mailbox: Path, vault: Path):
     last_curation = _read_last_curation(mailbox)
     if _days_since(last_curation) >= 7:
         _run_hygiene_check(mailbox, vault)
+
+    # P1 피드백 루프: Gardener receipts -> prune/curate intent 발행
+    feedback_stats = _run_feedback_loop(mailbox)
+    if any(v > 0 for v in feedback_stats.values()):
+        print(json.dumps({"status": "feedback_loop", "stats": feedback_stats}))
 
     print(json.dumps({"status": "producer_done", "pid": os.getpid()}))
 
