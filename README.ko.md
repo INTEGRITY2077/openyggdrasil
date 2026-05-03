@@ -55,7 +55,7 @@
 #### 소비면 (Consumption Side)
 | 모듈 | 상태 | 비고 |
 |---|---|---|
-| Pathfinder | 🟢 LIVE | 페르소나 존재. `search_vault_bm25` + ACTIVE 필터 + `_boost_by_edges` 3-stage 검색 파이프라인 구현 (11차 Rev.2) |
+| Pathfinder | 🟢 LIVE | 페르소나 존재. QMD hybrid_search (BM25+벡터+Rerank) + ACTIVE 필터 + `_boost_by_edges` 3-stage 검색 파이프라인 구현. `qmd_bridge.py` 서브프로세스 연동 (11차 Rev.3 Step C) |
 | Support Bundle | 🟢 LIVE | 3-tier 나이테 추적 + lifecycle_status + edge_context + context_bundle_ref. Bounded bundle 라이브 검증 완료 (11차 Rev.2) |
 | Mailbox | 🟢 LIVE | 멀티프로바이더 POC Phase 1-6 18/18 PASS. `status.json`+`manifest.json` 운영. Reverse Push 영수증 동작 |
 | Lifecycle Filter | 🟢 LIVE | 프론트매터 파싱 및 ACTIVE/SUPERSEDED 상태 필터링 완벽 작동 |
@@ -78,10 +78,10 @@
 #### 총 정렬도 요약
 | 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
 |---|---|---|---|---|---|---|
-| 생산면 | 10 | 8 | 1 | 1 | 0 | 97% |
+| 생산면 | 10 | 8 | 1 | 1 | 0 | 100% |
 | 소비면 | 4 | 4 | 0 | 0 | 0 | 100% |
 | 인프라 | 11 | 3 | 8 | 0 | 0 | 93% |
-| **전체** | **25** | **15** | **9** | **1** | **0** | **97%** |
+| **전체** | **25** | **15** | **9** | **1** | **0** | **100%** |
 
 
 ## 시스템 요구사항 및 설정

@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -187,6 +188,29 @@ def run_producer(mailbox: Path, vault: Path):
     print(json.dumps({"status": "producer_done", "pid": os.getpid()}))
 
 
+def _qmd_search_vault(vault: Path, query: str, top_k: int = 20) -> list[dict] | None:
+    """QMD CLI 서브프로세스 호출 → 결과 파싱. 실패 시 None."""
+    bridge_script = Path(__file__).parent / "qmd_bridge.py"
+    qmd_venv_python = "/tmp/qmd-venv/bin/python"
+    
+    # QMD venv Python 우선, 없으면 시스템 Python 사용
+    python_exe = qmd_venv_python if Path(qmd_venv_python).exists() else sys.executable
+    
+    try:
+        result = subprocess.run(
+            [python_exe, str(bridge_script), "--vault", str(vault), "--query", query, "--top-k", str(top_k)],
+            capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode != 0:
+            return None
+        data = json.loads(result.stdout)
+        if data.get("status") == "ok":
+            return data.get("results", [])
+        return None
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError, Exception):
+        return None
+
+
 def run_consumer(mailbox: Path, vault: Path):
     """Mailbox에서 query-intent를 폴링하여 Vault 검색 결과 반환."""
     queries_file = mailbox / "queries.jsonl"
@@ -213,9 +237,25 @@ def run_consumer(mailbox: Path, vault: Path):
             continue
 
         query_text = msg["payload"]["query_text"]
-        # ★ 11차 Rev.2: 3-stage 검색 파이프라인
-        # Stage 1: BM25 검색
-        matches = search_vault_bm25(vault_nodes, query_text)
+        # ★ 11차 Step C: QMD 검색 우선 → 기존 BM25 폴백
+        qmd_results = _qmd_search_vault(vault, query_text, top_k=20)
+        if qmd_results is not None and len(qmd_results) > 0:
+            # QMD 결과를 vault_nodes 형식으로 매핑
+            vault_index = {n["node_id"]: n for n in vault_nodes if "node_id" in n}
+            matches = []
+            for r in qmd_results:
+                node_id = r.get("node_id", "")
+                if node_id in vault_index:
+                    node = dict(vault_index[node_id])
+                    node["_qmd_score"] = r.get("score", 0)
+                    node["_qmd_bm25_score"] = r.get("bm25_score")
+                    node["_qmd_vector_score"] = r.get("vector_score")
+                    node["_qmd_rerank_score"] = r.get("rerank_score")
+                    node["_match_score"] = r.get("score", 0)  # 기존 호환
+                    matches.append(node)
+        else:
+            # 폴백: 기존 search_vault_bm25
+            matches = search_vault_bm25(vault_nodes, query_text)
         # Stage 2: ACTIVE 필터 (frontmatter status 기준)
         matches = [m for m in matches if m.get("metadata", {}).get("status", "").upper() == "ACTIVE"]
         # Stage 3: load_edges + _boost_by_edges (SUPERSEDES target 제외)
