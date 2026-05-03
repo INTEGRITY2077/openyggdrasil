@@ -22,6 +22,15 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
+> ⚠️ **PRODUCTION INCOMPLETE WARNING**
+> 
+> openyggdrasil is currently an **experimental project with incomplete production verification**.
+> The 94% 6-axis scorecard reflects internal milestone criteria only. Long-term
+> stability (10-round continuous), load testing, and concurrency validation
+> have NOT been performed. **Do not use in production environments.**
+>
+> Status: experimental development · 14th milestone in progress · production deployment not recommended
+
 ### 📊 Production 6-Axis Scorecard — 94% (2026-05-04, 14th)
 
 | Axis | Items | PASS | Rate | Grade | Description |
