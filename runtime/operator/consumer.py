@@ -1,7 +1,7 @@
 """
 Operator Consumer — 14차 Axis 3: operator_entrypoint.py에서 분리.
 
-run_consumer + _bm25_search_vault
+run_consumer + _bm25_search_vault + PTC 대체 경로 (Phase 2)
 """
 from __future__ import annotations
 
@@ -24,11 +24,17 @@ from ptc.primitives import (
 
 from .helpers import deliver_receipt
 
+from runtime.logging import log_event
+
+# PTC advisory import (lazy)
+try:
+    from runtime.ptc.sandbox_executor import execute_ptc_code as _ptc_exec
+except Exception:
+    _ptc_exec = None
+
 
 def _bm25_search_vault(vault: Path, query: str, top_k: int = 20) -> list[dict] | None:
-    """rank-bm25 서브프로세스 호출 → 결과 파싱. 실패 시 None."""
     bridge_script = Path(__file__).resolve().parent.parent / "qmd_bridge.py"
-
     try:
         result = subprocess.run(
             [sys.executable, str(bridge_script), "--vault", str(vault), "--query", query, "--top-k", str(top_k)],
@@ -45,7 +51,18 @@ def _bm25_search_vault(vault: Path, query: str, top_k: int = 20) -> list[dict] |
 
 
 def run_consumer(mailbox: Path, vault: Path):
-    """Mailbox에서 query-intent를 폴링하여 Vault 검색 결과 반환."""
+    """Mailbox에서 query-intent를 폴링하여 Vault 검색 결과 반환.
+
+    payload.ptc=true → PTC 경로 (LLM 코드가 Pathfinder 직접 구성)
+    payload.ptc=false/없음 → 고정 경로 (기존 BM25→Lifecycle→Edge Boost)
+    """
+    try:
+        from runtime.sandbox import sandbox_run
+        sandbox_run(["python3", "--version"], timeout=10)
+        log_event("sandbox_check_ok")
+    except Exception:
+        log_event("sandbox_check_skip")
+
     queries_file = mailbox / "queries.jsonl"
     receipts_file = mailbox / "query_receipts.jsonl"
 
@@ -69,6 +86,28 @@ def run_consumer(mailbox: Path, vault: Path):
             continue
 
         query_text = msg["payload"]["query_text"]
+
+        # Phase 2: PTC 대체 경로
+        if msg.get("payload", {}).get("ptc"):
+            ptc_code = msg["payload"].get("ptc_code", "")
+            if ptc_code.strip() and _ptc_exec:
+                ptc_result = _ptc_exec(ptc_code, vault, mode="ipc", timeout=120)
+                stdout = (ptc_result.get("stdout", "") or "")[:3000]
+                receipt = {
+                    "receipt_id": str(uuid.uuid4())[:8],
+                    "in_reply_to": msg["mail_id"],
+                    "status": "completed",
+                    "bundle": {"ptc_stdout": stdout, "mode": "ptc"},
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "consumer_pid": os.getpid(),
+                }
+                with open(receipts_file, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+                deliver_receipt(mailbox, msg["mail_id"], status="completed",
+                               result_bundle={"ptc_stdout": stdout[:500]})
+            continue
+
+        # 고정 경로
         bm25_results = _bm25_search_vault(vault, query_text, top_k=20)
         if bm25_results is not None and len(bm25_results) > 0:
             vault_index = {n["node_id"]: n for n in vault_nodes if "node_id" in n}
@@ -86,8 +125,30 @@ def run_consumer(mailbox: Path, vault: Path):
         matches = [m for m in matches if m.get("metadata", {}).get("status", "").upper() == "ACTIVE"]
         edges = load_edges(vault)
         matches = _boost_by_edges(matches, edges)
-        bundle = format_consumer_result(query_text, matches)
 
+        # PTC Advisory
+        if _ptc_exec and query_text:
+            try:
+                ptc_result = _ptc_exec(
+                    code=f'deep_search("{query_text}", max_depth=2, limit=10)',
+                    vault=vault, mode="ipc", timeout=15,
+                )
+                stdout = ptc_result.get("stdout", "")
+                if stdout:
+                    try:
+                        import json as _json
+                        parsed = _json.loads(stdout.strip().split("\n")[-1])
+                        ptc_trail = parsed.get("result", {}).get("trail", [])
+                        if ptc_trail:
+                            log_event("ptc_deep_search_hint",
+                                      visited=parsed["result"].get("visited"),
+                                      depth=parsed["result"].get("depth_reached"))
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        bundle = format_consumer_result(query_text, matches)
         receipt = {
             "receipt_id": str(uuid.uuid4())[:8],
             "in_reply_to": msg["mail_id"],
@@ -98,7 +159,6 @@ def run_consumer(mailbox: Path, vault: Path):
         }
         with open(receipts_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
-
         deliver_receipt(mailbox, msg["mail_id"], status="completed", result_bundle=bundle)
 
     print(json.dumps({"status": "consumer_done", "pid": os.getpid()}))

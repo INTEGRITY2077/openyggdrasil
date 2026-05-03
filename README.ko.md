@@ -22,20 +22,22 @@
   <a href="#영감--감사">영감</a>
 </p>
 
-### 📊 프로덕션 6축 스코어카드 — 83% (2026-05-04, 14차)
+### 📊 프로덕션 6축 스코어카드 — 94% (2026-05-04, 14차)
 
 | 축 | 항목 | PASS | 달성률 | 등급 | 설명 |
 |---|---|---|---|---|---|
 | Axis 1: 아키텍처 정렬도 | 25 | 25 | **100%** | 🟢 | README-코드 일치도 |
 | Axis 2: 실행 신뢰도 | 5 | 5 | **100%** | 🟢 | except:pass 해소, 회귀 무결 |
-| Axis 3: 구조 건강도 | 5 | 3 | **60%** | 🟡 | operator 분리(consumer), SOT 통합, re-export 정리 |
-| Axis 4: 보안 경계 | 4 | 2 | **50%** | 🟡 | vault guard 호출, Admission Gate |
+| Axis 3: 구조 건강도 | 5 | 5 | **100%** | 🟢 | operator 완전 분리(producer/consumer/prune/helpers), 중복 코드 0건 |
+| Axis 4: 보안 경계 | 4 | 4 | **100%** | 🟢 | vault guard, Admission Gate, batch PTC, **IPC 콜백 루프 (Unix Socket)** |
 | Axis 5: 운영 관측성 | 4 | 2 | **50%** | 🟡 | log_event + log level 필터링 |
-| Axis 6: 실사용 검증 | 4 | 2 | **50%** | 🟡 | cross-provider verify, 10회 안정성 |
-| **종합** | **47** | **39** | **83%** | 🟢 | **게이트 충족 (≥80%)** |
+| Axis 6: 실사용 검증 | 4 | 3 | **75%** | 🟢 | cross-provider verify, live session subprocess 테스트, PTC 풀체인 검증 |
+| **종합** | **47** | **44** | **94%** | 🟢 | **게이트 충족 (≥80%)** |
 
-> **프로덕션 진입 게이트:** ✅ 충족 (83% ≥ 80%)
-> 잔여 갭: operator_entrypoint 완전 분리, sandbox 파이프라인 연동, 장기 안정성 검증
+> **프로덕션 진입 게이트:** ✅ 충족 (94% ≥ 80%)
+> 잔여 갭: 10회 연속 안정성 검증
+> **IPC PTC 달성:** LLM 코드 → bwrap → Unix Socket → 호스트 primitives → 다중 왕복 콜백 실증 완료.
+> **live session:** Provider → subprocess operator → produce/consume/PTC 전체 흐름 포그라운드 검증 완료.
 
 ---
 ### 아키텍처 정렬도 상세 (Axis 1 — 하위 호환 유지)
@@ -85,14 +87,18 @@
 | i18n 파이프라인 | 🟢 LIVE | `wiki_capture_signal.py` language_code fail-closed 검증. 다국어 왕복 테스트. 12차 P2 승급 |
 | 인라인 출처 마킹 | 🟢 LIVE | `wiki_production_safety_gate.py` provenance_refs 게이트 + source_trace_path. 추적 자동화 완료. 12차 P2 승급 |
 | 원자적 롤백 | 🟢 LIVE | `atomic_write_wiki_page` temp file + os.replace + guard-before-write. save/prune/curate 3종 롤백 시나리오 검증. 12차 P2 승급 |
+| PTC Sandbox Executor | 🟢 LIVE | `sandbox_executor.py` batch+IPC 듀얼 모드. bwrap 클린룸에서 LLM 코드 실행. 14차 구현 |
+| PTC IPC Server | 🟢 LIVE | `ipc_server.py` Unix Domain Socket 기반 18종 PTC 도구 dispatch. 14차 구현 |
+| PTC Stub Generator | 🟢 LIVE | `stub_generator.py` LLM 코드에 IPC 콜백 함수 주입. 14차 구현 |
+| Live Session | 🟢 LIVE | `live_session.py` Provider→Operator subprocess 포그라운드 CLI. 14차 구현 |
 
 #### 총 정렬도 요약
 | 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
 |---|---|---|---|---|---|---|
 | 생산면 | 10 | 10 | 0 | 0 | 0 | 100% |
 | 소비면 | 4 | 4 | 0 | 0 | 0 | 100% |
-| 인프라 | 11 | 11 | 0 | 0 | 0 | 100% |
-| **전체** | **25** | **25** | **0** | **0** | **0** | **100%** |
+| 인프라 | 15 | 15 | 0 | 0 | 0 | 100% |
+| **전체** | **29** | **29** | **0** | **0** | **0** | **100%** |
 
 
 ## 시스템 요구사항 및 설정

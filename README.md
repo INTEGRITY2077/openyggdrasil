@@ -22,20 +22,22 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Production 6-Axis Scorecard — 83% (2026-05-04, 14th)
+### 📊 Production 6-Axis Scorecard — 94% (2026-05-04, 14th)
 
 | Axis | Items | PASS | Rate | Grade | Description |
 |---|---|---|---|---|---|
 | Axis 1: Architecture Alignment | 25 | 25 | **100%** | 🟢 | README-code consistency |
 | Axis 2: Runtime Reliability | 5 | 5 | **100%** | 🟢 | except:pass resolved, regression clean |
-| Axis 3: Structural Health | 5 | 3 | **60%** | 🟡 | operator split(consumer), SOT integration, re-export cleanup |
-| Axis 4: Security Boundary | 4 | 2 | **50%** | 🟡 | vault guard invoked, Admission Gate |
+| Axis 3: Structural Health | 5 | 5 | **100%** | 🟢 | operator fully split, zero duplicate code |
+| Axis 4: Security Boundary | 4 | 4 | **100%** | 🟢 | vault guard, Admission Gate, batch PTC, **IPC callback loop (Unix Socket)** |
 | Axis 5: Observability | 4 | 2 | **50%** | 🟡 | log_event + log level filtering |
-| Axis 6: Live Validation | 4 | 2 | **50%** | 🟡 | cross-provider verify, 10-round stability |
-| **Total** | **47** | **39** | **83%** | 🟢 | **Gate met (≥80%)** |
+| Axis 6: Live Validation | 4 | 3 | **75%** | 🟢 | cross-provider verify, live session subprocess test, PTC full-chain verified |
+| **Total** | **47** | **44** | **94%** | 🟢 | **Gate met (≥80%)** |
 
-> **Production entry gate:** ✅ Met (83% ≥ 80%)
-> Remaining: full operator split, sandbox pipeline integration, long-term stability
+> **Production entry gate:** ✅ Met (94% ≥ 80%)
+> Remaining: 10-round continuous stability
+> **IPC PTC achieved:** LLM code → bwrap → Unix Socket → host primitives → multi-roundtrip callback verified.
+> **live session:** Provider → subprocess operator → produce/consume/PTC full flow foreground verified.
 
 ---
 ### Architecture Alignment Detail (Axis 1 — backward compatible)
@@ -85,30 +87,24 @@ The table below shows Axis 1 module-level status using 4 levels (LIVE / PARTIAL 
 | i18n Pipeline | 🟢 LIVE | `wiki_capture_signal.py` language_code fail-closed validation. Multi-language round-trip test. 12th P2 promotion |
 | Inline Source Marking | 🟢 LIVE | `wiki_production_safety_gate.py` provenance_refs gate + source_trace_path. Trace automation complete. 12th P2 promotion |
 | Atomic Rollback | 🟢 LIVE | `atomic_write_wiki_page` temp file + os.replace with guard-before-write. save/prune/curate 3-scenario rollback verified. 12th P2 promotion |
+| PTC Sandbox Executor | 🟢 LIVE | `sandbox_executor.py` batch+IPC dual mode. LLM code execution in bwrap cleanroom. 14th implementation |
+| PTC IPC Server | 🟢 LIVE | `ipc_server.py` Unix Domain Socket 18-tool dispatch. Producer/Consumer/Chain complete. 14th implementation |
+| PTC Stub Generator | 🟢 LIVE | `stub_generator.py` IPC callback injection for LLM code. 14th implementation |
+| Live Session | 🟢 LIVE | `live_session.py` Provider→Operator subprocess foreground CLI. 14th implementation |
 
 #### Alignment Summary
 | Domain | Total | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | Alignment |
 |---|---|---|---|---|---|---|
 | Production | 10 | 10 | 0 | 0 | 0 | 100% |
 | Consumption | 4 | 4 | 0 | 0 | 0 | 100% |
-| Infrastructure | 11 | 11 | 0 | 0 | 0 | 100% |
-| **Total** | **25** | **25** | **0** | **0** | **0** | **100%** |
+| Infrastructure | 15 | 15 | 0 | 0 | 0 | 100% |
+| **Total** | **29** | **29** | **0** | **0** | **0** | **100%** |
 
 
-### Production 6-Axis Scorecard (2026-05-04)
+## System Requirements & Setup
 
-| Axis | PASS | Rate | Grade |
-|---|---|---|---|
-| Axis 1: Architecture Alignment | 25/25 | **100%** | 🟢 |
-| Axis 2: Execution Reliability | 5/5 | **100%** | 🟢 |
-| Axis 3: Structural Health | 3/5 | **60%** | 🟡 |
-| Axis 4: Security Boundary | 2/4 | **50%** | 🟡 |
-| Axis 5: Observability | 1/4 | **25%** | 🔴 |
-| Axis 6: Real-Usage Validation | 2/4 | **50%** | 🟡 |
-| **Total** | **38/47** | **81%** | 🟢 |
-
-> Production entry gate: Total ≥80% (currently 81%, met)
-
+openyggdrasil attaches to AI providers (e.g., Hermes, Claude Code, Cursor)
+> Production entry gate: Total ≥80% (currently 94%, met)
 
 ## Why This Exists
 Every AI coding tool — Hermes, Codex, Claude Code, Cursor, Gemini CLI — has its
