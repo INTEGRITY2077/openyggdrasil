@@ -86,6 +86,19 @@ def run_producer(mailbox: Path, vault: Path):
                 # 현재 노드를 existing_nodes에 추가 (같은 메시지 내 후속 SPO 참조용)
                 existing_nodes.append(node)
 
+        # ★ Q13: context bundle 적재 (관련 Vault 기록 검색)
+        context_dir, _ = _ensure_q13_dirs(mailbox)
+        if nodes:
+            # 첫 번째 노드의 subject로 관련 기록 검색
+            first_subject = ""
+            for n in existing_nodes[-len(nodes):]:
+                first_subject = n.get("spo", {}).get("subject", "")
+                if first_subject:
+                    break
+            if first_subject:
+                related = search_vault_by_keyword(load_vault(vault), first_subject)
+                _write_context_bundle(context_dir, related)
+
         receipt = {
             "receipt_id": str(uuid.uuid4())[:8],
             "in_reply_to": msg["mail_id"],
@@ -106,6 +119,12 @@ def run_producer(mailbox: Path, vault: Path):
         _update_status(mailbox, intents_processed=len(completed) + 1)
         # ★ manifest.json 갱신 (POC Phase 1 — 세션 카탈로그)
         _update_manifest(mailbox, state="alive")
+
+    # ★ Q13: 기생형 Gardener 트리거 (7일 주기)
+    _ensure_q13_dirs(mailbox)
+    last_curation = _read_last_curation(mailbox)
+    if _days_since(last_curation) >= 7:
+        _run_piggybacked_gardener(mailbox, vault)
 
     print(json.dumps({"status": "producer_done", "pid": os.getpid()}))
 
@@ -273,6 +292,79 @@ def deliver_receipt(
         f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
 
     return receipt
+
+
+# ─── Q13 증분 진화: context/ + curation/ ───
+
+def _ensure_q13_dirs(mailbox: Path) -> tuple[Path, Path]:
+    """active/{session}/ 하위 context/ + curation/ 자동 생성."""
+    context_dir = mailbox / "context"
+    curation_dir = mailbox / "curation"
+    context_dir.mkdir(exist_ok=True)
+    curation_dir.mkdir(exist_ok=True)
+    (curation_dir / "reports").mkdir(exist_ok=True)
+    return context_dir, curation_dir
+
+
+def _write_context_bundle(context_dir: Path, related_nodes: list[dict]) -> Path | None:
+    """Vault 검색 결과를 context_bundle.md로 적재."""
+    if not related_nodes:
+        return None
+    bundle_path = context_dir / "context_bundle.md"
+    lines = ["# Context Bundle\n", f"generated: {datetime.now(timezone.utc).isoformat()}\n"]
+    for i, node in enumerate(related_nodes[:5], 1):  # 최대 5건
+        spo = node.get("spo", {})
+        lines.append(f"## {i}. {spo.get('subject', node.get('node_id', '?'))}\n")
+        lines.append(f"- node_id: {node.get('node_id', '?')}\n")
+        lines.append(f"- category: {spo.get('category', '?')}\n")
+        lines.append(f"- source: {spo.get('source_sentence', '?')[:120]}\n\n")
+    bundle_path.write_text("".join(lines), encoding="utf-8")
+    return bundle_path
+
+
+def _read_last_curation(mailbox: Path) -> str | None:
+    """curation/last_run.json에서 마지막 큐레이션 timestamp 반환."""
+    last_run_file = mailbox / "curation" / "last_run.json"
+    if not last_run_file.exists():
+        return None
+    try:
+        data = json.loads(last_run_file.read_text(encoding="utf-8"))
+        return data.get("last_run")
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def _days_since(timestamp_iso: str | None) -> int:
+    """주어진 timestamp로부터 경과 일수. None이면 큰 값 반환(즉시 실행)."""
+    if timestamp_iso is None:
+        return 999
+    try:
+        from datetime import datetime as dt
+        then = dt.fromisoformat(timestamp_iso.replace("Z", "+00:00"))
+        now = dt.now(timezone.utc)
+        return (now - then).days
+    except (ValueError, TypeError):
+        return 999
+
+
+def _run_piggybacked_gardener(mailbox: Path, vault: Path) -> None:
+    """기생형 Gardener: last_run.json 갱신 + 보고서 생성."""
+    curation_dir = mailbox / "curation"
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # last_run.json 갱신
+    (curation_dir / "last_run.json").write_text(
+        json.dumps({"last_run": now_iso, "mode": "piggybacked"}, indent=2),
+        encoding="utf-8")
+
+    # 보고서 생성 (스터브)
+    report_path = curation_dir / "reports" / f"{now_iso[:10]}_REPORT.md"
+    report_path.write_text(
+        f"# Gardener Report — {now_iso[:10]}\n\n"
+        f"**Mode:** piggybacked (기생형)\n"
+        f"**Status:** stub — 실제 가지치기 로직 미구현\n"
+        f"**Vault:** {vault}\n",
+        encoding="utf-8")
 
 
 if __name__ == "__main__":
