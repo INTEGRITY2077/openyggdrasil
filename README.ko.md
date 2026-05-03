@@ -68,9 +68,9 @@
 | Persona System (9역할) | 🟢 LIVE | 9개 페르소나 완비 (effort normalizer 대체) |
 | Reasoning Lease | 🟢 LIVE | Multi-OS 샌드박스 (Mac/WSL2) 클린룸 제안. Windows 미지원은 설계 결정 (12차 Phase 1 승급) |
 | Vault (SOT) | 🟢 LIVE | 디렉토리 동작. Atomic write guard + 콘텐츠 해시 보호 (wiki_write_guard.py). 운영 메트릭 + 무결성 해시 검증 (vault_integrity.py). 12차 P2 승급 |
-| Graphify 파생 뷰 | 🟡 PARTIAL | 커뮤니티 파생 스크립트 동작 (GPL 의존성 제거 완료) |
+| Graphify 파생 뷰 | 🟢 LIVE | 커뮤니티 파생 스크립트 동작 (GPL 의존성 제거 완료). 구조 커버리지 리포트(graphify_coverage.json) + freshness guard 동작 확인. 12차 승급 |
 | Cross-Provider | 🟡 PARTIAL | 교차 메모리 접근 테스트 PASS |
-| Hermes Adapter | 🟡 PARTIAL | Background gateway contract bounded verification PASS |
+| Hermes Adapter | 🟢 LIVE | Background gateway contract bounded verification PASS. 계약 완전성 문서화 (`hermes_provider_skill_bridge_entrypoint.py`). 12차 승급 |
 | i18n 파이프라인 | 🟢 LIVE | `wiki_capture_signal.py` language_code fail-closed 검증. 다국어 왕복 테스트. 12차 P2 승급 |
 | 인라인 출처 마킹 | 🟢 LIVE | `wiki_production_safety_gate.py` provenance_refs 게이트 + source_trace_path. 추적 자동화 완료. 12차 P2 승급 |
 | 원자적 롤백 | 🟢 LIVE | `atomic_write_wiki_page` temp file + os.replace + guard-before-write. save/prune/curate 3종 롤백 시나리오 검증. 12차 P2 승급 |
@@ -80,8 +80,8 @@
 |---|---|---|---|---|---|---|
 | 생산면 | 10 | 9 | 1 | 0 | 0 | 98% |
 | 소비면 | 4 | 4 | 0 | 0 | 0 | 100% |
-| 인프라 | 11 | 8 | 3 | 0 | 0 | 99% |
-| **전체** | **25** | **21** | **4** | **0** | **0** | **99%** |
+| 인프라 | 11 | 10 | 1 | 0 | 0 | 99% |
+| **전체** | **25** | **23** | **2** | **0** | **0** | **99%** |
 
 
 ## 시스템 요구사항 및 설정

@@ -67,9 +67,9 @@ The table below quantifies the alignment between the architecture described in t
 | Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
 | Reasoning Lease | 🟢 LIVE | Multi-OS Sandbox (Mac/WSL2) clean-room proposed. Windows native officially unsupported by design decision (12th Phase 1 promotion) |
 | Vault (SOT) | 🟢 LIVE | Directory works. Atomic write guard with content hash protection (wiki_write_guard.py). Operational metrics + integrity hash (vault_integrity.py). 12th P2 promotion |
-| Graphify Derived View | 🟡 PARTIAL | Community derivation scripts functional (GPL dependencies removed) |
+| Graphify Derived View | 🟢 LIVE | Community derivation scripts functional (GPL dependencies removed). Structure coverage report (graphify_coverage.json) + freshness guard verified. 12th promotion |
 | Cross-Provider | 🟡 PARTIAL | Cross-memory access tests PASS |
-| Hermes Adapter | 🟡 PARTIAL | Background gateway contract bounded verification PASS |
+| Hermes Adapter | 🟢 LIVE | Background gateway contract bounded verification PASS. Contract completeness documented (`hermes_provider_skill_bridge_entrypoint.py`). 12th promotion |
 | i18n Pipeline | 🟢 LIVE | `wiki_capture_signal.py` language_code fail-closed validation. Multi-language round-trip test. 12th P2 promotion |
 | Inline Source Marking | 🟢 LIVE | `wiki_production_safety_gate.py` provenance_refs gate + source_trace_path. Trace automation complete. 12th P2 promotion |
 | Atomic Rollback | 🟢 LIVE | `atomic_write_wiki_page` temp file + os.replace with guard-before-write. save/prune/curate 3-scenario rollback verified. 12th P2 promotion |
@@ -79,8 +79,8 @@ The table below quantifies the alignment between the architecture described in t
 |---|---|---|---|---|---|---|
 | Production | 10 | 9 | 1 | 0 | 0 | 98% |
 | Consumption | 4 | 4 | 0 | 0 | 0 | 100% |
-| Infrastructure | 11 | 8 | 3 | 0 | 0 | 99% |
-| **Total** | **25** | **21** | **4** | **0** | **0** | **99%** |
+| Infrastructure | 11 | 10 | 1 | 0 | 0 | 99% |
+| **Total** | **25** | **23** | **2** | **0** | **0** | **99%** |
 
 ## Why This Exists
 

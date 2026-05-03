@@ -1,0 +1,31 @@
+{
+  "generated_at": "2026-05-03T23:59:00Z",
+  "coverage_version": "1.0",
+  "source": "graphify_pipeline",
+  "summary": {
+    "total_nodes": 156,
+    "total_edges": 423,
+    "promoted_notes_covered": 38,
+    "promoted_notes_total": 42,
+    "coverage_rate": 0.905
+  },
+  "by_category": {
+    "concepts": { "total": 24, "covered": 23 },
+    "entities": { "total": 12, "covered": 10 },
+    "comparisons": { "total": 4, "covered": 3 },
+    "queries": { "total": 2, "covered": 2 }
+  },
+  "freshness": {
+    "last_graphify_run": "2026-05-03T23:58:00Z",
+    "last_promotion": "2026-05-03T23:30:00Z",
+    "stale_threshold_hours": 24,
+    "is_fresh": true
+  },
+  "verification": {
+    "graph_freshness_py": true,
+    "query_graphify_py": true,
+    "run_graphify_pipeline_py": true,
+    "corpus_manifest": true
+  },
+  "hard_nonclaim": "Graphify is a derived navigation view. It does not replace Vault as SOT."
+}
