@@ -59,7 +59,21 @@ def run_producer(mailbox: Path, vault: Path):
         if not line.strip():
             continue
         msg = json.loads(line)
-        if msg.get("intent") != "save" or msg["mail_id"] in completed:
+        if msg.get("intent") not in ("save", "prune") or msg["mail_id"] in completed:
+            continue
+
+        # ★ Q13: prune intent 처리
+        if msg.get("intent") == "prune":
+            _handle_prune(mailbox, vault, msg)
+            # Mark as completed
+            with open(receipts_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "receipt_id": str(uuid.uuid4())[:8],
+                    "in_reply_to": msg["mail_id"],
+                    "status": "acknowledged",
+                    "intent": "prune",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }, ensure_ascii=False) + "\n")
             continue
 
         snapshot = msg["payload"]["context_snapshot"]
@@ -295,6 +309,38 @@ def deliver_receipt(
 
 
 # ─── Q13 증분 진화: context/ + curation/ ───
+
+def _handle_prune(mailbox: Path, vault: Path, msg: dict) -> None:
+    """intent: prune 처리 — Gardener 페르소나로 SUPERSEDED 정리."""
+    topic_hint = msg.get("payload", {}).get("context_snapshot", "")
+    vault_nodes = load_vault(vault)
+    edges = load_edges(vault)
+
+    # 대상 topic 관련 SUPERSEDED 노드 식별
+    target_ids = set()
+    for edge in edges:
+        if edge.get("edge_type") == "SUPERSEDES":
+            # topic_hint 키워드가 포함된 subject의 SUPERSEDED 노드 수집
+            for node in vault_nodes:
+                if node["node_id"] in (edge["from"], edge["to"]):
+                    subject = node.get("spo", {}).get("subject", "")
+                    if any(kw in subject for kw in topic_hint.split() if len(kw) > 1):
+                        target_ids.add(edge["to"])  # 구버전 노드
+
+    if not target_ids:
+        _run_piggybacked_gardener(mailbox, vault)  # fallback: 전체 대상
+        return
+
+    # 대상 SUPERSEDED 노드들 → archive/로 격리
+    archive_dir = mailbox.parent / "archive" / datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    for node in vault_nodes:
+        if node["node_id"] in target_ids:
+            # 노드 파일을 archive로 이동
+            for md_file in vault.rglob(f"{node['node_id']}.md"):
+                dest = archive_dir / md_file.name
+                md_file.rename(dest)
+
 
 def _ensure_q13_dirs(mailbox: Path) -> tuple[Path, Path]:
     """active/{session}/ 하위 context/ + curation/ 자동 생성."""
