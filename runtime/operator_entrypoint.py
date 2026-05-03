@@ -95,6 +95,10 @@ def run_producer(mailbox: Path, vault: Path):
         with open(receipts_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
 
+        # ★ Reverse Push: Operator → Provider 영수증 발행
+        deliver_receipt(mailbox, msg["mail_id"],
+            status="delivered", produced_count=len(nodes), node_ids=nodes)
+
     print(json.dumps({"status": "producer_done", "pid": os.getpid()}))
 
 
@@ -137,6 +141,10 @@ def run_consumer(mailbox: Path, vault: Path):
         }
         with open(receipts_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+
+        # ★ Reverse Push: Operator → Provider 영수증 발행
+        deliver_receipt(mailbox, msg["mail_id"],
+            status="completed", result_bundle=bundle)
 
     print(json.dumps({"status": "consumer_done", "pid": os.getpid()}))
 
