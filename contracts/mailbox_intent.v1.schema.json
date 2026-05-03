@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "contract-ref://openyggdrasil/contracts/mailbox_intent.v1.schema.json",
+  "title": "Mailbox Intent Schema v1",
+  "description": "OpenYggdrasil mailbox intent ticket schema. Supports save/query/prune intents with affordance blocks for LLM-to-LLM communication.",
+  "type": "object",
+  "required": ["intent", "mail_id", "timestamp", "payload"],
+  "properties": {
+    "intent": {
+      "type": "string",
+      "enum": ["save", "query", "prune"],
+      "description": "의도 유형. save=지식 저장, query=지식 검색, prune=지식 폐기."
+    },
+    "mail_id": {
+      "type": "string",
+      "description": "메일 고유 식별자. provider_prefix-timestamp-random 형식 권장."
+    },
+    "provider_id": {
+      "type": "string",
+      "description": "발행 프로바이더 식별자 (예: hermes, deepseek, claude-code)"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "payload": {
+      "type": "object",
+      "required": ["context_snapshot"],
+      "properties": {
+        "context_snapshot": {
+          "type": "string",
+          "description": "저장/검색 대상 맥락. save 모드: 의사결정 텍스트. query 모드: 검색어."
+        },
+        "query_text": {
+          "type": "string",
+          "description": "query intent 전용 검색어."
+        },
+        "topic_hint": {
+          "type": "string",
+          "description": "주제 힌트 (분류 보조)"
+        }
+      }
+    },
+    "_affordance": {
+      "type": "object",
+      "description": "[Q12 실험 1-A] 발행 어포던스 — 프로바이더가 언제 이 티켓을 발행해야 하는지 안내.",
+      "properties": {
+        "when_to_emit": {
+          "type": "string",
+          "description": "발행 조건 설명"
+        },
+        "do_not_emit_when": {
+          "type": "string",
+          "description": "발행 금지 조건"
+        },
+        "if_unsure": {
+          "type": "string",
+          "description": "확신이 없을 때의 행동 지침"
+        }
+      }
+    },
+    "_operator_hint": {
+      "type": "object",
+      "description": "[Q12 실험 2] 소비 어포던스 — 오퍼레이터가 어떤 역할로 처리해야 하는지 안내.",
+      "properties": {
+        "suggested_role": {
+          "type": "string",
+          "enum": ["distiller", "evaluator", "gardener", "pathfinder"],
+          "description": "권장 오퍼레이터 역할"
+        },
+        "why": {
+          "type": "string",
+          "description": "역할 추천 근거"
+        },
+        "fallback_if_ambiguous": {
+          "type": "string"
+        }
+      }
+    },
+    "_execution_policy": {
+      "type": "object",
+      "description": "[Q12 실험 3] 실행 정책 — 즉시 실행 vs 확인.",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["immediate", "confirm"],
+          "default": "immediate"
+        },
+        "if_wrong": {
+          "type": "string",
+          "description": "잘못된 실행에 대한 복구 방법"
+        }
+      }
+    }
+  }
+}

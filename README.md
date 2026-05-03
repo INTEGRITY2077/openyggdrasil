@@ -210,9 +210,9 @@ sources: [source refs or public paths]
 
 openyggdrasil operates as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start system-level background daemons or manage separate server processes. Operator Sessions are bound to their Provider Session's lifetime and exit cleanly on timeout or completion.
 
-> **⚠️ Reasoning Lease Model:**
+> **⚠️ Reasoning Lease Model (Asynchronous Multiplexing):**
 > openyggdrasil does not have its own API keys; it **borrows (leases) the reasoning tokens of the provider agent (IDE) in reverse**.
-> The Python script does not directly hit LLM APIs. Instead, it prints a **Task Contract (Prompt)** to standard output (`stdout`) saying "Read this data and decide between A/B". The provider agent reads this prompt from the terminal, uses its own context and API key to make the decision, and feeds the answer back into the Python script's next standard input (`stdin`). This creates a mechanical 'reverse-call ping-pong' architecture. 
+> Because the Operator runs as an asynchronous background job (to avoid blocking the user chat), it either receives the Provider's API key as an environment variable to run autonomously, or it prints a **Task Contract (Prompt)** to standard output (`stdout`), which the Provider asynchronously multiplexes and answers behind the scenes. This creates a non-blocking 'reverse-call ping-pong' architecture.
 
 ### 1. How Providers Recognize openyggdrasil
 
@@ -599,17 +599,17 @@ When this need arises, the Provider Agent does not just copy-paste the entire he
        │       source_ref:          { path_hint: "sessions/abc123.jsonl" } // ⭐️ CRITICAL: The Raw Pointer
        │     }
        │
-       │  ④ Invokes capture entrypoint & delegates Reasoning Lease
-       │     → OpenYggdrasil Session Start and spawns an Operator Session
+       │  ④ Publishes Intent to Mailbox & spawns Operator asynchronously (Fire-and-Forget)
+       │     → Provider immediately returns to user chat (Non-blocking)
        │
        ▼
-  OpenYggdrasil Runtime (Receives request & assigns Role-Polymorphic Operator Session)
+  Operator Session (Runs in background, receiving request via Mailbox)
 ```
 
 **Key rules:**
 - **Pointer-Based Delegation (`source_ref` is mandatory):** The Provider Agent must not mutate or unnecessarily duplicate raw conversations. It must pass a `source_ref` pointing to the exact `.jsonl` log file. Signals missing this pointer are immediately rejected by the Admission Gate.
-- **Cold-Start Principle (Session-Scoped):** openyggdrasil **cold-starts per Provider Session**. There are no system-level background daemons, but Operator Sessions bound to a Provider Session may persist via Mailbox for the session's lifetime. They exit cleanly on timeout or Provider Session termination.
-- **Reasoning Lease:** Because OpenYggdrasil lacks its own LLM, the Provider Agent must delegate its own compute (Reasoning Lease) alongside the signal. The spawned Operator Session uses this leased energy to parse the raw `.jsonl` files and perform deep structuring (Distill/Evaluate).
+- **Asynchronous Cold-Start (Non-blocking):** openyggdrasil does not block the provider. It is spawned asynchronously in the background via the Mailbox affordance. It runs silently without a permanent system daemon, leaving a receipt and exiting when the job is done.
+- **Reasoning Lease:** The Operator needs intelligence to perform deep structuring (Distill/Evaluate) in the background. The Provider must lease its own compute by either **passing its API key (auth delegation) at spawn time**, or by **asynchronously multiplexing and servicing** the prompts emitted by the background Operator.
 
 
 
