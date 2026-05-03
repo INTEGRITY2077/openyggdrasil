@@ -22,22 +22,20 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Production 6-Axis Scorecard — 100% Complete (2026-05-04, 14th Final)
-
-The table below quantifies production readiness across 6 axes:
+### 📊 Production 6-Axis Scorecard — 83% (2026-05-04, 14th)
 
 | Axis | Items | PASS | Rate | Grade | Description |
 |---|---|---|---|---|---|
 | Axis 1: Architecture Alignment | 25 | 25 | **100%** | 🟢 | README-code consistency |
-| Axis 2: Runtime Reliability | 5 | 5 | **100%** | 🟢 | All except:pass resolved, regression clean |
-| Axis 3: Structural Health | 5 | 5 | **100%** | 🟢 | operator split, nonclaim isolation, SOT integration, re-export cleanup |
-| Axis 4: Security Boundary | 4 | 4 | **100%** | 🟢 | sandbox(bubblewrap), vault guard integrated, path traversal defense |
-| Axis 5: Observability | 4 | 4 | **100%** | 🟢 | log_event + log level filtering, structured logging fully applied |
-| Axis 6: Live Validation | 4 | 4 | **100%** | 🟢 | cross-provider verify, 10-round stability verified |
-| **Total** | **47** | **47** | **100%** | 🟢 | **Complete** |
+| Axis 2: Runtime Reliability | 5 | 5 | **100%** | 🟢 | except:pass resolved, regression clean |
+| Axis 3: Structural Health | 5 | 3 | **60%** | 🟡 | operator split(consumer), SOT integration, re-export cleanup |
+| Axis 4: Security Boundary | 4 | 2 | **50%** | 🟡 | vault guard invoked, Admission Gate |
+| Axis 5: Observability | 4 | 2 | **50%** | 🟡 | log_event + log level filtering |
+| Axis 6: Live Validation | 4 | 2 | **50%** | 🟡 | cross-provider verify, 10-round stability |
+| **Total** | **47** | **39** | **83%** | 🟢 | **Gate met (≥80%)** |
 
-> **Production entry gate:** ✅ Fully met (Axis 2 = 100%, Total 100%)
-> OpenYggdrasil milestone complete.
+> **Production entry gate:** ✅ Met (83% ≥ 80%)
+> Remaining: full operator split, sandbox pipeline integration, long-term stability
 
 ---
 ### Architecture Alignment Detail (Axis 1 — backward compatible)

@@ -490,6 +490,7 @@ def save_to_vault(vault_path: Path, node: dict[str, Any]) -> Path:
     }
     
     sub_dir = vault_path / type_map.get(category, "concepts")
+    guard_vault_path(vault_path, sub_dir)
     sub_dir.mkdir(parents=True, exist_ok=True)
     mapped_type = ontology_map.get(category, "concept")
 
