@@ -20,7 +20,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from runtime.logging import warn
+from runtime.logging import warn, log_event
 
 # primitives는 같은 runtime/ptc/ 패키지에서 import
 sys.path.insert(0, str(Path(__file__).parent))
@@ -51,7 +51,7 @@ def run_producer(mailbox: Path, vault: Path):
     receipts_file = mailbox / "receipts.jsonl"
 
     if not messages_file.exists():
-        print(json.dumps({"status": "no_messages"}))
+        log_event("producer_no_messages")
         return
 
     # Load completed
@@ -206,9 +206,9 @@ def run_producer(mailbox: Path, vault: Path):
     # P1 피드백 루프: Gardener receipts -> prune/curate intent 발행
     feedback_stats = _run_feedback_loop(mailbox)
     if any(v > 0 for v in feedback_stats.values()):
-        print(json.dumps({"status": "feedback_loop", "stats": feedback_stats}))
+        log_event("feedback_loop", stats=feedback_stats)
 
-    print(json.dumps({"status": "producer_done", "pid": os.getpid()}))
+    log_event("producer_done", pid=os.getpid())
 
 
 def _bm25_search_vault(vault: Path, query: str, top_k: int = 20) -> list[dict] | None:
@@ -236,7 +236,7 @@ def run_consumer(mailbox: Path, vault: Path):
     receipts_file = mailbox / "query_receipts.jsonl"
 
     if not queries_file.exists():
-        print(json.dumps({"status": "no_queries"}))
+        log_event("consumer_no_queries")
         return
 
     # Load vault index
@@ -294,7 +294,7 @@ def run_consumer(mailbox: Path, vault: Path):
         deliver_receipt(mailbox, msg["mail_id"],
             status="completed", result_bundle=bundle)
 
-    print(json.dumps({"status": "consumer_done", "pid": os.getpid()}))
+    log_event("consumer_done", pid=os.getpid())
 
 
 # ─── POC Phase 1: 상태 갱신 유틸리티 ───

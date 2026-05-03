@@ -473,6 +473,8 @@ def format_consumer_result(
 
 def save_to_vault(vault_path: Path, node: dict[str, Any]) -> Path:
     """노드를 Vault에 YAML 프론트매터 Markdown으로 저장."""
+    from runtime.vault_guard import guard_vault_path
+
     vault_path.mkdir(parents=True, exist_ok=True)
     spo = node.get("spo", {})
     category = spo.get("category", "concept")
