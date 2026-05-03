@@ -22,13 +22,31 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Current Status — Architecture Alignment Scorecard (2026-05-03, 11th North Star Rev.2: Code Review Defects + Consumer Search Wiring + Support Bundle Extension)
+### 📊 Current Status — Production 6-Axis Scorecard (2026-05-04, 13th Conclusion → 14th Production Verification Entry)
 
 > **⚠️ This project is not production-ready.**
-> We are live-testing the runtime and iterating in the open towards the 10th Roadmap (Demand-Driven GC 4-Stage Lifecycle + Phase C-live verification).
-> **Effort normalizer has been officially retired** and replaced by a Persona document-based architecture.
+> Iterating toward the 14th North Star (Production Verification: code cliff resolution + PTC sandbox integration + operational resilience).
+> Architecture Alignment reached 100% in the 13th milestone. We now measure production readiness across 6 axes.
 
-The table below quantifies the alignment between the architecture described in this README and the actual implementation. To prevent misunderstanding, the current state of each block is explicitly labeled with 4 levels (LIVE / PARTIAL / STUB / ABSENT).
+The table below quantifies production readiness across 6 axes:
+
+| Axis | Items | PASS | Rate | Grade | Description |
+|---|---|---|---|---|---|
+| Axis 1: Architecture Alignment | 25 | 25 | **100%** | 🟢 | README-code consistency. 13th achieved |
+| Axis 2: Runtime Reliability | 5 | 4 | **80%** | 🟡 | Does it break? Regression/schema/formula/round-trip |
+| Axis 3: Structural Health | 5 | 0 | **0%** | 🔴 | Can it be fixed? Code cliffs/God Object/packaging |
+| Axis 4: Security Boundary | 4 | 0 | **0%** | 🔴 | Is it safe? Sandbox/gate/path/DoS |
+| Axis 5: Observability | 4 | 0 | **0%** | 🔴 | Can we detect issues? Logging/hygiene/integrity/recovery |
+| Axis 6: Live Validation | 4 | 1 | **25%** | 🔴 | Does it work in practice? Live/multi/stress/long-run |
+| **Total** | **47** | **30** | **64%** | 🟡 | Production gate ≥80% (16pp gap) |
+
+> **Production entry gate:** Axis 2 = 100%, Total ≥ 80%.
+> 14th goal: Axis 3 (Structural Health) 60% + Axis 4 (Security Boundary) 50% → Total 76%.
+
+---
+### Architecture Alignment Detail (Axis 1 — backward compatible)
+
+The table below shows Axis 1 module-level status using 4 levels (LIVE / PARTIAL / STUB / ABSENT).
 
 | Rating | Meaning |
 |---|---|
