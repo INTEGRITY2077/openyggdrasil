@@ -27,11 +27,13 @@ from ptc.primitives import (
     build_vault_node,
     save_to_vault,
     search_vault_by_keyword,
+    search_vault_bm25,
     format_consumer_result,
     load_vault,
     assign_edges,
     save_edges,
     load_edges,
+    _boost_by_edges,
 )
 
 
@@ -59,7 +61,7 @@ def run_producer(mailbox: Path, vault: Path):
         if not line.strip():
             continue
         msg = json.loads(line)
-        if msg.get("intent") not in ("save", "prune") or msg["mail_id"] in completed:
+        if msg.get("intent") not in ("save", "prune", "curate", "skill_update", "restore") or msg["mail_id"] in completed:
             continue
 
         # ★ Q13: prune intent 처리
@@ -72,6 +74,48 @@ def run_producer(mailbox: Path, vault: Path):
                     "in_reply_to": msg["mail_id"],
                     "status": "acknowledged",
                     "intent": "prune",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }, ensure_ascii=False) + "\n")
+            continue
+
+        # ★ Q13: curate intent 처리 (curate→_handle_prune)
+        if msg.get("intent") == "curate":
+            _handle_prune(mailbox, vault, msg)
+            with open(receipts_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "receipt_id": str(uuid.uuid4())[:8],
+                    "in_reply_to": msg["mail_id"],
+                    "status": "acknowledged",
+                    "intent": "curate",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }, ensure_ascii=False) + "\n")
+            continue
+
+        # ★ Q13: restore intent 처리 (restore→_restore_from_archive)
+        if msg.get("intent") == "restore":
+            node_id = msg.get("payload", {}).get("node_id", "")
+            restored = _restore_from_archive(mailbox, vault, node_id)
+            with open(receipts_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "receipt_id": str(uuid.uuid4())[:8],
+                    "in_reply_to": msg["mail_id"],
+                    "status": "acknowledged",
+                    "intent": "restore",
+                    "node_id": node_id,
+                    "restored": restored,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }, ensure_ascii=False) + "\n")
+            continue
+
+        # ★ Q13: skill_update intent 처리 (skill_update→_handle_skill_update)
+        if msg.get("intent") == "skill_update":
+            _handle_skill_update(mailbox, msg)
+            with open(receipts_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "receipt_id": str(uuid.uuid4())[:8],
+                    "in_reply_to": msg["mail_id"],
+                    "status": "acknowledged",
+                    "intent": "skill_update",
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }, ensure_ascii=False) + "\n")
             continue
@@ -169,7 +213,14 @@ def run_consumer(mailbox: Path, vault: Path):
             continue
 
         query_text = msg["payload"]["query_text"]
-        matches = search_vault_by_keyword(query_text, vault_nodes)
+        # ★ 11차 Rev.2: 3-stage 검색 파이프라인
+        # Stage 1: BM25 검색
+        matches = search_vault_bm25(vault_nodes, query_text)
+        # Stage 2: ACTIVE 필터 (frontmatter status 기준)
+        matches = [m for m in matches if m.get("metadata", {}).get("status", "").upper() == "ACTIVE"]
+        # Stage 3: load_edges + _boost_by_edges (SUPERSEDES target 제외)
+        edges = load_edges(vault)
+        matches = _boost_by_edges(matches, edges)
         bundle = format_consumer_result(query_text, matches)
 
         receipt = {
@@ -455,7 +506,7 @@ def _run_hygiene_check(mailbox: Path, vault: Path) -> None:
         if total > 0:
             superseded_light = sum(1 for e in edges if e.get("edge_type") in ("SUPERSEDES", "CONTRADICTS"))
             stale_light = _count_stale_nodes(vault_nodes)
-            snr = (total - superseded_light - stale_light) / total
+            snr = (total - stale_light) / total
             if snr <= 0.40:
                 _write_hygiene_report(mailbox, superseded_light / total, 0, snr, stale_light)
         return
@@ -474,7 +525,7 @@ def _run_hygiene_check(mailbox: Path, vault: Path) -> None:
     stale_count = _count_stale_nodes(vault_nodes)
 
     # H3: SNR (Signal-to-Noise Ratio)
-    snr = (total - superseded - stale_count) / total
+    snr = (total - stale_count) / total
 
     # H1: SUPERSEDED 비율 >= 30% -> curate 드롭
     if superseded_ratio >= 0.3:

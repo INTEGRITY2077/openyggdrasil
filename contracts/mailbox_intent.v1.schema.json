@@ -8,8 +8,8 @@
   "properties": {
     "intent": {
       "type": "string",
-      "enum": ["save", "query", "prune"],
-      "description": "의도 유형. save=지식 저장, query=지식 검색, prune=지식 폐기."
+      "enum": ["save", "query", "prune", "curate", "skill_update", "restore"],
+      "description": "의도 유형. save=지식 저장, query=지식 검색, prune=지식 폐기 및 통폐합 정리(Gardener), curate=큐레이션, skill_update=오퍼레이터 스킬 갱신, restore=아카이브 복원."
     },
     "mail_id": {
       "type": "string",
@@ -29,7 +29,7 @@
       "properties": {
         "context_snapshot": {
           "type": "string",
-          "description": "저장/검색 대상 맥락. save 모드: 의사결정 텍스트. query 모드: 검색어."
+          "description": "prune 모드: 정리 대상 topic 키워드. save 모드: 의사결정 텍스트. query 모드: 검색어."
         },
         "query_text": {
           "type": "string",
@@ -38,58 +38,41 @@
         "topic_hint": {
           "type": "string",
           "description": "주제 힌트 (분류 보조)"
+        },
+        "curation_type": {
+          "type": "string",
+          "enum": ["consolidate", "archive"],
+          "description": "[prune 전용] 통폐합(consolidate) 또는 단순 격리(archive). 미지정 시 Gardener가 판정."
         }
       }
     },
     "_affordance": {
       "type": "object",
-      "description": "[Q12 실험 1-A] 발행 어포던스 — 프로바이더가 언제 이 티켓을 발행해야 하는지 안내.",
+      "description": "[Q12 실험 1-A] 발행 어포던스",
       "properties": {
-        "when_to_emit": {
-          "type": "string",
-          "description": "발행 조건 설명"
-        },
-        "do_not_emit_when": {
-          "type": "string",
-          "description": "발행 금지 조건"
-        },
-        "if_unsure": {
-          "type": "string",
-          "description": "확신이 없을 때의 행동 지침"
-        }
+        "when_to_emit": {"type": "string"},
+        "do_not_emit_when": {"type": "string"},
+        "if_unsure": {"type": "string"}
       }
     },
     "_operator_hint": {
       "type": "object",
-      "description": "[Q12 실험 2] 소비 어포던스 — 오퍼레이터가 어떤 역할로 처리해야 하는지 안내.",
+      "description": "[Q12 실험 2] 소비 어포던스",
       "properties": {
         "suggested_role": {
           "type": "string",
-          "enum": ["distiller", "evaluator", "gardener", "pathfinder"],
-          "description": "권장 오퍼레이터 역할"
+          "enum": ["distiller", "evaluator", "gardener", "pathfinder"]
         },
-        "why": {
-          "type": "string",
-          "description": "역할 추천 근거"
-        },
-        "fallback_if_ambiguous": {
-          "type": "string"
-        }
+        "why": {"type": "string"},
+        "fallback_if_ambiguous": {"type": "string"}
       }
     },
     "_execution_policy": {
       "type": "object",
-      "description": "[Q12 실험 3] 실행 정책 — 즉시 실행 vs 확인.",
+      "description": "[Q12 실험 3] 실행 정책",
       "properties": {
-        "mode": {
-          "type": "string",
-          "enum": ["immediate", "confirm"],
-          "default": "immediate"
-        },
-        "if_wrong": {
-          "type": "string",
-          "description": "잘못된 실행에 대한 복구 방법"
-        }
+        "mode": {"type": "string", "enum": ["immediate", "confirm"], "default": "immediate"},
+        "if_wrong": {"type": "string"}
       }
     }
   }

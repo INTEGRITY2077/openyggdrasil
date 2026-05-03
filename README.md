@@ -22,7 +22,7 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Current Status — Architecture Alignment Scorecard (2026-05-03, 10th North Star: Demand-Driven GC Lifecycle + Phase C-live Entry)
+### 📊 Current Status — Architecture Alignment Scorecard (2026-05-03, 11th North Star Rev.2: Code Review Defects + Consumer Search Wiring + Support Bundle Extension)
 
 > **⚠️ This project is not production-ready.**
 > We are live-testing the runtime and iterating in the open towards the 10th Roadmap (Demand-Driven GC 4-Stage Lifecycle + Phase C-live verification).
@@ -44,8 +44,8 @@ The table below quantifies the alignment between the architecture described in t
 | Admission Gate | 🟡 PARTIAL | `source_ref` contract verification works. Quality Gate P0 issue raised |
 | Distiller | 🟢 LIVE | Guardrail + Persona exist. SPO extraction (`build_spo_triples`) implemented. Phase C-live C1+C2+C3 PASS — SPO→save→receipt round-trip verified |
 | Evaluator | 🟢 LIVE | Pollution detection + prune evaluation. GC Lifecycle Step 1. Phase C-live C1 PASS — LLM 자발 prune 발행 검증 |
-| Amundsen | 🟡 PARTIAL | Continent branching schema + runtime + Persona implemented |
-| Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. Q05 edge determination (`_determine_edge_type`) deterministic implementation complete |
+| Amundsen | 🟢 LIVE | Continent branching schema + runtime + Persona implemented. 11th Rev.2 promotion |
+| Map Maker | 🟢 LIVE | Topology calculation + Persona implemented. Q05 edge determination (`_determine_edge_type`) deterministic implementation complete. 11th Rev.2 promotion |
 | Gardener | 🟢 LIVE | Physical planting + Persona. `_handle_prune` with SUPERSEDED archive isolation + `_run_hygiene_check` (5항목 H1~H5 위생점검). Phase C-live C1+C2+C3 PASS — prune→분류→archive 풀체인 검증 |
 | Postman | 🟢 LIVE | `deliver_receipt` implemented + integrated into `run_producer`/`run_consumer`. POC Phase 1-6 18/18 PASS |
 | Content Hash Protection | 🟢 LIVE | `wiki_write_guard.py` content hash guard + atomic write. 5 tests PASS |
@@ -54,8 +54,8 @@ The table below quantifies the alignment between the architecture described in t
 #### Consumption Side
 | Module | Status | Remarks |
 |---|---|---|
-| Pathfinder | 🟡 PARTIAL | Persona exists. `search_vault_bm25` stub implemented (Q02-based, fallback before QMD integration) |
-| Support Bundle | 🟡 PARTIAL | 3-tier Tree Ring tracking. Bounded bundle (max 3 facts) live verified |
+| Pathfinder | 🟢 LIVE | Persona exists. `search_vault_bm25` + ACTIVE filter + `_boost_by_edges` 3-stage search pipeline (11th Rev.2) |
+| Support Bundle | 🟢 LIVE | 3-tier Tree Ring tracking + lifecycle_status + edge_context + context_bundle_ref. Bounded bundle live verified (11th Rev.2) |
 | Mailbox | 🟢 LIVE | Multi-provider POC Phase 1-6 18/18 PASS. `status.json`+`manifest.json` operational. Reverse Push receipts working |
 | Lifecycle Filter | 🟢 LIVE | Frontmatter parsing and ACTIVE/SUPERSEDED state filtering works perfectly |
 
@@ -63,7 +63,7 @@ The table below quantifies the alignment between the architecture described in t
 | Module | Status | Remarks |
 |---|---|---|
 | SKILL.md Cold Start | 🟢 LIVE | Automatic provider recognition & entrypoint calling works |
-| Typed PTC Engine | 🟡 PARTIAL | `primitives.py` SPO+Edge+BM25+prune processing (+400 lines). `_determine_edge_type` Q05 6-type. `_handle_prune` Gardener integration |
+| Typed PTC Engine | 🟢 LIVE | `primitives.py` SPO+Edge+BM25+prune+boost processing (+500 lines). `_determine_edge_type` Q05 6-type. `_handle_prune` Gardener integration. `_boost_by_edges` lifecycle boost. 11th Rev.2 promotion |
 | Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
 | Reasoning Lease | 🟡 PARTIAL | Multi-OS Sandbox (Mac/WSL2) clean-room proposed. Windows native officially unsupported |
 | Vault (SOT) | 🟡 PARTIAL | Directory works. Atomic write guard with content hash protection (wiki_write_guard.py) |
@@ -77,10 +77,10 @@ The table below quantifies the alignment between the architecture described in t
 #### Alignment Summary
 | Domain | Total | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | Alignment |
 |---|---|---|---|---|---|---|
-| Production | 10 | 6 | 3 | 1 | 0 | 97% |
-| Consumption | 4 | 2 | 2 | 0 | 0 | 91% |
-| Infrastructure | 11 | 2 | 9 | 0 | 0 | 90% |
-| **Total** | **25** | **10** | **14** | **1** | **0** | **94%** |
+| Production | 10 | 8 | 1 | 1 | 0 | 97% |
+| Consumption | 4 | 4 | 0 | 0 | 0 | 100% |
+| Infrastructure | 11 | 3 | 8 | 0 | 0 | 93% |
+| **Total** | **25** | **15** | **9** | **1** | **0** | **97%** |
 
 ## Why This Exists
 

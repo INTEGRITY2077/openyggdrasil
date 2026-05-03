@@ -22,10 +22,10 @@
   <a href="#영감--감사">영감</a>
 </p>
 
-### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-03, 10차 북극성: 수요 기반 GC 생명주기 + Phase C-live 진입)
+### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-03, 11차 북극성 Rev.2: 코드리뷰 결함 해소 + Consumer 검색 배선 + Support Bundle 확장)
 
 > **⚠️ 이 프로젝트는 프로덕션 준비가 되지 않았습니다.**
-> 10차 로드맵(수요 기반 GC 4단계 생명주기 + Phase C-live 검증)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
+> 11차 Rev.2 로드맵(코드리뷰 결함 해소 + 3-stage Consumer 검색 + Support Bundle 확장)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
 > **Effort normalizer는 공식 퇴역**하고, 페르소나(Persona) 문서 기반 아키텍처로 전환되었습니다.
 > **멀티프로바이더 메일박스 POC Phase 1-6 전 구간 검증 완료 (18/18 PASS).**
 
@@ -45,8 +45,8 @@
 | Admission Gate | 🟡 PARTIAL | `source_ref` 계약 검증 동작. Quality Gate P0 이슈 발행됨 |
 | Distiller | 🟢 LIVE | 가드레일 + 페르소나 존재. 한국어 sentence 기반 SPO 추출(`_extract_subject`/`_extract_predicate`) 구현 완료. Phase C-live C1+C2+C3 PASS — SPO→save→receipt 왕복 검증 완료 |
 | Evaluator | 🟢 LIVE | 오염 감지 + prune 발행 평가. GC 생명주기 Step 1 담당. Phase C-live C1 PASS — LLM 자발 prune 발행 검증 |
-| Amundsen | 🟡 PARTIAL | 대륙 분기 스키마 + 런타임 + 페르소나 구현 |
-| Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. Q05 엣지 판정(`_determine_edge_type`) 결정론적 구현 완료 |
+| Amundsen | 🟢 LIVE | 대륙 분기 스키마 + 런타임 + 페르소나 구현. 11차 Rev.2 승격 |
+| Map Maker | 🟢 LIVE | 위상 계산 + 페르소나 구현. Q05 엣지 판정(`_determine_edge_type`) 결정론적 구현 완료. 11차 Rev.2 승격 |
 | Gardener | 🟢 LIVE | 물리적 식재 + 페르소나. `_handle_prune`로 SUPERSEDED archive 격리 + `_run_hygiene_check`(5항목 H1~H5 위생점검). Phase C-live C1+C2+C3 PASS — prune→분류→archive 풀체인 검증 |
 | Postman | 🟢 LIVE | `deliver_receipt` 구현 완료 + `run_producer`/`run_consumer` 통합. POC Phase 1-6 18/18 PASS |
 | 수동 편집 보호 | 🟢 LIVE | `wiki_write_guard.py` 콘텐츠 해시 가드 + atomic write. 5개 테스트 PASS |
@@ -55,8 +55,8 @@
 #### 소비면 (Consumption Side)
 | 모듈 | 상태 | 비고 |
 |---|---|---|
-| Pathfinder | 🟡 PARTIAL | 페르소나 존재. `search_vault_bm25` 스터브 구현 (Q02 기반, QMD 연동 전 폴백) |
-| Support Bundle | 🟡 PARTIAL | 3-tier 나이테 추적. Bounded bundle (max 3 facts) 라이브 검증 완료 |
+| Pathfinder | 🟢 LIVE | 페르소나 존재. `search_vault_bm25` + ACTIVE 필터 + `_boost_by_edges` 3-stage 검색 파이프라인 구현 (11차 Rev.2) |
+| Support Bundle | 🟢 LIVE | 3-tier 나이테 추적 + lifecycle_status + edge_context + context_bundle_ref. Bounded bundle 라이브 검증 완료 (11차 Rev.2) |
 | Mailbox | 🟢 LIVE | 멀티프로바이더 POC Phase 1-6 18/18 PASS. `status.json`+`manifest.json` 운영. Reverse Push 영수증 동작 |
 | Lifecycle Filter | 🟢 LIVE | 프론트매터 파싱 및 ACTIVE/SUPERSEDED 상태 필터링 완벽 작동 |
 
@@ -64,7 +64,7 @@
 | 모듈 | 상태 | 비고 |
 |---|---|---|
 | SKILL.md 콜드스타트 | 🟢 LIVE | 프로바이더 자동 인식 및 진입점 호출 동작 |
-| Typed PTC Engine | 🟡 PARTIAL | `primitives.py` SPO+엣지+BM25+prune 처리 (+400줄). `_determine_edge_type` Q05 6종 판정. `_handle_prune` Gardener 연동 |
+| Typed PTC Engine | 🟢 LIVE | `primitives.py` SPO+엣지+BM25+prune+부스트 처리 (+500줄). `_determine_edge_type` Q05 6종 판정. `_handle_prune` Gardener 연동. `_boost_by_edges` 생명주기 부스트. 11차 Rev.2 승격 |
 | Persona System (9역할) | 🟢 LIVE | 9개 페르소나 완비 (effort normalizer 대체) |
 | Reasoning Lease | 🟡 PARTIAL | Multi-OS 샌드박스 (Mac/WSL2) 클린룸 제안. Windows 미지원 공식 확정 |
 | Vault (SOT) | 🟡 PARTIAL | 디렉토리 동작. Atomic write guard + 콘텐츠 해시 보호 (wiki_write_guard.py) |
@@ -78,10 +78,10 @@
 #### 총 정렬도 요약
 | 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
 |---|---|---|---|---|---|---|
-| 생산면 | 10 | 6 | 3 | 1 | 0 | 97% |
-| 소비면 | 4 | 2 | 2 | 0 | 0 | 91% |
-| 인프라 | 11 | 2 | 9 | 0 | 0 | 90% |
-| **전체** | **25** | **10** | **14** | **1** | **0** | **94%** |
+| 생산면 | 10 | 8 | 1 | 1 | 0 | 97% |
+| 소비면 | 4 | 4 | 0 | 0 | 0 | 100% |
+| 인프라 | 11 | 3 | 8 | 0 | 0 | 93% |
+| **전체** | **25** | **15** | **9** | **1** | **0** | **97%** |
 
 
 ## 시스템 요구사항 및 설정

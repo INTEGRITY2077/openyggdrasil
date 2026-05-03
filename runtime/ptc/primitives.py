@@ -401,13 +401,42 @@ def search_vault_by_edge(
     return [n for n in vault_nodes if n["node_id"] in connected_ids]
 
 
+def _boost_by_edges(
+    results: list[dict[str, Any]],
+    edges: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    """
+    [11차 마일스톤 Rev.2] SUPERSEDES to 노드를 결과에서 제거.
+
+    생명주기 인식 부스트: SUPERSEDES 엣지의 target(to) 노드는
+    상위 버전에 의해 대체된 구버전이므로 검색 결과에서 제외한다.
+
+    Args:
+        results: search_vault_bm25 반환 결과 목록
+        edges: load_edges 반환 엣지 목록
+
+    Returns:
+        SUPERSEDED 노드가 제거된 결과 목록
+    """
+    superseded_to: set[str] = {
+        e["to"] for e in edges if e.get("edge_type") == "SUPERSEDES"
+    }
+    return [r for r in results if r.get("node_id") not in superseded_to]
+
+
 def format_consumer_result(
     query: str,
     matched_nodes: list[dict[str, Any]],
+    *,
+    lifecycle_status: dict[str, Any] | None = None,
+    edge_context: list[dict[str, str]] | None = None,
+    context_bundle_ref: str = "",
 ) -> dict[str, Any]:
     """
     Consumer 검색 결과를 프로바이더가 소비할 수 있는 포맷으로 정리.
     support_bundle.v1 계약을 준수한다.
+
+    [11차 Rev.2] lifecycle_status, edge_context, context_bundle_ref 필드 추가.
     """
     return {
         "contract": "support_bundle.v1",
@@ -426,6 +455,9 @@ def format_consumer_result(
         ],
         "source_paths": [f"N-{n.get('content_hash', '')}.md" for n in matched_nodes],
         "lifecycle_records": [],
+        "lifecycle_status": lifecycle_status or {},
+        "edge_context": edge_context or [],
+        "context_bundle_ref": context_bundle_ref,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
