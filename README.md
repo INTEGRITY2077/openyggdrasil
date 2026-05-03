@@ -100,8 +100,23 @@ The table below shows Axis 1 module-level status using 4 levels (LIVE / PARTIAL 
 | Infrastructure | 11 | 11 | 0 | 0 | 0 | 100% |
 | **Total** | **25** | **25** | **0** | **0** | **0** | **100%** |
 
-## Why This Exists
 
+### Production 6-Axis Scorecard (2026-05-04)
+
+| Axis | PASS | Rate | Grade |
+|---|---|---|---|
+| Axis 1: Architecture Alignment | 25/25 | **100%** | 🟢 |
+| Axis 2: Execution Reliability | 5/5 | **100%** | 🟢 |
+| Axis 3: Structural Health | 3/5 | **60%** | 🟡 |
+| Axis 4: Security Boundary | 2/4 | **50%** | 🟡 |
+| Axis 5: Observability | 1/4 | **25%** | 🔴 |
+| Axis 6: Real-Usage Validation | 2/4 | **50%** | 🟡 |
+| **Total** | **38/47** | **81%** | 🟢 |
+
+> Production entry gate: Total ≥80% (currently 81%, met)
+
+
+## Why This Exists
 Every AI coding tool — Hermes, Codex, Claude Code, Cursor, Gemini CLI — has its
 own way of "remembering" things. The common result:
 

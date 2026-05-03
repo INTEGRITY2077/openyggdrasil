@@ -20,6 +20,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from runtime.logging import warn
+
 # primitives는 같은 runtime/ptc/ 패키지에서 import
 sys.path.insert(0, str(Path(__file__).parent))
 from ptc.primitives import (
@@ -305,7 +307,7 @@ def _update_status(mailbox: Path, *, intents_processed: int = 0):
         try:
             current = json.loads(status_file.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, ValueError):
-            pass
+            warn("status_json_parse_failed", path=str(status_file))
 
     summary = current.get("session_summary", {})
     summary["intents_processed"] = intents_processed
@@ -337,7 +339,7 @@ def _update_manifest(mailbox: Path, *, state: str = "alive"):
     try:
         current = json.loads(manifest_file.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, ValueError):
-        pass
+        warn("manifest_json_parse_failed", path=str(manifest_file))
 
     sessions = current.get("active_sessions", [])
     # 기존 세션 갱신 또는 추가
