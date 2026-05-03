@@ -37,7 +37,10 @@ from ptc.primitives import (
 
 def run_producer(mailbox: Path, vault: Path):
     """Mailbox에서 save-intent를 폴링하여 Vault에 적재."""
-    messages_file = mailbox / "messages.jsonl"
+    # POC Phase 0+: intents.jsonl 우선, legacy messages.jsonl 폴백
+    messages_file = mailbox / "intents.jsonl"
+    if not messages_file.exists():
+        messages_file = mailbox / "messages.jsonl"
     receipts_file = mailbox / "receipts.jsonl"
 
     if not messages_file.exists():
@@ -99,6 +102,11 @@ def run_producer(mailbox: Path, vault: Path):
         deliver_receipt(mailbox, msg["mail_id"],
             status="delivered", produced_count=len(nodes), node_ids=nodes)
 
+        # ★ status.json 갱신 (POC Phase 1 — Context Fade 복원용)
+        _update_status(mailbox, intents_processed=len(completed) + 1)
+        # ★ manifest.json 갱신 (POC Phase 1 — 세션 카탈로그)
+        _update_manifest(mailbox, session_id="hermes-A", state="alive")
+
     print(json.dumps({"status": "producer_done", "pid": os.getpid()}))
 
 
@@ -147,6 +155,70 @@ def run_consumer(mailbox: Path, vault: Path):
             status="completed", result_bundle=bundle)
 
     print(json.dumps({"status": "consumer_done", "pid": os.getpid()}))
+
+
+# ─── POC Phase 1: 상태 갱신 유틸리티 ───
+
+def _update_status(mailbox: Path, *, intents_processed: int = 0):
+    """status.json 갱신 — Context Fade 복원을 위한 최신 상태 스냅샷."""
+    status_file = mailbox / "status.json"
+    current = {}
+    if status_file.exists():
+        try:
+            current = json.loads(status_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    summary = current.get("session_summary", {})
+    summary["intents_processed"] = intents_processed
+    summary["intents_pending"] = max(0, summary.get("intents_received", 0) - intents_processed)
+
+    current["operator_state"] = "alive"
+    current["session_summary"] = summary
+    current["last_updated"] = datetime.now(timezone.utc).isoformat()
+
+    status_file.write_text(json.dumps(current, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _update_manifest(mailbox: Path, *, session_id: str = "hermes-A", state: str = "alive"):
+    """manifest.json 갱신 — 활성 세션 카탈로그."""
+    # manifest.json 탐색: active/{session}/ → active/ → mailbox root
+    manifest_file = None
+    for ancestor in [mailbox.parent, mailbox.parent.parent, mailbox.parent.parent.parent]:
+        candidate = ancestor / "manifest.json"
+        if candidate.exists():
+            manifest_file = candidate
+            break
+    if manifest_file is None:
+        return  # manifest가 없으면 skip
+
+    current = {}
+    try:
+        current = json.loads(manifest_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    sessions = current.get("active_sessions", [])
+    # 기존 세션 갱신 또는 추가
+    updated = False
+    for s in sessions:
+        if s.get("session_id") == session_id:
+            s["operator_state"] = state
+            s["intents_pending"] = 0
+            updated = True
+            break
+    if not updated:
+        sessions.append({
+            "session_id": session_id,
+            "provider_type": "hermes",
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "operator_state": state,
+            "intents_pending": 0,
+        })
+
+    current["active_sessions"] = sessions
+    current["last_updated"] = datetime.now(timezone.utc).isoformat()
+    manifest_file.write_text(json.dumps(current, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 # ─── 양방향 Mailbox 통신 (9차 로드맵 — Reverse Push 스터브) ───
