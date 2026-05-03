@@ -98,6 +98,12 @@ own way of "remembering" things. The common result:
 **RAG doesn't fix this.** RAG re-derives knowledge from scratch on every query.
 There's no accumulation, no lifecycle, no cross-provider sharing.
 
+> **The Fundamental Difference — When You Pay the Cognitive Cost:**
+> - **RAG (Read-time):** Raw text → chunk → embed → Vector DB. Similarity search **at query time**. Retrieval quality is bounded by **ingestion quality**. If what you stored is unstructured, no embedding model can make the search results structured.
+> - **openyggdrasil (Write-time):** Provider delegates (save intent) → Operator Session processes **at production time**: Distill → Evaluate → Classify → Plant into structured Vault. Search operates on **pre-structured knowledge**.
+>
+> In Karpathy's analogy: RAG greps raw source code every time. openyggdrasil runs a **pre-compiled binary**.
+
 **Vector databases don't fix this either.** They add infrastructure dependency
 (Neo4j, Pinecone, embeddings) without solving the fundamental problem: *who
 decides what to remember, what to forget, and what to deliver?*
