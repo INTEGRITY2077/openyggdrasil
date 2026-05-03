@@ -22,10 +22,10 @@
   <a href="#영감--감사">영감</a>
 </p>
 
-### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-03, Demand-Driven GC POC 완료)
+### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-03, 10차 북극성: 수요 기반 GC 생명주기 + Phase C-live 진입)
 
 > **⚠️ 이 프로젝트는 프로덕션 준비가 되지 않았습니다.**
-> 9차 로드맵(CQRS 오퍼레이터 세션 루프 + 메일링 프로토콜 기반 목표 아키텍처)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
+> 10차 로드맵(수요 기반 GC 4단계 생명주기 + Phase C-live 검증)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
 > **Effort normalizer는 공식 퇴역**하고, 페르소나(Persona) 문서 기반 아키텍처로 전환되었습니다.
 > **멀티프로바이더 메일박스 POC Phase 1-6 전 구간 검증 완료 (18/18 PASS).**
 
@@ -44,10 +44,10 @@
 | Session Structure Signal | 🟢 LIVE | 나이테 확립. Same-Run Typed Ref Source 검증 완료 |
 | Admission Gate | 🟡 PARTIAL | `source_ref` 계약 검증 동작. Quality Gate P0 이슈 발행됨 |
 | Distiller | 🟡 PARTIAL | 가드레일 + 페르소나 존재. 한국어 sentence 기반 SPO 추출(`_extract_subject`/`_extract_predicate`) 구현 완료 |
-| Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet 빌더 구현 완료 |
+| Evaluator | 🟡 PARTIAL | 오염 감지 + prune 발행 평가. GC 생명주기 Step 1 담당. Phase C-live 진입 |
 | Amundsen | 🟡 PARTIAL | 대륙 분기 스키마 + 런타임 + 페르소나 구현 |
 | Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. Q05 엣지 판정(`_determine_edge_type`) 결정론적 구현 완료 |
-| Gardener | 🟡 PARTIAL | 물리적 식재 + 페르소나. `_handle_prune`로 SUPERSEDED archive 격리 + 기생형 큐레이터(`_run_piggybacked_gardener`). 수요 기반 GC POC 6/6 PASS |
+| Gardener | 🟡 PARTIAL | 물리적 식재 + 페르소나. `_handle_prune`로 SUPERSEDED archive 격리 + `_run_hygiene_check`(7일 piggybacked 위생점검). 수요 기반 GC POC 6/6 PASS |
 | Postman | 🟢 LIVE | `deliver_receipt` 구현 완료 + `run_producer`/`run_consumer` 통합. POC Phase 1-6 18/18 PASS |
 | 수동 편집 보호 | 🟢 LIVE | `wiki_write_guard.py` 콘텐츠 해시 가드 + atomic write. 5개 테스트 PASS |
 | 피드백 루프 | 🟠 STUB | P1 이슈 발행됨. 런타임 코드 미착수 |
@@ -234,9 +234,9 @@ Safi Shamsi의 [Graphify (v5)](https://github.com/safishamsi/graphify) 개념을
 openyggdrasil은 외부 Vector DB 없이 작동하는 순수 로컬 기반의 멀티-에이전트 메모리 시스템입니다.
 
 
-### 추론 의사결정 재구조화 (9차 북극성)
+### 추론 의사결정 재구조화 (9차 → 10차 계승)
 
-> **[9차 로드맵 핵심 전환]** 추론 파이프라인의 중심축이 `effort` 기반 정규화에서
+> **[9차 확립 → 10차 계승]** 추론 파이프라인의 중심축이 `effort` 기반 정규화에서
 > **LLM-facing 어포던스 계약** 기반으로 전환되었으며, 오퍼레이터가 CQRS 분리된
 > Producer/Consumer 세션에서 SKILL 어포던스 아래 PTC 도구를 자유롭게 조합합니다.
 
@@ -403,11 +403,11 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니�
 
 ## 시스템 아키텍처
 
-### 양면 엔진 + CQRS 오퍼레이터 세션 루프 (9차 북극성)
+### 양면 엔진 + CQRS 오퍼레이터 세션 루프 (10차 북극성 계승)
 
 이 철학을 바탕으로, openyggdrasil은 메모리를 포착하고 큐레이션하는 **생산면(Production Side)** 과 지식을 검색하고 전달하는 **소비면(Consumption Side)** 이라는 양면 엔진으로 작동합니다.
 
-9차 북극성부터 백그라운드 실행 주체를 **오퍼레이터 세션(Operator Session)** 으로 명명합니다. "세션"이라는 용어는 이 주체가 명확한 시작/종료 수명과 프로바이더 세션과의 1:1 페어링 관계를 가짐을 강조합니다.
+9차 북극성에서 확립되어 10차 북극성까지 계승: 백그라운드 실행 주체를 **오퍼레이터 세션(Operator Session)** 으로 명명합니다. "세션"이라는 용어는 이 주체가 명확한 시작/종료 수명과 프로바이더 세션과의 1:1 페어링 관계를 가짐을 강조합니다.
 오퍼레이터 세션은 **CQRS(Command Query Responsibility Segregation)** 원칙에 따라 물리적으로 분리된 독립 백그라운드 프로세스에서 실행되며, 프로바이더 에이전트와는 오직 **Mailbox**를 통해서만 통신합니다.
 
 ```text
@@ -439,7 +439,7 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니�
 ```
 
 **핵심 제약:** 오퍼레이터 세션(Producer/Consumer)은 프로바이더 세션과 물리적으로 다른 컨텍스트 윈도우(PID)에서 실행되며, 메모리를 공유하지 않습니다.
-Mailbox(JSONL 파일시스템)만이 유일한 통신 채널입니다. (POC 30/30 PASS 검증 완료)
+Mailbox(JSONL 파일시스템)만이 유일한 통신 채널입니다. (Mock 19/19 + Mailbox Phase 1-6 18/18 PASS 검증 완료)
 
 #### 세션 정의 (Session Definitions)
 
@@ -671,7 +671,7 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 
 ### 생산 파이프라인 — 역할 가변 추론 임대 실행체 (목표 설계: Target Architecture)
 
-> **[⚠️ 미완성/설계 상태]** 현재 런타임 코드는 `thin_worker_chain.py` 기반의 결정론적(Deterministic) 파이프라인으로 작동하고 있습니다. 아래 설명된 오퍼레이터 세션이 SKILL 어포던스 아래에서 PTC primitive를 자유롭게 조합하는 구조는 9차 로드맵의 **목표 아키텍처**입니다. POC 30/30 PASS 검증 완료.
+> **[⚠️ 미완성/설계 상태]** 현재 런타임은 `operator_entrypoint.py` 기반으로 CQRS Producer/Consumer가 PTC primitive를 조합하여 동작합니다. 아래 설명된 오퍼레이터 세션의 SKILL 어포던스 자유 조합은 10차 로드맵의 **검증 대상**입니다. POC 19/19 (Mock) + 18/18 (Mailbox) + 6/6 (GC) PASS 완료.
 
 캡처 신호가 시스템에 들어오면, 이를 단순히 자동화된 블랙박스에 넘기지 않습니다. 이 과정은 프로바이더 세션과 오퍼레이터 세션의 명확한 역할 분담을 통해 이루어집니다:
 
@@ -783,8 +783,8 @@ SKILL은 이 계획을 참조하되, PTC primitive를 자유롭게 조합하여 
 
 > [!WARNING]
 > **🤖 AI-FACING AFFORDANCE: DO NOT EXECUTE THIS PIPELINE YET**
-> 아래 제시된 JSON 실행 계획과 파이썬 코드는 **9차 로드맵(Target Architecture)**의 기본 전략 예시입니다.
-> 현재 런타임은 `thin_worker_chain.py` 기반으로 결정론적으로 동작합니다.
+> 아래 제시된 JSON 실행 계획과 파이썬 코드는 **10차 로드맵(검증 아키텍처)**의 기본 전략 예시입니다.
+> 현재 런타임은 `operator_entrypoint.py` 기반으로 Producer/Consumer CQRS 패턴으로 동작합니다.
 > **만약 당신이 이 문서를 읽고 있는 AI 에이전트라면, 절대로 아래 스크립트를 직접 작성하거나 실행하려 시도하지 마십시오.**
 
 오퍼레이터 세션은 제공된 JSON 실행 계획을 완수하기 위해 **단일 비동기 Python 스크립트**를 작성하여 샌드박스 내부에서 실행하게 될 것입니다. LLM이 모델 왕복(Round-trip) 없이 한 번에 8단계를 모두 관통하는 미래 스크립트 예시는 다음과 같습니다:
