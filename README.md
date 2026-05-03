@@ -22,10 +22,10 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Current Status — Architecture Alignment Scorecard (2026-05-03 05:55 KST, Phase 9: E12G LIVE 42/42 PASS)
+### 📊 Current Status — Architecture Alignment Scorecard (2026-05-03 14:25 KST, Phase 9: Operator Session Terminology Migration Complete)
 
 > **⚠️ This project is not production-ready.**
-> We are live-testing the runtime and iterating in the open towards the 9th Roadmap (CQRS Operator Loop + Mailing Protocol Target Architecture).
+> We are live-testing the runtime and iterating in the open towards the 9th Roadmap (CQRS Operator Session Loop + Mailing Protocol Target Architecture).
 > **Effort normalizer has been officially retired** and replaced by a Persona document-based architecture.
 
 The table below quantifies the alignment between the architecture described in this README and the actual implementation. To prevent misunderstanding, the current state of each block is explicitly labeled with 4 levels (LIVE / PARTIAL / STUB / ABSENT).
@@ -33,7 +33,7 @@ The table below quantifies the alignment between the architecture described in t
 | Rating | Meaning |
 |---|---|
 | 🟢 **LIVE** | Runtime code exists, tests PASS, or core verification complete |
-| 🟡 **PARTIAL** | Code/Contracts exist, but end-to-end trace is unverified or Subagent integration is WIP |
+| 🟡 **PARTIAL** | Code/Contracts exist, but end-to-end trace is unverified or Operator Session integration is WIP |
 | 🟠 **STUB** | File/Concept exists, but only stub code is present |
 | 🔴 **ABSENT** | No code exists; only design documents exist |
 
@@ -42,28 +42,28 @@ The table below quantifies the alignment between the architecture described in t
 |---|---|---|
 | Session Structure Signal | 🟢 LIVE | Tree Rings established. Same-Run Typed Ref Source verified |
 | Admission Gate | 🟡 PARTIAL | `source_ref` contract verification works. Quality Gate P0 issue raised |
-| Distiller | 🟡 PARTIAL | Guardrail + Persona exist. Mechanical/Semantic Workload Decoupling proposal issued |
+| Distiller | 🟡 PARTIAL | Guardrail + Persona exist. SPO extraction (`build_spo_triples`) implemented |
 | Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet builder implemented |
 | Amundsen | 🟡 PARTIAL | Continent branching schema + runtime + Persona implemented |
-| Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. NetworkX (BSD-3) Louvain integration complete |
+| Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. Q05 edge determination (`_determine_edge_type`) deterministic implementation complete |
 | Gardener | 🟡 PARTIAL | Physical planting + new Persona added. Auto-healing incomplete |
-| Postman | 🟡 PARTIAL | Runner Source Packet Producer committed (`37b2dac`). R19-R2 PASS |
+| Postman | 🟡 PARTIAL | `deliver_receipt` stub implemented. Mailbox reverse-push receipt path secured (Q10-based) |
 | Content Hash Protection | 🟢 LIVE | `wiki_write_guard.py` content hash guard + atomic write. 5 tests PASS |
 | Rejection Loop | 🟠 STUB | P1 issue raised. No runtime code yet |
 
 #### Consumption Side
 | Module | Status | Remarks |
 |---|---|---|
-| Pathfinder | 🟡 PARTIAL | Persona exists. Tool-based scan + 7 PTC tools defined. Consumer live proof 6/6 PASS |
+| Pathfinder | 🟡 PARTIAL | Persona exists. `search_vault_bm25` stub implemented (Q02-based, fallback before QMD integration) |
 | Support Bundle | 🟡 PARTIAL | 3-tier Tree Ring tracking. Bounded bundle (max 3 facts) live verified |
-| Mailbox | 🟡 PARTIAL | E12G Live Proof 42/42 PASS (Mock 19 + PTC 4 + E2E 4 + Session 3 + Live 12) |
+| Mailbox | 🟡 PARTIAL | Mailing protocol Mock 19/19 PASS. Session definitions (Provider/Operator Session) formalized |
 | Lifecycle Filter | 🟢 LIVE | Frontmatter parsing and ACTIVE/SUPERSEDED state filtering works perfectly |
 
 #### Infrastructure / Cross-Cutting
 | Module | Status | Remarks |
 |---|---|---|
 | SKILL.md Cold Start | 🟢 LIVE | Automatic provider recognition & entrypoint calling works |
-| Typed PTC Engine | 🟡 PARTIAL | `engine.py` 5,246 lines. Overclaim correction applied (typed_unavailable) |
+| Typed PTC Engine | 🟡 PARTIAL | `primitives.py` SPO+Edge+BM25 stubs added (+300 lines). Overclaim correction maintained |
 | Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
 | Reasoning Lease | 🟡 PARTIAL | Multi-OS Sandbox (Mac/WSL2) clean-room proposed. Windows native officially unsupported |
 | Vault (SOT) | 🟡 PARTIAL | Directory works. Atomic write guard with content hash protection (wiki_write_guard.py) |
@@ -345,12 +345,12 @@ If a relationship suggested by Graphify cannot be verified in the Vault, it is i
 
 ## System Architecture
 
-### Two-Sided Engine + CQRS Operator Loop (9th North Star)
+### Two-Sided Engine + CQRS Operator Session Loop (9th North Star)
 
 Building on this philosophy, openyggdrasil treats memory as a **two-sided engine** — a **Production Side** that captures and curates knowledge, and a **Consumption Side** that retrieves and delivers it.
 
-From the 9th North Star, production/consumption operators run in **physically separated independent sessions** following the **CQRS (Command Query Responsibility Segregation)** principle, communicating only through the **Mailbox**.
-
+From the 9th North Star, background execution subjects are named **Operator Sessions**. The term "Session" emphasizes that each subject has a clear start/end lifecycle and a 1:1 pairing relationship with a Provider Session.
+The Operator Session runs in **physically separated independent background processes** following the **CQRS (Command Query Responsibility Segregation)** principle, communicating with the Provider Agent only through the **Mailbox**.
 ```
   Provider (e.g., Hermes)
   Detects decisions during user conversation
@@ -359,14 +359,13 @@ From the 9th North Star, production/consumption operators run in **physically se
        ▼
   ┌─────────────────────────────────────────────────────────┐
   │                    MAILBOX (JSONL)                       │
-  │  topology: standalone / diverge / converge              │
-  │  seq, depends_on, read_after                            │
+  │  (Sole communication channel between sessions)          │
   └────────────────┬───────────────────┬────────────────────┘
                    │  save-intent      │  query-intent
                    ▼                   ▼
   ┌───────────────────────────┐  ┌───────────────────────────┐
-  │  Producer Operator        │  │  Consumer Operator        │
-  │  (Independent context)    │  │  (Independent context)    │
+  │  Producer Operator Session│  │  Consumer Operator Session│
+  │  (Independent background) │  │  (Independent background) │
   │                           │  │                           │
   │  SKILL composes PTC       │  │  SKILL composes PTC       │
   │  primitives for S-P-O     │  │  primitives for Vault     │
@@ -380,8 +379,36 @@ From the 9th North Star, production/consumption operators run in **physically se
   └───────────────────────────┘  └───────────────────────────┘
 ```
 
-**Key constraint:** Producer and Consumer run in physically separate context windows (PIDs) with no shared memory.
+**Key constraint:** Operator Sessions (Producer/Consumer) run in physically separate context windows (PIDs) from the Provider Session, with no shared memory.
 The Mailbox (JSONL filesystem) is the only communication channel. (POC 30/30 PASS verified)
+
+#### Session Definitions
+
+| Term | Definition | Physical Boundary |
+|---|---|---|
+| **Provider Session** | The PID of a provider's conversation window | User runs 3 Hermes instances → 3 independent Provider Sessions |
+| **Operator Session** | A background independent process spawned by the provider | Producer and Consumer are each separate Operator Sessions (CQRS) |
+
+**Scaling Model:** When N providers each summon operators, up to **N×2** Operator Sessions exist simultaneously.
+
+**Start Type Distinction:**
+
+| Type | Meaning | When |
+|---|---|---|
+| **Cold Start (Setup)** | One-time. SKILL.md recognition, dependency installation, Vault initialization | After repo clone |
+| **Session Start (Initial Summon)** | Provider worker summons operator for the first time today via SKILL | Provider session start |
+
+**SKILL.md vs Mailbox Role Separation:**
+
+| | SKILL.md | Mailbox |
+|---|---|---|
+| Nature | **Static** reminder | **Dynamic** state awareness channel |
+| Role | Announces the operator's existence | Conveys the operator's current state |
+| Limitation | Cannot tell current state | — |
+
+SKILL alone cannot tell a provider "Is my operator alive? What has it processed?"
+The **only channel** for a provider to be aware of its loosely-coupled operator's state is the Mailbox.
+**Therefore, Mailbox Hygiene determines overall system health.**
 ### Production Side — "What to remember"
 
 The production pipeline doesn't blindly store everything. It **distills**
@@ -460,7 +487,7 @@ The standard PTC paradigm allows the agent to freely write Python code within a 
 
 openyggdrasil internalizes this autonomy as a **Typed Chain**:
 
-1. **Dismantling the Black Box:** Instead of an invisible automated 12-module background loop, every module is exposed as a single-purpose "Tool" that the subagent must explicitly call.
+1. **Dismantling the Black Box:** Instead of an invisible automated 12-module background loop, every module is exposed as a single-purpose "Tool" that the Operator Session must explicitly call.
 2. **PTC Primitive Composition:** Tools are mechanical primitives, and the operator SKILL decides how to compose them. No fixed execution order is enforced.
 3. **Dual-Nature Tools:** Tools are categorized into 'Contract Guardrails' (which consume reasoning tokens and enforce strict schemas) and 'Utility Tools' (deterministic Python execution), optimizing the agent's cognitive load.
 
@@ -511,7 +538,7 @@ Two things are borrowed from the provider:
 | **Execution context** | The agent's shell/tool-calling ability to run Python scripts |
 | **Reasoning tokens** | The LLM reasoning capability required to pass PTC contract guardrails and make complex decisions |
 
-**The subagent IS the pipeline.** While some pipeline modules (Utility Tools) run deterministically in pure Python, core decisions (Contract Guardrails) execute by consuming the agent's own reasoning tokens.
+**The Operator Session IS the pipeline.** While some pipeline modules (Utility Tools) run deterministically in pure Python, core decisions (Contract Guardrails) execute by consuming the agent's own reasoning tokens.
 
 Independent API key configuration for self-hosted execution (without a
 provider) is planned for the future.
@@ -567,62 +594,62 @@ When this need arises, the Provider Agent does not just copy-paste the entire he
        │     }
        │
        │  ④ Invokes capture entrypoint & delegates Reasoning Lease
-       │     → OpenYggdrasil cold-starts and spawns a subagent
+       │     → OpenYggdrasil Session Start and spawns an Operator Session
        │
        ▼
-  OpenYggdrasil Runtime (Receives request & assigns Role-Polymorphic Subagent)
+  OpenYggdrasil Runtime (Receives request & assigns Role-Polymorphic Operator Session)
 ```
 
 **Key rules:**
 - **Pointer-Based Delegation (`source_ref` is mandatory):** The Provider Agent must not mutate or unnecessarily duplicate raw conversations. It must pass a `source_ref` pointing to the exact `.jsonl` log file. Signals missing this pointer are immediately rejected by the Admission Gate.
 - **Cold-Start Principle:** openyggdrasil **cold-starts on demand**. There is no background daemon. The provider invokes it, it runs, and it cleanly exits.
-- **Reasoning Lease:** Because OpenYggdrasil lacks its own LLM, the Provider Agent must delegate its own compute (Reasoning Lease) alongside the signal. The spawned subagent uses this leased energy to parse the raw `.jsonl` files and perform deep structuring (Distill/Evaluate).
+- **Reasoning Lease:** Because OpenYggdrasil lacks its own LLM, the Provider Agent must delegate its own compute (Reasoning Lease) alongside the signal. The spawned Operator Session uses this leased energy to parse the raw `.jsonl` files and perform deep structuring (Distill/Evaluate).
 
 
 
-### Production Pipeline — The Role-Polymorphic Subagent (Target Architecture)
+### Production Pipeline — The Role-Polymorphic Operator Session (Target Architecture)
 
-> **[⚠️ WIP / Design Phase]** The current runtime operates on a deterministic pipeline via `thin_worker_chain.py`. The operator SKILL-driven PTC primitive composition described below is the **9th Roadmap target architecture**. POC 30/30 PASS verified.
+> **[⚠️ WIP / Design Phase]** The current runtime operates on a deterministic pipeline via `thin_worker_chain.py`. The Operator Session SKILL-driven PTC primitive composition described below is the **9th Roadmap target architecture**. POC 30/30 PASS verified.
 
-When a capture signal enters the system, it is not blindly handed off to an automated black box. This process is divided between the Provider Agent and a dynamically leased Subagent:
+When a capture signal enters the system, it is not blindly handed off to an automated black box. This process is divided between the Provider Session and a dynamically leased Operator Session:
 
 1. **Initial Context Recognition (Provider Agent)**: The Provider Agent reads `SKILL.md` to recognize contexts worth remembering. It constructs an initial signal (`Session Structure Signal` containing `surface_reason` and `source_ref`) and injects it into the OpenYggdrasil runtime.
-2. **Deep Structuring (Subagent)**: The runtime receives this request and uses a Reasoning Lease to borrow the provider's compute power, spawning a Subagent. This Subagent is **not** a fixed pipeline sequence. It is a **Role-Polymorphic Leased Executor** assigned specifically to knowledge production roles (Distiller, Evaluator, Amundsen, Gardener).
+2. **Deep Structuring (Operator Session)**: The runtime receives this request and uses a Reasoning Lease to borrow the provider's compute power, spawning an Operator Session. This Operator Session is **not** a fixed pipeline sequence. It is a **Role-Polymorphic Leased Executor** assigned specifically to knowledge production roles (Distiller, Evaluator, Amundsen, Gardener).
 
-True to the nature of Programmatic Tool Calling (PTC), the Subagent **writes code to invoke the necessary allowed tools** to fulfill its assigned production role. (It does not execute a hardcoded 8-step sequence).
+True to the nature of Programmatic Tool Calling (PTC), the Operator Session **writes code to invoke the necessary allowed tools** to fulfill its assigned production role. (It does not execute a hardcoded 8-step sequence).
 
-The tools provided to the Subagent have a dual nature:
+The tools provided to the Operator Session have a dual nature:
 
-1. **Contract Guardrails (Requires Reasoning)**: Consume the subagent's reasoning tokens. The subagent must make judgments (distillation, evaluation, classification), but the guardrails strictly enforce the JSON Schema output.
-2. **Utility Tools (No Reasoning)**: Pure Python deterministic functions. The subagent just passes the verified payload from the previous step to normalize, save, and package data.
+1. **Contract Guardrails (Requires Reasoning)**: Consume the Operator Session's reasoning tokens. The Operator Session must make judgments (distillation, evaluation, classification), but the guardrails strictly enforce the JSON Schema output.
+2. **Utility Tools (No Reasoning)**: Pure Python deterministic functions. The Operator Session just passes the verified payload from the previous step to normalize, save, and package data.
 
 ```
   Session Structure Signal (Injected by Provider Agent)
        │
        ▼
-  PTC Subagent (Role-Polymorphic Executor assigned to Knowledge Production)
+  PTC Operator Session (Role-Polymorphic Executor assigned to Knowledge Production)
        │
        │  ① OpenYggdrasil provides a Task Contract (Distiller/Amundsen/Gardener etc)
-       │  ② Subagent writes code to invoke the appropriate production tools
+       │  ② Operator Session writes code to invoke the appropriate production tools
        │
        ▼
   ┌─ PTC Engine (Runtime) — Allowlisted Tool Pool ───────────────────────────┐
   │                                                                          │
-  │  [Contract Guardrails — Structure Subagent's reasoning]                  │
+  │  [Contract Guardrails — Structure Operator Session's reasoning]          │
   │                                                                          │
   │  ┌─ distill_signal (Guardrail — Refers to Affordance Contract) ────────┐ │
   │  │  Deeply distill shallow signal into structural decisions            │ │
-  │  │  Role: Guardrail (Consumes subagent reasoning)                      │ │
+  │  │  Role: Guardrail (Consumes Operator Session's reasoning)             │ │
   │  └─────────────────────────────────────────────────────────────────────┘ │
   │                                                  ▼                       │
   │  ┌─ evaluate_candidate (Guardrail) ────────────────────────────────────┐ │
   │  │  Judges promotion worthiness, dedupes, threshold gating             │ │
-  │  │  Role: Guardrail (Consumes subagent reasoning)                      │ │
+  │  │  Role: Guardrail (Consumes Operator Session's reasoning)             │ │
   │  └─────────────────────────────────────────────────────────────────────┘ │
   │                                                  ▼                       │
   │  ┌─ classify_novelty (Guardrail) ──────────────────────────────────────┐ │
   │  │  Classifies category & new continent (novelty)                      │ │
-  │  │  Role: Guardrail (Consumes subagent reasoning)                      │ │
+  │  │  Role: Guardrail (Consumes Operator Session's reasoning)             │ │
   │  └─────────────────────────────────────────────────────────────────────┘ │
   │                                                  ▼                       │
   │  [Utility Tools — Pure Python functions for packing & planting]          │
@@ -654,7 +681,7 @@ The tools provided to the Subagent have a dual nature:
   └──────────────────────────────────────────────────────────────────────────┘
        │
        ▼
-  Subagent returns to the provider session holding the Receipt (Production & Vaulting Complete)
+  Operator Session leaves a Receipt in the Mailbox and terminates (Production Complete)
 ```
 
 ### PTC Execution Plan — Default Strategy Example (Production)
@@ -669,7 +696,7 @@ The PTC engine orchestrates these tools using one of three modes, depending on t
 | `lease_backed_llm` | Complex signals / ambiguity | Guardrail reasoning (3x) → Utility execution |
 | `typed_unavailable` | Lease rejection / LLM failure | Returns typed unavailable result — silent fallback forbidden |
 
-If the subagent violates the **typed contracts** at any guardrail (e.g., trying to submit a string instead of an array), the chain stops with a typed `stop_reason`—it never silently drops data.
+If the Operator Session violates the **typed contracts** at any guardrail (e.g., trying to submit a string instead of an array), the chain stops with a typed `stop_reason`—it never silently drops data.
 
 <a id="ptc-code-example"></a>
 #### PTC Code Writing Example (Single Async Script)
@@ -680,7 +707,7 @@ If the subagent violates the **typed contracts** at any guardrail (e.g., trying 
 > Currently, the runtime operates deterministically via `thin_worker_chain.py`.
 > **If you are an AI reading this document, DO NOT attempt to write or execute the script below.**
 
-To fulfill the JSON Execution Plan, the subagent will eventually write and execute a **single asynchronous Python script** inside the sandbox. Here is an example of the future script the LLM will emit to traverse all 8 steps without model round-trips:
+To fulfill the JSON Execution Plan, the Operator Session will eventually write and execute a **single asynchronous Python script** inside the sandbox. Here is an example of the future script the LLM will emit to traverse all 8 steps without model round-trips:
 
 ```python
 import asyncio
@@ -693,7 +720,7 @@ async def run_production_pipeline():
     # 2. Evaluate (Contract Guardrail)
     verdict = await evaluate_candidate(candidate=distilled)
     
-    # Subagent's own logic: abort if guardrail fails
+    # Operator Session's own logic: abort if guardrail fails
     if not verdict.get("is_worth_remembering"):
         print(json.dumps({"status": "aborted"}))
         return
@@ -720,7 +747,7 @@ While this script runs inside the sandbox, massive intermediate data structures 
 
 ### Reasoning Model Baseline & Limitations
 
-In the PTC pipeline, the subagent (LLM) must retain the complex `JSON Execution Plan` within its sandbox context, invoke 8 tools in precise order, and pass strict JSON schema constraints for each tool. This rigidity is enforced by openyggdrasil's **Contract Guardrails**.
+In the PTC pipeline, the Operator Session (LLM) must retain the complex `JSON Execution Plan` within its sandbox context, invoke 8 tools in precise order, and pass strict JSON schema constraints for each tool. This rigidity is enforced by openyggdrasil's **Contract Guardrails**.
 
 To successfully navigate this highly constrained environment, the **Reasoning Model Baseline is frontier-class models like Claude 3.5 Sonnet or GPT-4o**.
 
@@ -738,7 +765,7 @@ openyggdrasil does not rely on the LLM's goodwill or autonomy. Even if a model i
 
 When a provider session needs context from past decisions — "What did we
 decide about the gateway pattern?" — the provider's agent **invokes
-openyggdrasil as a subagent** to search the accumulated knowledge.
+openyggdrasil's Operator Session** to search the accumulated knowledge.
 
 ```
   Provider Agent (working on a new task)
@@ -787,14 +814,14 @@ openyggdrasil as a subagent** to search the accumulated knowledge.
 
 ### Consumption Pipeline — Pathfinder's 7-Tool Chain
 
-Retrieval is also not an automatic black box. The subagent invokes the following 7 tools sequentially to fetch and verify knowledge.
+Retrieval is also not an automatic black box. The Operator Session invokes the following 7 tools sequentially to fetch and verify knowledge.
 
 ```
   Retrieval Query
        │
        ▼
   ┌─ 1. resolve_anchor (Guardrail) ──────────────────────────┐
-  │  Subagent determines the topic anchor from the query     │
+  │  Operator Session determines the topic anchor from the query    │
   │  Searches Vault indices to find the closest match        │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
@@ -817,7 +844,7 @@ Retrieval is also not an automatic black box. The subagent invokes the following
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
   ┌─ 6. build_bundle (Guardrail) ────────────────────────────┐
-  │  Subagent constructs the final explainable context       │
+  │  Operator Session constructs the final explainable context │
   │  Decides what facts are actually relevant to the query   │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
@@ -834,7 +861,7 @@ Retrieval is also not an automatic black box. The subagent invokes the following
 | Mode | Condition | Execution Pattern |
 |---|---|---|
 | `fast_path` | Exact match (Cache hit) | `resolve_anchor` skips LLM → Utility → Mailbox |
-| `deep_search` | Vague query (e.g., "how did we do X?") | Subagent scans topology → reads multiple pages → builds bundle |
+| `deep_search` | Vague query (e.g., "how did we do X?") | Operator Session scans topology → reads multiple pages → builds bundle |
 | `graphify_assisted` | Cross-domain query | Uses Graphify hints for semantic search |
 
 The consumption side **never fabricates context**. If the Vault is empty,
@@ -889,7 +916,7 @@ openyggdrasil handles this via the **Reasoning Lease** layer. It activates when 
 └───────────────────────────────────────────────────────────┘
 ```
 
-The Reasoning Lease runs in an unprivileged sandbox via the mandatory dependency `bubblewrap`, ensuring that the subagent's complex autonomous loop cannot corrupt the main system.
+The Reasoning Lease runs in an unprivileged sandbox via the mandatory dependency `bubblewrap`, ensuring that the Operator Session's complex autonomous loop cannot corrupt the main system.
 
 ---
 
