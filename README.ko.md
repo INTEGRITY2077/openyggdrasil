@@ -22,11 +22,12 @@
   <a href="#영감--감사">영감</a>
 </p>
 
-### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-03 14:25 KST, Phase 9: Operator Session 용어 전환 완료)
+### 📊 현재 상태 — 아키텍처 정렬도 스코어카드 (2026-05-03, POC Phase 1-6 완료)
 
 > **⚠️ 이 프로젝트는 프로덕션 준비가 되지 않았습니다.**
 > 9차 로드맵(CQRS 오퍼레이터 세션 루프 + 메일링 프로토콜 기반 목표 아키텍처)을 향해 런타임 코드를 라이브 테스팅하며 공개적으로 반복하고 있습니다.
 > **Effort normalizer는 공식 퇴역**하고, 페르소나(Persona) 문서 기반 아키텍처로 전환되었습니다.
+> **멀티프로바이더 메일박스 POC Phase 1-6 전 구간 검증 완료 (18/18 PASS).**
 
 아래 표는 본 README에 기술된 아키텍처와 실제 구현 간의 정렬도를 정량화한 것입니다. 오해를 방지하기 위해, 각 블록의 현재 상태를 4단계(LIVE / PARTIAL / STUB / ABSENT)로 명시합니다.
 
@@ -47,7 +48,7 @@
 | Amundsen | 🟡 PARTIAL | 대륙 분기 스키마 + 런타임 + 페르소나 구현 |
 | Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. Q05 엣지 판정(`_determine_edge_type`) 결정론적 구현 완료 |
 | Gardener | 🟡 PARTIAL | 물리적 식재 + 페르소나 신규 추가. 자동 치유 미완 |
-| Postman | 🟡 PARTIAL | `deliver_receipt` 스터브 구현. Mailbox 역방향 영수증 반환 경로 확보 (Q10 기반) |
+| Postman | 🟢 LIVE | `deliver_receipt` 구현 완료 + `run_producer`/`run_consumer` 통합. POC Phase 1-6 18/18 PASS |
 | 수동 편집 보호 | 🟢 LIVE | `wiki_write_guard.py` 콘텐츠 해시 가드 + atomic write. 5개 테스트 PASS |
 | 피드백 루프 | 🟠 STUB | P1 이슈 발행됨. 런타임 코드 미착수 |
 
@@ -56,7 +57,7 @@
 |---|---|---|
 | Pathfinder | 🟡 PARTIAL | 페르소나 존재. `search_vault_bm25` 스터브 구현 (Q02 기반, QMD 연동 전 폴백) |
 | Support Bundle | 🟡 PARTIAL | 3-tier 나이테 추적. Bounded bundle (max 3 facts) 라이브 검증 완료 |
-| Mailbox | 🟡 PARTIAL | 메일링 프로토콜 Mock 19/19 PASS. 세션 정의(Provider/Operator Session) 공식화 완료 |
+| Mailbox | 🟢 LIVE | 멀티프로바이더 POC Phase 1-6 18/18 PASS. `status.json`+`manifest.json` 운영. Reverse Push 영수증 동작 |
 | Lifecycle Filter | 🟢 LIVE | 프론트매터 파싱 및 ACTIVE/SUPERSEDED 상태 필터링 완벽 작동 |
 
 #### 인프라 / 크로스커팅
@@ -76,11 +77,11 @@
 
 #### 총 정렬도 요약
 | 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
-|---|---|---|---|---|---|---|
-| 생산면 | 10 | 2 | 7 | 1 | 0 | 90% |
-| 소비면 | 4 | 1 | 3 | 0 | 0 | 87% |
+|---|---|---|---|---|---|---|---|
+| 생산면 | 10 | 3 | 6 | 1 | 0 | 93% |
+| 소비면 | 4 | 2 | 2 | 0 | 0 | 91% |
 | 인프라 | 11 | 2 | 9 | 0 | 0 | 90% |
-| **전체** | **25** | **5** | **19** | **1** | **0** | **89%** |
+| **전체** | **25** | **7** | **17** | **1** | **0** | **91%** |
 
 
 ## 시스템 요구사항 및 설정
