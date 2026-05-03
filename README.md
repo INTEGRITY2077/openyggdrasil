@@ -22,10 +22,10 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-### 📊 Current Status — Architecture Alignment Scorecard (2026-05-03 14:25 KST, Phase 9: Operator Session Terminology Migration Complete)
+### 📊 Current Status — Architecture Alignment Scorecard (2026-05-03, 10th North Star: Demand-Driven GC Lifecycle + Phase C-live Entry)
 
 > **⚠️ This project is not production-ready.**
-> We are live-testing the runtime and iterating in the open towards the 9th Roadmap (CQRS Operator Session Loop + Mailing Protocol Target Architecture).
+> We are live-testing the runtime and iterating in the open towards the 10th Roadmap (Demand-Driven GC 4-Stage Lifecycle + Phase C-live verification).
 > **Effort normalizer has been officially retired** and replaced by a Persona document-based architecture.
 
 The table below quantifies the alignment between the architecture described in this README and the actual implementation. To prevent misunderstanding, the current state of each block is explicitly labeled with 4 levels (LIVE / PARTIAL / STUB / ABSENT).
@@ -43,11 +43,11 @@ The table below quantifies the alignment between the architecture described in t
 | Session Structure Signal | 🟢 LIVE | Tree Rings established. Same-Run Typed Ref Source verified |
 | Admission Gate | 🟡 PARTIAL | `source_ref` contract verification works. Quality Gate P0 issue raised |
 | Distiller | 🟡 PARTIAL | Guardrail + Persona exist. SPO extraction (`build_spo_triples`) implemented |
-| Evaluator | 🟡 PARTIAL | PTC Execution Trace Packet builder implemented |
+| Evaluator | 🟡 PARTIAL | Pollution detection + prune evaluation. GC Lifecycle Step 1. Phase C-live entry |
 | Amundsen | 🟡 PARTIAL | Continent branching schema + runtime + Persona implemented |
 | Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. Q05 edge determination (`_determine_edge_type`) deterministic implementation complete |
-| Gardener | 🟡 PARTIAL | Physical planting + new Persona added. Auto-healing incomplete |
-| Postman | 🟡 PARTIAL | `deliver_receipt` stub implemented. Mailbox reverse-push receipt path secured (Q10-based) |
+| Gardener | 🟡 PARTIAL | Physical planting + Persona. `_handle_prune` with SUPERSEDED archive isolation + `_run_hygiene_check` (7-day piggybacked). Demand-Driven GC POC 6/6 PASS |
+| Postman | 🟢 LIVE | `deliver_receipt` implemented + integrated into `run_producer`/`run_consumer`. POC Phase 1-6 18/18 PASS |
 | Content Hash Protection | 🟢 LIVE | `wiki_write_guard.py` content hash guard + atomic write. 5 tests PASS |
 | Rejection Loop | 🟠 STUB | P1 issue raised. No runtime code yet |
 
@@ -56,14 +56,14 @@ The table below quantifies the alignment between the architecture described in t
 |---|---|---|
 | Pathfinder | 🟡 PARTIAL | Persona exists. `search_vault_bm25` stub implemented (Q02-based, fallback before QMD integration) |
 | Support Bundle | 🟡 PARTIAL | 3-tier Tree Ring tracking. Bounded bundle (max 3 facts) live verified |
-| Mailbox | 🟡 PARTIAL | Mailing protocol Mock 19/19 PASS. Session definitions (Provider/Operator Session) formalized |
+| Mailbox | 🟢 LIVE | Multi-provider POC Phase 1-6 18/18 PASS. `status.json`+`manifest.json` operational. Reverse Push receipts working |
 | Lifecycle Filter | 🟢 LIVE | Frontmatter parsing and ACTIVE/SUPERSEDED state filtering works perfectly |
 
 #### Infrastructure / Cross-Cutting
 | Module | Status | Remarks |
 |---|---|---|
 | SKILL.md Cold Start | 🟢 LIVE | Automatic provider recognition & entrypoint calling works |
-| Typed PTC Engine | 🟡 PARTIAL | `primitives.py` SPO+Edge+BM25 stubs added (+300 lines). Overclaim correction maintained |
+| Typed PTC Engine | 🟡 PARTIAL | `primitives.py` SPO+Edge+BM25+prune processing (+400 lines). `_determine_edge_type` Q05 6-type. `_handle_prune` Gardener integration |
 | Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
 | Reasoning Lease | 🟡 PARTIAL | Multi-OS Sandbox (Mac/WSL2) clean-room proposed. Windows native officially unsupported |
 | Vault (SOT) | 🟡 PARTIAL | Directory works. Atomic write guard with content hash protection (wiki_write_guard.py) |
@@ -77,10 +77,10 @@ The table below quantifies the alignment between the architecture described in t
 #### Alignment Summary
 | Domain | Total | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | Alignment |
 |---|---|---|---|---|---|---|
-| Production | 10 | 2 | 7 | 1 | 0 | 90% |
-| Consumption | 4 | 1 | 3 | 0 | 0 | 87% |
+| Production | 10 | 3 | 6 | 1 | 0 | 93% |
+| Consumption | 4 | 2 | 2 | 0 | 0 | 91% |
 | Infrastructure | 11 | 2 | 9 | 0 | 0 | 90% |
-| **Total** | **25** | **5** | **19** | **1** | **0** | **89%** |
+| **Total** | **25** | **7** | **17** | **1** | **0** | **91%** |
 
 ## Why This Exists
 
@@ -386,7 +386,7 @@ The Operator Session runs in **physically separated independent background proce
 ```
 
 **Key constraint:** Operator Sessions (Producer/Consumer) run in physically separate context windows (PIDs) from the Provider Session, with no shared memory.
-The Mailbox (JSONL filesystem) is the only communication channel. (POC 30/30 PASS verified)
+The Mailbox (JSONL filesystem) is the only communication channel. (Mock 19/19 + Mailbox Phase 1-6 18/18 PASS verified)
 
 #### Session Definitions
 
@@ -615,7 +615,7 @@ When this need arises, the Provider Agent does not just copy-paste the entire he
 
 ### Production Pipeline — The Role-Polymorphic Operator Session (Target Architecture)
 
-> **[⚠️ WIP / Design Phase]** The current runtime operates on a deterministic pipeline via `thin_worker_chain.py`. The Operator Session SKILL-driven PTC primitive composition described below is the **9th Roadmap target architecture**. POC 30/30 PASS verified.
+> **[⚠️ WIP / Design Phase]** The current runtime operates via `operator_entrypoint.py` with CQRS Producer/Consumer composing PTC primitives. The Operator Session SKILL-driven PTC primitive composition described below is the **10th Roadmap verification target**. POC 19/19 (Mock) + 18/18 (Mailbox) + 6/6 (GC) PASS verified.
 
 When a capture signal enters the system, it is not blindly handed off to an automated black box. This process is divided between the Provider Session and a dynamically leased Operator Session:
 
@@ -709,8 +709,8 @@ If the Operator Session violates the **typed contracts** at any guardrail (e.g.,
 
 > [!WARNING]
 > **🤖 AI-FACING AFFORDANCE: DO NOT EXECUTE THIS PIPELINE YET**
-> The following JSON Plan and Python script represent the **9th Roadmap Target Architecture** default strategy example.
-> Currently, the runtime operates deterministically via `thin_worker_chain.py`.
+> The following JSON Plan and Python script represent the **10th Roadmap Verification Architecture** default strategy example.
+> Currently, the runtime operates via `operator_entrypoint.py` using Producer/Consumer CQRS pattern.
 > **If you are an AI reading this document, DO NOT attempt to write or execute the script below.**
 
 To fulfill the JSON Execution Plan, the Operator Session will eventually write and execute a **single asynchronous Python script** inside the sandbox. Here is an example of the future script the LLM will emit to traverse all 8 steps without model round-trips:
