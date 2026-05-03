@@ -42,11 +42,11 @@ The table below quantifies the alignment between the architecture described in t
 |---|---|---|
 | Session Structure Signal | 🟢 LIVE | Tree Rings established. Same-Run Typed Ref Source verified |
 | Admission Gate | 🟡 PARTIAL | `source_ref` contract verification works. Quality Gate P0 issue raised |
-| Distiller | 🟡 PARTIAL | Guardrail + Persona exist. SPO extraction (`build_spo_triples`) implemented |
-| Evaluator | 🟡 PARTIAL | Pollution detection + prune evaluation. GC Lifecycle Step 1. Phase C-live entry |
+| Distiller | 🟢 LIVE | Guardrail + Persona exist. SPO extraction (`build_spo_triples`) implemented. Phase C-live C1+C2+C3 PASS — SPO→save→receipt round-trip verified |
+| Evaluator | 🟢 LIVE | Pollution detection + prune evaluation. GC Lifecycle Step 1. Phase C-live C1 PASS — LLM 자발 prune 발행 검증 |
 | Amundsen | 🟡 PARTIAL | Continent branching schema + runtime + Persona implemented |
 | Map Maker | 🟡 PARTIAL | Topology calculation + Persona implemented. Q05 edge determination (`_determine_edge_type`) deterministic implementation complete |
-| Gardener | 🟡 PARTIAL | Physical planting + Persona. `_handle_prune` with SUPERSEDED archive isolation + `_run_hygiene_check` (7-day piggybacked). Demand-Driven GC POC 6/6 PASS |
+| Gardener | 🟢 LIVE | Physical planting + Persona. `_handle_prune` with SUPERSEDED archive isolation + `_run_hygiene_check` (5항목 H1~H5 위생점검). Phase C-live C1+C2+C3 PASS — prune→분류→archive 풀체인 검증 |
 | Postman | 🟢 LIVE | `deliver_receipt` implemented + integrated into `run_producer`/`run_consumer`. POC Phase 1-6 18/18 PASS |
 | Content Hash Protection | 🟢 LIVE | `wiki_write_guard.py` content hash guard + atomic write. 5 tests PASS |
 | Rejection Loop | 🟠 STUB | P1 issue raised. No runtime code yet |
@@ -77,10 +77,10 @@ The table below quantifies the alignment between the architecture described in t
 #### Alignment Summary
 | Domain | Total | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | Alignment |
 |---|---|---|---|---|---|---|
-| Production | 10 | 3 | 6 | 1 | 0 | 93% |
+| Production | 10 | 6 | 3 | 1 | 0 | 97% |
 | Consumption | 4 | 2 | 2 | 0 | 0 | 91% |
 | Infrastructure | 11 | 2 | 9 | 0 | 0 | 90% |
-| **Total** | **25** | **7** | **17** | **1** | **0** | **91%** |
+| **Total** | **25** | **10** | **14** | **1** | **0** | **94%** |
 
 ## Why This Exists
 

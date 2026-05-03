@@ -43,11 +43,11 @@
 |---|---|---|
 | Session Structure Signal | 🟢 LIVE | 나이테 확립. Same-Run Typed Ref Source 검증 완료 |
 | Admission Gate | 🟡 PARTIAL | `source_ref` 계약 검증 동작. Quality Gate P0 이슈 발행됨 |
-| Distiller | 🟡 PARTIAL | 가드레일 + 페르소나 존재. 한국어 sentence 기반 SPO 추출(`_extract_subject`/`_extract_predicate`) 구현 완료 |
-| Evaluator | 🟡 PARTIAL | 오염 감지 + prune 발행 평가. GC 생명주기 Step 1 담당. Phase C-live 진입 |
+| Distiller | 🟢 LIVE | 가드레일 + 페르소나 존재. 한국어 sentence 기반 SPO 추출(`_extract_subject`/`_extract_predicate`) 구현 완료. Phase C-live C1+C2+C3 PASS — SPO→save→receipt 왕복 검증 완료 |
+| Evaluator | 🟢 LIVE | 오염 감지 + prune 발행 평가. GC 생명주기 Step 1 담당. Phase C-live C1 PASS — LLM 자발 prune 발행 검증 |
 | Amundsen | 🟡 PARTIAL | 대륙 분기 스키마 + 런타임 + 페르소나 구현 |
 | Map Maker | 🟡 PARTIAL | 위상 계산 + 페르소나 구현. Q05 엣지 판정(`_determine_edge_type`) 결정론적 구현 완료 |
-| Gardener | 🟡 PARTIAL | 물리적 식재 + 페르소나. `_handle_prune`로 SUPERSEDED archive 격리 + `_run_hygiene_check`(7일 piggybacked 위생점검). 수요 기반 GC POC 6/6 PASS |
+| Gardener | 🟢 LIVE | 물리적 식재 + 페르소나. `_handle_prune`로 SUPERSEDED archive 격리 + `_run_hygiene_check`(5항목 H1~H5 위생점검). Phase C-live C1+C2+C3 PASS — prune→분류→archive 풀체인 검증 |
 | Postman | 🟢 LIVE | `deliver_receipt` 구현 완료 + `run_producer`/`run_consumer` 통합. POC Phase 1-6 18/18 PASS |
 | 수동 편집 보호 | 🟢 LIVE | `wiki_write_guard.py` 콘텐츠 해시 가드 + atomic write. 5개 테스트 PASS |
 | 피드백 루프 | 🟠 STUB | P1 이슈 발행됨. 런타임 코드 미착수 |
@@ -78,10 +78,10 @@
 #### 총 정렬도 요약
 | 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
 |---|---|---|---|---|---|---|
-| 생산면 | 10 | 3 | 6 | 1 | 0 | 93% |
+| 생산면 | 10 | 6 | 3 | 1 | 0 | 97% |
 | 소비면 | 4 | 2 | 2 | 0 | 0 | 91% |
 | 인프라 | 11 | 2 | 9 | 0 | 0 | 90% |
-| **전체** | **25** | **7** | **17** | **1** | **0** | **91%** |
+| **전체** | **25** | **10** | **14** | **1** | **0** | **94%** |
 
 
 ## 시스템 요구사항 및 설정

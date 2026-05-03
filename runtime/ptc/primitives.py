@@ -224,10 +224,13 @@ def assign_edges(
         if new_sentence and existing_sentence:
             sent_overlap = _keyword_overlap(new_sentence, existing_sentence)
             if sent_overlap >= 0.15:
+                edge_type = _determine_edge_type(
+                    new_spo, existing_spo, sent_overlap
+                )
                 edges.append({
                     "from": new_node["node_id"],
                     "to": existing["node_id"],
-                    "edge_type": "RELATED_TO",
+                    "edge_type": edge_type,
                     "reason": f"문장 연관성 {sent_overlap:.0%}",
                 })
 
@@ -273,8 +276,8 @@ def _determine_edge_type(
     new_pred = new_spo.get("predicate", "")
     existing_pred = existing_spo.get("predicate", "")
 
-    # SUPERSEDES: 동일 카테고리 + 높은 오버랩 → 갱신
-    if new_cat == existing_cat and overlap >= 0.5:
+    # SUPERSEDES: 동일 카테고리 + 유의미한 오버랩 → 갱신 (결정적 항목은 v2가 v1을 대체)
+    if new_cat == existing_cat and overlap >= 0.30:
         return "SUPERSEDES"
 
     # DEPENDS_ON: architecture 위에 다른 주제가 의존
