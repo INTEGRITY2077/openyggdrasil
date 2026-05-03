@@ -54,7 +54,7 @@ The table below quantifies the alignment between the architecture described in t
 #### Consumption Side
 | Module | Status | Remarks |
 |---|---|---|
-| Pathfinder | 🟢 LIVE | Persona exists. QMD hybrid_search (BM25+Vector+Rerank) + ACTIVE filter + `_boost_by_edges` 3-stage search pipeline. `qmd_bridge.py` subprocess integration (11th Rev.3 Step C) |
+| Pathfinder | 🟢 LIVE | Persona exists. rank-bm25 (pure BM25) + ACTIVE filter + `_boost_by_edges` 3-stage search pipeline. `qmd_bridge.py` subprocess integration (11th Rev.3 Step C) |
 | Support Bundle | 🟢 LIVE | 3-tier Tree Ring tracking + lifecycle_status + edge_context + context_bundle_ref. Bounded bundle live verified (11th Rev.2) |
 | Mailbox | 🟢 LIVE | Multi-provider POC Phase 1-6 18/18 PASS. `status.json`+`manifest.json` operational. Reverse Push receipts working |
 | Lifecycle Filter | 🟢 LIVE | Frontmatter parsing and ACTIVE/SUPERSEDED state filtering works perfectly |
@@ -77,10 +77,10 @@ The table below quantifies the alignment between the architecture described in t
 #### Alignment Summary
 | Domain | Total | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | Alignment |
 |---|---|---|---|---|---|---|
-| Production | 10 | 8 | 1 | 1 | 0 | 100% |
+| Production | 10 | 8 | 1 | 1 | 0 | 97% |
 | Consumption | 4 | 4 | 0 | 0 | 0 | 100% |
 | Infrastructure | 11 | 3 | 8 | 0 | 0 | 93% |
-| **Total** | **25** | **15** | **9** | **1** | **0** | **100%** |
+| **Total** | **25** | **15** | **9** | **1** | **0** | **97%** |
 
 ## Why This Exists
 
