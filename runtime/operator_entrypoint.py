@@ -105,7 +105,7 @@ def run_producer(mailbox: Path, vault: Path):
         # ★ status.json 갱신 (POC Phase 1 — Context Fade 복원용)
         _update_status(mailbox, intents_processed=len(completed) + 1)
         # ★ manifest.json 갱신 (POC Phase 1 — 세션 카탈로그)
-        _update_manifest(mailbox, session_id="hermes-A", state="alive")
+        _update_manifest(mailbox, state="alive")
 
     print(json.dumps({"status": "producer_done", "pid": os.getpid()}))
 
@@ -180,8 +180,11 @@ def _update_status(mailbox: Path, *, intents_processed: int = 0):
     status_file.write_text(json.dumps(current, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def _update_manifest(mailbox: Path, *, session_id: str = "hermes-A", state: str = "alive"):
+def _update_manifest(mailbox: Path, *, state: str = "alive"):
     """manifest.json 갱신 — 활성 세션 카탈로그."""
+    # session_id는 mailbox 경로에서 추출: .../active/{session_id}/
+    session_id = mailbox.name if mailbox.name.startswith("hermes-") else "hermes-A"
+
     # manifest.json 탐색: active/{session}/ → active/ → mailbox root
     manifest_file = None
     for ancestor in [mailbox.parent, mailbox.parent.parent, mailbox.parent.parent.parent]:
