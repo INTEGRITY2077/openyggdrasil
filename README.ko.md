@@ -99,15 +99,16 @@
 | PTC Sandbox Executor | 🟢 LIVE | `sandbox_executor.py` batch+IPC 듀얼 모드. bwrap 클린룸에서 LLM 코드 실행. 14차 구현 |
 | PTC IPC Server | 🟢 LIVE | `ipc_server.py` Unix Domain Socket 기반 18종 PTC 도구 dispatch. 14차 구현 |
 | PTC Stub Generator | 🟢 LIVE | `stub_generator.py` LLM 코드에 IPC 콜백 함수 주입. 14차 구현 |
-| Live Session | 🟢 LIVE | `live_session.py` Provider→Operator subprocess 포그라운드 CLI. 14차 구현 |
+| Live Session | 🟢 LIVE | `live_session.py` Provider→Operator 포그라운드 CLI. 14차 구현 |
+| YGG Session Manager | 🟢 LIVE | `scripts/ygg` 글로벌 OP 세션 레지스트리. 홀수=Producer, 짝수=Consumer 계약. Provider 페어 자동 할당. 16차 구현 |
 
 #### 총 정렬도 요약
 | 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
 |---|---|---|---|---|---|---|
 | 생산면 | 10 | 10 | 0 | 0 | 0 | 100% |
 | 소비면 | 4 | 4 | 0 | 0 | 0 | 100% |
-| 인프라 | 15 | 15 | 0 | 0 | 0 | 100% |
-| **전체** | **29** | **29** | **0** | **0** | **0** | **100%** |
+| 인프라 | 16 | 16 | 0 | 0 | 0 | 100% |
+| **전체** | **30** | **30** | **0** | **0** | **0** | **100%** |
 
 
 ## 시스템 요구사항 및 설정
