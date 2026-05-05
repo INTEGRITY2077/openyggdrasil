@@ -169,6 +169,39 @@ TMUX는 **core execution path가 아닙니다.** 기본 운영 모드는 backgro
 - TMUX pane이 닫히거나 실패하는 것은 관측성 손실이지 memory engine 실패가 아닙니다.
 - TMUX capture는 사람이 읽는 보조 근거로 쓸 수 있지만, machine-readable receipt, schema-valid trace, test result를 대체할 수 없습니다.
 
+```mermaid
+flowchart LR
+  U["User"]
+  P["Provider Session"]
+  M["Mailbox / Event Log / Receipt"]
+  O["Operator Session"]
+  V["Vault / Support Bundle"]
+  T["TMUX Live Witness<br/>(visual only)"]
+  G["Session Attach Gateway<br/>(target: ygg attach/tmux, NOT PASS)"]
+  L["Operator Talk Lane<br/>(target: ygg talk OP1/OP2, NOT PASS)"]
+  E["typed operator_user_input event"]
+  R["Machine-readable evidence<br/>receipts / schema traces / tests"]
+
+  P --> M --> O --> V
+  U --> G --> T
+  T -. "tail / observe only" .-> M
+  T -. "tail / observe only" .-> O
+  U --> L --> E --> M
+  M --> R
+  T -. "not SOT / not execution gate" .-> R
+```
+
+TMUX 어포던스 계약:
+
+```text
+Use this when: 사람이 live 검증 중 Provider/Operator 흐름을 눈으로 따라봐야 할 때.
+Do not use this when: background 작업 성공, 기억 저장 성공, 검색 성공의 정본 근거가 필요할 때.
+If ambiguous: receipt/event log/schema trace를 먼저 보고, TMUX는 보조 화면으로만 취급한다.
+Typed unavailable when: tmux가 없거나 pane attach가 실패했지만 background receipt가 정상인 경우 `tmux_visual_witness_unavailable`.
+Required evidence refs: Mailbox receipt, event log, schema-valid trace, test result.
+Hard nonclaims: TMUX 화면은 SOT가 아니며, raw stdin/tmux 주입은 Operator Talk의 정본 입력이 아니다.
+```
+
 상태 용어는 정확히 구분합니다:
 
 | 상태 | 의미 |
@@ -250,21 +283,135 @@ openyggdrasil은 특정 도구에 종속되지 않는 공용 지식 저장소로
 openyggdrasil은 파편화된 멀티-에이전트 환경에서 "기억의 마모"를 막기 위해 다음 4가지 핵심 철학을 융합했습니다.
 
 ### 1. 영속적 지식 베이스 (LLM Wiki)
-Andrej Karpathy의 [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 인사이트에서 출발합니다. 매번 프롬프트(RAG)로 맥락을 주입하는 대신, "LLM이 스스로 영속적인 위키(SOT)를 구축하고 큐레이션하게" 합니다. 하지만 단순한 플랫(flat) 위키는 거시적 맥락을 탐색하기 어렵다는 한계가 있습니다.
+Andrej Karpathy의 [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 인사이트에서 출발합니다. 매번 프롬프트(RAG)로 맥락을 주입하는 대신, provider session에서 나온 기억 후보를 **Markdown Vault에 누적되는 SOT 후보**로 구조화합니다. 현재 코드 기준 생산 대상 raw data는 세 가지입니다.
+
+| Raw 입력 | 코드 진입점 | 구조화 역할 |
+|---|---|---|
+| provider가 만든 얕은 신호 | `runtime/capture/session_structure_signal.py::build_session_structure_signal` | `provider_id`, `provider_session_id`, `turn_range`, `surface_reason`, `source_ref`만 담는다. 원문 transcript를 통째로 넣지 않는다. |
+| Mailbox 저장 의뢰 | `runtime/operator/producer.py::run_producer` | `mailbox/intents.jsonl` 또는 legacy `messages.jsonl`에서 `save`, `memory_ticket`, `prune`, `curate`, `sandbox-exec`, `promote` intent를 읽는다. |
+| Mailbox 검색 의뢰 | `runtime/operator/consumer.py::run_consumer` | `mailbox/queries.jsonl`의 `query_text`를 읽고 Vault에서 support bundle을 만든다. |
+
+일반 저장 경로는 `payload.context_snapshot`을 원천으로 삼습니다. 이 텍스트는 `extract_decisions()`에서 결정/정책/사실/아키텍처 마커가 있는 문장 후보로 분해되고, `build_spo_triples()`에서 `Subject / Predicate / Object` 트리플로 바뀐 뒤, `build_vault_node()`에서 `N-<content_hash>` 노드가 됩니다. Admission Gate가 최소 품질을 통과시킨 노드만 `save_to_vault()`로 Markdown 파일이 됩니다.
+
+```text
+Mailbox intent
+  -> context_snapshot
+  -> decision candidates
+  -> S-P-O triples
+  -> Vault node dict
+  -> admission gate
+  -> Markdown file + receipt
+```
 
 ### 2. 도메인 분리 = 대륙의 정의 (Continents & Terrain)
-openyggdrasil에서 카테고리는 단순한 폴더가 아니라 **독립된 지식 도메인(대륙)**을 의미합니다. 지식이 섞이는 것을 막기 위해 철저한 역할 분담을 수행합니다.
-- **Amundsen**은 새로 들어온 지식이 기존 도메인('알려진 대륙')에 속하는지, 완전히 새로운 도메인('신대륙')인지 판별하여 경계를 긋습니다.
-- **Map Maker**는 해당 도메인 내에서 지식 간의 위상과 참조 좌표를 기획합니다.
-- **Gardener**는 지식이 잘못된 도메인에 저장되지 않도록 분류 체계를 보호하며 물리적인 파일 식재(I/O)를 담당합니다.
+openyggdrasil에서 카테고리는 단순한 폴더명이 아니라 **SOT가 놓이는 지식 도메인(대륙)**입니다. 현재 런타임에서 물리적 대륙은 우선 `concepts/`, `entities/`, `comparisons/`입니다. `runtime/ptc/primitives.py::save_to_vault()`는 `_classify_continent()`를 통해 SPO 내용을 보고 저장 위치를 정합니다.
+
+| 현재 물리 대륙 | 들어가는 데이터 | 현재 판정 방식 |
+|---|---|---|
+| `vault/concepts/N-*.md` | 결정, 정책, 아키텍처, 일반 개념 | 기본값. `decision`, `policy`, `architecture` 계열이 여기로 간다. |
+| `vault/entities/N-*.md` | 제품, 도구, 회사, 프레임워크 같은 엔티티 | `_classify_continent()`가 entity marker를 찾으면 배치한다. |
+| `vault/comparisons/N-*.md` | 비교/대비/차이/장단점 | 비교 marker가 있으면 배치한다. |
+| `vault/queries/*.md` | canonical topic / provenance ring page | `memory_ticket` 경로에서 주제별 canonical page로 생성된다. |
+| `vault/_meta/provenance/*.md` | episode/claim/ring provenance record | 나이테 support bundle이 추적할 원천 기록이다. |
+| `vault/communities/*.md` | community placement hint | community id와 관련 ring/topic을 묶는 보조 구조다. |
+
+이름으로 말하면 Amundsen은 대륙 경계 판단, Map Maker는 topic/community/edge 좌표, Gardener는 물리적 식재와 생명주기 보호를 뜻합니다. 단, 현재 public runtime에서 이 셋은 완전한 독립 LLM 모듈 PASS가 아니라 `primitives.py`, `producer.py`, `cultivation/*`, `placement/*`에 흩어진 deterministic/stub/POC 경로와 결합되어 있습니다.
+
+Vault Markdown 노드는 다음 모양으로 저장됩니다.
+
+```text
+---
+title: "<subject>"
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+type: concept | entity | comparison
+status: ACTIVE
+tags: [<raw_category>, <predicate>]
+sources: []
+node_id: "N-..."
+content_hash: "..."
+---
+
+# <subject>
+
+## S-P-O Triple
+- Subject: ...
+- Predicate: ...
+- Object: ...
+
+## Source
+> 원천 sentence
+
+## Metadata
+provider_id 등 부가 정보
+```
 
 ### 3. 출처 추적과 진화의 계통수 (Tree Rings & Lineage)
-최신 문서만 덮어쓰는 구조에서는 과거의 중요한 근원(Origin) 정보가 서서히 소실됩니다. *"시간은 선형으로 흐르지만, 맥락은 선형으로 진화하지 않기 때문입니다."* 이를 방지하기 위해 지식을 진화하는 **계통수(Evolution Tree)**로 취급합니다.
-- **나이테(Ring) 각인:** 수용된 지식 블록에는 기원 정보(`provider_id`, `session_uid`, `timestamp`)가 데이터 모델 레벨에서 각인됩니다.
-- 가장 기초가 되는 결정(Root/Trunk)은 보존되고, 폐기된 로직(Branch)은 물리적 삭제 대신 명시적으로 무효화(`SUPERSEDED`) 처리됩니다. 이를 통해 에이전트는 프로바이더가 달라져도 결정의 변경 이력을 제한된 계통 경로로 점검할 수 있습니다.
+최신 문서만 덮어쓰면 과거 결정의 근원 정보가 사라집니다. 그래서 openyggdrasil은 두 종류의 lineage를 둡니다.
+
+첫째, 일반 Vault 노드는 `provider_id`, `created_at`, `content_hash`, `node_id`를 갖고, 새 노드가 기존 노드와 겹치면 `assign_edges()`가 `_edges.jsonl`에 관계를 추가합니다. 현재 edge ontology는 다음 6종입니다.
+
+```text
+DEPENDS_ON
+SUPERSEDES
+CONTRADICTS
+EXTENDS
+IMPLEMENTS
+RELATED_TO
+```
+
+`SUPERSEDES` edge의 target은 consumer 검색에서 `_boost_by_edges()`에 의해 결과에서 밀려납니다. 즉, 삭제가 아니라 “낡은 가지를 검색 기본 경로에서 내려놓는” 방식입니다.
+
+둘째, `memory_ticket` 경로는 더 강한 나이테 구조를 만듭니다. `runtime/operator/producer.py::_handle_memory_ticket()`는 `source_ref`를 `runtime/source_ref/registry.py::resolve_source_ref()`로 해석합니다. 현재 registry는 provider-neutral 경계를 갖지만 public 코드에서 실제 resolver는 `hermes-session-json://` adapter가 구현된 상태입니다. resolver가 성공하면 다음 산출물이 생성됩니다.
+
+```text
+vault/queries/<topic>.md
+vault/concepts/PRN-<hash>.md
+vault/concepts/N-<hash>.md        # legacy 검색 호환 mirror
+vault/_meta/provenance/<topic>.md
+vault/communities/<community>.md
+```
+
+이 경로의 핵심 raw data는 원문 전체가 아니라 `source_ref`, `message_index_range`, `anchor_hash`, `decision`, `surface_reason`입니다. 원문 위치를 가리키는 포인터와 해시를 각인하고, provider transcript 자체를 Vault에 복사하지 않는 것이 경계입니다.
 
 ### 4. 구조적 관계망 (Graphify 연동)
-Safi Shamsi의 [Graphify (v5)](https://github.com/safishamsi/graphify) 개념을 적용하여 마크다운 문서를 NetworkX 그래프 및 Louvain 커뮤니티로 변환합니다. 이를 통해 디렉토리가 달라도 의미적으로 연결된 지식을 탐색할 수 있습니다.
+Safi Shamsi의 [Graphify (v5)](https://github.com/safishamsi/graphify) 개념은 canonical Vault를 더 잘 탐색하기 위한 **파생 위상 계층**으로만 씁니다. Graphify의 raw input은 provider 원문 세션이 아니라 이미 Vault에 승격된 Markdown입니다.
+
+현재 `common/graphify/graphify-corpus.manifest.json`이 허용하는 입력은 다음입니다.
+
+```text
+SCHEMA.md
+index.md
+log.md
+queries/*.md
+concepts/*.md
+entities/*.md
+comparisons/*.md
+_meta/provenance/*.md
+```
+
+파생 흐름은 다음 코드 경로로 나뉩니다.
+
+```text
+common/graphify/stage_graphify_input.py
+  -> canonical Vault Markdown만 sandbox input으로 복사
+
+common/graphify/run_graphify_pipeline.py
+  -> graphify.detect
+  -> graphify.extract
+  -> Hermes semantic extraction for document nodes
+  -> graphify.build
+  -> graphify.cluster
+  -> graphify.report / graph.json / graph.html / summary.json
+
+runtime/retrieval/graphify_snapshot_adapter.py
+  -> graphify-out을 non_sot snapshot으로 감싼다
+
+runtime/retrieval/graph_query_support_bundle.py
+  -> graph hint를 support bundle 후보로만 만들고 SOT/provenance 검증을 요구한다
+```
+
+따라서 Graphify 산출물은 `graph.json`, `summary.json`, `GRAPH_REPORT.md`, `graph.html` 같은 탐색용 산출물입니다. 이것은 Vault를 다시 쓰지 않으며, provider가 Graphify 결과만 보고 최종 답을 내는 것도 허용하지 않습니다. Graphify가 실패하면 retrieval 품질은 낮아질 수 있지만 core capture, lifecycle, mailbox delivery는 막지 않아야 합니다.
 
 ---
 
@@ -592,6 +739,38 @@ openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool C
   │  CHAIN: extract_spo, create_edge, prune_node, validate_node  │
   │  CORE: get_all_nodes, get_node, save_note, get_edges         │
   └──────────────────────────────────────────────────────────────┘
+```
+
+### 목표 PTC Kitchen 분리 — 생산면/소비면 도구 손잡이
+
+현재 구현은 `_preamble.py`가 26종 도구를 하나의 혼합 표면으로 주입하고, `ipc_server.py`가 단일 dispatcher에서 처리합니다. 아래 표는 **목표 allowlist**입니다. 즉, 이것은 현재 production-ready PASS 주장이 아니라 P1에서 닫아야 할 경계입니다.
+
+| Kitchen | 기본 임무 | 기본 허용 도구 | 명시적 금지 |
+|---|---|---|---|
+| Production Kitchen | 새 기억 후보를 검증하고 Vault에 식재 | `extract_spo`, `validate_node`, `find_similar`, `check_conflicts`, `suggest_placement`, `get_category_tree`, `save_note`, `create_edge`, `prune_node`, `result` | 근거 번들 전달을 소비면처럼 수행, raw stdout을 provider-facing 결과로 사용 |
+| Consumption Kitchen | 기존 Vault를 검색하고 근거 묶음을 반환 | `search_vault`, `deep_search`, `rank_by_relevance`, `locate_region`, `select_topic_anchor`, `read_origin_claims`, `read_recent_claims`, `collect_claim_ids`, `read_source_paths`, `assemble_support_bundle`, `assemble_unanchored_bundle`, `trace_evolution`, `get_community`, `get_node`, `get_edges`, `result` | `save_note`, `create_edge`, `prune_node` 등 Vault mutation |
+| Common / Debug | 최종 결과 반환과 제한적 점검 | `result`; `get_all_nodes`는 debug/admin 표면으로만 제한 | 대량 raw Vault dump를 provider context로 밀어 넣기 |
+
+역할별 위험 도구는 아래처럼 보입니다:
+
+| 도구 | 생산면 | 소비면 | 현재 상태 |
+|---|---|---|---|
+| `save_note` | 허용 | 금지 | 아직 runtime allowlist로 강제되지 않음 |
+| `create_edge` | 허용 | 금지 | 아직 runtime allowlist로 강제되지 않음 |
+| `prune_node` | 허용 | 금지 | 아직 runtime allowlist로 강제되지 않음 |
+| `assemble_support_bundle` | 일반 금지 | 허용 | 소비면 출력 표면으로 분리 필요 |
+| `search_vault` / `deep_search` | 제한적 preflight만 | 허용 | 역할별 affordance 문구와 schema gate 필요 |
+| `result` | 허용 | 허용 | typed egress로 감싸야 하며 raw stdout은 debug-only |
+
+PTC Kitchen 어포던스 계약:
+
+```text
+Use this when: Operator Session이 sandbox 안에서 여러 Vault 도구를 조합해야 하지만, 역할별 책임이 분리되어야 할 때.
+Do not use this when: 모든 도구를 한 표면에 섞어 LLM이 임의로 mutation/read를 넘나들게 만들 때.
+If ambiguous: 기억을 쓰거나 생명주기를 바꾸면 Production Kitchen, 근거를 찾아 사용자에게 돌려주면 Consumption Kitchen.
+Typed unavailable when: role allowlist, typed egress, sandbox fail-closed 중 하나라도 runtime에서 강제되지 않을 때.
+Required evidence refs: `_preamble.py` 도구 목록, `ipc_server.py` dispatcher, sandbox 실행 결과, role allowlist test.
+Hard nonclaims: 현재 PTC IPC/샌드박스 수직 슬라이스는 full PTC chain PASS가 아니며, kitchen split production-ready도 아니다.
 ```
 
 openyggdrasil의 PTC 모델은 구버전의 **Typed PTC Engine**(JSON Execution Plan 강제, 8-Tool Chain)에서 26종 도구 팔레트 + IPC 콜백 루프 방향으로 전환되었습니다.

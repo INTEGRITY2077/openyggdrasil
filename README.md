@@ -146,22 +146,135 @@ This is possible because all agents abandon their internal transcript formats an
 openyggdrasil fuses four core philosophies to prevent "memory erosion" in a fragmented multi-agent environment.
 
 ### 1. Persistent Knowledge Base (LLM Wiki)
-Inspired by Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f). Instead of injecting context via RAG on every query, we "let the LLM incrementally build and curate a persistent wiki (SOT)." However, a simple flat wiki makes it difficult to explore macroscopic contexts.
+Inspired by Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f). Instead of injecting context via RAG on every query, openyggdrasil structures memory candidates emitted from provider sessions into **SOT candidates accumulated in a Markdown Vault**. In the current code, production starts from three raw inputs.
+
+| Raw input | Code entrypoint | Structuring role |
+|---|---|---|
+| Shallow provider signal | `runtime/capture/session_structure_signal.py::build_session_structure_signal` | Carries `provider_id`, `provider_session_id`, `turn_range`, `surface_reason`, and `source_ref`; it does not carry the whole raw transcript. |
+| Mailbox write request | `runtime/operator/producer.py::run_producer` | Reads `save`, `memory_ticket`, `prune`, `curate`, `sandbox-exec`, and `promote` intents from `mailbox/intents.jsonl` or legacy `messages.jsonl`. |
+| Mailbox retrieval request | `runtime/operator/consumer.py::run_consumer` | Reads `query_text` from `mailbox/queries.jsonl` and builds support bundles from the Vault. |
+
+The normal write path uses `payload.context_snapshot` as its source material. That text is split by `extract_decisions()` into candidate decision/policy/fact/architecture sentences, converted by `build_spo_triples()` into `Subject / Predicate / Object` triples, wrapped by `build_vault_node()` as an `N-<content_hash>` node, passed through the Admission Gate, and finally written by `save_to_vault()` as Markdown.
+
+```text
+Mailbox intent
+  -> context_snapshot
+  -> decision candidates
+  -> S-P-O triples
+  -> Vault node dict
+  -> admission gate
+  -> Markdown file + receipt
+```
 
 ### 2. Domain Separation = Defining Continents (Continents & Terrain)
-In openyggdrasil, a category is not just a folder, but an **independent knowledge domain (Continent)**. Strict role separation prevents context contamination.
-- **Amundsen** judges whether incoming knowledge belongs to an existing domain ('known continent') or if a 'new continent' must be charted, establishing the boundaries.
-- **Map Maker** plans the relative topology and reference coordinates within that domain.
-- **Gardener** protects the taxonomy, ensuring knowledge isn't miscategorized, and handles the physical file I/O operations.
+In openyggdrasil, a category is not just a folder; it is the **knowledge domain (Continent)** where SOT material is planted. The current physical continents are `concepts/`, `entities/`, and `comparisons/`. `runtime/ptc/primitives.py::save_to_vault()` calls `_classify_continent()` to choose the storage location from SPO content.
+
+| Current physical continent | Data stored there | Current routing rule |
+|---|---|---|
+| `vault/concepts/N-*.md` | Decisions, policies, architecture, general concepts | Default route; `decision`, `policy`, and `architecture` land here. |
+| `vault/entities/N-*.md` | Products, tools, companies, frameworks, named entities | `_classify_continent()` routes here when it sees entity markers. |
+| `vault/comparisons/N-*.md` | Comparisons, contrasts, tradeoffs | Comparison markers route here. |
+| `vault/queries/*.md` | Canonical topic / provenance ring pages | Created by the `memory_ticket` path. |
+| `vault/_meta/provenance/*.md` | Episode/claim/ring provenance records | Source records for ring support bundles. |
+| `vault/communities/*.md` | Community placement hints | Auxiliary grouping for community id and related rings/topics. |
+
+In naming terms, Amundsen owns continent boundaries, Map Maker owns topic/community/edge coordinates, and Gardener owns physical planting and lifecycle hygiene. In the current public runtime, these are not all fully independent LLM-module PASS surfaces; they are implemented as a mix of deterministic, stub, and POC paths across `primitives.py`, `producer.py`, `cultivation/*`, and `placement/*`.
+
+Vault Markdown nodes are written with this shape:
+
+```text
+---
+title: "<subject>"
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+type: concept | entity | comparison
+status: ACTIVE
+tags: [<raw_category>, <predicate>]
+sources: []
+node_id: "N-..."
+content_hash: "..."
+---
+
+# <subject>
+
+## S-P-O Triple
+- Subject: ...
+- Predicate: ...
+- Object: ...
+
+## Source
+> source sentence
+
+## Metadata
+provider_id and related metadata
+```
 
 ### 3. Provenance Tracking and Lineage (Tree Rings & Evolution)
-If a system merely overwrites files with the latest data, crucial foundational contexts (Origins) are eventually lost. *"Time flows linearly, but context does not evolve linearly."* To prevent this, knowledge is managed as an evolving lineage.
-- **Tree Ring Engraving:** Captured knowledge blocks are stamped with provenance (`provider_id`, `session_uid`, `timestamp`) at the data-model level when admitted.
-- Foundational decisions (Roots and Trunks) are preserved, while abandoned logic (Branches) is explicitly marked as invalid (`SUPERSEDED`) rather than physically deleted. This gives agents a bounded lineage path to inspect a decision's evolution across providers.
+If a system merely overwrites files with the latest data, foundational context disappears. openyggdrasil therefore keeps two lineage surfaces.
+
+First, regular Vault nodes carry `provider_id`, `created_at`, `content_hash`, and `node_id`. When a new node overlaps existing nodes, `assign_edges()` appends relationships to `_edges.jsonl`. The current edge ontology is:
+
+```text
+DEPENDS_ON
+SUPERSEDES
+CONTRADICTS
+EXTENDS
+IMPLEMENTS
+RELATED_TO
+```
+
+The consumer path uses `_boost_by_edges()` to remove `SUPERSEDES` targets from default retrieval. That is the practical lifecycle behavior: old branches are not the preferred retrieval surface.
+
+Second, the `memory_ticket` path creates a stronger Tree Ring structure. `runtime/operator/producer.py::_handle_memory_ticket()` resolves `source_ref` through `runtime/source_ref/registry.py::resolve_source_ref()`. The registry boundary is provider-neutral, but the currently implemented public resolver is the `hermes-session-json://` adapter. When resolution succeeds, the path writes:
+
+```text
+vault/queries/<topic>.md
+vault/concepts/PRN-<hash>.md
+vault/concepts/N-<hash>.md        # legacy search mirror
+vault/_meta/provenance/<topic>.md
+vault/communities/<community>.md
+```
+
+The raw data here is not a copied transcript. It is `source_ref`, `message_index_range`, `anchor_hash`, `decision`, and `surface_reason`: pointers and hashes engraved into the ring so the origin can be checked without dumping provider-private text into the Vault.
 
 ### 4. Structural Relationship Network (Graphify Topology)
-To transcend the physical limits of categorized knowledge, we apply Safi Shamsi's [Graphify (v5)](https://github.com/safishamsi/graphify) concept.
-The Markdown Vault is parsed and converted into a mathematical graph and community clusters using NetworkX Louvain community detection. This allows traversal across semantic edges, connecting related knowledge even if stored in different folders.
+Safi Shamsi's [Graphify (v5)](https://github.com/safishamsi/graphify) concept is used only as a **derived topology layer** for navigation. Graphify raw input is not provider session text; it is canonical Markdown that has already been promoted into the Vault.
+
+`common/graphify/graphify-corpus.manifest.json` currently allows:
+
+```text
+SCHEMA.md
+index.md
+log.md
+queries/*.md
+concepts/*.md
+entities/*.md
+comparisons/*.md
+_meta/provenance/*.md
+```
+
+The derived flow is:
+
+```text
+common/graphify/stage_graphify_input.py
+  -> copies only canonical Vault Markdown into sandbox input
+
+common/graphify/run_graphify_pipeline.py
+  -> graphify.detect
+  -> graphify.extract
+  -> Hermes semantic extraction for document nodes
+  -> graphify.build
+  -> graphify.cluster
+  -> graphify.report / graph.json / graph.html / summary.json
+
+runtime/retrieval/graphify_snapshot_adapter.py
+  -> wraps graphify-out as a non_sot snapshot
+
+runtime/retrieval/graph_query_support_bundle.py
+  -> turns graph hints into support-bundle candidates and requires SOT/provenance verification
+```
+
+Graphify outputs such as `graph.json`, `summary.json`, `GRAPH_REPORT.md`, and `graph.html` are navigation artifacts. They do not write the Vault, and providers must not answer from Graphify alone. If Graphify is unavailable, retrieval quality may degrade, but core capture, lifecycle, and mailbox delivery must continue.
 
 ---
 
@@ -279,6 +392,39 @@ TMUX is **not** the core execution path. The default operating mode remains back
 - TMUX panes may tail the same logs, inboxes, receipts, or status snapshots that the background runtime already produces.
 - Closing or failing a TMUX pane is an observability loss, not a memory-engine failure.
 - A TMUX capture may be used as human-readable evidence, but it must not replace machine-readable receipts, schema-valid traces, or test results.
+
+```mermaid
+flowchart LR
+  U["User"]
+  P["Provider Session"]
+  M["Mailbox / Event Log / Receipt"]
+  O["Operator Session"]
+  V["Vault / Support Bundle"]
+  T["TMUX Live Witness<br/>(visual only)"]
+  G["Session Attach Gateway<br/>(target: ygg attach/tmux, NOT PASS)"]
+  L["Operator Talk Lane<br/>(target: ygg talk OP1/OP2, NOT PASS)"]
+  E["typed operator_user_input event"]
+  R["Machine-readable evidence<br/>receipts / schema traces / tests"]
+
+  P --> M --> O --> V
+  U --> G --> T
+  T -. "tail / observe only" .-> M
+  T -. "tail / observe only" .-> O
+  U --> L --> E --> M
+  M --> R
+  T -. "not SOT / not execution gate" .-> R
+```
+
+TMUX affordance contract:
+
+```text
+Use this when: a human needs to visually follow Provider/Operator flow during live verification.
+Do not use this when: you need canonical proof that background work, memory write, or retrieval succeeded.
+If ambiguous: inspect receipts, event logs, and schema traces first; treat TMUX as an auxiliary screen.
+Typed unavailable when: tmux is missing or pane attach fails while background receipts are still healthy -> `tmux_visual_witness_unavailable`.
+Required evidence refs: Mailbox receipt, event log, schema-valid trace, test result.
+Hard nonclaims: TMUX is not SOT, and raw stdin/tmux injection is not the canonical Operator Talk input.
+```
 
 Status terms must stay precise:
 
@@ -537,6 +683,38 @@ The standard PTC paradigm allows the agent to freely write Python code within a 
   │  CHAIN: extract_spo, create_edge, prune_node, validate_node  │
   │  CORE: get_all_nodes, get_node, save_note, get_edges         │
   └──────────────────────────────────────────────────────────────┘
+```
+
+### Target PTC Kitchen Split — Production/Consumption Tool Handles
+
+The current implementation injects a mixed 26-tool surface from `_preamble.py` and dispatches it through a single `ipc_server.py` dispatcher. The table below is the **target allowlist**, not a current production-ready PASS claim. It is the P1 boundary that still needs runtime enforcement.
+
+| Kitchen | Default job | Default allowed tools | Explicitly forbidden |
+|---|---|---|---|
+| Production Kitchen | Validate a new memory candidate and plant it into the Vault | `extract_spo`, `validate_node`, `find_similar`, `check_conflicts`, `suggest_placement`, `get_category_tree`, `save_note`, `create_edge`, `prune_node`, `result` | Acting like a consumption support-bundle surface; using raw stdout as provider-facing output |
+| Consumption Kitchen | Search the existing Vault and return bounded evidence | `search_vault`, `deep_search`, `rank_by_relevance`, `locate_region`, `select_topic_anchor`, `read_origin_claims`, `read_recent_claims`, `collect_claim_ids`, `read_source_paths`, `assemble_support_bundle`, `assemble_unanchored_bundle`, `trace_evolution`, `get_community`, `get_node`, `get_edges`, `result` | Vault mutation such as `save_note`, `create_edge`, or `prune_node` |
+| Common / Debug | Final result return and bounded inspection | `result`; `get_all_nodes` is limited to debug/admin surfaces | Pushing large raw Vault dumps into provider context |
+
+The high-risk handles should read like this:
+
+| Tool | Production side | Consumption side | Current status |
+|---|---|---|---|
+| `save_note` | Allowed | Forbidden | Not yet enforced by a runtime allowlist |
+| `create_edge` | Allowed | Forbidden | Not yet enforced by a runtime allowlist |
+| `prune_node` | Allowed | Forbidden | Not yet enforced by a runtime allowlist |
+| `assemble_support_bundle` | Usually forbidden | Allowed | Must become a consumption output surface |
+| `search_vault` / `deep_search` | Bounded preflight only | Allowed | Needs role-specific affordance text and schema gates |
+| `result` | Allowed | Allowed | Must be wrapped in typed egress; raw stdout is debug-only |
+
+PTC Kitchen affordance contract:
+
+```text
+Use this when: an Operator Session must compose multiple Vault tools inside a sandbox while keeping role responsibilities separate.
+Do not use this when: all tools are mixed into one LLM surface that can freely cross mutation/read boundaries.
+If ambiguous: writing memory or changing lifecycle goes to Production Kitchen; finding support for the user goes to Consumption Kitchen.
+Typed unavailable when: role allowlist, typed egress, or sandbox fail-closed is not enforced by runtime.
+Required evidence refs: `_preamble.py` tool list, `ipc_server.py` dispatcher, sandbox execution result, role allowlist test.
+Hard nonclaims: the current PTC IPC/sandbox vertical slice is not full PTC chain PASS and not kitchen-split production readiness.
 ```
 
 openyggdrasil's PTC model has moved from the legacy **Typed PTC Engine** (JSON Execution Plan, 8-Tool Chain) toward a 26-tool palette plus IPC callback loop:
