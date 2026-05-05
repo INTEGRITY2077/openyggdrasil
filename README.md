@@ -367,10 +367,13 @@ openyggdrasil runs purely locally. The core runtime relies mostly on the Python 
 - **`networkx`**: for graph derivation, node indexing, traversal, and Louvain community detection
 - **`jsonschema`**: for strictly validating provider contracts and mailbox schemas
 - **`pyyaml`**: for reading/writing configuration and manifest files
+- **`rank-bm25`**: for Pathfinder's local BM25 keyword retrieval
 - **`pytest`**: for local contract verification and smoke tests
+- **`kiwipiepy`**: for Korean morphological analysis and sentence splitting
 
 **System Dependencies:**
 - **`bubblewrap`** (`bwrap`): required for unprivileged sandbox isolation during Reasoning Lease execution (Linux/WSL only).
+- **`socat`**: required for WSL2/Linux provider-worker live/sandbox readiness and Unix socket/stream bridge checks.
 
 **These dependencies must be installed in the user's local environment.**
 
@@ -378,8 +381,8 @@ openyggdrasil runs purely locally. The core runtime relies mostly on the Python 
 > Before executing the initial setup (Cold Start) skill for the first time, the provider **MUST ask the user for explicit permission** to install these dependencies.
 >
 > 1. Provider detects that dependencies are missing.
-> 2. Provider halts and prompts the user: *"openyggdrasil requires Python dependencies (listed in requirements) to be installed locally. Do you allow this?"*
-> 3. Only upon user approval, the provider installs the requirements. **Silent or unprompted installations are strictly forbidden.**
+> 2. Provider halts and prompts the user: *"openyggdrasil requires local Python packages and WSL2/Linux system dependencies. Do you allow installation or verification?"*
+> 3. Only upon user approval, the provider installs or verifies the dependencies. **Silent or unprompted installations are strictly forbidden.**
 
 ### 3. Session-Scoped Cold Start
 
@@ -514,7 +517,10 @@ git clone https://github.com/INTEGRITY2077/openyggdrasil.git
 cd openyggdrasil
 
 # Install dependencies (user-initiated)
-pip install -r requirements.txt # (assuming requirements exist)
+pip install -r requirements.txt
+
+# WSL2/Ubuntu system dependencies (user-initiated)
+sudo apt-get install -y bubblewrap socat
 
 # Run import smoke test
 python runtime/import_smoke.py
@@ -1333,12 +1339,17 @@ into navigable graphs:
 
 ### Special Runtime Dependencies
 
-openyggdrasil stays local and filesystem-first, but Korean structuring and sandbox isolation depend on these projects.
+openyggdrasil stays local and filesystem-first, but graph topology, contract validation, YAML metadata, Korean structuring, and sandbox isolation depend on these projects.
 
 | Project | Role | License / acknowledgement |
 |---|---|---|
+| [`NetworkX`](https://networkx.org/) | Graph foundation for Vault/Graphify derived topology, node traversal, and Louvain community-based topic structure. | BSD-licensed Python graph ecosystem |
+| [`jsonschema`](https://python-jsonschema.readthedocs.io/) | Runtime validation foundation for Mailbox, receipt, support bundle, and provider contracts. | MIT-licensed JSON Schema validation project |
+| [`PyYAML`](https://pyyaml.org/) | Parser foundation for Vault Markdown YAML frontmatter, configuration, and manifests. | MIT-licensed YAML parser project |
+| [`rank-bm25`](https://github.com/dorianbrown/rank_bm25) | Local BM25 retrieval foundation for Pathfinder. It narrows Vault candidates without a vector DB or embedding service. | Apache 2.0-licensed BM25 implementation |
 | [`kiwipiepy`](https://github.com/bab2min/kiwipiepy) | Korean morphological analysis and sentence splitting. `runtime/ptc/primitives.py::extract_decisions()` uses it for more reliable Korean sentence segmentation. | LGPL v3, (c) bab2min |
 | [`bubblewrap`](https://github.com/containers/bubblewrap) (`bwrap`) | Core dependency for unprivileged Linux/WSL isolation in Reasoning Lease and PTC sandbox execution. | Foundation for the local sandbox boundary |
+| [`socat`](http://www.dest-unreach.org/socat/) | System tool used to verify Unix socket/stream bridge availability around live provider workers and sandbox boundaries. | Linux/Unix stream relay project |
 
 ---
 

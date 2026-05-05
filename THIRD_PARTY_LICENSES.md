@@ -3,7 +3,7 @@
 This file records public third-party license notices for companion dependencies
 that are intentionally part of the openyggdrasil distribution surface.
 
-It currently documents direct permissive dependencies and accepted clean-room dependencies: Graphify, Dulwich, NetworkX, python-frontmatter, jsonschema, and PyYAML.
+It currently documents direct permissive dependencies and accepted clean-room dependencies: Graphify, Dulwich, NetworkX, rank-bm25, python-frontmatter, jsonschema, and PyYAML.
 It is not a complete SBOM and does not claim full transitive dependency coverage.
 
 ## Direct Third-Party Notices
@@ -110,6 +110,22 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+### rank-bm25
+
+- Upstream project: `rank-bm25`
+- Upstream package/import name: `rank_bm25`
+- Upstream repository: <https://github.com/dorianbrown/rank_bm25>
+- Upstream license: Apache License 2.0
+- openyggdrasil usage: BM25Okapi backend for local Vault keyword retrieval in `runtime/bm25_search.py`.
+
+Source: <https://github.com/dorianbrown/rank_bm25/blob/master/LICENSE>
+
+```text
+Apache License
+Version 2.0, January 2004
+http://www.apache.org/licenses/
 ```
 
 ### python-frontmatter

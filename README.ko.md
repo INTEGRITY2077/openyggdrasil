@@ -136,11 +136,13 @@ openyggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python
 - **`networkx`**: 그래프 파생, 노드 인덱싱, 탐색, Louvain 커뮤니티 탐지용
 - **`jsonschema`**: 프로바이더 계약 및 메일박스 스키마의 엄격한 검증용
 - **`pyyaml`**: 설정 및 매니페스트 파일 읽기/쓰기용
+- **`rank-bm25`**: Pathfinder의 로컬 BM25 키워드 검색용
 - **`pytest`**: 로컬 계약 검증 및 스모크 테스트용
 - **`kiwipiepy`**: (LGPL v3, (c) bab2min) 한국어 형태소 분석 및 문장 분리. https://github.com/bab2min/kiwi
 
 **시스템 의존성:**
 - **`bubblewrap`** (`bwrap`): Reasoning Lease 실행 시 비특권 샌드박스 격리에 **필수** (Linux/WSL).
+- **`socat`**: WSL2/Linux provider worker의 live/sandbox readiness와 Unix socket/stream 브릿지 검증에 필요.
 
 **이 의존성들은 사용자의 로컬 환경에 설치되어야 합니다.**
 
@@ -148,8 +150,8 @@ openyggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python
 > 초기 셋업(Cold Start) 스킬을 처음 실행하기 전에, 프로바이더는 **반드시 사용자에게 명시적 허가를 요청**해야 합니다.
 >
 > 1. 프로바이더가 의존성 누락을 감지합니다.
-> 2. 프로바이더가 중단하고 사용자에게 프롬프트: *"openyggdrasil은 로컬에 설치할 Python 의존성이 필요합니다. 허용하시겠습니까?"*
-> 3. 사용자 승인 시에만 의존성을 설치합니다. **무단 또는 프롬프트 없는 설치는 엄격히 금지됩니다.**
+> 2. 프로바이더가 중단하고 사용자에게 프롬프트: *"openyggdrasil은 로컬 Python 패키지와 WSL2/Linux 시스템 의존성이 필요합니다. 설치/확인을 허용하시겠습니까?"*
+> 3. 사용자 승인 시에만 의존성을 설치하거나 확인합니다. **무단 또는 프롬프트 없는 설치는 엄격히 금지됩니다.**
 
 ### 3. 세션 스코프 콜드스타트 (Session-Scoped Cold Start)
 
@@ -290,6 +292,9 @@ cd openyggdrasil
 # 의존성 설치 (사용자 주도)
 pip install -r requirements.txt
 
+# WSL2/Ubuntu 시스템 의존성 (사용자 주도)
+sudo apt-get install -y bubblewrap socat
+
 # 임포트 스모크 테스트
 python runtime/import_smoke.py
 ```
@@ -330,7 +335,7 @@ openyggdrasil은 다른 접근을 취합니다.
 ### 🛡️ 3-Tier 벡터 대체 전략 (Vector Replacement)
 순수 로컬 시스템에서 다음 3계층의 필터링을 통해 검색 효율성을 높입니다.
 
-1. **L1 구조적 필터링 (YAML Frontmatter)**: `python-frontmatter`를 사용하여 문서의 메타데이터(`status`, `tags`, `type`)를 필터링합니다. 이를 통해 'SUPERSEDED' 상태의 문서가 검색에 포함되는 것을 방지합니다.
+1. **L1 구조적 필터링 (YAML Frontmatter)**: PyYAML 기반 frontmatter 파서로 문서의 메타데이터(`status`, `tags`, `type`)를 필터링합니다. 이를 통해 'SUPERSEDED' 상태의 문서가 검색에 포함되는 것을 방지합니다.
 2. **L2 그래프 탐색 (NetworkX Topology)**: 문서 간의 `Sources` 속성을 NetworkX 그래프로 변환합니다. Louvain 커뮤니티 감지 알고리즘을 사용하여 연관된 토픽 클러스터를 식별합니다.
 3. **L3 프로그래매틱 스캔 (PTC 기반 Full-text)**: Python 스크립트(PTC)가 검색된 후보 문서들을 로컬에서 직접 스캔합니다. 필요한 코드 스니펫이나 변수명 등의 결과만 추출하여 LLM에 반환함으로써 컨텍스트 윈도우의 토큰 사용량을 최소화합니다.
 
@@ -1541,12 +1546,17 @@ Graphify는 구조 분석 계층을 제공합니다 — 코드베이스와 지�
 
 ### 특수 런타임 의존성
 
-openyggdrasil은 기본적으로 순수 로컬/파일시스템 중심으로 작동하지만, 한국어 구조화와 샌드박스 격리에는 다음 프로젝트의 도움을 받습니다.
+openyggdrasil은 기본적으로 순수 로컬/파일시스템 중심으로 작동하지만, 그래프 위상, 계약 검증, YAML 메타데이터, 한국어 구조화, 샌드박스 격리에는 다음 프로젝트의 도움을 받습니다.
 
 | 프로젝트 | 역할 | 라이선스/감사 |
 |---|---|---|
+| [`NetworkX`](https://networkx.org/) | Vault/Graphify 파생 위상, 노드 탐색, Louvain 커뮤니티 기반 토픽 구조를 만드는 그래프 기반입니다. | BSD 라이선스 기반의 Python 그래프 생태계 |
+| [`jsonschema`](https://python-jsonschema.readthedocs.io/) | Mailbox, receipt, support bundle, provider 계약을 런타임에서 검증하는 스키마 검증 기반입니다. | MIT 라이선스 기반의 JSON Schema 검증 프로젝트 |
+| [`PyYAML`](https://pyyaml.org/) | Vault Markdown의 YAML frontmatter, 설정, 매니페스트를 읽고 정규화하는 파서 기반입니다. | MIT 라이선스 기반의 YAML 파서 프로젝트 |
+| [`rank-bm25`](https://github.com/dorianbrown/rank_bm25) | Pathfinder의 로컬 BM25 검색 기반입니다. 벡터 DB나 임베딩 인프라 없이 Vault 후보를 빠르게 좁히는 데 사용합니다. | Apache 2.0 라이선스 기반의 BM25 구현체 |
 | [`kiwipiepy`](https://github.com/bab2min/kiwipiepy) | 한국어 형태소 분석 및 문장 분리. `runtime/ptc/primitives.py::extract_decisions()`가 한국어 문장을 더 안정적으로 나누기 위해 사용합니다. | LGPL v3, (c) bab2min |
 | [`bubblewrap`](https://github.com/containers/bubblewrap) (`bwrap`) | Reasoning Lease와 PTC sandbox 실행에서 비특권 Linux/WSL 격리를 제공하는 핵심 의존성입니다. | 컨테이너 격리 경계의 기반 프로젝트 |
+| [`socat`](http://www.dest-unreach.org/socat/) | live provider worker와 sandbox 경계에서 Unix socket/stream 브릿지 가용성을 검증하는 시스템 도구입니다. | Linux/Unix stream relay 기반 프로젝트 |
 
 ### [rank-bm25](https://github.com/dorianbrown/rank_bm25)
 
