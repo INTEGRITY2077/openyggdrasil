@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/memory_ticket.v1.schema.json",
+  "title": "MemoryTicket v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "source_ref",
+    "message_index_range",
+    "provider_session_id",
+    "surface_reason",
+    "commit_watermark",
+    "anchor_hash"
+  ],
+  "properties": {
+    "schema_version": {"const": "memory_ticket.v1"},
+    "source_ref": {"type": "string", "minLength": 1},
+    "message_index_range": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "integer", "minimum": 0},
+        "end": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "provider_session_id": {"type": "string", "minLength": 1},
+    "surface_reason": {"type": "string", "minLength": 1},
+    "commit_watermark": {"type": "string", "minLength": 1},
+    "anchor_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "decision": {"type": "string"},
+    "context": {"type": "string"},
+    "conclusion": {"type": "string"},
+    "forbidden": {"type": ["array", "string"]},
+    "reuse_condition": {"type": "string"},
+    "category": {"type": "string"},
+    "community": {"type": "string"}
+  }
+}

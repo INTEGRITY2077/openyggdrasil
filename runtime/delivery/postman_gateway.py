@@ -5,6 +5,7 @@ from typing import Any, Dict
 from delivery.mailbox_contamination_guard import ensure_mailbox_message_accepted
 from delivery.mailbox_status import write_mailbox_status
 from delivery.mailbox_store import append_message
+from delivery.postman_live_delivery import submit_live_delivery
 
 
 def submit_message(

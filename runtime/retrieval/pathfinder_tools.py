@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
+import re
 from typing import Any, Callable, Mapping
 
 from harness_common import DEFAULT_VAULT, utc_now_iso
@@ -71,7 +73,7 @@ def _fallback_rows_from_episode_blocks(
     return rows
 
 
-def find_region(*, query_text: str, vault_root: Path = DEFAULT_VAULT) -> dict[str, Any]:
+def locate_region(*, query_text: str, vault_root: Path = DEFAULT_VAULT) -> dict[str, Any]:
     _ = query_text
     _ = vault_root
     return {
@@ -83,7 +85,7 @@ def find_region(*, query_text: str, vault_root: Path = DEFAULT_VAULT) -> dict[st
     }
 
 
-def find_topic_anchor(
+def select_topic_anchor(
     *,
     query_text: str,
     region_id: str | None = None,
@@ -141,7 +143,7 @@ def get_origin_claims(
     return rows[: max(1, limit)]
 
 
-def get_recent_episodes(
+def read_recent_claims(
     *,
     topic_id: str,
     vault_root: Path = DEFAULT_VAULT,
@@ -164,7 +166,7 @@ def get_recent_episodes(
     return rows[: max(1, limit)]
 
 
-def get_raw_sources(
+def read_source_paths(
     *,
     topic_id: str,
     claim_ids: list[str] | None = None,
@@ -234,5 +236,168 @@ def build_support_bundle(
     return bundle
 
 
-def build_unanchored_bundle(*, query_text: str) -> dict[str, Any]:
+def assemble_unanchored_bundle(*, query_text: str) -> dict[str, Any]:
     return _unanchored_bundle(query_text=query_text)
+
+
+def _extract_json_objects_from_fenced_blocks(text: str) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for match in re.finditer(r"```json\s*(.*?)\s*```", text, flags=re.DOTALL):
+        raw = match.group(1).strip()
+        if not raw:
+            continue
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            records.append(parsed)
+        elif isinstance(parsed, list):
+            records.extend(item for item in parsed if isinstance(item, dict))
+    return records
+
+
+def _unique_preserve_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for value in values:
+        item = str(value).strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
+
+
+def _extract_ring_ids(text: str, records: list[Mapping[str, Any]]) -> list[str]:
+    ring_ids = [str(row.get("ring_id") or "") for row in records]
+    for line in text.splitlines():
+        m = re.match(r"\s*-?\s*ring_id\s*:\s*([0-9A-Za-z가-힣:_-]+)\s*$", line)
+        if m:
+            ring_ids.append(m.group(1))
+    return _unique_preserve_order(ring_ids)
+
+
+def _extract_community_ids(text: str, records: list[Mapping[str, Any]]) -> list[str]:
+    community_ids = [str(row.get("community_id") or "") for row in records]
+    community_ids.extend(re.findall(r"community:[0-9A-Za-z가-힣:_-]+", text))
+    return _unique_preserve_order(community_ids)
+
+
+def _select_ring_topic_key(*, query_text: str, vault_root: Path) -> str | None:
+    query_words = {w for w in re.split(r"\s+", query_text.lower()) if w}
+    best: tuple[int, str] | None = None
+    for path in (vault_root / "queries").glob("*.md"):
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        if "ring_id" not in text and "Provenance Rings" not in text and "community_id" not in text:
+            continue
+        hay = text.lower()
+        score = sum(1 for word in query_words if word and word in hay)
+        if score <= 0:
+            score = 1
+        key = path.stem
+        if best is None or score > best[0]:
+            best = (score, key)
+    return best[1] if best else None
+
+
+def build_ring_support_bundle(
+    *,
+    query_text: str,
+    vault_root: Path = DEFAULT_VAULT,
+    topic_key: str | None = None,
+) -> dict[str, Any]:
+    """나이테 기억 노드용 origin/recent/source/community/edge 혼합 support bundle을 구성한다.
+
+    POC용 고정 경로다. 기존 Pathfinder bundle을 대체하지 않고 provenance ring node가
+    감지될 때 OP2 receipt 안에 추가로 싣는다.
+    """
+    selected_topic_key = topic_key or _select_ring_topic_key(query_text=query_text, vault_root=vault_root)
+    if not selected_topic_key:
+        return {
+            "schema_version": "ring_support_bundle.v1",
+            "bundle_mode": "provenance-ring-mixed",
+            "query_text": query_text,
+            "ring_ids": [],
+            "origin_claims": [],
+            "recent_rings": [],
+            "source_paths": [],
+            "community_edges": [],
+            "semantic_edges": [],
+        }
+
+    topic_path = vault_root / "queries" / f"{selected_topic_key}.md"
+    topic_text = topic_path.read_text(encoding="utf-8", errors="ignore") if topic_path.exists() else ""
+    prov_path = vault_root / "_meta" / "provenance" / f"{selected_topic_key}.md"
+    prov_text = prov_path.read_text(encoding="utf-8", errors="ignore") if prov_path.exists() else ""
+    records = _extract_json_objects_from_fenced_blocks(prov_text)
+    if not records:
+        # 기존 parser가 이해하는 페이지면 그 결과도 보조로 사용한다.
+        try:
+            records = list(parse_provenance_records(prov_text))
+        except Exception:
+            records = []
+    all_text = topic_text + "\n" + prov_text
+    ring_ids = _extract_ring_ids(all_text, records)
+    community_ids = _extract_community_ids(all_text, records)
+    origin_claims = [
+        {
+            "episode_id": str(row.get("episode_id") or ""),
+            "claim_id": str(row.get("claim_id") or ""),
+            "support_fact": str(row.get("support_fact") or row.get("answer_summary") or row.get("question_summary") or ""),
+            "source_rel": str(row.get("derived_from") or row.get("promoted_from") or ""),
+            "lane": "origin",
+        }
+        for row in records
+    ]
+    recent_rings = [
+        {
+            "ring_id": str(row.get("ring_id") or ring_id),
+            "episode_id": str(row.get("episode_id") or ""),
+            "source_ref": str(row.get("source_ref") or ""),
+            "origin_locator": str(row.get("origin_locator") or ""),
+            "lane": "recent",
+        }
+        for ring_id in ring_ids
+        for row in (records or [{"ring_id": ring_id}])
+        if str(row.get("ring_id") or ring_id) == ring_id
+    ]
+    source_paths: list[str] = []
+    if topic_path.exists():
+        source_paths.append(str(topic_path.resolve()))
+    if prov_path.exists():
+        source_paths.append(str(prov_path.resolve()))
+    for row in records:
+        rel = str(row.get("derived_from") or row.get("promoted_from") or "").strip()
+        if rel:
+            source_paths.append(str((vault_root / rel).resolve()))
+    community_edges = [
+        {
+            "community_id": cid,
+            "ring_ids": ring_ids,
+            "topic_key": selected_topic_key,
+            "lane": "community_edges",
+        }
+        for cid in community_ids
+    ]
+    semantic_edges = [
+        {
+            "type": "PROVENANCE_RING_SUPPORTS",
+            "ring_id": ring_id,
+            "topic_key": selected_topic_key,
+            "query_text": query_text,
+        }
+        for ring_id in ring_ids
+    ]
+    return {
+        "schema_version": "ring_support_bundle.v1",
+        "bundle_mode": "provenance-ring-mixed",
+        "query_text": query_text,
+        "topic_key": selected_topic_key,
+        "ring_ids": ring_ids,
+        "origin_claims": origin_claims,
+        "recent_rings": recent_rings,
+        "source_paths": _unique_preserve_order(source_paths),
+        "community_edges": community_edges,
+        "semantic_edges": semantic_edges,
+    }

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from retrieval.pathfinder_tools import find_region
+from retrieval.pathfinder_tools import locate_region
 
 
 CAPABILITY_ID = "locate_region"

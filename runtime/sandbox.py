@@ -52,18 +52,8 @@ def sandbox_run(
     bwrap = _find_bwrap()
 
     if bwrap is None:
-        # WSL/Windows: bubblewrap 불가 → 경량 fallback
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-            return {
-                "status": "ok" if result.returncode == 0 else "error",
-                "stdout": result.stdout[:10000],
-                "stderr": result.stderr[:10000],
-                "exit_code": result.returncode,
-                "sandbox": "none",
-            }
-        except subprocess.TimeoutExpired:
-            return {"status": "error", "stdout": "", "stderr": "timeout", "exit_code": -1, "sandbox": "none"}
+        # WSL/Windows: bubblewrap 불가 → None 반환 (호출자가 경고 로그 후 대체 경로 진행)
+        return None
 
     # bubblewrap 모드
     bwrap_cmd = [

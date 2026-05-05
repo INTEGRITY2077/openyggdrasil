@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from retrieval.pathfinder_tools import find_topic_anchor
+from retrieval.pathfinder_tools import select_topic_anchor
 
 
 CAPABILITY_ID = "select_topic_anchor"

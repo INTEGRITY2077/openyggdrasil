@@ -6,6 +6,7 @@ runtime/ptc/primitives.py에서 import하여 SKILL 어포던스 아래에서
 조합한다.
 
 14차 Axis 3: producer/consumer/prune/helpers → runtime/operator/ 분리 완료.
+operator_entrypoint.py는 순수 entrypoint + tests backward-compat re-export만 담당.
 
 Usage (Provider SKILL → subprocess):
     python -m runtime.operator_entrypoint produce --mailbox /path/to/mailbox --vault /path/to/vault
@@ -17,17 +18,12 @@ import argparse
 import sys
 from pathlib import Path
 
-# producer는 runtime.operator.producer로 분리 (14차 Axis 3)
 from runtime.operator.producer import run_producer
+from runtime.operator.consumer import run_consumer
 
-# consumer는 runtime.operator.consumer로 분리 (14차 Axis 3)
-from runtime.operator.consumer import run_consumer, _bm25_search_vault
+# ─── tests backward-compat re-exports (구현은 runtime/operator/ 아래에 있음) ───
 
-
-# ─── backward-compat re-exports (tests import from operator_entrypoint) ───
-
-# helpers re-exports
-from runtime.operator.helpers import (
+from runtime.operator.helpers import (  # noqa: F401 — tests import from here
     deliver_receipt,
     _update_status,
     _update_manifest,
@@ -35,8 +31,7 @@ from runtime.operator.helpers import (
     _write_context_bundle,
 )
 
-# prune re-exports
-from runtime.operator.prune import (
+from runtime.operator.prune import (  # noqa: F401 — tests import from here
     _handle_prune,
     _classify_prune_target,
     _restore_from_archive,
@@ -52,6 +47,9 @@ from runtime.operator.prune import (
     _write_hygiene_report,
     _write_last_run,
 )
+
+# ─── consumer BM25 re-export (tests backward-compat) ───
+from runtime.operator.consumer import _bm25_search_vault  # noqa: F401
 
 
 if __name__ == "__main__":

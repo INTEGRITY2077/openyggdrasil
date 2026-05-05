@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from retrieval.pathfinder_tools import get_recent_episodes
+from retrieval.pathfinder_tools import read_recent_claims
 
 
 CAPABILITY_ID = "read_recent_claims"

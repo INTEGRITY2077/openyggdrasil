@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from runtime.logging import warn
+from runtime.log_event import warn
 
 
 def _update_status(mailbox: Path, *, intents_processed: int = 0):
@@ -91,7 +91,83 @@ def deliver_receipt(
     }
     with open(delivery_file, "a", encoding="utf-8") as f:
         f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+
+    _append_provider_inbox(mailbox, mail_id, status, produced_count, node_ids or [], result_bundle)
+
+    # Track 1 (계약): Mailbox JSONL — 위에서 완료.
+    # Track 2 (관찰): 채팅창 주입 금지. Hermes 네이티브 세션에 tmux send-keys로
+    # Postman 알림을 넣으면 진행 중 API call이 interrupt되어 비동기 UX가 깨진다.
+    # 따라서 관찰용 로그 파일에만 남긴다.
+    _postman_notify(mailbox, mail_id, produced_count, node_ids or [])
+
     return receipt
+
+
+def _append_provider_inbox(
+    mailbox: Path,
+    mail_id: str,
+    status: str,
+    produced: int,
+    nodes: list[str],
+    bundle: dict | None,
+) -> None:
+    """OP→Provider 비동기 수신면. 채팅창 주입 없이 Provider가 읽을 inbox에 기록한다."""
+    try:
+        provider_inbox = Path(os.environ.get("YGG_PROVIDER_INBOX") or (Path.home() / ".yggdrasil" / "provider_inbox.jsonl"))
+        provider_inbox.parent.mkdir(parents=True, exist_ok=True)
+        row = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "sender": mailbox.name,
+            "receiver": "Provider",
+            "mail_id": mail_id,
+            "status": status,
+            "produced_count": produced,
+            "nodes": nodes,
+            "bundle": bundle,
+            "result_bundle": bundle,
+            "message": f"📬 {mailbox.name}→Provider: {mail_id} status={status} produced={produced}",
+            "delivery_mode": "provider_inbox_file",
+        }
+        with open(provider_inbox, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
+def _postman_notify(mailbox: Path, mail_id: str, produced: int, nodes: list[str]):
+    """Track 2: 관찰용 로그만 기록한다. Hermes 채팅창에는 절대 주입하지 않는다."""
+    try:
+        op_name = mailbox.name
+
+        vault = Path("/mnt/d/0_PROJECT/openyggdrasil/vault")
+        titles = []
+        for nid in nodes[:3]:
+            for cat in ["concepts", "entities", "comparisons"]:
+                f = vault / cat / f"{nid}.md"
+                if f.exists():
+                    for line in f.read_text(encoding="utf-8").split("\n"):
+                        if line.startswith("title:"):
+                            titles.append(line.split(":", 1)[1].strip().strip('"'))
+                            break
+                    break
+
+        report = ", ".join(titles[:3]) if titles else "no title"
+        observation = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "sender": op_name,
+            "receiver": "Provider",
+            "mail_id": mail_id,
+            "produced_count": produced,
+            "nodes": nodes,
+            "titles": titles,
+            "message": f"📬 {op_name}→Provider: {mail_id} produced={produced} [{report}]",
+            "delivery_mode": "mailbox_log_only",
+            "hard_nonclaim": "not_injected_into_hermes_chat",
+        }
+        with open(mailbox / "postman_observations.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps(observation, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
 
 
 def _ensure_q13_dirs(mailbox: Path) -> tuple[Path, Path]:

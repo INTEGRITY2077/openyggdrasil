@@ -24,7 +24,12 @@ from ptc.primitives import (
 
 from .helpers import deliver_receipt
 
-from runtime.logging import log_event
+from runtime.log_event import log_event
+
+try:
+    from runtime.retrieval.pathfinder_tools import build_ring_support_bundle
+except Exception:
+    build_ring_support_bundle = None
 
 # PTC advisory import (lazy)
 try:
@@ -34,7 +39,7 @@ except Exception:
 
 
 def _bm25_search_vault(vault: Path, query: str, top_k: int = 20) -> list[dict] | None:
-    bridge_script = Path(__file__).resolve().parent.parent / "qmd_bridge.py"
+    bridge_script = Path(__file__).resolve().parent.parent / "bm25_search.py"
     try:
         result = subprocess.run(
             [sys.executable, str(bridge_script), "--vault", str(vault), "--query", query, "--top-k", str(top_k)],
@@ -56,12 +61,16 @@ def run_consumer(mailbox: Path, vault: Path):
     payload.ptc=true → PTC 경로 (LLM 코드가 Pathfinder 직접 구성)
     payload.ptc=false/없음 → 고정 경로 (기존 BM25→Lifecycle→Edge Boost)
     """
+    # ★ 14차 Axis 4: sandbox guard (보안 계층, 기능 블로커 아님)
     try:
         from runtime.sandbox import sandbox_run
-        sandbox_run(["python3", "--version"], timeout=10)
-        log_event("sandbox_check_ok")
+        sandbox_ok = sandbox_run(["python3", "--version"], timeout=10)
+        if sandbox_ok is None:
+            log_event("sandbox_unavailable", reason="bwrap_not_found", action="continue_direct")
     except Exception:
-        log_event("sandbox_check_skip")
+        log_event("sandbox_unavailable", reason="import_error", action="continue_direct")
+
+    t0 = datetime.now(timezone.utc)
 
     queries_file = mailbox / "queries.jsonl"
     receipts_file = mailbox / "query_receipts.jsonl"
@@ -149,6 +158,13 @@ def run_consumer(mailbox: Path, vault: Path):
                 pass
 
         bundle = format_consumer_result(query_text, matches)
+        if build_ring_support_bundle is not None:
+            try:
+                ring_bundle = build_ring_support_bundle(query_text=query_text, vault_root=vault)
+                if ring_bundle.get("ring_ids"):
+                    bundle["support_bundle"] = ring_bundle
+            except Exception as exc:
+                log_event("ring_support_bundle_skip", reason=type(exc).__name__)
         receipt = {
             "receipt_id": str(uuid.uuid4())[:8],
             "in_reply_to": msg["mail_id"],
@@ -161,4 +177,5 @@ def run_consumer(mailbox: Path, vault: Path):
             f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
         deliver_receipt(mailbox, msg["mail_id"], status="completed", result_bundle=bundle)
 
-    print(json.dumps({"status": "consumer_done", "pid": os.getpid()}))
+    print(json.dumps({"status": "consumer_done", "pid": os.getpid(),
+                       "elapsed_ms": round((datetime.now(timezone.utc) - t0).total_seconds() * 1000)}))

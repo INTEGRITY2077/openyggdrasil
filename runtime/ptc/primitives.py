@@ -21,8 +21,8 @@ def extract_decisions(context_snapshot: str) -> list[dict[str, Any]]:
     """
     context_snapshot에서 의사결정 후보를 추출한다.
 
-    기계적 뼈대: 문장 분리 + 키워드 마커 감지
-    의미적 판단: 오퍼레이터 SKILL이 결과를 필터링/보정
+    기계적 뼈대: Kiwi 형태소 분석기로 문장 분리 + 키워드 마커 감지
+    Kiwi 미설치 시 기존 .split() 방식으로 폴백
 
     Returns: [{"sentence": str, "marker": str, "confidence": float}, ...]
     """
@@ -44,16 +44,26 @@ def extract_decisions(context_snapshot: str) -> list[dict[str, Any]]:
         "패턴": "architecture",
     }
 
-    sentences = [s.strip() for s in context_snapshot.replace("\n", ". ").split(". ") if s.strip()]
-    candidates = []
+    # Kiwi 문장 분리 (설치된 경우)
+    sentences = []
+    try:
+        from kiwipiepy import Kiwi
+        kiwi = Kiwi()
+        for s in kiwi.split_into_sents(context_snapshot):
+            text = s.text.strip()
+            if text:
+                sentences.append(text)
+    except ImportError:
+        sentences = [s.strip() for s in context_snapshot.replace("\n", ". ").split(". ") if s.strip()]
 
+    candidates = []
     for sentence in sentences:
         for keyword, category in markers.items():
             if keyword in sentence:
                 candidates.append({
                     "sentence": sentence,
                     "marker": category,
-                    "confidence": 0.0,  # SKILL이 판정
+                    "confidence": 0.0,
                 })
                 break
 
@@ -85,6 +95,8 @@ def build_spo_triples(
             subject = _extract_subject(sentence)
         if not predicate and sentence:
             predicate = _extract_predicate(sentence, category)
+        if not object_ and sentence:
+            object_ = _extract_object(sentence, subject)
 
         triples.append({
             "subject": subject,
@@ -130,6 +142,21 @@ def _clean_subject(text: str) -> str:
         if text.endswith(suffix) and len(text) > len(suffix) + 1:
             text = text[:-len(suffix)]
     return text.strip()
+
+
+def _extract_object(sentence: str, subject: str) -> str:
+    """sentence에서 subject 뒤의 설명을 object로 추출."""
+    if not subject or subject not in sentence:
+        return sentence[:120]
+    # subject 뒤의 나머지를 object로
+    idx = sentence.find(subject)
+    rest = sentence[idx + len(subject):].strip()
+    # 조사/어미 제거
+    for strip_prefix in ["은 ", "는 ", "이 ", "가 ", "을 ", "를 ", "의 "]:
+        if rest.startswith(strip_prefix):
+            rest = rest[len(strip_prefix):]
+            break
+    return rest[:200] if rest else sentence[:120]
 
 
 def _extract_predicate(sentence: str, category: str) -> str:
@@ -378,7 +405,7 @@ def search_vault_bm25(
     Returns:
         _match_score 기준 상위 top_k 노드 목록
     """
-    # ── QMD 연동 전 임시 폴백 ──
+    # BM25 검색
     results = search_vault_by_keyword(vault_nodes, query)
     results.sort(key=lambda r: r.get("_match_score", 0), reverse=True)
     top = results[:top_k]
@@ -471,33 +498,72 @@ def format_consumer_result(
 
 # ─── Vault I/O (기계적) ───
 
+def _classify_continent(spo: dict[str, str]) -> str:
+    """Amundsen 대륙 분류: SPO 내용으로 concepts/entities/comparisons 판정.
+
+    Use this when: Vault 저장 전 지식의 대륙을 결정해야 할 때.
+    Do NOT use when: 이미 명시적 continent가 지정된 경우.
+    If ambiguous: 기본값 "concepts" 반환.
+    """
+    subject = spo.get("subject", "")
+    predicate = spo.get("predicate", "")
+    obj = spo.get("object", "")
+    combined = f"{subject} {predicate} {obj}".lower()
+
+    # comparison 판정: 비교/차이/대비 키워드
+    comparison_markers = ["vs", "비교", "차이", "대비", "장단점", "반면", "달리", "다르"]
+    if any(m in combined for m in comparison_markers):
+        return "comparisons"
+
+    # entity 판정: 고유명사 패턴 (제품/회사/인물)
+    entity_markers = [
+        "netflix", "hystrix", "resilience4j", "kubernetes", "docker",
+        "aws", "azure", "gcp", "nginx", "redis", "postgresql", "mysql",
+        "spring", "django", "react", "vue", "kafka", "rabbitmq",
+        "개발했다", "개발한", "만들었다", "출시", "공개했다",
+        "라이브러리", "프레임워크", "플랫폼", "도구",
+    ]
+    if any(m in combined for m in entity_markers):
+        return "entities"
+
+    return "concepts"
+
+
 def save_to_vault(vault_path: Path, node: dict[str, Any]) -> Path:
     """노드를 Vault에 YAML 프론트매터 Markdown으로 저장."""
     from runtime.vault_guard import guard_vault_path
 
     vault_path.mkdir(parents=True, exist_ok=True)
     spo = node.get("spo", {})
-    category = spo.get("category", "concept")
+    raw_category = spo.get("category", "decision")
 
-    # Vault 서브디렉토리 및 온톨로지 결정
+    # ★ Amundsen: SPO 내용으로 대륙 판정
+    continent = _classify_continent(spo)
+
     type_map = {
         "decision": "concepts", "policy": "concepts",
-        "fact": "entities", "architecture": "concepts",
+        "fact": "entities", "entity": "entities",
+        "architecture": "concepts", "comparison": "comparisons",
     }
     ontology_map = {
         "decision": "concept", "policy": "concept",
-        "fact": "entity", "architecture": "concept",
+        "fact": "entity", "entity": "entity",
+        "architecture": "concept", "comparison": "comparison",
     }
-    
-    sub_dir = vault_path / type_map.get(category, "concepts")
+
+    # continent 우선, 없으면 기존 category 기반
+    sub_dir_name = continent if continent in ("concepts", "entities", "comparisons") else type_map.get(raw_category, "concepts")
+    sub_dir = vault_path / sub_dir_name
     guard_vault_path(vault_path, sub_dir)
     sub_dir.mkdir(parents=True, exist_ok=True)
-    mapped_type = ontology_map.get(category, "concept")
+    # type 필드도 continent 기반 (entity/comparison/concept)
+    continent_type = {"entities": "entity", "comparisons": "comparison", "concepts": "concept"}
+    mapped_type = continent_type.get(continent, ontology_map.get(raw_category, "concept"))
 
     now = node.get("created_at", datetime.now(timezone.utc).isoformat())
     date_str = now[:10] if len(now) >= 10 else now
     title = spo.get("subject", node["node_id"])[:80]
-    tags_list = [category, spo.get("predicate", "")]
+    tags_list = [raw_category, spo.get("predicate", "")]
     tags_str = ", ".join(t for t in tags_list if t)
 
     frontmatter = (
@@ -515,7 +581,7 @@ def save_to_vault(vault_path: Path, node: dict[str, Any]) -> Path:
     )
 
     body = f"\n# {title}\n\n"
-    body += f"**Category:** {category}\n\n"
+    body += f"**Category:** {raw_category}\n\n"
     body += f"## S-P-O Triple\n\n"
     body += f"- **Subject:** {spo.get('subject', '')}\n"
     body += f"- **Predicate:** {spo.get('predicate', '')}\n"

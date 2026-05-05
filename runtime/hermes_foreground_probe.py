@@ -269,7 +269,12 @@ def newest_session_id(before: Sequence[str], after: Sequence[str]) -> str | None
 
 
 def _load_env_exports() -> str:
-    env_path = PROJECT_ROOT.parent / "openyggdrasil-private-dev" / ".env"
+    # Public runtime must not assume a sibling private repository.
+    # Operators may opt in by setting OY_PRIVATE_DEV to a local closed workspace.
+    private_dev = os.environ.get("OY_PRIVATE_DEV", "")
+    if not private_dev:
+        return ""
+    env_path = Path(private_dev) / ".env"
     if not env_path.exists():
         return ""
     exports = []

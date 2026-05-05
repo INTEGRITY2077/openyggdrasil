@@ -25,8 +25,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+_primitives_cache = None
+
+
 def _load_primitives():
-    """primitives 모듈 지연 로딩."""
+    """primitives 모듈 지연 로딩 (캐싱)."""
+    global _primitives_cache
+    if _primitives_cache is not None:
+        return _primitives_cache
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from ptc.primitives import (
         load_vault,
@@ -40,12 +46,13 @@ def _load_primitives():
         _boost_by_edges,
         _determine_edge_type,
     )
-    return (
+    _primitives_cache = (
         load_vault, save_to_vault,
         search_vault_by_keyword, search_vault_by_category,
         search_vault_by_edge, search_vault_bm25,
         build_vault_node, load_edges, _boost_by_edges, _determine_edge_type,
     )
+    return _primitives_cache
 
 
 # ─── 생산면 PTC 도구 ───
@@ -224,11 +231,18 @@ def _create_edge(vault: Path, from_id: str, to_id: str, edge_type: str = "RELATE
 
 
 def _prune_node(vault: Path, node_id: str) -> dict:
+    from runtime.vault_guard import guard_vault_path
+    import shutil as _shutil
+
     archive_dir = vault.parent / "archive" / datetime.now(timezone.utc).strftime("%Y-%m-%d")
     archive_dir.mkdir(parents=True, exist_ok=True)
     pruned = False
     for md_file in vault.rglob(node_id + ".md"):
-        import shutil as _shutil
+        # vault_guard: 대상 파일이 vault 내부인지 검증
+        try:
+            guard_vault_path(vault, md_file.relative_to(vault))
+        except ValueError:
+            continue  # vault 외부 파일은 건드리지 않음
         _shutil.move(str(md_file), str(archive_dir / md_file.name))
         pruned = True
     return {"node_id": node_id, "pruned": pruned, "archive": str(archive_dir)}
@@ -246,6 +260,68 @@ def _validate_node(vault: Path, subject: str, predicate: str = "", obj: str = ""
 
 
 # ─── Dispatch ───
+
+
+# ─── PTC Retrieval Handlers ───
+
+def _ptc_locate_region(vault, query_text):
+    try:
+        from retrieval.pathfinder_tools import locate_region
+        return locate_region(query_text=query_text, vault_root=vault)
+    except Exception as e:
+        return {"error": str(e), "method": "locate_region"}
+
+def _ptc_select_topic_anchor(vault, query_text, region_id):
+    try:
+        from retrieval.pathfinder_tools import select_topic_anchor
+        return select_topic_anchor(query_text=query_text, region_id=region_id, vault_root=vault)
+    except Exception as e:
+        return {"error": str(e), "method": "select_topic_anchor"}
+
+def _ptc_read_origin_claims(vault, topic_id, limit):
+    try:
+        from retrieval.pathfinder_tools import get_origin_claims
+        return get_origin_claims(topic_id=topic_id, vault_root=vault, limit=limit)
+    except Exception as e:
+        return {"error": str(e), "method": "read_origin_claims"}
+
+def _ptc_read_recent_claims(vault, topic_id, limit):
+    try:
+        from retrieval.pathfinder_tools import read_recent_claims
+        return read_recent_claims(topic_id=topic_id, vault_root=vault, limit=limit)
+    except Exception as e:
+        return {"error": str(e), "method": "read_recent_claims"}
+
+def _ptc_collect_claim_ids(origin_rows, recent_rows):
+    try:
+        from retrieval.ptc_tools.collect_claim_ids import collect_claim_ids
+        return collect_claim_ids(origin_rows=origin_rows, recent_rows=recent_rows)
+    except Exception as e:
+        return {"error": str(e), "method": "collect_claim_ids"}
+
+def _ptc_read_source_paths(vault, topic_id, claim_ids):
+    try:
+        from retrieval.pathfinder_tools import read_source_paths
+        return read_source_paths(topic_id=topic_id, claim_ids=claim_ids, vault_root=vault)
+    except Exception as e:
+        return {"error": str(e), "method": "read_source_paths"}
+
+def _ptc_assemble_support_bundle(query_text, anchor, origin_rows, recent_rows, source_paths):
+    try:
+        from retrieval.pathfinder_tools import build_support_bundle
+        return build_support_bundle(query_text=query_text, anchor=anchor,
+                                    origin_rows=origin_rows, recent_rows=recent_rows,
+                                    source_paths=source_paths)
+    except Exception as e:
+        return {"error": str(e), "method": "assemble_support_bundle"}
+
+def _ptc_assemble_unanchored_bundle(query_text):
+    try:
+        from retrieval.pathfinder_tools import assemble_unanchored_bundle
+        return assemble_unanchored_bundle(query_text=query_text)
+    except Exception as e:
+        return {"error": str(e), "method": "assemble_unanchored_bundle"}
+
 
 def _dispatch(method: str, kwargs: dict, vault: Path) -> dict:
     p = _load_primitives()
@@ -314,6 +390,25 @@ def _dispatch(method: str, kwargs: dict, vault: Path) -> dict:
     elif method == "validate_node":
         return _validate_node(vault, kwargs.get("subject", ""), kwargs.get("predicate", ""),
                              kwargs.get("object", ""), kwargs.get("category", "concept"))
+    # PTC Retrieval (README 9-step palette)
+    elif method == "locate_region":
+        return _ptc_locate_region(vault, kwargs.get("query_text", ""))
+    elif method == "select_topic_anchor":
+        return _ptc_select_topic_anchor(vault, kwargs.get("query_text", ""), kwargs.get("region_id"))
+    elif method == "read_origin_claims":
+        return _ptc_read_origin_claims(vault, kwargs.get("topic_id", ""), kwargs.get("limit", 1))
+    elif method == "read_recent_claims":
+        return _ptc_read_recent_claims(vault, kwargs.get("topic_id", ""), kwargs.get("limit", 3))
+    elif method == "collect_claim_ids":
+        return _ptc_collect_claim_ids(kwargs.get("origin_rows", []), kwargs.get("recent_rows", []))
+    elif method == "read_source_paths":
+        return _ptc_read_source_paths(vault, kwargs.get("topic_id", ""), kwargs.get("claim_ids"))
+    elif method == "assemble_support_bundle":
+        return _ptc_assemble_support_bundle(kwargs.get("query_text", ""), kwargs.get("anchor", {}),
+                                            kwargs.get("origin_rows", []), kwargs.get("recent_rows", []),
+                                            kwargs.get("source_paths", []))
+    elif method == "assemble_unanchored_bundle":
+        return _ptc_assemble_unanchored_bundle(kwargs.get("query_text", ""))
     else:
         return {"error": f"unknown method: {method}"}
 
@@ -348,11 +443,12 @@ class PTCIpcServer:
                     self._handle_client(conn)
                 except socket.timeout:
                     break
-        except Exception:
-            pass
+        except Exception as e:
+            import sys; print(f"[ipc_server] serve error: {e}", file=sys.stderr)
         finally:
             try: self._server.close()
-            except Exception: pass
+            except Exception as e:
+                import sys; print(f"[ipc_server] close error: {e}", file=sys.stderr)
             Path(self.socket_path).unlink(missing_ok=True)
 
     def _handle_client(self, conn: socket.socket) -> None:
@@ -381,7 +477,8 @@ class PTCIpcServer:
     def stop(self) -> None:
         try:
             if self._server: self._server.close()
-        except Exception: pass
+        except Exception as e:
+            import sys; print(f"[ipc_server] stop error: {e}", file=sys.stderr)
         Path(self.socket_path).unlink(missing_ok=True)
 
     def __enter__(self): self.start(); return self

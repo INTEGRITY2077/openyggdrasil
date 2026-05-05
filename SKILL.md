@@ -205,51 +205,53 @@ and consumer refs whenever producer/consumer usage is claimed.
 
 ## Capture (Production)
 
-Use capture when a provider session should produce durable openyggdrasil
-knowledge from a bounded signal.
+Use this when the provider determines knowledge should be durably preserved
+beyond the current session.
+
+**Dual routing (equal authority):**
+
+```
+"기억해둬" / "저장해" 요청
+  ├─ Hermes memory → 단기 세션 기억 (built-in)
+  └─ ygg tell OP1  → 장기 Vault 저장 (openyggdrasil)
+```
 
 Entrypoint:
 
-```python
-from runner.thin_worker_chain import run_thin_worker_chain
+```bash
+ygg tell OP1 "결정: <요약> ..."
+ygg tell --ptc OP1 "결정: <요약> ..."   # PTC 자유 조합 경로
 ```
 
-Input contracts:
+Both paths must be triggered. Hermes memory handles the session scope;
+openyggdrasil handles cross-session, cross-provider durability.
+Neither replaces the other.
 
-- signal: `contracts/session_structure_signal.v1.schema.json`
-- runner result: `contracts/session_signal_runner_result.v1.schema.json`
+Verify with:
 
-Output contract:
-
-- thin worker chain result validated by `runtime/runner/thin_worker_chain.py`
-
-Capture must preserve source refs and provider/session provenance. It must not
-copy whole provider transcripts into `vault/`.
+```bash
+ygg status OP1   # receipt 확인
+```
 
 ## Retrieve (Consumption)
 
-Use retrieve when the provider needs an openyggdrasil memory bundle for a query.
+Use this when the provider needs to recall knowledge from the long-term Vault.
 
 Entrypoint:
 
-```python
-from retrieval.pathfinder import build_pathfinder_bundle
+```bash
+ygg ask OP2 "검색어"
+ygg ask --ptc OP2 "검색어"   # PTC deep_search 경로
 ```
 
-Input shape:
+Verify with:
 
-- `query_text`: plain query string
-- optional `vault_root`
-- optional bounded `evaluator`
+```bash
+ygg status OP2   # 검색 결과 확인
+```
 
-Output contracts:
-
-- `contracts/pathfinder_retrieval_result.v1.schema.json`
-- Pathfinder bundle validators exported by `runtime/retrieval/pathfinder.py`
-
-Consumption claims require an actual Pathfinder/Postman/Mailbox or
-provider-skill consumer ref. Do not claim consumer usage from setup reports or
-static package creation alone.
+The Provider should use retrieved knowledge to continue its reasoning chain.
+Memory (session) + Vault (cross-session) together form the complete recall surface.
 
 ## Success Condition
 

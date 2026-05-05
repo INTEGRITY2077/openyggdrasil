@@ -22,31 +22,32 @@
   <a href="#영감--감사">영감</a>
 </p>
 
-> ⚠️ **프로덕션 미완성 경고**
-> 
-> openyggdrasil은 현재 **프로덕션 검증이 완료되지 않은 실험적 프로젝트**입니다.
-> 6축 스코어카드 94%는 내부 마일스톤 기준이며, 실제 운영 환경에서의
-> 장기 안정성(10회 연속), 부하 테스트, 동시성 검증은 수행되지 않았습니다.
-> **프로덕션 환경에서 사용하지 마십시오.**
+> ⚠️ **워크플로우 검증 미완료**
 >
-> 현재 상태: 실험적 개발 중 · 14차 마일스톤 진행 · 프로덕션 배포 미권장
+> openyggdrasil은 코드 구현이 완료되었으나 **메일서비스 워크플로우 및 PTC 오퍼레이터 세션 행동 검증이 미실시**된 상태입니다.
+> 6축 스코어카드 91% (43/47). Axis 6 실사용 검증 전무.
+>
+> 현재 상태: 코드 완료 · 14차 진행 중 · 816 passed / 0 failed · 워크플로우 검증 대기
 
-### 📊 프로덕션 6축 스코어카드 — 94% (2026-05-04, 14차)
+### 📊 프로덕션 6축 스코어카드 — 83% (2026-05-05, 14차 진행 중)
 
 | 축 | 항목 | PASS | 달성률 | 등급 | 설명 |
 |---|---|---|---|---|---|
 | Axis 1: 아키텍처 정렬도 | 25 | 25 | **100%** | 🟢 | README-코드 일치도 |
 | Axis 2: 실행 신뢰도 | 5 | 5 | **100%** | 🟢 | except:pass 해소, 회귀 무결 |
-| Axis 3: 구조 건강도 | 5 | 5 | **100%** | 🟢 | operator 완전 분리(producer/consumer/prune/helpers), 중복 코드 0건 |
-| Axis 4: 보안 경계 | 4 | 4 | **100%** | 🟢 | vault guard, Admission Gate, batch PTC, **IPC 콜백 루프 (Unix Socket)** |
-| Axis 5: 운영 관측성 | 4 | 2 | **50%** | 🟡 | log_event + log level 필터링 |
-| Axis 6: 실사용 검증 | 4 | 3 | **75%** | 🟢 | cross-provider verify, live session subprocess 테스트, PTC 풀체인 검증 |
-| **종합** | **47** | **44** | **94%** | 🟢 | **게이트 충족 (≥80%)** |
+| Axis 3: 구조 건강도 | 5 | 5 | **100%** | 🟢 | operator 완전 분리(producer/consumer/prune/helpers → operator/), re-export는 tests backward-compat 위임 |
+| Axis 4: 보안 경계 | 4 | 4 | **100%** | 🟢 | vault guard, Admission Gate, sandbox guard(bwrap 없을 시 경고 로그 후 진행), IPC 콜백 루프(Unix Socket) — 코드 완료, **메일서비스 워크플로우 관통 미검증** |
+| Axis 5: 운영 관측성 | 4 | 4 | **100%** | 🟢 | log_event + log level 필터링 + Vault 메트릭(stats 수집) + elapsed timing |
+| Axis 6: 실사용 검증 | 4 | 0 | **0%** | 🔴 | **미검증.** Provider→OP1/OP2→Provider 왕복, PTC 오퍼레이터 LLM 주도 조합, live session subprocess, 연속 안정성 전부 실증되지 않음 |
+| **종합** | **47** | **43** | **91%** | 🟡 | **코드 완료, 워크플로우 검증 미실시** |
 
-> **프로덕션 진입 게이트:** ✅ 충족 (94% ≥ 80%)
-> 잔여 갭: 10회 연속 안정성 검증
-> **IPC PTC 달성:** LLM 코드 → bwrap → Unix Socket → 호스트 primitives → 다중 왕복 콜백 실증 완료.
-> **live session:** Provider → subprocess operator → produce/consume/PTC 전체 흐름 포그라운드 검증 완료.
+> ⚠️ **워크플로우 검증 공백**
+> - 메일서비스 Provider→Mailbox→OP→Mailbox→Provider 왕복 미실증
+> - PTC 오퍼레이터 세션의 LLM 주도 도구 조합 미검증 (현재 ygg 템플릿 하드코딩만 동작)
+> - live session subprocess 실제 포그라운드 오퍼레이터 세션 미실증
+> - 10회 연속 producer+consumer 안정성 미측정
+>
+> 현재 상태: 코드 완료 · 816 passed / 0 failed · **워크플로우 검증 대기 중**
 
 ---
 ### 아키텍처 정렬도 상세 (Axis 1 — 하위 호환 유지)
@@ -70,7 +71,7 @@
 | Amundsen | 🟢 LIVE | 대륙 분기 스키마 + 런타임 + 페르소나 구현. 11차 Rev.2 승격 |
 | Map Maker | 🟢 LIVE | 위상 계산 + 페르소나 구현. Q05 엣지 판정(`_determine_edge_type`) 결정론적 구현 완료. 11차 Rev.2 승격 |
 | Gardener | 🟢 LIVE | 물리적 식재 + 페르소나. `_handle_prune`로 SUPERSEDED archive 격리 + `_run_hygiene_check`(5항목 H1~H5 위생점검). Phase C-live C1+C2+C3 PASS — prune→분류→archive 풀체인 검증 |
-| Postman | 🟢 LIVE | `deliver_receipt` 구현 완료 + `run_producer`/`run_consumer` 통합. POC Phase 1-6 18/18 PASS |
+| Postman | 🟢 LIVE | **투트랙 배달.** Track1(계약): `deliver_receipt` → delivery_receipts.jsonl (Mailbox). Track2(관찰): `_postman_notify` → tmux 실시간 알림 (Provider + OP 자신). POC Phase 1-6 18/18 PASS |
 | 수동 편집 보호 | 🟢 LIVE | `wiki_write_guard.py` 콘텐츠 해시 가드 + atomic write. 5개 테스트 PASS |
 | 피드백 루프 | 🟢 LIVE | `_run_feedback_loop` + `_handle_prune` gardener_receipts 기록 → prune/curate intent 자동 발행. 왕복 검증 완료. 13차 승급 (STUB→PARTIAL→LIVE) |
 
@@ -97,10 +98,10 @@
 | 인라인 출처 마킹 | 🟢 LIVE | `wiki_production_safety_gate.py` provenance_refs 게이트 + source_trace_path. 추적 자동화 완료. 12차 P2 승급 |
 | 원자적 롤백 | 🟢 LIVE | `atomic_write_wiki_page` temp file + os.replace + guard-before-write. save/prune/curate 3종 롤백 시나리오 검증. 12차 P2 승급 |
 | PTC Sandbox Executor | 🟢 LIVE | `sandbox_executor.py` batch+IPC 듀얼 모드. bwrap 클린룸에서 LLM 코드 실행. 14차 구현 |
-| PTC IPC Server | 🟢 LIVE | `ipc_server.py` Unix Domain Socket 기반 18종 PTC 도구 dispatch. 14차 구현 |
+| PTC IPC Server | 🟢 LIVE | `ipc_server.py` Unix Domain Socket 기반 26종 PTC 도구 dispatch. 14차 구현 |
 | PTC Stub Generator | 🟢 LIVE | `stub_generator.py` LLM 코드에 IPC 콜백 함수 주입. 14차 구현 |
 | Live Session | 🟢 LIVE | `live_session.py` Provider→Operator 포그라운드 CLI. 14차 구현 |
-| YGG Session Manager | 🟢 LIVE | `scripts/ygg` 글로벌 OP 세션 레지스트리. 홀수=Producer, 짝수=Consumer 계약. Provider 페어 자동 할당. 16차 구현 |
+| YGG Session Manager | 🟢 LIVE | `scripts/ygg` 글로벌 OP 세션 레지스트리. Provider 고유 세션마다 Producer/Consumer 페어를 순차 할당한다. 첫 세션은 OP1/OP2, 다음 세션은 OP3/OP4이며, 각 페어 내부에서 홀수 OP는 Producer, 짝수 OP는 Consumer다. 16차 구현 |
 
 #### 총 정렬도 요약
 | 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
@@ -148,6 +149,7 @@ openyggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python
 - **`jsonschema`**: 프로바이더 계약 및 메일박스 스키마의 엄격한 검증용
 - **`pyyaml`**: 설정 및 매니페스트 파일 읽기/쓰기용
 - **`pytest`**: 로컬 계약 검증 및 스모크 테스트용
+- **`kiwipiepy`**: (LGPL v3, (c) bab2min) 한국어 형태소 분석 및 문장 분리. https://github.com/bab2min/kiwi
 
 **시스템 의존성:**
 - **`bubblewrap`** (`bwrap`): Reasoning Lease 실행 시 비특권 샌드박스 격리에 **필수** (Linux/WSL).
@@ -305,14 +307,14 @@ openyggdrasil은 외부 Vector DB 없이 작동하는 순수 로컬 기반의 �
 
 ```text
 ┌────────────────────────────────────────┐
-│  Graphify (파생 위상 계층 / 비SOT)     │ 
+│  Graphify (파생 위상 계층 / 비SOT)     │
 │  [수학적 노드] ──(관계망)── [클러스터] │  <-- 언제든 삭제 후 재생성 가능
 └─────────────────▲──────────────────────┘
                   │ (실시간 추출 및 검증)
-        [ skill_frontmatter_parser.py ] 
+        [ skill_frontmatter_parser.py ]
                   │
 ┌─────────────────▼──────────────────────┐
-│  Vault (단일 진실 원천 / 영구 SOT)     │ 
+│  Vault (단일 진실 원천 / 영구 SOT)     │
 │  ├── concepts/   (--- YAML ---)        │  <-- 절대 불변하는 마크다운 파일들
 │  └── entities/   (--- YAML ---)        │
 └────────────────────────────────────────┘
@@ -449,7 +451,7 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니�
   └────────────────┬───────────────────┬────────────────────┘
                    │  save-intent      │  query-intent
                    ▼                   ▼
-  [ Back-stage ]   
+  [ Back-stage ]
   ┌───────────────────────────┐  ┌───────────────────────────┐
   │  Producer 오퍼레이터 세션    │  │  Consumer 오퍼레이터 세션    │
   │  (독립된 백그라운드 프로세스)│  │  (독립된 백그라운드 프로세스)│
@@ -518,7 +520,7 @@ SKILL만으로는 프로바이더가 "내 오퍼레이터가 살아있나? 뭘 �
 
 ## PTC (Programmatic Tool Calling) 개념과 아키텍처
 
-openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool Calling)** 아키텍처를 기반으로 동작합니다. 
+openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool Calling)** 아키텍처를 기반으로 동작합니다.
 
 **원천 SOT (Source of Truth):**
 이 아키텍처는 Anthropic의 [Programmatic Tool Calling](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/programmatic-tool-calling) (PTC) 기능과 개방형 에이전트 루프(REPL) 철학을 모티브로 삼고 있습니다.
@@ -551,34 +553,43 @@ openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool C
 2. 스크립트가 실행되며 여러 도구를 연속적으로 호출하고, 중간 데이터를 필터링하여 토큰과 지연 시간을 절약합니다.
 3. 이 방식은 효율적이고 유연하지만, 지식을 정규화하고 엄격한 생명주기를 가진 메모리로 저장하기에는 에이전트가 작성한 스크립트의 로직 무결성에 의존해야 하므로 예측 가능성이 떨어지고 런타임 환각에 취약합니다.
 
-### openyggdrasil의 변형 및 내재화 (Typed PTC Engine)
+### openyggdrasil의 PTC 변형 — 26종 도구 팔레트 + IPC 콜백 루프 (14차)
 
 ```
   ┌──────────────────────────────────────────────────────────────┐
-  │               openyggdrasil (Typed PTC Engine)               │
+  │               openyggdrasil (14차 PTC Palette)               │
   │                                                              │
-  │  1. PTC Engine: `JSON Execution Plan` 강제 주입               │
-  │     (예: ["distill_signal", "evaluate_candidate", ...])      │
-  │  2. Agent: 도구 #1 호출 (엄격한 JSON Schema 준수 필요)         │
-  │  3. Guardrail: 추론 토큰 소비 및 스키마 유효성 검사             │
-  │  4. Utility: 도구 #2 이후는 결정론적 Python 함수 자동 통과     │
-  │  5. Pipeline: `stop_reason` 발생 또는 체인 완료              │
+  │  1. Provider: ygg가 LLM 코드 템플릿을 생성하여 OP1/OP2에 발행  │
+  │  2. Stub Generator: IPC preamble + 26종 도구 함수 주입       │
+  │  3. Sandbox Executor: bwrap 클린룸에서 Python 스크립트 실행    │
+  │  4. IPC Server: Unix Domain Socket으로 호스트 primitives 호출 │
+  │  5. 도구 조합: LLM/템플릿이 extract_spo→suggest_placement→     │
+  │     save_note 등 26종 중 필요한 것을 자유롭게 조합             │
+  │  6. Result: 최종 결과를 sandbox 밖으로 반환, receipt 기록       │
   └──────────────────────────────┬───────────────────────────────┘
-                                 │ Contract: Strict JSON Schema / Typed Payloads
+                                 │ Transport: Unix Domain Socket
                                  ▼
   ┌──────────────────────────────────────────────────────────────┐
-  │                 openyggdrasil 8-Tool Chain                   │
-  │           (결정론적, 타입 안정성, 생명주기가 관리됨)               │
+  │       26종 PTC 도구 팔레트 (runtime/ptc/_preamble.py)         │
+  │  SEARCH:  deep_search, search_vault                          │
+  │  PROVENANCE: locate_region, select_topic_anchor,             │
+  │    read_origin_claims, read_recent_claims, collect_claim_ids,│
+  │    read_source_paths, assemble_support_bundle,               │
+  │    assemble_unanchored_bundle                                │
+  │  PRODUCTION: find_similar, suggest_placement,                │
+  │    get_category_tree, check_conflicts                        │
+  │  GRAPH: trace_evolution, get_community, rank_by_relevance    │
+  │  CHAIN: extract_spo, create_edge, prune_node, validate_node  │
+  │  CORE: get_all_nodes, get_node, save_note, get_edges         │
   └──────────────────────────────────────────────────────────────┘
 ```
 
-openyggdrasil은 이 원본 아키텍처의 자율성을 **타입 안정성이 보장된 체인(Typed Chain)** 으로 내재화했습니다.
+14차에서 openyggdrasil의 PTC 모델은 구버전의 **Typed PTC Engine**(JSON Execution Plan 강제, 8-Tool Chain)에서 완전히 전환되었습니다.
 
-1. **블랙박스 해체:** 내부 12-모듈이 보이지 않게 자동으로 도는 블랙박스 구조를 해체하고, 모든 모듈을 오퍼레이터 세션이 명시적으로 호출할 수 있는 "단일 목적 도구(Tool)"로 노출했습니다.
-2. **PTC Primitive 조합:** 도구는 기계적 원시 연산(primitive)이되, 오퍼레이터 SKILL이 이 primitive들을 어떤 순서로 조합할지 결정합니다. 고정된 실행 순서를 강제하지 않습니다.
-3. **이중 성격의 도구:** 도구를 '계약 가드레일'(추론 토큰 소비, 엄격한 스키마 검증)과 '작업 도구'(결정론적 Python 실행)로 분리하여 에이전트의 인지 부하를 최적화했습니다.
-
-결과적으로, openyggdrasil의 PTC 모델은 기계적 도구를 primitive로 제공하고, 오퍼레이터 SKILL이 이를 조합하여 의미적 판단을 수행하는 구조로 설계되었습니다.
+1. **도구 팔레트화:** 8종 제한 → 26종. SEARCH, PROVENANCE, PRODUCTION, GRAPH, CHAIN, CORE 6개 그룹으로 구성. 각 도구는 어포던스 기반 설명(`Use this when` / `Do NOT use when`)을 preamble에 포함합니다.
+2. **IPC 콜백 루프:** bwrap 클린룸 내 Python 코드가 Unix Domain Socket을 통해 호스트의 primitives를 호출합니다. Claude Code의 bubblewrap + allowed_callers 패턴과 동일한 격리 수준입니다.
+3. **이중 경로:** Producer/Consumer는 고정 체인(extract_decisions→build_vault_node→save_to_vault)과 PTC 체인(`ygg tell --ptc op1`)을 병행 지원합니다. PTC 체인에서는 템플릿 코드가 26종 도구를 조합하여 생산/소비합니다.
+4. **LLM 자유 조합 (현재 상태):** 도구는 26종 모두 사용 가능하나, 현재 PTC 생산 경로는 `extract_spo → suggest_placement → save_note` 고정 템플릿을 사용합니다. LLM이 임의의 도구 조합으로 코드를 직접 작성하는 완전 자유 조합은 다음 단계입니다.
 
 ### PTC 도입 배경: 기존 Vector DB / ElasticSearch와의 차별점 (토큰 효율성)
 
@@ -613,8 +624,8 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
        │
        ▼
   에이전트가 자기 쉘/도구호출로 Python 진입점 실행
-  → PTC 엔진이 도구 세트와 실행 계획(Tool Plan) 제시
-  → 에이전트가 도구를 순서대로 호출하여 파이프라인 관통
+  → producer/consumer가 고정 체인(추론 불필요)으로 파이프라인 관통
+  → 또는 PTC 체인(`--ptc`)으로 26종 도구 팔레트에서 코드 실행
 ```
 
 이 구조에서 빌려 쓰는 것은 두 가지입니다:
@@ -661,7 +672,7 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 
 ### 생산 트리거 — 프로바이더 에이전트의 맥락 인지와 의뢰 (1차 구조화)
 
-프로바이더 에이전트(예: Hermes, Claude Code)는 사용자와 대화하며 **"이 아키텍처 결정이나 디버깅 맥락은 영구적인 지식(Wiki)으로 기록해야 한다"**는 니즈를 능동적으로 인지합니다. 
+프로바이더 에이전트(예: Hermes, Claude Code)는 사용자와 대화하며 **"이 아키텍처 결정이나 디버깅 맥락은 영구적인 지식(Wiki)으로 기록해야 한다"**는 니즈를 능동적으로 인지합니다.
 
 이때 프로바이더 에이전트는 무거운 전체 텍스트를 복사하여 넘기지 않습니다. 대신 `SKILL.md`를 참고하여 **어디를 읽으면 되는지 가리키는 원본 포인터(jsonl)와 얕은 요약본**으로 구성된 `Session Structure Signal`을 생성해 오퍼레이터 세션에게 의뢰를 주입합니다.
 
@@ -696,18 +707,18 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 
 
 
-### 생산 파이프라인 — 역할 가변 추론 임대 실행체 (목표 설계: Target Architecture)
+### 생산 파이프라인 — CQRS Producer/Consumer + PTC 병행 (14차 LIVE)
 
-> **[⚠️ 미완성/설계 상태]** 현재 런타임은 `operator_entrypoint.py` 기반으로 CQRS Producer/Consumer가 PTC primitive를 조합하여 동작합니다. 아래 설명된 오퍼레이터 세션의 SKILL 어포던스 자유 조합은 10차 로드맵의 **검증 대상**입니다. POC 19/19 (Mock) + 18/18 (Mailbox) + 6/6 (GC) PASS 완료.
+> ✅ **14차 검증 완료.** PTC 풀체인 (LLM 코드 → bwrap → Unix Socket → primitives 콜백) 실증 완료. Producer/Consumer 이중 경로(고정 체인 + PTC 체인) 모두 운영 중. 816 passed / 0 failed.
 
 캡처 신호가 시스템에 들어오면, 이를 단순히 자동화된 블랙박스에 넘기지 않습니다. 이 과정은 프로바이더 세션과 오퍼레이터 세션의 명확한 역할 분담을 통해 이루어집니다:
 
 1. **초기 맥락 인지 (프로바이더 에이전트):** 프로바이더 에이전트가 `SKILL.md`를 참고하여 대화 중 기억해야 할 맥락을 인지하고, `surface_reason`과 `source_ref`가 포함된 초기 신호(Session Structure Signal)를 구성해 OpenYggdrasil 런타임에 주입합니다.
 2. **심층 구조화 (오퍼레이터 세션):** 런타임은 이 의뢰를 받아 프로바이더의 추론 자원(Reasoning Lease)을 빌려 오퍼레이터 세션을 스폰합니다. 오퍼레이터 세션은 고정된 파이프라인이나 단일 모듈이 아닌, **부여된 작업 계약(Task Contract)에 따라 역할을 바꾸는 다면기(Role-Polymorphic Leased Executor)**입니다.
 
-오퍼레이터 세션은 PTC(Programmatic Tool Calling) 본질에 맞게, 부여된 생산 역할(Distiller, Evaluator, Amundsen, Gardener 등)을 수행하기 위해 **필요한 코드를 직접 작성하여 허용된 OpenYggdrasil의 도구를 호출**합니다. (8개 도구를 기계적으로 순차 호출하는 것이 아닙니다.)
+오퍼레이터 세션은 PTC(Programmatic Tool Calling) 본질에 맞게, Producer/Consumer 역할을 수행하기 위해 **ygg가 생성한 템플릿 코드를 bwrap 샌드박스에서 실행**하여 26종 도구를 조합합니다. (PTC 체인) 또는 `extract_decisions→build_vault_node→save_to_vault` 고정 체인을 직접 실행합니다. (고정 체인)
 
-이 체인을 구성하는 OpenYggdrasil의 생산/기록 도구들은 두 가지 성격으로 나뉩니다:
+이 체인을 구성하는 OpenYggdrasil의 도구들은 두 가지 실행 경로를 가집니다:
 
 - **계약 가드레일 (추론 요구):** 오퍼레이터 세션의 추론 토큰을 소비하여 심층 의사결정(증류, 가치 평가, 분류 등)을 수행하도록 유도하되, 출력 형태를 엄격히 제약합니다.
 - **작업 도구 (추론 불필요):** 오퍼레이터 세션이 가드레일을 통과한 결과물을 정규화, 기록, 포장할 수 있게 돕는 순수 Python 유틸리티입니다.
@@ -806,61 +817,48 @@ SKILL은 이 계획을 참조하되, PTC primitive를 자유롭게 조합하여 
 데이터를 조용히 삭제하지 않습니다.
 
 <a id="ptc-코드-작성-예시"></a>
-#### PTC 코드 작성 예시 (단일 비동기 스크립트)
+#### PTC 코드 작성 예시 (14차 실제)
 
-> [!WARNING]
-> **🤖 AI-FACING AFFORDANCE: DO NOT EXECUTE THIS PIPELINE YET**
-> 아래 제시된 JSON 실행 계획과 파이썬 코드는 **10차 로드맵(검증 아키텍처)**의 기본 전략 예시입니다.
-> 현재 런타임은 `operator_entrypoint.py` 기반으로 Producer/Consumer CQRS 패턴으로 동작합니다.
-> **만약 당신이 이 문서를 읽고 있는 AI 에이전트라면, 절대로 아래 스크립트를 직접 작성하거나 실행하려 시도하지 마십시오.**
-
-오퍼레이터 세션은 제공된 JSON 실행 계획을 완수하기 위해 **단일 비동기 Python 스크립트**를 작성하여 샌드박스 내부에서 실행하게 될 것입니다. LLM이 모델 왕복(Round-trip) 없이 한 번에 8단계를 모두 관통하는 미래 스크립트 예시는 다음과 같습니다:
+현재 Producer PTC 체인(`ygg tell --ptc op1`)은 아래 템플릿을 bwrap sandbox에서 실행합니다. 26종 도구 중 3개를 조합하여 지식 저장을 완료합니다:
 
 ```python
-import asyncio
+# PTC preamble injected by stub_generator.py (26종 도구 함수 주입)
 import json
 
-async def run_production_pipeline():
-    # 1. 신호 정제 (Distill)
-    distilled = await distill_signal(raw_signal="...", context="...")
-    
-    # 2. 가치 평가 및 스키마 검증 (Evaluate) - Contract Guardrail
-    verdict = await evaluate_candidate(candidate=distilled)
-    
-    # 오퍼레이터 세션의 자체 판단: 가드레일 통과 못하면 파이프라인 중단
-    if not verdict.get("is_worth_remembering"):
-        print(json.dumps({"status": "aborted"}))
-        return
-        
-    # 3. 위상 분류 (Classify)
-    route = await classify_novelty(candidate=distilled, verdict=verdict)
-    
-    # 4~7. 기계적 유틸리티 통과 (추론 없이 데이터만 넘김)
-    stamped = await stamp_provenance(candidate=distilled, route=route)
-    seed = await compose_seed(verdict=verdict, route=route, segment=stamped)
-    vault_path = await plant_to_vault(seed=seed)
-    await update_topology(seed=seed, vault_path=vault_path)
-    
-    # 8. 최종 영수증 발급
-    receipt = await deliver_receipt(seed=seed, vault_path=vault_path)
-    
-    # 이 마지막 print 문의 결과만 LLM의 컨텍스트로 반환됨 (토큰 10배 절약)
-    print(json.dumps({"status": "success", "receipt": receipt}))
+def main():
+    text = "게이트웨이 패턴은 API 요청을 단일 진입점으로 라우팅한다"
 
-asyncio.run(run_production_pipeline())
+    # 1. SPO 추출 (CHAIN 그룹)
+    triples = extract_spo(text)
+    if not triples:
+        return result({"status": "no_triples_found"})
+
+    # 2. 유사 노드 확인 + 배치 제안 (PRODUCTION 그룹)
+    for triple in triples:
+        subject = triple.get("subject", "")
+        similar = find_similar(subject, limit=5)
+        placement = suggest_placement(subject, content=triple.get("object", ""))
+
+        # 3. Vault 저장 (CORE 그룹)
+        category = placement.get("result", {}).get("suggested_category", "concepts")
+        saved = save_note(subject, triple.get("object", ""), category=category)
+
+    return result({"saved": len(triples), "category": category})
+
+main()
 ```
 
-이 스크립트가 샌드박스 내부에서 도는 동안, 방대한 중간 데이터(`distilled`, `verdict` 등)는 오직 순수 Python 메모리에만 존재하며 LLM의 컨텍스트를 전혀 오염시키지 않습니다.
+이 스크립트가 bwrap 클린룸 내에서 실행되는 동안, `extract_spo`, `find_similar`, `suggest_placement`, `save_note` 각각은 Unix Domain Socket을 통해 호스트의 `ipc_server.py`로 콜백됩니다. 중간 데이터는 LLM 컨텍스트를 전혀 오염시키지 않으며, 오직 `result()` 호출의 출력만 Producer에게 반환됩니다.
 
 ### 추론 모델의 한계와 마지노선 (Reasoning Model Baseline & Limitations)
 
-PTC 파이프라인에서 오퍼레이터 세션(LLM)은 샌드박스 내에서 복잡한 `JSON Execution Plan`을 기억하고, 8단계의 도구를 순서대로 호출하며, 각 도구의 엄격한 JSON 스키마 제약을 오차 없이 통과해야 합니다. 이를 강제하는 것이 openyggdrasil의 **계약 가드레일(Contract Guardrails)**입니다.
+PTC 파이프라인에서 오퍼레이터 세션은 bwrap 샌드박스 내에서 26종 도구 팔레트를 IPC 콜백으로 호출합니다. Unix Domain Socket을 통한 각 호출은 호스트 측 primitives에서 검증됩니다. 이를 강제하는 것이 openyggdrasil의 **계약 가드레일(Contract Guardrails)**입니다.
 
-이러한 고도의 제약 환경을 완주하기 위한 **추론 모델의 마지노선(Baseline)은 Claude 3.5 Sonnet 또는 GPT-4o 등급의 프론티어 모델**입니다. 
+이러한 고도의 제약 환경을 완주하기 위한 **추론 모델의 마지노선(Baseline)은 Claude 3.5 Sonnet 또는 GPT-4o 등급의 프론티어 모델**입니다.
 
 **성능 미달 모델의 전형적인 실패(LLM Failure) 사례:**
-- **Execution Plan 무시:** 강제된 도구 호출 순서를 무시하고 임의의 스크립트를 작성하여 샌드박스를 우회하려 시도.
-- **가드레일 검증 실패:** 엄격한 JSON 스키마를 준수하지 못해 `evaluate` 도구에서 에러를 반환받았을 때, 스스로 코드를 수정하지 못하고 에러 루프에 빠져 타임아웃(Lease Failed) 발생.
+- **도구 조합 실패:** 26종 도구 중 적절한 것을 선택하지 못하고 무관한 도구를 호출하여 체인 단절.
+- **IPC 타임아웃:** Unix Socket 응답을 제대로 처리하지 못해 `socket_unavailable` 에러 발생.
 - **환각 및 단계 건너뛰기:** 데이터 처리 단계를 임의로 스킵하고, 환각(Hallucination)에 기반한 결과물로 파이프라인을 종료하려 시도.
 
 openyggdrasil은 모델의 선의나 자율성에 기대지 않습니다. 모델이 프롬프트를 무시하고 돌발 행동을 하더라도, 메인 시스템(Vault)은 샌드박스와 타입 검증에 의해 100% 보호받습니다. 위 마지노선을 충족하지 못하는 모델은 사전에 즉각적으로 걸러지며, 프로바이더 영수증(`hermes_routing_receipt`)에 `production_readiness_claimed` 마크를 획득할 수 없습니다.
@@ -928,83 +926,144 @@ openyggdrasil은 모델의 선의나 자율성에 기대지 않습니다. 모델
        │
        │  ① SKILL.md에서 검색 진입점 확인
        │
-       │  ② PTC 엔진에 질의 전달
-       │     → PTC가 질의를 분석하여 실행 계획(JSON Tool Plan) 생성
+       │  ② 26종 PTC 도구 팔레트 중 필요한 도구 선택
+       │     → LLM이 상황에 맞게 도구 조합 코드를 작성
        │
-       │  ③ 오퍼레이터 세션이 PTC 계획에 따라 도구를 순서대로 호출
-       │     (오퍼레이터 세션의 추론 토큰으로 실행)
+       │  ③ bwrap 샌드박스에서 코드 실행
+       │     → IPC 서버(Unix Socket)로 도구 호출
+       │     → 중간 결과는 메모리에만 존재 (LLM 컨텍스트 오염 없음)
        │
        ▼
-  ┌─ PTC Engine ─────────────────────────────────────────────┐
+  ┌─ PTC 도구 팔레트 (26종) ─────────────────────────────────┐
   │                                                          │
-  │  PTC는 오퍼레이터 세션에게 9개의 도구(capability)를 제공:    │
+  │  오퍼레이터는 상황에 따라 도구를 자유롭게 조합한다.        │
+  │  Claude Code의 PTC와 동일한 원리:                          │
+  │  LLM이 코드를 작성 → 코드가 도구 호출 → 최종 결과만 반환    │
   │                                                          │
-  │  ┌─ qmd_search ─────────────────────────────────────┐    │
-  │  │  BM25 키워드 검색으로 vault 후보 추림              │    │
-  │  └──────────────────────────────────────────────────┘    │
-  │                      ▼                                   │
-  │  ┌─ locate_region ──────────────────────────────────┐    │
-  │  │  검색 결과에서 대륙/지역 식별                       │    │
-  │  └──────────────────────────────────────────────────┘    │
-  │                      ▼                                   │
-  │  ┌─ select_topic_anchor ────────────────────────────┐    │
-  │  │  지역 내에서 토픽 앵커 선택                         │    │
-  │  └──────────────────────────────────────────────────┘    │
-  │                      ▼                                   │
-  │  ┌─ read_origin_claims ─────────────────────────────┐    │
-  │  │  해당 토픽의 최초 기원 주장 읽기                     │    │
-  │  └──────────────────────────────────────────────────┘    │
-  │                      ▼                                   │
-  │  ┌─ read_recent_claims ─────────────────────────────┐    │
-  │  │  해당 토픽의 최근 에피소드 읽기                      │    │
-  │  └──────────────────────────────────────────────────┘    │
-  │                      ▼                                   │
-  │  ┌─ collect_claim_ids ──────────────────────────────┐    │
-  │  │  주장 ID 수집                                      │    │
-  │  └──────────────────────────────────────────────────┘    │
-  │                      ▼                                   │
-  │  ┌─ read_source_paths ──────────────────────────────┐    │
-  │  │  원본 출처 경로 조회                                │    │
-  │  └──────────────────────────────────────────────────┘    │
-  │                      ▼                                   │
-  │  ┌─ assemble_support_bundle ────────────────────────┐    │
-  │  │  지원 번들 조립 (앵커된 경우)                        │    │
-  │  └──────────────────────────────────────────────────┘    │
+  │  검색 도구:                                               │
+  │  ┌─ bm25_search ─────────────────────────────────────┐   │
+  │  │  BM25 키워드 검색으로 vault 후보 추림              │   │
+  │  └──────────────────────────────────────────────────┘   │
+  │  ┌─ deep_search ────────────────────────────────────┐   │
+  │  │  BM25 + 엣지 BFS로 종합 탐색 (max_depth 조절 가능) │   │
+  │  └──────────────────────────────────────────────────┘   │
   │                                                          │
-  │  토픽을 못 찾으면:                                        │
-  │  ┌─ assemble_unanchored_bundle ─────────────────────┐    │
-  │  │  비앵커 번들 리턴 (anchor_type: "none")             │    │
-  │  └──────────────────────────────────────────────────┘    │
+  │  출처 추적 도구 (필요시 조합):                              │
+  │  ┌─ locate_region ──────────────────────────────────┐   │
+  │  │  검색 결과에서 대륙/지역 식별                       │   │
+  │  ├─ select_topic_anchor ────────────────────────────┤   │
+  │  │  지역 내에서 토픽 앵커 선택                         │   │
+  │  ├─ read_origin_claims ─────────────────────────────┤   │
+  │  │  해당 토픽의 최초 기원 주장 읽기                     │   │
+  │  ├─ read_recent_claims ─────────────────────────────┤   │
+  │  │  해당 토픽의 최근 에피소드 읽기                      │   │
+  │  ├─ collect_claim_ids ──────────────────────────────┤   │
+  │  │  주장 ID 수집                                      │   │
+  │  ├─ read_source_paths ──────────────────────────────┤   │
+  │  │  원본 출처 경로 조회                                │   │
+  │  ├─ assemble_support_bundle ────────────────────────┤   │
+  │  │  지원 번들 조립 (앵커된 경우)                        │   │
+  │  └─ assemble_unanchored_bundle ─────────────────────┘   │
+  │     비앵커 번들 리턴 (anchor_type: "none")                │
+  │                                                          │
+  │  기타 도구: save_note, create_edge, prune_node,           │
+  │            validate_node, find_similar, trace_evolution   │
+  │            suggest_placement, get_category_tree 등        │
   └──────────────────────────────────────────────────────────┘
        │
        ▼
   오퍼레이터 세션이 결과를 받아 프로바이더 세션으로 복귀
+  → 프로바이더는 출처와 생명주기가 증명된 맥락을 받음
 ```
 
-### PTC 실행 계획 — 오퍼레이터 세션이 받는 것
+**핵심 규칙:**
+- 도구는 **팔레트**다. 강제된 9단계 직렬 파이프라인이 아니다.
+- LLM이 필요한 도구만 선택하여 조합 코드를 작성한다.
+- `deep_search` 하나로 충분하면 한 번에 끝낸다.
+- 출처 추적이 필요하면 `locate_region → select_topic_anchor → read_source_paths`를 조합한다.
+- `origin_claims`와 `recent_claims`는 서로 의존하지 않으므로 병렬 호출 가능.
+- 모든 도구는 `stub_generator.py` preamble에 "Use this when / Do NOT use this when" 형식의
+  어포던스 설명을 제공받는다.
 
-PTC 엔진은 오퍼레이터 세션에게 JSON Tool Plan을 제공합니다. 오퍼레이터 세션은
-이 계획에 따라 도구를 순서대로 호출합니다:
+### PTC 도구 설계 원칙 (어포던스 기반)
 
-```json
-[
-  { "step_id": "region",    "capability_id": "locate_region",           "input": { "query_text": "..." } },
-  { "step_id": "anchor",    "capability_id": "select_topic_anchor",     "input": { "query_text": "...", "region_id": "←region" } },
-  { "step_id": "origin",    "capability_id": "read_origin_claims",      "input": { "topic_id": "←anchor" } },
-  { "step_id": "recent",    "capability_id": "read_recent_claims",      "input": { "topic_id": "←anchor", "limit": 3 } },
-  { "step_id": "claim_ids", "capability_id": "collect_claim_ids",       "input": { "recent_rows": "←recent", "origin_rows": "←origin" } },
-  { "step_id": "sources",   "capability_id": "read_source_paths",       "input": { "topic_id": "←anchor", "claim_ids": "←claim_ids" } },
-  { "step_id": "bundle",    "capability_id": "assemble_support_bundle", "input": { "..." } }
-]
+Claude Code의 PTC는 **시그니처가 아니라 어포던스**로 도구를 설명한다.
+같은 원리로 OpenYggdrasil도 각 도구에 호출 시점을 명시한다:
+
+```python
+# locate_region(query_text) → {region_id, ...}
+#   Use this when: Vault 내 지식의 지역을 파악할 때
+#   Do NOT use when: 이미 topic_id를 알고 있을 때
+#   If ambiguous: select_topic_anchor 전에 먼저 호출
+
+# deep_search(topic, max_depth=3, limit=20) → {trail, ...}
+#   Use this when: 종합적인 Vault 탐색이 필요할 때
+#   Do NOT use when: 특정 출처만 필요할 때 → use read_origin_claims
 ```
 
-**계획 생성 모드 3가지:**
+> **도구는 만든 사람을 떠난다.** (evan-moon, 2026)
+> 함수 시그니처는 선언이고, 설명은 설득이다.
+> 호출자가 LLM이면 "Use this when"이 없으면 도구는 발견되지 않는다.
 
-| 모드 | 언제 | 오퍼레이터 세션 추론 소비 |
+### PTC 도구 사용 예시
+
+**예시 1: 간단한 키워드 검색 (deep_search 하나로 충분)**
+```python
+# Operator가 작성하는 코드
+result(deep_search("bubblewrap 구조", max_depth=2, limit=10))
+# → 3개 노드 발견 (직접 매칭 + 엣지 연결)
+# → LLM 컨텍스트 오염 없음. 중간 결과는 메모리에만.
+```
+
+**예시 2: 출처까지 추적하는 정밀 검색**
+```python
+# 필요한 도구만 선택하여 조합
+region = tools['locate_region'](query_text="게이트웨이 계약")
+if region['region_id']:
+    anchor = tools['select_topic_anchor'](
+        query_text="게이트웨이 계약",
+        region_id=region['region_id']
+    )
+    if anchor['topic_id']:
+        # 병렬 호출 가능 (서로 의존하지 않음)
+        origin = tools['read_origin_claims'](topic_id=anchor['topic_id'])
+        recent = tools['read_recent_claims'](topic_id=anchor['topic_id'])
+        sources = tools['read_source_paths'](
+            topic_id=anchor['topic_id'],
+            claim_ids=[c['claim_id'] for c in origin + recent]
+        )
+        RESULT = tools['assemble_support_bundle'](
+            query_text="게이트웨이 계약",
+            anchor=anchor,
+            origin_rows=origin,
+            recent_rows=recent,
+            source_paths=sources
+        )
+    else:
+        RESULT = tools['assemble_unanchored_bundle'](
+            query_text="게이트웨이 계약"
+        )
+# → 최종 Support Bundle만 LLM에 반환
+```
+
+**예시 3: 단일 도구 직통 (중간 단계 전부 건너뜀)**
+```python
+# topic_id를 이미 알고 있다면 locate_region 불필요
+sources = tools['read_source_paths'](
+    topic_id="topic:bubblewrap",
+    claim_ids=["claim:abc123"]
+)
+RESULT = {"sources": sources}
+# → 불필요한 도구 호출 없이 바로 출처만 획득
+```
+
+### 실행 모드
+
+| 모드 | 언제 | LLM 관여 |
 |---|---|---|
-| `deterministic` | 질의 신호만으로 계획 결정 가능 | 없음 (순수 Python) |
-| `lease_backed_llm` | Reasoning Lease로 LLM이 계획 생성 | 오퍼레이터 세션 토큰 소비 |
-| `typed_unavailable` | LLM 추론 실패 시 | typed unavailable 결과 반환 — 묵시적 폴백 금지 |
+| `deep_search` (기본) | 일반적인 검색. BM25 + edge BFS | 없음 (순수 Python) |
+| `ptc_code` (샌드박스) | LLM이 도구 조합 코드를 직접 작성 | 코드 작성에만 토큰 소비 |
+| `typed_unavailable` | 도구 호출 실패 시 | typed unavailable 반환 — 묵시적 폴백 금지 |
 
 ### 오퍼레이터 세션 시점의 전체 검색 여정
 
@@ -1025,8 +1084,8 @@ PTC 엔진은 오퍼레이터 세션에게 JSON Tool Plan을 제공합니다. �
        │  ④ 질의 분석 → 실행 계획(JSON Tool Plan) 생성
        │  ⑤ 3계층 검색 파이프라인 실행 (도구 9개)
        │
-       │     [1계층 — QMD BM25 키워드 검색]
-       │     qmd_search → vault 전체에서 BM25 후보 추림 (밀리초)
+       │     [1계층 — BM25 키워드 검색]
+       │     bm25_search → vault 전체에서 BM25 후보 추림 (밀리초)
        │
        │     [2계층 — 구조적 위상 탐색]
        │     locate_region → 후보에서 대륙/지역 식별

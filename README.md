@@ -22,31 +22,32 @@
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-> ⚠️ **PRODUCTION INCOMPLETE WARNING**
-> 
-> openyggdrasil is currently an **experimental project with incomplete production verification**.
-> The 94% 6-axis scorecard reflects internal milestone criteria only. Long-term
-> stability (10-round continuous), load testing, and concurrency validation
-> have NOT been performed. **Do not use in production environments.**
+> ⚠️ **WORKFLOW VERIFICATION INCOMPLETE**
 >
-> Status: experimental development · 14th milestone in progress · production deployment not recommended
+> openyggdrasil code implementation is complete but **mail service workflow and PTC operator session behavior verification have not been performed**.
+> 6-axis scorecard 91% (43/47). Axis 6 live validation entirely unverified.
+>
+> Status: code complete · 14th in progress · 816 passed / 0 failed · workflow verification pending
 
-### 📊 Production 6-Axis Scorecard — 94% (2026-05-04, 14th)
+### 📊 Production 6-Axis Scorecard — 91% (2026-05-05, 14th in progress)
 
 | Axis | Items | PASS | Rate | Grade | Description |
 |---|---|---|---|---|---|
 | Axis 1: Architecture Alignment | 25 | 25 | **100%** | 🟢 | README-code consistency |
 | Axis 2: Runtime Reliability | 5 | 5 | **100%** | 🟢 | except:pass resolved, regression clean |
-| Axis 3: Structural Health | 5 | 5 | **100%** | 🟢 | operator fully split, zero duplicate code |
-| Axis 4: Security Boundary | 4 | 4 | **100%** | 🟢 | vault guard, Admission Gate, batch PTC, **IPC callback loop (Unix Socket)** |
-| Axis 5: Observability | 4 | 2 | **50%** | 🟡 | log_event + log level filtering |
-| Axis 6: Live Validation | 4 | 3 | **75%** | 🟢 | cross-provider verify, live session subprocess test, PTC full-chain verified |
-| **Total** | **47** | **44** | **94%** | 🟢 | **Gate met (≥80%)** |
+| Axis 3: Structural Health | 5 | 5 | **100%** | 🟢 | operator fully split (producer/consumer/prune/helpers → operator/), re-exports are tests backward-compat delegation |
+| Axis 4: Security Boundary | 4 | 4 | **100%** | 🟢 | vault guard, Admission Gate, sandbox guard, IPC callback loop (Unix Socket) — code complete, **mail service workflow not verified end-to-end** |
+| Axis 5: Observability | 4 | 4 | **100%** | 🟢 | log_event + log level filtering + vault metrics (stats collection) + elapsed timing |
+| Axis 6: Live Validation | 4 | 0 | **0%** | 🔴 | **Not verified.** Provider→OP1/OP2→Provider roundtrip, PTC operator LLM-driven tool composition, live session subprocess, continuous stability — none demonstrated |
+| **Total** | **47** | **43** | **91%** | 🟡 | **Code complete, workflow verification not performed** |
 
-> **Production entry gate:** ✅ Met (94% ≥ 80%)
-> Remaining: 10-round continuous stability
-> **IPC PTC achieved:** LLM code → bwrap → Unix Socket → host primitives → multi-roundtrip callback verified.
-> **live session:** Provider → subprocess operator → produce/consume/PTC full flow foreground verified.
+> ⚠️ **Verification gaps**
+> - Mail service Provider→Mailbox→OP→Mailbox→Provider roundtrip not demonstrated
+> - PTC operator session LLM-driven tool composition not verified (only ygg hardcoded templates work)
+> - live session subprocess actual foreground operator session not demonstrated
+> - 10-run continuous producer+consumer stability not measured
+>
+> Status: code complete · 816 passed / 0 failed · **workflow verification pending**
 
 ---
 ### Architecture Alignment Detail (Axis 1 — backward compatible)
@@ -97,17 +98,18 @@ The table below shows Axis 1 module-level status using 4 levels (LIVE / PARTIAL 
 | Inline Source Marking | 🟢 LIVE | `wiki_production_safety_gate.py` provenance_refs gate + source_trace_path. Trace automation complete. 12th P2 promotion |
 | Atomic Rollback | 🟢 LIVE | `atomic_write_wiki_page` temp file + os.replace with guard-before-write. save/prune/curate 3-scenario rollback verified. 12th P2 promotion |
 | PTC Sandbox Executor | 🟢 LIVE | `sandbox_executor.py` batch+IPC dual mode. LLM code execution in bwrap cleanroom. 14th implementation |
-| PTC IPC Server | 🟢 LIVE | `ipc_server.py` Unix Domain Socket 18-tool dispatch. Producer/Consumer/Chain complete. 14th implementation |
+| PTC IPC Server | 🟢 LIVE | `ipc_server.py` Unix Domain Socket 26-tool dispatch. 14th implementation |
 | PTC Stub Generator | 🟢 LIVE | `stub_generator.py` IPC callback injection for LLM code. 14th implementation |
 | Live Session | 🟢 LIVE | `live_session.py` Provider→Operator subprocess foreground CLI. 14th implementation |
+| YGG Session Manager | 🟢 LIVE | `scripts/ygg` global OP session registry. Each provider-owned session receives a sequential Producer/Consumer pair: the first session gets OP1/OP2, the next session gets OP3/OP4. Inside each pair, odd OP is Producer and even OP is Consumer. 16th implementation |
 
 #### Alignment Summary
 | Domain | Total | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | Alignment |
 |---|---|---|---|---|---|---|
 | Production | 10 | 10 | 0 | 0 | 0 | 100% |
 | Consumption | 4 | 4 | 0 | 0 | 0 | 100% |
-| Infrastructure | 15 | 15 | 0 | 0 | 0 | 100% |
-| **Total** | **29** | **29** | **0** | **0** | **0** | **100%** |
+| Infrastructure | 16 | 16 | 0 | 0 | 0 | 100% |
+| **Total** | **30** | **30** | **0** | **0** | **0** | **100%** |
 
 
 ## System Requirements & Setup
@@ -141,7 +143,7 @@ There's no accumulation, no lifecycle, no cross-provider sharing.
 decides what to remember, what to forget, and what to deliver?*
 
 openyggdrasil takes a different approach.
- 
+
 ### 🛡️ 3-Tier Vector Replacement Strategy
 Instead of using heavy vector databases or ElasticSearch, openyggdrasil achieves 10x token efficiency through a 3-tier deterministic filtering pipeline on a pure local file system:
 
@@ -193,14 +195,14 @@ The system strictly isolates static file storage (Vault) from the dynamic relati
 
 ```text
 ┌────────────────────────────────────────┐
-│  Graphify (Derived Topology / Non-SOT) │ 
+│  Graphify (Derived Topology / Non-SOT) │
 │  [Math Nodes] ──(Edges)── [Clusters]   │  <-- Can be deleted and regenerated anytime
 └─────────────────▲──────────────────────┘
                   │ (Real-time extraction & validation)
-        [ skill_frontmatter_parser.py ] 
+        [ skill_frontmatter_parser.py ]
                   │
 ┌─────────────────▼──────────────────────┐
-│  Vault (Single Source of Truth / SOT)  │ 
+│  Vault (Single Source of Truth / SOT)  │
 │  ├── concepts/   (--- YAML ---)        │  <-- Immutable Markdown files
 │  └── entities/   (--- YAML ---)        │
 └────────────────────────────────────────┘
@@ -277,7 +279,7 @@ openyggdrasil runs purely locally. The core runtime relies almost entirely on th
 
 > **⚠️ Mandatory Rule for Providers:**
 > Before executing the initial setup (Cold Start) skill for the first time, the provider **MUST ask the user for explicit permission** to install these dependencies.
-> 
+>
 > 1. Provider detects that dependencies are missing.
 > 2. Provider halts and prompts the user: *"openyggdrasil requires Python dependencies (listed in requirements) to be installed locally. Do you allow this?"*
 > 3. Only upon user approval, the provider installs the requirements. **Silent or unprompted installations are strictly forbidden.**
@@ -285,6 +287,30 @@ openyggdrasil runs purely locally. The core runtime relies almost entirely on th
 ### 3. Session-Scoped Cold Start
 
 Once dependencies are approved and installed, the provider can execute the skill entrypoints defined in `SKILL.md`. The openyggdrasil runtime **cold-starts per Provider Session**. There are no system-level background daemons, but Operator Sessions bound to a Provider Session may persist via Mailbox polling for the session's lifetime. They exit cleanly on timeout or Provider Session termination.
+
+### 4. TMUX Live Witness Policy
+
+TMUX is an optional **live witness surface** for humans. It exists so a user can visually inspect the decision flow across Provider Sessions and Operator Sessions while a live verification run is in progress.
+
+TMUX is **not** the core execution path. The default operating mode remains background-first:
+
+- Provider and Operator Sessions run through the Mailbox, receipts, event logs, and provider-owned background tasks.
+- Producer/Consumer work must continue even when no TMUX pane is attached.
+- TMUX panes may tail the same logs, inboxes, receipts, or status snapshots that the background runtime already produces.
+- Closing or failing a TMUX pane is an observability loss, not a memory-engine failure.
+- A TMUX capture may be used as human-readable evidence, but it must not replace machine-readable receipts, schema-valid traces, or test results.
+
+Status terms must stay precise:
+
+| Status | Meaning |
+|---|---|
+| `background_task_passed` | The provider/operator work completed through the normal background path. |
+| `tmux_visual_witness_available` | A human can inspect the live flow in TMUX. |
+| `tmux_visual_witness_unavailable` | The visual witness is unavailable; the background path may still be healthy. |
+| `foreground_equivalent` | The system was verified through background logs/receipts, not a true live foreground surface. |
+| `live_foreground_claimed` | Allowed only when an actual foreground/live provider surface was verified. |
+
+Provider adapters may implement TMUX dashboards differently, but they must not make TMUX a hard dependency of the provider-neutral runtime.
 
 ### Verify Installation Manually
 
@@ -502,34 +528,43 @@ The standard PTC paradigm allows the agent to freely write Python code within a 
 2. The script executes, calling multiple tools sequentially and filtering intermediate data, saving tokens and latency.
 3. While efficient and flexible, normalizing knowledge into a strict lifecycle memory system using this approach is highly unpredictable. It relies entirely on the logical integrity of the agent's on-the-fly script, making it vulnerable to runtime hallucinations.
 
-### openyggdrasil's Transformation (The Typed PTC Engine)
+### openyggdrasil's PTC Transformation — 26-Tool Palette + IPC Callback Loop (14th)
 
 ```
   ┌──────────────────────────────────────────────────────────────┐
-  │               openyggdrasil (Typed PTC Engine)               │
+  │               openyggdrasil (14th PTC Palette)               │
   │                                                              │
-  │  1. PTC Engine: Injects `JSON Execution Plan`                │
-  │     (e.g., ["distill_signal", "evaluate_candidate", ...])    │
-  │  2. Agent: Calls Tool #1 (Requires strict JSON Schema)       │
-  │  3. Guardrail: Consumes reasoning tokens, validates payload  │
-  │  4. Utility: Auto-executes deterministic Python downstream   │
-  │  5. Pipeline: Returns `stop_reason` or completes chain       │
+  │  1. Provider: ygg generates LLM code templates for OP1/OP2   │
+  │  2. Stub Generator: injects IPC preamble + 26 tool functions │
+  │  3. Sandbox Executor: runs Python script in bwrap cleanroom  │
+  │  4. IPC Server: calls host primitives via Unix Domain Socket │
+  │  5. Tool composition: template combines extract_spo→          │
+  │     suggest_placement→save_note from 26-tool palette         │
+  │  6. Result: output returned from sandbox, recorded as receipt │
   └──────────────────────────────┬───────────────────────────────┘
-                                 │ Contract: Strict JSON Schema / Typed Payloads
+                                 │ Transport: Unix Domain Socket
                                  ▼
   ┌──────────────────────────────────────────────────────────────┐
-  │                 openyggdrasil 8-Tool Chain                   │
-  │          (Deterministic, Type-safe, Lifecycle-managed)       │
+  │      26 PTC Tool Palette (runtime/ptc/_preamble.py)          │
+  │  SEARCH:  deep_search, search_vault                          │
+  │  PROVENANCE: locate_region, select_topic_anchor,             │
+  │    read_origin_claims, read_recent_claims, collect_claim_ids,│
+  │    read_source_paths, assemble_support_bundle,               │
+  │    assemble_unanchored_bundle                                │
+  │  PRODUCTION: find_similar, suggest_placement,                │
+  │    get_category_tree, check_conflicts                        │
+  │  GRAPH: trace_evolution, get_community, rank_by_relevance    │
+  │  CHAIN: extract_spo, create_edge, prune_node, validate_node  │
+  │  CORE: get_all_nodes, get_node, save_note, get_edges         │
   └──────────────────────────────────────────────────────────────┘
 ```
 
-openyggdrasil internalizes this autonomy as a **Typed Chain**:
+In the 14th milestone, openyggdrasil's PTC model fully transitioned from the legacy **Typed PTC Engine** (JSON Execution Plan, 8-Tool Chain) to a new architecture:
 
-1. **Dismantling the Black Box:** Instead of an invisible automated 12-module background loop, every module is exposed as a single-purpose "Tool" that the Operator Session must explicitly call.
-2. **PTC Primitive Composition:** Tools are mechanical primitives, and the operator SKILL decides how to compose them. No fixed execution order is enforced.
-3. **Dual-Nature Tools:** Tools are categorized into 'Contract Guardrails' (which consume reasoning tokens and enforce strict schemas) and 'Utility Tools' (deterministic Python execution), optimizing the agent's cognitive load.
-
-Consequently, openyggdrasil's PTC model provides mechanical tools as primitives, and operator SKILLs compose them to perform semantic judgments.
+1. **Tool Palette:** 8 tools → 26 across 6 groups (SEARCH, PROVENANCE, PRODUCTION, GRAPH, CHAIN, CORE). Each tool includes affordance-based descriptions (`Use this when` / `Do NOT use when`) in the preamble.
+2. **IPC Callback Loop:** Python code running inside a bwrap cleanroom calls host primitives via a Unix Domain Socket. Same isolation level as Claude Code's bubblewrap + allowed_callers pattern.
+3. **Dual Path:** Producer/Consumer supports both a fixed chain (extract_decisions→build_vault_node→save_to_vault) and a PTC chain (`ygg tell --ptc op1`). The PTC chain uses template code to compose 26 tools for production/consumption.
+4. **LLM Free Composition (current state):** All 26 tools are available, but the current PTC production path uses a fixed template: `extract_spo → suggest_placement → save_note`. Full LLM free composition of arbitrary tool combinations is the next phase.
 
 ### Background: Why PTC over Vector DBs / ElasticSearch? (Token Efficiency)
 
@@ -565,8 +600,8 @@ there using its own tokens.
        │
        ▼
   Agent runs Python entrypoints via its own shell/tool-use
-  → PTC Engine presents a Tool Set and an Execution Plan
-  → Agent calls tools sequentially to pass through the pipeline
+  → producer/consumer runs fixed chain (no reasoning needed) through pipeline
+  → or PTC chain (`--ptc`) executes code from the 26-tool palette
 ```
 
 Two things are borrowed from the provider:
@@ -610,7 +645,7 @@ There are two distinct invocation paths — one for **writing** knowledge
 
 ### Production Trigger — Context Recognition and Delegation (First-Pass)
 
-The Provider Agent (e.g., Hermes, Claude Code) actively monitors the ongoing conversation and recognizes when an architectural decision or debugging insight is **valuable enough to be permanently recorded (wiki-fied)**. 
+The Provider Agent (e.g., Hermes, Claude Code) actively monitors the ongoing conversation and recognizes when an architectural decision or debugging insight is **valuable enough to be permanently recorded (wiki-fied)**.
 
 When this need arises, the Provider Agent does not just copy-paste the entire heavy text block. Instead, it consults `SKILL.md` to construct a lightweight `Session Structure Signal`. This signal acts as a shallow request, pairing a brief summary with **exact pointers to the raw `.jsonl` conversation logs**.
 
@@ -645,18 +680,18 @@ When this need arises, the Provider Agent does not just copy-paste the entire he
 
 
 
-### Production Pipeline — The Role-Polymorphic Operator Session (Target Architecture)
+### Production Pipeline — CQRS Producer/Consumer + PTC Dual Path (14th LIVE)
 
-> **[⚠️ WIP / Design Phase]** The current runtime operates via `operator_entrypoint.py` with CQRS Producer/Consumer composing PTC primitives. The Operator Session SKILL-driven PTC primitive composition described below is the **10th Roadmap verification target**. POC 19/19 (Mock) + 18/18 (Mailbox) + 6/6 (GC) PASS verified.
+> ✅ **14th verified.** PTC full-chain (LLM code → bwrap → Unix Socket → primitives callback) fully demonstrated. Producer/Consumer dual path (fixed chain + PTC chain) both operational. 816 passed / 0 failed.
 
 When a capture signal enters the system, it is not blindly handed off to an automated black box. This process is divided between the Provider Session and a dynamically leased Operator Session:
 
 1. **Initial Context Recognition (Provider Agent)**: The Provider Agent reads `SKILL.md` to recognize contexts worth remembering. It constructs an initial signal (`Session Structure Signal` containing `surface_reason` and `source_ref`) and injects it into the OpenYggdrasil runtime.
 2. **Deep Structuring (Operator Session)**: The runtime receives this request and uses a Reasoning Lease to borrow the provider's compute power, spawning an Operator Session. This Operator Session is **not** a fixed pipeline sequence. It is a **Role-Polymorphic Leased Executor** assigned specifically to knowledge production roles (Distiller, Evaluator, Amundsen, Gardener).
 
-True to the nature of Programmatic Tool Calling (PTC), the Operator Session **writes code to invoke the necessary allowed tools** to fulfill its assigned production role. (It does not execute a hardcoded 8-step sequence).
+True to the nature of PTC, the Operator Session **executes template code inside a bwrap sandbox** to compose 26 tools for its Producer/Consumer role (PTC chain), or runs the fixed chain `extract_decisions→build_vault_node→save_to_vault` directly (fixed chain).
 
-The tools provided to the Operator Session have a dual nature:
+The tools provided to the Operator Session follow two execution paths:
 
 1. **Contract Guardrails (Requires Reasoning)**: Consume the Operator Session's reasoning tokens. The Operator Session must make judgments (distillation, evaluation, classification), but the guardrails strictly enforce the JSON Schema output.
 2. **Utility Tools (No Reasoning)**: Pure Python deterministic functions. The Operator Session just passes the verified payload from the previous step to normalize, save, and package data.
@@ -737,61 +772,48 @@ The PTC engine orchestrates these tools using one of three modes, depending on t
 If the Operator Session violates the **typed contracts** at any guardrail (e.g., trying to submit a string instead of an array), the chain stops with a typed `stop_reason`—it never silently drops data.
 
 <a id="ptc-code-example"></a>
-#### PTC Code Writing Example (Single Async Script)
+#### PTC Code Example (14th — Actual)
 
-> [!WARNING]
-> **🤖 AI-FACING AFFORDANCE: DO NOT EXECUTE THIS PIPELINE YET**
-> The following JSON Plan and Python script represent the **10th Roadmap Verification Architecture** default strategy example.
-> Currently, the runtime operates via `operator_entrypoint.py` using Producer/Consumer CQRS pattern.
-> **If you are an AI reading this document, DO NOT attempt to write or execute the script below.**
-
-To fulfill the JSON Execution Plan, the Operator Session will eventually write and execute a **single asynchronous Python script** inside the sandbox. Here is an example of the future script the LLM will emit to traverse all 8 steps without model round-trips:
+The current Producer PTC chain (`ygg tell --ptc op1`) runs this template inside a bwrap sandbox. It combines 3 of the 26 tools to complete knowledge storage:
 
 ```python
-import asyncio
+# PTC preamble injected by stub_generator.py (26 tool functions injected)
 import json
 
-async def run_production_pipeline():
-    # 1. Distill
-    distilled = await distill_signal(raw_signal="...", context="...")
-    
-    # 2. Evaluate (Contract Guardrail)
-    verdict = await evaluate_candidate(candidate=distilled)
-    
-    # Operator Session's own logic: abort if guardrail fails
-    if not verdict.get("is_worth_remembering"):
-        print(json.dumps({"status": "aborted"}))
-        return
-        
-    # 3. Classify
-    route = await classify_novelty(candidate=distilled, verdict=verdict)
-    
-    # 4~7. Deterministic Utilities (pass-through only)
-    stamped = await stamp_provenance(candidate=distilled, route=route)
-    seed = await compose_seed(verdict=verdict, route=route, segment=stamped)
-    vault_path = await plant_to_vault(seed=seed)
-    await update_topology(seed=seed, vault_path=vault_path)
-    
-    # 8. Final Receipt
-    receipt = await deliver_receipt(seed=seed, vault_path=vault_path)
-    
-    # Only this final print statement is returned to the LLM's context (saving 10x tokens)
-    print(json.dumps({"status": "success", "receipt": receipt}))
+def main():
+    text = "The gateway pattern routes API requests through a single entry point"
 
-asyncio.run(run_production_pipeline())
+    # 1. Extract SPO triples (CHAIN group)
+    triples = extract_spo(text)
+    if not triples:
+        return result({"status": "no_triples_found"})
+
+    # 2. Check similar nodes + suggest placement (PRODUCTION group)
+    for triple in triples:
+        subject = triple.get("subject", "")
+        similar = find_similar(subject, limit=5)
+        placement = suggest_placement(subject, content=triple.get("object", ""))
+
+        # 3. Save to Vault (CORE group)
+        category = placement.get("result", {}).get("suggested_category", "concepts")
+        saved = save_note(subject, triple.get("object", ""), category=category)
+
+    return result({"saved": len(triples), "category": category})
+
+main()
 ```
 
-While this script runs inside the sandbox, massive intermediate data structures (`distilled`, `verdict`, etc.) exist solely in Python memory and never pollute the LLM's context window.
+While this script runs inside the bwrap cleanroom, each call to `extract_spo`, `find_similar`, `suggest_placement`, and `save_note` is routed via Unix Domain Socket to the host's `ipc_server.py`. Intermediate data never pollutes the LLM context — only the final `result()` output is returned to the Producer.
 
 ### Reasoning Model Baseline & Limitations
 
-In the PTC pipeline, the Operator Session (LLM) must retain the complex `JSON Execution Plan` within its sandbox context, invoke 8 tools in precise order, and pass strict JSON schema constraints for each tool. This rigidity is enforced by openyggdrasil's **Contract Guardrails**.
+In the PTC pipeline, the Operator Session invokes the 26-tool palette via IPC callbacks inside a bwrap sandbox. Each call through the Unix Domain Socket is validated by host-side primitives. This is enforced by openyggdrasil's **Contract Guardrails**.
 
 To successfully navigate this highly constrained environment, the **Reasoning Model Baseline is frontier-class models like Claude 3.5 Sonnet or GPT-4o**.
 
 **Typical LLM Failure Modes for Sub-par Models:**
-- **Execution Plan Neglect:** Ignoring the enforced tool sequence and attempting to write arbitrary scripts to bypass the sandbox.
-- **Guardrail Validation Failure:** Failing to adhere to strict JSON schemas, receiving an error from the `evaluate` tool, and falling into an error loop (Timeout/Lease Failed) due to an inability to self-correct.
+- **Tool Selection Failure:** Unable to choose appropriate tools from the 26-tool palette, calling irrelevant tools and breaking the chain.
+- **IPC Timeout:** Failing to handle Unix Socket responses correctly, resulting in `socket_unavailable` errors.
 - **Hallucination & Step Skipping:** Arbitrarily skipping required data processing steps and attempting to terminate the pipeline with hallucinated results.
 
 openyggdrasil does not rely on the LLM's goodwill or autonomy. Even if a model ignores prompts and acts unpredictably, the main system (Vault) is 100% protected by the sandbox and strict type validations. Models that fail to meet this baseline are immediately filtered out during prior Readiness Governance, preventing them from claiming the `production_readiness_claimed` mark in the provider receipt (`hermes_routing_receipt`).
@@ -850,16 +872,30 @@ openyggdrasil's Operator Session** to search the accumulated knowledge.
   from raw transcripts — it queries an incrementally built, lifecycle-managed
   knowledge surface.
 
-### Consumption Pipeline — Pathfinder's 7-Tool Chain
+### PTC Tool Palette — Operator freely combines 26 tools
 
-Retrieval is also not an automatic black box. The Operator Session invokes the following 7 tools sequentially to fetch and verify knowledge.
+The Operator does NOT follow a fixed pipeline. Instead, it selects tools from a palette of 26 IPC-registered capabilities and combines them as needed — Claude Code style.
 
 ```
   Retrieval Query
        │
        ▼
-  ┌─ 1. resolve_anchor (Guardrail) ──────────────────────────┐
-  │  Operator Session determines the topic anchor from the query    │
+  ┌─ PTC Tool Palette (26 tools) ────────────────────────────┐
+  │  Operator writes Python code → sandbox (bwrap) → IPC      │
+  │  Each tool has affordance: "Use this when / Do NOT..."     │
+  │                                                          │
+  │  Search:  bm25_search, deep_search                       │
+  │  Trace:   locate_region, select_topic_anchor,             │
+  │           read_origin_claims, read_recent_claims,         │
+  │           collect_claim_ids, read_source_paths,           │
+  │           assemble_support_bundle,                        │
+  │           assemble_unanchored_bundle                      │
+  │  Core:    save_note, create_edge, prune_node,             │
+  │           validate_node, find_similar, trace_evolution    │
+  └──────────────────────────────────────────────────────────┘
+       │
+       ▼
+  Support Bundle returned. LLM context untainted.
   │  Searches Vault indices to find the closest match        │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
@@ -1038,7 +1074,7 @@ This project is open-source and released under the [Apache License 2.0](./LICENS
 You are free to use, modify, and distribute the code under the terms of this license.
 
 **Trademark & Brand Protection (Section 6):**
-While the code is open-source, the brand names **"openyggdrasil"** and **"INTEGRITY2077"**, along with their associated logos and trade dress, are strictly protected. The Apache 2.0 License explicitly **does not grant** permission to use these trademarks. 
+While the code is open-source, the brand names **"openyggdrasil"** and **"INTEGRITY2077"**, along with their associated logos and trade dress, are strictly protected. The Apache 2.0 License explicitly **does not grant** permission to use these trademarks.
 
 If you fork or distribute a modified version of this project, you must change the name and cannot use the openyggdrasil or INTEGRITY2077 branding to identify your version.
 

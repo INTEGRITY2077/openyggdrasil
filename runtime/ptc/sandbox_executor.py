@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import tempfile
 import threading
 from pathlib import Path
@@ -89,6 +90,23 @@ def _execute_ipc(
             timeout=timeout,
         )
 
+        # 5b. bwrap 미설치 → subprocess 직접 실행 (격리 없음)
+        if result is None:
+            try:
+                r = subprocess.run(
+                    ["python3", str(tmp_dir / "ptc_code.py")],
+                    capture_output=True, text=True, timeout=timeout,
+                    env={**__import__('os').environ, "PYTHONPATH": str(runtime_dir.parent)},
+                )
+                result = {
+                    "status": "ok" if r.returncode == 0 else "error",
+                    "stdout": r.stdout[:10000], "stderr": r.stderr[:10000],
+                    "exit_code": r.returncode, "sandbox": "none",
+                }
+            except subprocess.TimeoutExpired:
+                result = {"status": "error", "stdout": "", "stderr": "timeout",
+                          "exit_code": -1, "sandbox": "none"}
+
         # 6. 서버 정리
         server.stop()
 
@@ -139,6 +157,22 @@ def _execute_batch(
             tmp_dir=str(tmp_dir),
             timeout=timeout,
         )
+
+        # bwrap 미설치 → subprocess 직접 실행 (격리 없음)
+        if result is None:
+            try:
+                r = subprocess.run(
+                    ["python3", str(tmp_dir / "ptc_code.py")],
+                    capture_output=True, text=True, timeout=timeout,
+                )
+                result = {
+                    "status": "ok" if r.returncode == 0 else "error",
+                    "stdout": r.stdout[:10000], "stderr": r.stderr[:10000],
+                    "exit_code": r.returncode, "sandbox": "none",
+                }
+            except subprocess.TimeoutExpired:
+                result = {"status": "error", "stdout": "", "stderr": "timeout",
+                          "exit_code": -1, "sandbox": "none"}
 
         return result
 

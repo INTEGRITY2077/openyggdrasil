@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from runtime.logging import log_event
+from runtime.log_event import log_event
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from ptc.primitives import (
@@ -49,13 +49,16 @@ from runtime.ptc.sandbox_executor import execute_ptc_code
 
 def run_producer(mailbox: Path, vault: Path):
     """Mailbox에서 save-intent를 폴링하여 Vault에 적재."""
-    # ★ 14차 Axis 4: sandbox smoketest
+    t0 = datetime.now(timezone.utc)
+
+    # ★ 14차 Axis 4: sandbox guard (보안 계층, 기능 블로커 아님)
     try:
         from runtime.sandbox import sandbox_run
-        sandbox_run(["python3", "--version"], timeout=10)
-        log_event("sandbox_check_ok")
+        sandbox_ok = sandbox_run(["python3", "--version"], timeout=10)
+        if sandbox_ok is None:
+            log_event("sandbox_unavailable", reason="bwrap_not_found", action="continue_direct")
     except Exception:
-        log_event("sandbox_check_skip")
+        log_event("sandbox_unavailable", reason="import_error", action="continue_direct")
 
     # POC Phase 0+: intents.jsonl 우선, legacy messages.jsonl 폴백
     messages_file = mailbox / "intents.jsonl"
@@ -79,7 +82,46 @@ def run_producer(mailbox: Path, vault: Path):
         if not line.strip():
             continue
         msg = json.loads(line)
-        if msg.get("intent") not in ("save", "prune", "curate", "skill_update", "restore", "sandbox-exec") or msg["mail_id"] in completed:
+        if msg.get("intent") not in ("save", "memory_ticket", "prune", "curate", "skill_update", "restore", "sandbox-exec", "promote") or msg["mail_id"] in completed:
+            continue
+
+        if msg.get("intent") == "memory_ticket":
+            result = _handle_memory_ticket(mailbox, vault, msg)
+            nodes = result.get("nodes", [])
+            status = result.get("status", "acknowledged")
+            ring_ids = result.get("ring_ids", [])
+            receipt = {
+                "receipt_id": str(uuid.uuid4())[:8],
+                "in_reply_to": msg["mail_id"],
+                "status": status,
+                "intent": "memory_ticket",
+                "produced_count": len(nodes),
+                "nodes": nodes,
+                "ring_ids": ring_ids,
+                "canonical_topic_path": result.get("canonical_topic_path"),
+                "source_ref_status": result.get("source_ref_status"),
+                "reason": result.get("reason"),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "producer_pid": os.getpid(),
+            }
+            with open(receipts_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+            deliver_receipt(
+                mailbox,
+                msg["mail_id"],
+                status="delivered" if nodes else "deferred",
+                produced_count=len(nodes),
+                node_ids=nodes,
+                result_bundle={
+                    "intent": "memory_ticket",
+                    "source_ref_status": result.get("source_ref_status"),
+                    "reason": result.get("reason"),
+                    "source_ref": msg.get("payload", {}).get("source_ref"),
+                    "ring_ids": ring_ids,
+                    "canonical_topic_path": result.get("canonical_topic_path"),
+                    "support_bundle_seed": result.get("support_bundle_seed"),
+                },
+            )
             continue
 
         # ★ 14차 Axis 4: sandbox-exec intent 처리 (PTC 코드 실행)
@@ -177,6 +219,22 @@ def run_producer(mailbox: Path, vault: Path):
                     f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
                 deliver_receipt(mailbox, msg["mail_id"], status="delivered", produced_count=nodes_produced)
             continue
+        # ★ Nursery: promote intent 처리 (DRAFT → ACTIVE)
+        if msg.get("intent") == "promote":
+            node_id = msg.get("payload", {}).get("node_id", "")
+            if node_id:
+                _handle_promote(vault, node_id)
+            with open(receipts_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "receipt_id": str(uuid.uuid4())[:8],
+                    "in_reply_to": msg["mail_id"],
+                    "status": "acknowledged",
+                    "intent": "promote",
+                    "node_id": node_id,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }, ensure_ascii=False) + "\n")
+            continue
+
 
         snapshot = msg["payload"]["context_snapshot"]
         candidates = extract_decisions(snapshot)
@@ -264,7 +322,271 @@ def run_producer(mailbox: Path, vault: Path):
     if any(v > 0 for v in feedback_stats.values()):
         log_event("feedback_loop", stats=feedback_stats)
 
-    log_event("producer_done", pid=os.getpid())
+    # ★ Axis 5: 운영 메트릭 — Vault 통계 수집
+    try:
+        from runtime.vault_integrity import collect_stats
+        meta_stats = collect_stats(vault)
+        log_event("vault_stats_collected",
+                  node_count=meta_stats.get("node_count", 0),
+                  total_size=meta_stats.get("total_size_bytes", 0))
+    except Exception:
+        log_event("vault_stats_skip")
+
+    elapsed = (datetime.now(timezone.utc) - t0).total_seconds() * 1000
+    log_event("producer_done", pid=os.getpid(), elapsed_ms=round(elapsed))
+
+
+def _slugify_topic_key(text: str) -> str:
+    import re
+
+    lowered = text.strip().lower()
+    asciiish = re.sub(r"[^0-9a-zA-Z가-힣]+", "-", lowered).strip("-")
+    return asciiish[:80] or "memory-ticket"
+
+
+def _as_list(value) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item)]
+    return [str(value)] if str(value) else []
+
+
+def _render_provenance_ring_page(*, ring_node: dict) -> str:
+    topic = ring_node["canonical_topic"]
+    capsule = ring_node["decision_capsule"]
+    ring = ring_node["provenance_rings"][0]
+    lifecycle = ring_node["lifecycle"]
+    community = ring_node["community"]
+    retrieval = ring_node["retrieval_contract"]
+    return f"""---
+id: {ring_node['node_id']}
+title: {topic['title']}
+type: {ring_node.get('category', 'policy')}
+status: ACTIVE
+community: {community['community_id']}
+sources: [{ring['source_ref']}]
+root_claim: {capsule['decision']}
+current_authority: active
+ring_id: {ring['ring_id']}
+lifecycle_state: ACTIVE
+---
+# {topic['title']}
+
+## 1. Canonical Claim
+{capsule['decision']}
+
+## 2. Decision Capsule
+```json
+{json.dumps(capsule, ensure_ascii=False, indent=2)}
+```
+
+## 3. Provenance Rings
+```json
+{json.dumps(ring_node['provenance_rings'], ensure_ascii=False, indent=2)}
+```
+
+## 4. Lifecycle
+```json
+{json.dumps(lifecycle, ensure_ascii=False, indent=2)}
+```
+
+## 5. Edges
+- DERIVES_FROM: {ring['origin_locator']}
+- SUPPORTS: {capsule['decision']}
+
+## 6. Community Placement
+```json
+{json.dumps(community, ensure_ascii=False, indent=2)}
+```
+
+## 7. Retrieval Contract
+```json
+{json.dumps(retrieval, ensure_ascii=False, indent=2)}
+```
+
+## 8. Raw Evidence Pointers
+- source_ref: {ring['source_ref']}
+- origin_locator: {ring['origin_locator']}
+- commit_watermark: {ring['commit_watermark']}
+- anchor_hash: {ring['anchor_hash']}
+- resolver_status: {ring.get('resolver_status', 'resolved')}
+- redaction_status: {ring.get('redaction_status', 'pointer_only')}
+- message_index_range: {json.dumps(ring.get('message_index_range', {}), ensure_ascii=False)}
+"""
+
+
+def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
+    topic = ring_node["canonical_topic"]
+    ring = ring_node["provenance_rings"][0]
+    community = ring_node["community"]
+    topic_path = vault / topic["page_path"]
+    topic_path.parent.mkdir(parents=True, exist_ok=True)
+    topic_path.write_text(_render_provenance_ring_page(ring_node=ring_node), encoding="utf-8")
+
+    # OP2의 기존 BM25 fixed path가 concepts/entities 중심으로 읽으므로 POC mirror를 하나 둔다.
+    concept_path = vault / "concepts" / f"{ring_node['node_id']}.md"
+    concept_path.parent.mkdir(parents=True, exist_ok=True)
+    concept_rendered = _render_provenance_ring_page(ring_node=ring_node)
+    concept_path.write_text(concept_rendered, encoding="utf-8")
+
+    # 기존 full UX 최소 계약은 concepts/N-*.md mirror를 찾는다. POC ring node의 정식 ID는 PRN-*로 유지하되
+    # legacy 검색/회귀 호환 mirror를 함께 둔다.
+    legacy_id = "N-" + ring_node["node_id"].split("-", 1)[1]
+    legacy_concept_path = vault / "concepts" / f"{legacy_id}.md"
+    legacy_concept_path.write_text(concept_rendered.replace(f"id: {ring_node['node_id']}", f"id: {legacy_id}\ncanonical_node_id: {ring_node['node_id']}"), encoding="utf-8")
+
+    topic_key = topic["topic_id"].split(":", 1)[1]
+    prov_path = vault / "_meta" / "provenance" / f"{topic_key}.md"
+    prov_path.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "episode_id": f"episode:ring:{ring['ring_id']}",
+        "claim_id": f"claim:{ring_node['node_id']}",
+        "support_fact": ring_node["decision_capsule"]["decision"],
+        "ring_id": ring["ring_id"],
+        "community_id": community["community_id"],
+        "derived_from": topic["page_path"],
+        "source_ref": ring["source_ref"],
+        "origin_locator": ring["origin_locator"],
+    }
+    prov_path.write_text(
+        "# Provenance Rings\n"
+        f"<!-- provenance:{record['episode_id']}:start -->\n"
+        f"## Episode {ring['ring_id']}\n"
+        "```json\n"
+        f"{json.dumps(record, ensure_ascii=False)}\n"
+        "```\n"
+        f"<!-- provenance:{record['episode_id']}:end -->\n",
+        encoding="utf-8",
+    )
+
+    community_key = community["community_id"].split(":", 1)[-1]
+    community_path = vault / "communities" / f"{community_key}.md"
+    community_path.parent.mkdir(parents=True, exist_ok=True)
+    community_path.write_text(
+        f"# {community_key}\n\n- community_id: {community['community_id']}\n- placement_reason: {community['placement_reason']}\n- related_nodes: {ring_node['node_id']}\n- ring_id: {ring['ring_id']}\n",
+        encoding="utf-8",
+    )
+    return {
+        "canonical_topic_path": str(topic_path.relative_to(vault)),
+        "concept_path": str(concept_path.relative_to(vault)),
+        "legacy_concept_path": str(legacy_concept_path.relative_to(vault)),
+        "provenance_path": str(prov_path.relative_to(vault)),
+        "community_path": str(community_path.relative_to(vault)),
+    }
+
+
+def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
+    """MemoryTicket 원본 범위를 resolver로 읽고 나이테 기억 노드 최소 POC 산출물을 만든다."""
+    payload = msg.get("payload", {}) or {}
+    source_ref = str(payload.get("source_ref") or "")
+    range_hint = payload.get("message_index_range") or {}
+    anchor_hash = str(payload.get("anchor_hash") or "")
+    resolver_options = dict(payload.get("resolver_options") or {})
+    if payload.get("sessions_dir") and "sessions_dir" not in resolver_options:
+        resolver_options["sessions_dir"] = payload.get("sessions_dir")
+
+    try:
+        from runtime.source_ref.registry import resolve_source_ref
+
+        resolved = resolve_source_ref(
+            source_ref=source_ref,
+            range_hint={"start": int(range_hint.get("start", 0)), "end": int(range_hint.get("end", 0))},
+            anchor_hash=anchor_hash,
+            resolver_options=resolver_options,
+        )
+    except Exception as exc:
+        return {"status": "deferred", "nodes": [], "source_ref_status": "unavailable", "reason": f"resolver_error:{type(exc).__name__}"}
+
+    if resolved.get("status") != "resolved":
+        return {
+            "status": "deferred",
+            "nodes": [],
+            "source_ref_status": resolved.get("status"),
+            "reason": resolved.get("reason", "source_ref_not_resolved"),
+        }
+
+    decision = str(payload.get("decision") or payload.get("결정") or payload.get("surface_reason") or "MemoryTicket")
+    topic_title = str(payload.get("canonical_topic_title") or payload.get("topic_title") or decision[:80])
+    topic_key = _slugify_topic_key(str(payload.get("canonical_topic_key") or topic_title))
+    node_id = "PRN-" + uuid.uuid5(uuid.NAMESPACE_URL, f"{source_ref}:{range_hint}:{decision}").hex[:16]
+    ring_id = "ring-" + uuid.uuid5(uuid.NAMESPACE_URL, f"ring:{source_ref}:{range_hint}:{anchor_hash}").hex[:16]
+    community_key = _slugify_topic_key(str(payload.get("community") or payload.get("커뮤니티") or "openyggdrasil-memory"))
+    community_id = f"community:{community_key}"
+    commit_watermark = str(payload.get("commit_watermark") or resolved.get("commit_watermark") or "")
+    ring_node = {
+        "schema_version": "provenance_ring_node.v1",
+        "node_id": node_id,
+        "category": str(payload.get("category") or payload.get("카테고리") or "policy"),
+        "canonical_topic": {
+            "topic_id": f"topic:{topic_key}",
+            "title": topic_title,
+            "page_path": f"queries/{topic_key}.md",
+        },
+        "decision_capsule": {
+            "decision": decision,
+            "context": str(payload.get("context") or payload.get("맥락") or payload.get("surface_reason") or ""),
+            "conclusion": str(payload.get("conclusion") or payload.get("결론") or ""),
+            "evidence": _as_list(payload.get("evidence") or payload.get("근거") or source_ref),
+            "forbidden": _as_list(payload.get("forbidden") or payload.get("금지")),
+            "reuse_condition": str(payload.get("reuse_condition") or payload.get("재사용 조건") or ""),
+        },
+        "provenance_rings": [{
+            "ring_id": ring_id,
+            "source_ref": source_ref,
+            "origin_locator": str(resolved.get("origin_locator") or f"{source_ref}#message_index={range_hint.get('start')}..{range_hint.get('end')}"),
+            "provider_session_id": str(payload.get("provider_session_id") or resolved.get("provider_session_id") or ""),
+            "message_index_range": resolved.get("message_index_range") or range_hint,
+            "anchor_hash": anchor_hash,
+            "commit_watermark": commit_watermark,
+            "surface_reason": str(payload.get("surface_reason") or ""),
+            "resolver_status": str(resolved.get("resolver_status") or resolved.get("status") or "resolved"),
+            "redaction_status": str(resolved.get("redaction_status") or "pointer_only"),
+        }],
+        "lifecycle": {
+            "state": "ACTIVE",
+            "created_by_ring_id": ring_id,
+            "lineage_edges": [{"type": "DERIVES_FROM", "target": str(resolved.get("origin_locator") or source_ref)}],
+        },
+        "community": {
+            "community_id": community_id,
+            "placement_reason": str(payload.get("surface_reason") or "MemoryTicket provenance placement"),
+            "related_nodes": [],
+        },
+        "retrieval_contract": {
+            "keywords": [decision, topic_title, source_ref, community_key],
+            "support_lanes": ["origin", "recent", "source_paths", "community_edges", "semantic_edges"],
+        },
+    }
+    paths = _write_provenance_ring_artifacts(vault, ring_node=ring_node)
+    return {
+        "status": "acknowledged",
+        "nodes": [node_id],
+        "ring_ids": [ring_id],
+        "source_ref_status": "resolved",
+        "reason": "provenance_ring_node_saved",
+        "canonical_topic_path": paths["canonical_topic_path"],
+        "support_bundle_seed": {
+            "ring_ids": [ring_id],
+            "source_paths": list(paths.values()),
+            "community_id": community_id,
+        },
+    }
+
+
+def _handle_promote(vault: Path, node_id: str) -> bool:
+    """Nursery: DRAFT 노드를 ACTIVE로 승격."""
+    node_file = vault / "concepts" / f"{node_id}.md"
+    if not node_file.exists():
+        node_file = vault / "entities" / f"{node_id}.md"
+    if not node_file.exists():
+        return False
+    text = node_file.read_text(encoding="utf-8")
+    if "status: DRAFT" not in text:
+        return False
+    text = text.replace("status: DRAFT", "status: ACTIVE")
+    node_file.write_text(text, encoding="utf-8")
+    return True
 
 
 def _handle_sandbox_exec(mailbox: Path, vault: Path, msg: dict) -> dict:
@@ -330,6 +652,8 @@ def _count_ptc_saves(result: dict) -> int:
         if isinstance(res, dict):
             if "saved_count" in res:
                 return res["saved_count"]
+            if "saved" in res:
+                return res["saved"]
             if res.get("status") == "saved":
                 return 1
             # Heuristic: final - initial node count difference

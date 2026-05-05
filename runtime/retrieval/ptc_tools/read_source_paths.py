@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from retrieval.pathfinder_tools import get_raw_sources
+from retrieval.pathfinder_tools import read_source_paths
 
 
 CAPABILITY_ID = "read_source_paths"

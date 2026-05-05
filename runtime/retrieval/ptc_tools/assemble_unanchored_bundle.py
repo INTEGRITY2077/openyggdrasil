@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from retrieval.pathfinder_tools import build_unanchored_bundle
+from retrieval.pathfinder_tools import assemble_unanchored_bundle
 
 
 CAPABILITY_ID = "assemble_unanchored_bundle"
