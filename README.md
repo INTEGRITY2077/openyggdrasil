@@ -18,104 +18,80 @@
   <a href="#how-it-works">How</a> •
   <a href="#the-12-module-chain">Modules</a> •
   <a href="#reasoning-lease">Reasoning Lease</a> •
-  <a href="#quick-start">Quick Start</a> •
+  <a href="#system-requirements--setup">Setup</a> •
   <a href="#inspirations--acknowledgements">Inspirations</a>
 </p>
 
-> ⚠️ **WORKFLOW VERIFICATION INCOMPLETE**
+> ⚠️ **15th Production UX Realignment**
 >
-> openyggdrasil code implementation is complete but **mail service workflow and PTC operator session behavior verification have not been performed**.
-> 6-axis scorecard 91% (43/47). Axis 6 live validation entirely unverified.
+> openyggdrasil is a runtime aimed at extending Karpathy-style LLM Wiki into
+> provider-neutral production memory. This document is **not** a production-ready
+> completion claim. As of 2026-05-06, the project is realigning the boundaries
+> around SourceRef, PTC Kitchen, Provenance Ring, Graphify, and TMUX witness.
 >
-> Status: code complete · 14th in progress · 816 passed / 0 failed · workflow verification pending
+> Current state: provider-neutral production memory direction is ACTIVE ·
+> production-ready is NOT CLAIMED · multi-provider same UX is NOT PASS ·
+> some Hermes/OP1/OP2 POCs are partially verified.
 
-### 📊 Production 6-Axis Scorecard — 91% (2026-05-05, 14th in progress)
+### 📊 15th Alignment Scorecard — 80/100 (2026-05-06)
 
-| Axis | Items | PASS | Rate | Grade | Description |
-|---|---|---|---|---|---|
-| Axis 1: Architecture Alignment | 25 | 25 | **100%** | 🟢 | README-code consistency |
-| Axis 2: Runtime Reliability | 5 | 5 | **100%** | 🟢 | except:pass resolved, regression clean |
-| Axis 3: Structural Health | 5 | 5 | **100%** | 🟢 | operator fully split (producer/consumer/prune/helpers → operator/), re-exports are tests backward-compat delegation |
-| Axis 4: Security Boundary | 4 | 4 | **100%** | 🟢 | vault guard, Admission Gate, sandbox guard, IPC callback loop (Unix Socket) — code complete, **mail service workflow not verified end-to-end** |
-| Axis 5: Observability | 4 | 4 | **100%** | 🟢 | log_event + log level filtering + vault metrics (stats collection) + elapsed timing |
-| Axis 6: Live Validation | 4 | 0 | **0%** | 🔴 | **Not verified.** Provider→OP1/OP2→Provider roundtrip, PTC operator LLM-driven tool composition, live session subprocess, continuous stability — none demonstrated |
-| **Total** | **47** | **43** | **91%** | 🟡 | **Code complete, workflow verification not performed** |
+| Category | Score/State | Verdict |
+|---|---:|---|
+| Karpathy LLM Wiki philosophy/architecture alignment | 86-ish | Vault/Markdown/SOT, lifecycle, and Graphify-as-derived-view are directionally aligned |
+| Current implementation completeness | 74-ish | Hermes-centered POCs and some runtime surfaces exist, but provider-neutral boundaries are not closed |
+| Overall alignment | **80/100** | The direction is sound, but P0/P1/P2 gates remain open |
+| production-ready | **NOT CLAIMED** | Test count or a POC is not enough to claim production readiness |
 
-> ⚠️ **Verification gaps**
-> - Mail service Provider→Mailbox→OP→Mailbox→Provider roundtrip not demonstrated
-> - PTC operator session LLM-driven tool composition not verified (only ygg hardcoded templates work)
-> - live session subprocess actual foreground operator session not demonstrated
-> - 10-run continuous producer+consumer stability not measured
->
-> Status: code complete · 816 passed / 0 failed · **workflow verification pending**
+#### Top-Level Realignment Notes
 
----
-### Architecture Alignment Detail (Axis 1 — backward compatible)
-
-The table below shows Axis 1 module-level status using 4 levels (LIVE / PARTIAL / STUB / ABSENT).
-
-| Rating | Meaning |
+| Previous wording | 15th-aligned wording |
 |---|---|
-| 🟢 **LIVE** | Runtime code exists, tests PASS, or core verification complete |
-| 🟡 **PARTIAL** | Code/Contracts exist, but end-to-end trace is unverified or Operator Session integration is WIP |
-| 🟠 **STUB** | File/Concept exists, but only stub code is present |
-| 🔴 **ABSENT** | No code exists; only design documents exist |
+| “code complete”, “91%”, “100% LIVE modules” | Overclaims completion. Use 80/100 alignment plus gate-based verdicts instead |
+| “cross-provider memory access verified” | Separate fake/POC evidence from real same-UX provider parity. Same UX is still NOT PASS |
+| “PTC full-chain verified” | PTC IPC/sandbox pieces exist, but production/consumption kitchen split, typed egress, and sandbox fail-closed are NOT PASS |
+| “Graphify live/full topology” | Graphify is a derived view, not SOT. Full topology support-bundle verification is PARTIAL |
+| “TMUX live session” | TMUX is a human visual witness, not the core execution path |
 
-#### Production Side
-| Module | Status | Remarks |
+### Current Responsibility Boundary Status
+
+#### Required Promotion Group — 15th Boundary Modules
+
+These rows are not optional README commentary. They are the 15th realignment
+boundary modules that must stay visible until each gate is closed.
+
+| Area | Current Verdict | Reason |
 |---|---|---|
-| Session Structure Signal | 🟢 LIVE | Tree Rings established. Same-Run Typed Ref Source verified |
-| Admission Gate | 🟢 LIVE | `admission_gate.v1.schema.json` + `_validate_admission` minimum quality gate. `run_producer` checks before `save_to_vault`. 12th P0 promotion |
-| Distiller | 🟢 LIVE | Guardrail + Persona exist. SPO extraction (`build_spo_triples`) implemented. Phase C-live C1+C2+C3 PASS — SPO→save→receipt round-trip verified |
-| Evaluator | 🟢 LIVE | Pollution detection + prune evaluation. GC Lifecycle Step 1. Phase C-live C1 PASS — LLM 자발 prune 발행 검증 |
-| Amundsen | 🟢 LIVE | Continent branching schema + runtime + Persona implemented. 11th Rev.2 promotion |
-| Map Maker | 🟢 LIVE | Topology calculation + Persona implemented. Q05 edge determination (`_determine_edge_type`) deterministic implementation complete. 11th Rev.2 promotion |
-| Gardener | 🟢 LIVE | Physical planting + Persona. `_handle_prune` with SUPERSEDED archive isolation + `_run_hygiene_check` (5항목 H1~H5 위생점검). Phase C-live C1+C2+C3 PASS — prune→분류→archive 풀체인 검증 |
-| Postman | 🟢 LIVE | `deliver_receipt` implemented + integrated into `run_producer`/`run_consumer`. POC Phase 1-6 18/18 PASS |
-| Content Hash Protection | 🟢 LIVE | `wiki_write_guard.py` content hash guard + atomic write. 5 tests PASS |
-| Feedback Loop | 🟢 LIVE | `_run_feedback_loop` + `_handle_prune` gardener_receipts → prune/curate intent auto-issue. Round-trip verified. 13th promotion (STUB→PARTIAL→LIVE) |
+| Vault / Markdown SOT | BOUNDED LIVE | The canonical memory surface is Vault/Markdown and takes precedence over Graphify |
+| Mailbox / Receipt / Event Log | BOUNDED LIVE | Background-first machine-readable evidence; stronger than TMUX witness |
+| Provider Common Boundary | P0 IN PROGRESS | Common runtime still needs Hermes default/direct import removal |
+| SourceRef Resolver Registry | PARTIAL | Common registry must stop knowing provider-specific storage directly |
+| Affordance Intent Router | NOT PASS | LLM-facing handles must use affordance contracts, not signature-only or provider-specific wording |
+| PTC Production Kitchen | NOT PASS | write/mutate role, evidence, receipt, and schema responsibilities are not closed |
+| PTC Consumption Kitchen | NOT PASS | read/search/support-only role split and Vault mutation ban are not closed |
+| PTC Egress / Sandbox Gate | NOT PASS | raw stdout debug-only, typed egress, and production sandbox fail-closed remain open |
+| Provenance Ring Lineage | PARTIAL | A POC vertical slice exists, but append-only accumulation and overwrite separation remain open |
+| Graphify Support Verifier | PARTIAL | Graphify hints must be reverified against Vault; full topology support verification is unfinished |
+| TMUX Live Witness | POLICY ONLY | Human observation surface; does not replace background execution success |
 
-#### Consumption Side
-| Module | Status | Remarks |
+#### Promotion Candidate Group — Acceptance / UX Gates
+
+These are important gates, but they are not yet promoted into standalone
+15th module-definition files. Until promoted, they should be treated as
+acceptance criteria that constrain the required modules above.
+
+| Candidate | Current Verdict | Promotion Trigger |
 |---|---|---|
-| Pathfinder | 🟢 LIVE | Persona exists. rank-bm25 (pure BM25) + ACTIVE filter + `_boost_by_edges` 3-stage search pipeline. No Heavy Deps (11th) |
-| Support Bundle | 🟢 LIVE | 3-tier Tree Ring tracking + lifecycle_status + edge_context + context_bundle_ref. Bounded bundle live verified (11th Rev.2) |
-| Mailbox | 🟢 LIVE | Multi-provider POC Phase 1-6 18/18 PASS. `status.json`+`manifest.json` operational. Reverse Push receipts working |
-| Lifecycle Filter | 🟢 LIVE | Frontmatter parsing and ACTIVE/SUPERSEDED state filtering works perfectly |
+| Provider Final Answer UX | NOT PASS | Promote when provider/operator outputs need a dedicated contract that starts with judgment, not workflow trace |
+| Cross-Provider Same UX | NOT PASS | Promote when Hermes POC evidence must be generalized into a provider-neutral CLI UX contract |
 
-#### Infrastructure / Cross-Cutting
-| Module | Status | Remarks |
-|---|---|---|
-| SKILL.md Cold Start | 🟢 LIVE | Automatic provider recognition & entrypoint calling works |
-| Typed PTC Engine | 🟢 LIVE | `primitives.py` SPO+Edge+BM25+prune+boost processing (+500 lines). `_determine_edge_type` Q05 6-type. `_handle_prune` Gardener integration. `_boost_by_edges` lifecycle boost. 11th Rev.2 promotion |
-| Persona System (9 roles) | 🟢 LIVE | 9 Personas complete (replaced effort normalizer) |
-| Reasoning Lease | 🟢 LIVE | Multi-OS Sandbox (Mac/WSL2) clean-room proposed. Windows native officially unsupported by design decision (12th Phase 1 promotion) |
-| Vault (SOT) | 🟢 LIVE | Directory works. Atomic write guard with content hash protection (wiki_write_guard.py). Operational metrics + integrity hash (vault_integrity.py). 12th P2 promotion |
-| Graphify Derived View | 🟢 LIVE | Community derivation scripts functional (GPL dependencies removed). Structure coverage report (graphify_coverage.json) + freshness guard verified. 12th promotion |
-| Cross-Provider | 🟢 LIVE | Multi-provider Mailbox POC Phase 1-6 18/18 PASS. Cross-provider memory access verified. 13th promotion |
-| Hermes Adapter | 🟢 LIVE | Background gateway contract bounded verification PASS. Contract completeness documented (`hermes_provider_skill_bridge_entrypoint.py`). 12th promotion |
-| i18n Pipeline | 🟢 LIVE | `wiki_capture_signal.py` language_code fail-closed validation. Multi-language round-trip test. 12th P2 promotion |
-| Inline Source Marking | 🟢 LIVE | `wiki_production_safety_gate.py` provenance_refs gate + source_trace_path. Trace automation complete. 12th P2 promotion |
-| Atomic Rollback | 🟢 LIVE | `atomic_write_wiki_page` temp file + os.replace with guard-before-write. save/prune/curate 3-scenario rollback verified. 12th P2 promotion |
-| PTC Sandbox Executor | 🟢 LIVE | `sandbox_executor.py` batch+IPC dual mode. LLM code execution in bwrap cleanroom. 14th implementation |
-| PTC IPC Server | 🟢 LIVE | `ipc_server.py` Unix Domain Socket 26-tool dispatch. 14th implementation |
-| PTC Stub Generator | 🟢 LIVE | `stub_generator.py` IPC callback injection for LLM code. 14th implementation |
-| Live Session | 🟢 LIVE | `live_session.py` Provider→Operator subprocess foreground CLI. 14th implementation |
-| YGG Session Manager | 🟢 LIVE | `scripts/ygg` global OP session registry. Each provider-owned session receives a sequential Producer/Consumer pair: the first session gets OP1/OP2, the next session gets OP3/OP4. Inside each pair, odd OP is Producer and even OP is Consumer. 16th implementation |
+#### PASS Vocabulary
 
-#### Alignment Summary
-| Domain | Total | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | Alignment |
-|---|---|---|---|---|---|---|
-| Production | 10 | 10 | 0 | 0 | 0 | 100% |
-| Consumption | 4 | 4 | 0 | 0 | 0 | 100% |
-| Infrastructure | 16 | 16 | 0 | 0 | 0 | 100% |
-| **Total** | **30** | **30** | **0** | **0** | **0** | **100%** |
-
-
-## System Requirements & Setup
-
-openyggdrasil attaches to AI providers (e.g., Hermes, Claude Code, Cursor)
-> Production entry gate: Total ≥80% (currently 94%, met)
+| Term | Meaning |
+|---|---|
+| `BOUNDED LIVE` | Narrow code/test/log evidence exists. It is not whole-product completion |
+| `PARTIAL` | Direction and partial implementation exist, but core gates remain open |
+| `NOT PASS` | The current evidence cannot support the claim |
+| `POLICY ONLY` | The operating policy exists; functional proof is still separate |
 
 ## Why This Exists
 Every AI coding tool — Hermes, Codex, Claude Code, Cursor, Gemini CLI — has its
@@ -147,9 +123,9 @@ openyggdrasil takes a different approach.
 ### 🛡️ 3-Tier Vector Replacement Strategy
 Instead of using heavy vector databases or ElasticSearch, openyggdrasil achieves 10x token efficiency through a 3-tier deterministic filtering pipeline on a pure local file system:
 
-1. **L1 Structural Filtering (YAML Frontmatter)**: Completely blocks the intrusion of 'stale knowledge' (`SUPERSEDED`)—a common weakness of vector similarity searches. It uses `python-frontmatter` to pre-filter document metadata (`status`, `tags`, `type`) with 100% precision, like a SQL query.
-2. **L2 Topological Navigation (NetworkX)**: Traces explicit causality instead of probabilistic similarity. It converts `Sources` links between documents into a NetworkX graph, and uses the Louvain community algorithm to identify entire topic clusters that "must be read together."
-3. **L3 Programmatic Scanning (PTC Full-text)**: Prevents token waste caused by carelessly shoving 10-20 candidates into the LLM's context window. A Python script (PTC) physically scans the files in the background and returns only the refined conclusions (variable names, code snippets) to the agent. This entirely eliminates the **"Lost in the Middle"** hallucination and the **massive round-trip token overhead**.
+1. **L1 Structural Filtering (YAML Frontmatter)**: Filters out stale knowledge (`SUPERSEDED`) before retrieval, addressing a common weakness of vector similarity searches. It uses frontmatter metadata (`status`, `tags`, `type`) for deterministic pre-filtering.
+2. **L2 Topological Navigation (NetworkX)**: Traces explicit causality instead of probabilistic similarity. It converts `Sources` links between documents into a NetworkX graph, and uses the Louvain community algorithm to identify topic clusters that should be considered together.
+3. **L3 Programmatic Scanning (PTC Full-text)**: Reduces token waste caused by carelessly shoving 10-20 candidates into the LLM's context window. A Python script (PTC) scans files in the background and returns refined conclusions (variable names, code snippets) to the agent. The goal is to reduce **"Lost in the Middle"** failure modes and round-trip token overhead.
 
 ### Cross-Provider Pollination
 
@@ -176,8 +152,8 @@ In openyggdrasil, a category is not just a folder, but an **independent knowledg
 
 ### 3. Provenance Tracking and Lineage (Tree Rings & Evolution)
 If a system merely overwrites files with the latest data, crucial foundational contexts (Origins) are eventually lost. *"Time flows linearly, but context does not evolve linearly."* To prevent this, knowledge is managed as an evolving lineage.
-- **Tree Ring Engraving:** Every knowledge block is permanently engraved with its provenance (`provider_id`, `session_uid`, `timestamp`) at the data-model level.
-- Foundational decisions (Roots and Trunks) are preserved, while abandoned logic (Branches) is explicitly marked as invalid (`SUPERSEDED`) rather than physically deleted. This ensures the evolutionary path of any decision can always be traced, regardless of which provider is connected.
+- **Tree Ring Engraving:** Captured knowledge blocks are stamped with provenance (`provider_id`, `session_uid`, `timestamp`) at the data-model level when admitted.
+- Foundational decisions (Roots and Trunks) are preserved, while abandoned logic (Branches) is explicitly marked as invalid (`SUPERSEDED`) rather than physically deleted. This gives agents a bounded lineage path to inspect a decision's evolution across providers.
 
 ### 4. Structural Relationship Network (Graphify Topology)
 To transcend the physical limits of categorized knowledge, we apply Safi Shamsi's [Graphify (v5)](https://github.com/safishamsi/graphify) concept.
@@ -242,21 +218,21 @@ sources: [source refs or public paths]
 
 ## System Requirements & Setup
 
-openyggdrasil operates as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). You do not need to start system-level background daemons or manage separate server processes. Operator Sessions are bound to their Provider Session's lifetime and exit cleanly on timeout or completion.
+openyggdrasil is designed to operate as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). The target operating model does not require system-level background daemons or separate server management. Operator Sessions should be bound to their Provider Session's lifetime and exit on timeout or completion, but this is not a production-ready guarantee yet.
 
 > **⚠️ Reasoning Lease Model (Asynchronous Multiplexing):**
 > openyggdrasil does not have its own API keys; it **borrows (leases) the reasoning tokens of the provider agent (IDE) in reverse**.
-> Because the Operator runs as an asynchronous background job (to avoid blocking the user chat), it either receives the Provider's API key as an environment variable to run autonomously, or it prints a **Task Contract (Prompt)** to standard output (`stdout`), which the Provider asynchronously multiplexes and answers behind the scenes. This creates a non-blocking 'reverse-call ping-pong' architecture.
+> In the target non-blocking path, the Operator runs behind the user chat and therefore needs an explicit provider-owned reasoning lease. A provider adapter may satisfy that lease through scoped auth delegation or asynchronous task-contract multiplexing, but the common boundary must remain provider-neutral. This boundary is not a production-ready claim.
 
 ### 1. How Providers Recognize openyggdrasil
 
 Providers attach to openyggdrasil by reading the **`SKILL.md`** manifest at the repository root. To initiate the connection:
 - Point your agent's skill configuration to the absolute path of `SKILL.md`.
-- The agent reads this contract, which defines the exact entrypoints, command shapes, and boundaries for memory retrieval and capture.
+- The agent reads this contract, which defines the declared entrypoints, command shapes, and boundaries for memory retrieval and capture.
 
 ### 2. System Requirements & Dependency Installation
 
-openyggdrasil runs purely locally. The core runtime relies almost entirely on the Python Standard Library, but the Graphify-derived views and Sandbox isolations require the following minimal dependency stack:
+openyggdrasil runs purely locally. The core runtime relies mostly on the Python Standard Library; optional Graphify-derived views and sandbox isolation require the following dependency stack:
 
 **Supported Operating Systems:**
 - **Linux / WSL2 Focus**: openyggdrasil's core Reasoning Lease Sandbox depends on `bubblewrap` for unprivileged Linux container isolation.
@@ -331,7 +307,7 @@ python runtime/import_smoke.py
 
 
 **Actual Codebase Implementation (Frontmatter Parser):**
-This is not merely theoretical documentation. The system actively utilizes `runtime/retrieval/skill_frontmatter_parser.py` to extract the `---` YAML frontmatter from all markdown files and rigorously validates it against a strict JSON Schema contract. Both Graphify and Pathfinder rely on this parsed topological data to construct their mathematical search networks.
+The codebase includes `runtime/retrieval/skill_frontmatter_parser.py` to extract `---` YAML frontmatter from markdown files and validate it against a JSON Schema contract. Graphify and Pathfinder should rely on this parsed topological data before treating relationships as support evidence.
 
 **Vault Promotion Rules — To be recorded:**
 - Must be persistent, non-trivial, hard to re-derive, and reusable in future sessions.
@@ -340,7 +316,7 @@ This is not merely theoretical documentation. The system actively utilizes `runt
 #### Graphify: The Derived Visibility Layer
 
 This is a **derived layer** that builds graph/wiki/index views over the Vault.
-**Even if Graphify fails, the core pipeline (capture, lifecycle, Mailbox) is unaffected.**
+**Graphify failure should not block the core capture, lifecycle, or Mailbox path; this remains a support-verification gate, not a production-ready claim.**
 
 **Why adopt Graphify:**
 
@@ -402,8 +378,8 @@ This is a **derived layer** that builds graph/wiki/index views over the Vault.
 ```
 
 Graphify artifacts enhance Pathfinder's retrieval quality, but
-**Pathfinder always cross-verifies Graphify hints against the original Vault.**
-If a relationship suggested by Graphify cannot be verified in the Vault, it is ignored.
+**Pathfinder must cross-verify Graphify hints against the original Vault before treating them as support evidence.**
+If a relationship suggested by Graphify cannot be verified in the Vault, it must be treated as an untrusted hint rather than SOT.
 
 ---
 
@@ -444,7 +420,7 @@ The Operator Session runs in **physically separated independent background proce
 ```
 
 **Key constraint:** Operator Sessions (Producer/Consumer) run in physically separate context windows (PIDs) from the Provider Session, with no shared memory.
-The Mailbox (JSONL filesystem) is the only communication channel. (Mock 19/19 + Mailbox Phase 1-6 18/18 PASS verified)
+The Mailbox (JSONL filesystem) is the only communication channel. Existing Mock/Mailbox POC evidence is bounded proof; it does not prove all-provider same UX or production readiness.
 
 #### Session Definitions
 
@@ -485,17 +461,17 @@ through lifecycle transitions.
 The consumption pipeline doesn't dump the entire vault. **Pathfinder** builds
 explainable, lifecycle-aware, and **Provenance-tracked Bounded Support Bundles**.
 
-Rather than just raw text summaries, these bundles (governed by the `support_bundle.v1.schema.json` contract) structurally embed a **3-tier provenance tracking mechanism** to allow 100% context restoration:
+Rather than just raw text summaries, these bundles (governed by the `support_bundle.v1.schema.json` contract) structurally embed a **3-tier provenance tracking mechanism** that lets the agent trace back toward the original context:
 1. **Breadcrumbs (`source_paths`)**: The array of URI paths to the original files where the knowledge was extracted.
 2. **Topology IDs (`episode_ids`, `claim_ids`)**: The contextual topological coordinates within Vault/Graphify where this knowledge was generated.
-3. **Evidence Refs (`safe_ref`)**: Safe pointers to the exact Raw Conversation Logs or terminal execution transcripts, allowing the agent to immediately trace back to the uncompressed reality if needed.
+3. **Evidence Refs (`safe_ref`)**: Safe pointers to supporting logs or terminal execution evidence when available, allowing the agent to inspect the less-compressed source context if needed.
 
-Consequently, the agent receives both the distilled summary and the exact address to return to its origin, securely delivered via the typed **Mailbox** contract by **Postman**.
+Consequently, the agent receives both the distilled summary and bounded evidence addresses for origin inspection, securely delivered via the typed **Mailbox** contract by **Postman**.
 
 
 ## PTC (Programmatic Tool Calling) Concept & Architecture
 
-The production and consumption pipelines of openyggdrasil operate on a **PTC (Programmatic Tool Calling)** architecture.
+The production and consumption pipelines are being realigned around a **PTC (Programmatic Tool Calling)** architecture. Existing PTC IPC/sandbox/template paths are partial evidence; production/consumption kitchen split, typed egress, and sandbox fail-closed are still open gates.
 
 **Source of Truth (SOT):**
 This architecture is heavily inspired by Anthropic's [Programmatic Tool Calling](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/programmatic-tool-calling) (PTC) and the broader open-ended agentic loop (REPL) philosophy.
@@ -528,18 +504,18 @@ The standard PTC paradigm allows the agent to freely write Python code within a 
 2. The script executes, calling multiple tools sequentially and filtering intermediate data, saving tokens and latency.
 3. While efficient and flexible, normalizing knowledge into a strict lifecycle memory system using this approach is highly unpredictable. It relies entirely on the logical integrity of the agent's on-the-fly script, making it vulnerable to runtime hallucinations.
 
-### openyggdrasil's PTC Transformation — 26-Tool Palette + IPC Callback Loop (14th)
+### openyggdrasil's PTC Transformation — 26-Tool Palette + IPC Callback Loop
 
 ```
   ┌──────────────────────────────────────────────────────────────┐
-  │               openyggdrasil (14th PTC Palette)               │
+  │               openyggdrasil (PTC Palette)                    │
   │                                                              │
   │  1. Provider: ygg generates LLM code templates for OP1/OP2   │
   │  2. Stub Generator: injects IPC preamble + 26 tool functions │
   │  3. Sandbox Executor: runs Python script in bwrap cleanroom  │
   │  4. IPC Server: calls host primitives via Unix Domain Socket │
-  │  5. Tool composition: template combines extract_spo→          │
-  │     suggest_placement→save_note from 26-tool palette         │
+  │  5. Tool composition: template combines only allowed          │
+  │     production/consumption tools for the current role         │
   │  6. Result: output returned from sandbox, recorded as receipt │
   └──────────────────────────────┬───────────────────────────────┘
                                  │ Transport: Unix Domain Socket
@@ -559,12 +535,13 @@ The standard PTC paradigm allows the agent to freely write Python code within a 
   └──────────────────────────────────────────────────────────────┘
 ```
 
-In the 14th milestone, openyggdrasil's PTC model fully transitioned from the legacy **Typed PTC Engine** (JSON Execution Plan, 8-Tool Chain) to a new architecture:
+openyggdrasil's PTC model has moved from the legacy **Typed PTC Engine** (JSON Execution Plan, 8-Tool Chain) toward a 26-tool palette plus IPC callback loop:
 
 1. **Tool Palette:** 8 tools → 26 across 6 groups (SEARCH, PROVENANCE, PRODUCTION, GRAPH, CHAIN, CORE). Each tool includes affordance-based descriptions (`Use this when` / `Do NOT use when`) in the preamble.
-2. **IPC Callback Loop:** Python code running inside a bwrap cleanroom calls host primitives via a Unix Domain Socket. Same isolation level as Claude Code's bubblewrap + allowed_callers pattern.
-3. **Dual Path:** Producer/Consumer supports both a fixed chain (extract_decisions→build_vault_node→save_to_vault) and a PTC chain (`ygg tell --ptc op1`). The PTC chain uses template code to compose 26 tools for production/consumption.
-4. **LLM Free Composition (current state):** All 26 tools are available, but the current PTC production path uses a fixed template: `extract_spo → suggest_placement → save_note`. Full LLM free composition of arbitrary tool combinations is the next phase.
+2. **IPC Callback Loop:** Python code running inside a bwrap cleanroom calls host primitives via a Unix Domain Socket. production sandbox fail-closed and typed egress are still separate gates.
+3. **Dual Path:** Producer/Consumer supports both a fixed chain (extract_decisions→build_vault_node→save_to_vault) and a PTC chain (`ygg tell --ptc op1`). Dual path support itself is not a production-ready claim.
+4. **LLM Free Composition (current state):** The 26-tool surface exists, but the current PTC production path is still close to the `extract_spo → suggest_placement → save_note` template. Safe role-scoped free composition inside kitchens is a P1 gate.
+5. **P1 realignment required:** production(write/mutate) kitchen and consumption(read/search/support) kitchen must be split. Consumption surfaces must not expose `save_note`, `create_edge`, or `prune_node` as default handles.
 
 ### Background: Why PTC over Vector DBs / ElasticSearch? (Token Efficiency)
 
@@ -572,7 +549,7 @@ Traditional RAG (Retrieval-Augmented Generation) approaches rely on Vector DBs o
 
 The primary reason openyggdrasil abandoned heavy external infrastructure in favor of a **pure local-filesystem PTC architecture** is its **overwhelming token efficiency and structural filtering**:
 
-- **Context Exclusion of Intermediate Data:** When the agent calls utility tools like `scan_topology` or `filter_lifecycle`, massive amounts of intermediate data (e.g., scanning 20 Vault documents) are never loaded into the agent's context window. The data is processed, filtered, and aggregated purely within Python memory.
+- **Context Exclusion of Intermediate Data:** When the agent calls utility tools like `scan_topology` or `filter_lifecycle`, massive amounts of intermediate data (e.g., scanning 20 Vault documents) should remain outside the agent's context window. The data is processed, filtered, and aggregated within Python memory before a typed result is returned.
 - **Elimination of Model Round-Trip Overhead:** Querying 10 knowledge nodes as independent tools consumes massive tokens because it invokes the LLM individually for each query. By using PTC to read 10 documents within a single code execution block and returning only a summarized conclusion, token usage is reduced by approximately **10x or more**.
 - **Returning Only the Final Summary:** The agent is shielded from the vast noise of the search process. It only receives the final, highly refined `bounded support bundle`.
 
@@ -611,7 +588,7 @@ Two things are borrowed from the provider:
 | **Execution context** | The agent's shell/tool-calling ability to run Python scripts |
 | **Reasoning tokens** | The LLM reasoning capability required to pass PTC contract guardrails and make complex decisions |
 
-**The Operator Session IS the pipeline.** While some pipeline modules (Utility Tools) run deterministically in pure Python, core decisions (Contract Guardrails) execute by consuming the agent's own reasoning tokens.
+**The Operator Session is the intended pipeline execution subject.** Some utility paths run deterministically in pure Python, while decision-heavy guardrails require an explicit reasoning-lease boundary. This does not mean the full PTC kitchen is production-ready.
 
 Independent API key configuration for self-hosted execution (without a
 provider) is planned for the future.
@@ -627,10 +604,10 @@ There are two distinct invocation paths — one for **writing** knowledge
 
 ```
   ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    FULL LIFECYCLE OVERVIEW                              │
+  │              TARGET LIFECYCLE OVERVIEW (GATES STILL OPEN)               │
   │                                                                        │
   │  ① Provider reads SKILL.md                                             │
-  │  ② Provider's agent decides: "capture" or "retrieve"                   │
+  │  ② Provider adapter/worker decides: "capture" or "retrieve"            │
   │                                                                        │
   │  CAPTURE PATH (Production)                RETRIEVE PATH (Consumption)  │
   │  ─────────────────────────                ──────────────────────────── │
@@ -645,14 +622,14 @@ There are two distinct invocation paths — one for **writing** knowledge
 
 ### Production Trigger — Context Recognition and Delegation (First-Pass)
 
-The Provider Agent (e.g., Hermes, Claude Code) actively monitors the ongoing conversation and recognizes when an architectural decision or debugging insight is **valuable enough to be permanently recorded (wiki-fied)**.
+Target UX: a Provider Agent or adapter should recognize when an architectural decision or debugging insight is **valuable enough to be recorded (wiki-fied)**. Current status does not claim Hermes-native automatic MemoryTicket hooks or provider natural async reflection are PASS.
 
-When this need arises, the Provider Agent does not just copy-paste the entire heavy text block. Instead, it consults `SKILL.md` to construct a lightweight `Session Structure Signal`. This signal acts as a shallow request, pairing a brief summary with **exact pointers to the raw `.jsonl` conversation logs**.
+When this need is explicitly detected or routed, the Provider Agent should avoid copy-pasting the entire heavy text block. Instead, it should consult `SKILL.md` to construct a lightweight `Session Structure Signal`. This signal acts as a shallow request, pairing a brief summary with bounded pointers to relevant evidence handles.
 
 ```
   Provider Agent (The main entity interacting with the user)
        │
-       │  ① Recognizes a context worth wiki-fying
+       │  ① Identifies or receives a context worth wiki-fying
        │
        │  ② Reads SKILL.md to discover the entrypoint and rules
        │
@@ -663,7 +640,7 @@ When this need arises, the Provider Agent does not just copy-paste the entire he
        │       trigger_type:        "hard_trigger"
        │       surface_reason:      "Decided to use gateway pattern..."
        │       turn_range:          { from: 12, to: 18 }
-       │       source_ref:          { path_hint: "sessions/abc123.jsonl" } // ⭐️ CRITICAL: The Raw Pointer
+       │       source_ref:          { path_hint: "sessions/abc123.jsonl" } // evidence handle, not raw dump
        │     }
        │
        │  ④ Publishes Intent to Mailbox & spawns Operator asynchronously (Fire-and-Forget)
@@ -674,22 +651,22 @@ When this need arises, the Provider Agent does not just copy-paste the entire he
 ```
 
 **Key rules:**
-- **Pointer-Based Delegation (`source_ref` is mandatory):** The Provider Agent must not mutate or unnecessarily duplicate raw conversations. It must pass a `source_ref` pointing to the exact `.jsonl` log file. Signals missing this pointer are immediately rejected by the Admission Gate.
-- **Asynchronous Cold-Start (Non-blocking):** openyggdrasil does not block the provider. It is spawned asynchronously in the background via the Mailbox affordance. It runs silently without a permanent system daemon, leaving a receipt and exiting when the job is done.
-- **Reasoning Lease:** The Operator needs intelligence to perform deep structuring (Distill/Evaluate) in the background. The Provider must lease its own compute by either **passing its API key (auth delegation) at spawn time**, or by **asynchronously multiplexing and servicing** the prompts emitted by the background Operator.
+- **Pointer-Based Delegation (`source_ref` is mandatory):** The Provider Agent must not mutate or unnecessarily duplicate raw conversations. It must pass a `source_ref` pointing to the relevant `.jsonl` log or evidence handle. Signals missing this pointer are rejected by the Admission Gate.
+- **Asynchronous Cold-Start (Non-blocking target):** openyggdrasil should not block the provider. The target path delegates through Mailbox/background execution and leaves a receipt when the job is done; this is still bounded by provider adapter support and receipt evidence.
+- **Reasoning Lease:** The Operator needs intelligence to perform deep structuring (Distill/Evaluate) in the background. The Provider adapter must expose an explicit reasoning-lease boundary, such as scoped auth delegation or asynchronous multiplexing of task contracts emitted by the background Operator.
 
 
 
-### Production Pipeline — CQRS Producer/Consumer + PTC Dual Path (14th LIVE)
+### Production Pipeline — CQRS Producer/Consumer + PTC Dual Path
 
-> ✅ **14th verified.** PTC full-chain (LLM code → bwrap → Unix Socket → primitives callback) fully demonstrated. Producer/Consumer dual path (fixed chain + PTC chain) both operational. 816 passed / 0 failed.
+> ⚠️ **15th realignment note:** PTC IPC/sandbox/template execution paths exist, but PTC production/consumption kitchen split, typed egress, and sandbox fail-closed are not closed. This section describes the current execution model and next gates; it is not a production-ready claim.
 
 When a capture signal enters the system, it is not blindly handed off to an automated black box. This process is divided between the Provider Session and a dynamically leased Operator Session:
 
-1. **Initial Context Recognition (Provider Agent)**: The Provider Agent reads `SKILL.md` to recognize contexts worth remembering. It constructs an initial signal (`Session Structure Signal` containing `surface_reason` and `source_ref`) and injects it into the OpenYggdrasil runtime.
-2. **Deep Structuring (Operator Session)**: The runtime receives this request and uses a Reasoning Lease to borrow the provider's compute power, spawning an Operator Session. This Operator Session is **not** a fixed pipeline sequence. It is a **Role-Polymorphic Leased Executor** assigned specifically to knowledge production roles (Distiller, Evaluator, Amundsen, Gardener).
+1. **Initial Context Recognition (Provider Adapter / Worker)**: The provider adapter or worker reads `SKILL.md` to route contexts worth remembering. It should construct an initial signal (`Session Structure Signal` containing `surface_reason` and `source_ref`) and inject it into the OpenYggdrasil runtime only when evidence is available.
+2. **Deep Structuring (Operator Session)**: In the target flow, the runtime receives this request through the provider adapter's Reasoning Lease boundary and spawns an Operator Session. This Operator Session is **not** meant to be a fixed pipeline sequence. It is a **Role-Polymorphic Leased Executor** concept assigned specifically to knowledge production roles (Distiller, Evaluator, Amundsen, Gardener).
 
-True to the nature of PTC, the Operator Session **executes template code inside a bwrap sandbox** to compose 26 tools for its Producer/Consumer role (PTC chain), or runs the fixed chain `extract_decisions→build_vault_node→save_to_vault` directly (fixed chain).
+True to the nature of PTC, the Operator Session can **execute template code inside a bwrap sandbox** for its Producer/Consumer role. The safe target is not to mix all 26 tools into one surface, but to split production and consumption kitchens and enforce role-specific allowlists plus typed egress.
 
 The tools provided to the Operator Session follow two execution paths:
 
@@ -703,7 +680,7 @@ The tools provided to the Operator Session follow two execution paths:
   PTC Operator Session (Role-Polymorphic Executor assigned to Knowledge Production)
        │
        │  ① OpenYggdrasil provides a Task Contract (Distiller/Amundsen/Gardener etc)
-       │  ② Operator Session writes code to invoke the appropriate production tools
+       │  ② Operator Session invokes tools inside the role-specific kitchen
        │
        ▼
   ┌─ PTC Engine (Runtime) — Allowlisted Tool Pool ───────────────────────────┐
@@ -754,12 +731,12 @@ The tools provided to the Operator Session follow two execution paths:
   └──────────────────────────────────────────────────────────────────────────┘
        │
        ▼
-  Operator Session leaves a Receipt in the Mailbox and terminates (Production Complete)
+  Operator Session leaves a Receipt in the Mailbox and terminates (task complete)
 ```
 
 ### PTC Execution Plan — Default Strategy Example (Production)
 
-The JSON Tool Plan below is a **default strategy example**. Data dependencies like `←distill` are natural, but the SKILL can skip steps or reorder them as needed. *(For a concrete implementation example, see the [PTC Code Writing Example](#ptc-code-example) section.)*
+The JSON Tool Plan below is a **default strategy example**. Data dependencies like `←distill` are natural, but PTC primitive composition must stay inside role-specific kitchen boundaries. This example describes a target shape; it does not mean every free composition is production-safe. *(For a concrete implementation example, see the [PTC Code Writing Example](#ptc-code-example) section.)*
 
 The PTC engine orchestrates these tools using one of three modes, depending on the complexity of the signal:
 
@@ -769,12 +746,12 @@ The PTC engine orchestrates these tools using one of three modes, depending on t
 | `lease_backed_llm` | Complex signals / ambiguity | Guardrail reasoning (3x) → Utility execution |
 | `typed_unavailable` | Lease rejection / LLM failure | Returns typed unavailable result — silent fallback forbidden |
 
-If the Operator Session violates the **typed contracts** at any guardrail (e.g., trying to submit a string instead of an array), the chain stops with a typed `stop_reason`—it never silently drops data.
+If the Operator Session violates the **typed contracts** at any guardrail (e.g., trying to submit a string instead of an array), the chain should stop with a typed `stop_reason` rather than silently dropping data.
 
 <a id="ptc-code-example"></a>
-#### PTC Code Example (14th — Actual)
+#### PTC Code Example
 
-The current Producer PTC chain (`ygg tell --ptc op1`) runs this template inside a bwrap sandbox. It combines 3 of the 26 tools to complete knowledge storage:
+The current Producer PTC chain (`ygg tell --ptc op1`) can run a template like this inside a bwrap sandbox. This explains a save scenario; it does not prove the full PTC production kitchen is PASS:
 
 ```python
 # PTC preamble injected by stub_generator.py (26 tool functions injected)
@@ -803,20 +780,20 @@ def main():
 main()
 ```
 
-While this script runs inside the bwrap cleanroom, each call to `extract_spo`, `find_similar`, `suggest_placement`, and `save_note` is routed via Unix Domain Socket to the host's `ipc_server.py`. Intermediate data never pollutes the LLM context — only the final `result()` output is returned to the Producer.
+While this script runs inside the bwrap cleanroom, each call to `extract_spo`, `find_similar`, `suggest_placement`, and `save_note` is routed via Unix Domain Socket to the host's `ipc_server.py`. The goal is to avoid putting intermediate data directly into LLM context and return typed results, but raw stdout debug-only conversion and typed egress validation are still separate gates.
 
 ### Reasoning Model Baseline & Limitations
 
 In the PTC pipeline, the Operator Session invokes the 26-tool palette via IPC callbacks inside a bwrap sandbox. Each call through the Unix Domain Socket is validated by host-side primitives. This is enforced by openyggdrasil's **Contract Guardrails**.
 
-To successfully navigate this highly constrained environment, the **Reasoning Model Baseline is frontier-class models like Claude 3.5 Sonnet or GPT-4o**.
+To successfully navigate this highly constrained environment, the **Reasoning Model Baseline is a frontier-class instruction-following and code-reasoning model**.
 
 **Typical LLM Failure Modes for Sub-par Models:**
 - **Tool Selection Failure:** Unable to choose appropriate tools from the 26-tool palette, calling irrelevant tools and breaking the chain.
 - **IPC Timeout:** Failing to handle Unix Socket responses correctly, resulting in `socket_unavailable` errors.
 - **Hallucination & Step Skipping:** Arbitrarily skipping required data processing steps and attempting to terminate the pipeline with hallucinated results.
 
-openyggdrasil does not rely on the LLM's goodwill or autonomy. Even if a model ignores prompts and acts unpredictably, the main system (Vault) is 100% protected by the sandbox and strict type validations. Models that fail to meet this baseline are immediately filtered out during prior Readiness Governance, preventing them from claiming the `production_readiness_claimed` mark in the provider receipt (`hermes_routing_receipt`).
+openyggdrasil is designed not to rely on the LLM's goodwill or autonomy. However, the current state does not claim “100% protection.” In production mode, sandbox unavailable must close as `typed_unavailable`, and runtime must enforce role allowlists plus typed egress. Until those gates close, PTC production-ready is not claimed.
 
 ---
 
@@ -863,25 +840,25 @@ openyggdrasil's Operator Session** to search the accumulated knowledge.
 
 **Key rules:**
 - The agent receives a **bounded support bundle**, not a raw Vault dump.
-  Every fact in the bundle carries provenance and lifecycle state.
+  Facts in the bundle are expected to carry provenance and lifecycle state.
 - If the topic has been **SUPERSEDED** or **STALE**, the retrieval result
-  explicitly states this — the agent is never silently given outdated context.
-- **Source refs are required.** The retrieval result always links back to
-  the original provider session that produced the knowledge.
+  should explicitly state this instead of presenting outdated context as current.
+- **Source refs are required.** Retrieval results should include source refs or
+  typed unavailable when source refs are missing.
 - This is the **LLM Wiki** pattern: the provider doesn't re-derive knowledge
   from raw transcripts — it queries an incrementally built, lifecycle-managed
   knowledge surface.
 
-### PTC Tool Palette — Operator freely combines 26 tools
+### PTC Tool Palette — Consumption Kitchen Boundary
 
-The Operator does NOT follow a fixed pipeline. Instead, it selects tools from a palette of 26 IPC-registered capabilities and combines them as needed — Claude Code style.
+The Consumer Operator should assemble read/search/support bundles. It must not mutate the Vault. The current palette shape still needs a P1 kitchen split so production tools and consumption tools are not exposed as one default surface.
 
 ```
   Retrieval Query
        │
        ▼
-  ┌─ PTC Tool Palette (26 tools) ────────────────────────────┐
-  │  Operator writes Python code → sandbox (bwrap) → IPC      │
+  ┌─ PTC Consumption Kitchen ────────────────────────────────┐
+  │  Operator writes role-scoped code → sandbox → IPC         │
   │  Each tool has affordance: "Use this when / Do NOT..."     │
   │                                                          │
   │  Search:  bm25_search, deep_search                       │
@@ -890,8 +867,8 @@ The Operator does NOT follow a fixed pipeline. Instead, it selects tools from a 
   │           collect_claim_ids, read_source_paths,           │
   │           assemble_support_bundle,                        │
   │           assemble_unanchored_bundle                      │
-  │  Core:    save_note, create_edge, prune_node,             │
-  │           validate_node, find_similar, trace_evolution    │
+  │  Mutation tools such as save_note, create_edge, and       │
+  │  prune_node must not be default handles in consumption.   │
   └──────────────────────────────────────────────────────────┘
        │
        ▼
@@ -938,11 +915,43 @@ The Operator does NOT follow a fixed pipeline. Instead, it selects tools from a 
 | `deep_search` | Vague query (e.g., "how did we do X?") | Operator Session scans topology → reads multiple pages → builds bundle |
 | `graphify_assisted` | Cross-domain query | Uses Graphify hints for semantic search |
 
-The consumption side **never fabricates context**. If the Vault is empty,
+The consumption side **must not fabricate context**. If the Vault is empty,
 Pathfinder returns an honest `anchor_type: "none"` result. If provenance
 can't be verified, it stops with `origin_shortcut_missing`. The agent
-always knows exactly what it's getting and why.
+receives enough evidence to inspect what it is getting and why.
 
+Until the P1 kitchen split is complete, do not claim “LLM free composition PASS” or “Consumer kitchen PASS.”
+
+
+### PTC Tool Design Principles (Affordance-Based)
+
+The PTC palette is an LLM-facing surface. A tool is not defined only by its
+function name or JSON schema; it also needs an affordance contract that tells a
+provider or Operator Session when the tool is appropriate.
+
+Every provider-facing or LLM-facing primitive should be documented in this
+shape:
+
+```text
+Use this when:
+Do not use this when:
+If ambiguous:
+Typed unavailable when:
+Required evidence refs:
+Hard nonclaims:
+```
+
+This is especially important for the production/consumption kitchen split:
+
+| Kitchen | Allowed affordance | Hard boundary |
+|---|---|---|
+| Production | create, mutate, stamp, save, receipt | must carry `source_ref`, receipt, and schema evidence |
+| Consumption | read, search, assemble support, explain provenance | must not expose Vault mutation tools as default handles |
+| Shared utility | validate, normalize, classify, package typed result | must close as typed unavailable when evidence is missing |
+
+Signature-only contracts are incomplete LLM-facing documentation. They may
+exist as machine metadata, but they are not enough to guide a provider or leased
+Operator Session.
 
 
 ## The 12-Module Chain
@@ -960,14 +969,14 @@ always knows exactly what it's getting and why.
 | ⑨ | **Gardener** | Lifecycle transitions: ACTIVE → SUPERSEDED → STALE | Knowledge must be pruned, not just accumulated |
 | ⑩ | **Postman** | Routes bounded support bundles | Delivery is a contract, not a side effect |
 | ⑪ | **Mailbox** | Provider session inbox | Type-safe consumption surface |
-| ⑫ | **Pathfinder** | Retrieves explainable support material | Every retrieval result carries provenance and lifecycle proof |
+| ⑫ | **Pathfinder** | Retrieves explainable support material | Retrieval results should carry provenance and lifecycle proof, or typed unavailable |
 
 ---
 ## Reasoning Lease
 
 Some complex signals or ambiguous tradeoffs go beyond simple PTC tool calls—they require extended LLM reasoning with time budgets and isolation guarantees.
 
-openyggdrasil handles this via the **Reasoning Lease** layer. It activates when the PTC engine's `lease_backed_llm` mode is used:
+openyggdrasil is intended to handle this through the **Reasoning Lease** boundary. The `lease_backed_llm` mode is a target execution lane; production proof still depends on typed egress, role allowlists, receipts, and sandbox fail-closed behavior:
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -979,8 +988,8 @@ openyggdrasil handles this via the **Reasoning Lease** layer. It activates when 
 │  └─────────────────┘                                     │
 │           +                                               │
 │  ┌─────────────────┐                                     │
-│  │ Sandbox         │  Untrusted code runs in isolation     │
-│  │ Isolation       │  Failure → rollback, not corruption   │
+│  │ Sandbox         │  Untrusted code should run isolated   │
+│  │ Isolation       │  Failure → typed unavailable/rollback │
 │  └─────────────────┘                                     │
 │           +                                               │
 │  ┌─────────────────┐                                     │
@@ -990,7 +999,7 @@ openyggdrasil handles this via the **Reasoning Lease** layer. It activates when 
 └───────────────────────────────────────────────────────────┘
 ```
 
-The Reasoning Lease runs in an unprivileged sandbox via the mandatory dependency `bubblewrap`, ensuring that the Operator Session's complex autonomous loop cannot corrupt the main system.
+The Reasoning Lease should run in an unprivileged sandbox via the mandatory dependency `bubblewrap`; when sandboxing is unavailable, production execution must fail closed instead of claiming isolation.
 
 ---
 
@@ -1044,11 +1053,12 @@ into navigable graphs:
 
 2. **Mechanical base, mandatory reasoning.** The pipeline's structural skeleton
    (schema validation, AST extraction, topological clustering) runs deterministically,
-   but meaningful knowledge production (Distill, Semantic Edge) requires LLM
-   reasoning through Reasoning Lease.
+   but meaningful knowledge production (Distill, Semantic Edge) requires an
+   explicit Reasoning Lease boundary.
 
-3. **Provider-neutral by default.** No provider gets special access to the vault.
-   Hermes, Codex, Claude Code, and future providers share the same contracts.
+3. **Provider-neutral by default.** No provider should get special access to the vault.
+   Hermes, Codex, Claude Code, and future providers are intended to share the
+   same provider-neutral contracts.
 
 4. **No external infrastructure.** Pure Python, NetworkX for graphs, filesystem
    for storage. No database, no vector store, no Docker required for the base

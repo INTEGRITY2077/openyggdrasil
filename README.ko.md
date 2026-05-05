@@ -18,109 +18,91 @@
   <a href="#작동-방식">작동 방식</a> •
   <a href="#12-모듈-체인">모듈</a> •
   <a href="#reasoning-lease">Reasoning Lease</a> •
-  <a href="#프로바이더-연동--설정">설정</a> •
+  <a href="#시스템-요구사항-및-설정">설정</a> •
   <a href="#영감--감사">영감</a>
 </p>
 
-> ⚠️ **워크플로우 검증 미완료**
+> ⚠️ **15차 프로덕션 UX 재정렬 중**
 >
-> openyggdrasil은 코드 구현이 완료되었으나 **메일서비스 워크플로우 및 PTC 오퍼레이터 세션 행동 검증이 미실시**된 상태입니다.
-> 6축 스코어카드 91% (43/47). Axis 6 실사용 검증 전무.
+> openyggdrasil은 Karpathy식 LLM Wiki를 provider-neutral production memory로 확장하는 방향의 런타임입니다.
+> 다만 현재 문서는 **production-ready 완료 선언**이 아닙니다. 2026-05-06 기준 실제 상태는
+> SourceRef, PTC kitchen, Provenance Ring, Graphify, TMUX witness의 경계를 다시 닫는 단계입니다.
 >
-> 현재 상태: 코드 완료 · 14차 진행 중 · 816 passed / 0 failed · 워크플로우 검증 대기
+> 현재 상태: provider-neutral production memory 방향은 ACTIVE · production-ready는 NOT CLAIMED ·
+> multi-provider 동일 UX는 NOT PASS · 일부 Hermes/OP1/OP2 POC는 부분 검증 상태
 
-### 📊 프로덕션 6축 스코어카드 — 83% (2026-05-05, 14차 진행 중)
+### 📊 15차 정렬 스코어카드 — 80/100 (2026-05-06)
 
-| 축 | 항목 | PASS | 달성률 | 등급 | 설명 |
-|---|---|---|---|---|---|
-| Axis 1: 아키텍처 정렬도 | 25 | 25 | **100%** | 🟢 | README-코드 일치도 |
-| Axis 2: 실행 신뢰도 | 5 | 5 | **100%** | 🟢 | except:pass 해소, 회귀 무결 |
-| Axis 3: 구조 건강도 | 5 | 5 | **100%** | 🟢 | operator 완전 분리(producer/consumer/prune/helpers → operator/), re-export는 tests backward-compat 위임 |
-| Axis 4: 보안 경계 | 4 | 4 | **100%** | 🟢 | vault guard, Admission Gate, sandbox guard(bwrap 없을 시 경고 로그 후 진행), IPC 콜백 루프(Unix Socket) — 코드 완료, **메일서비스 워크플로우 관통 미검증** |
-| Axis 5: 운영 관측성 | 4 | 4 | **100%** | 🟢 | log_event + log level 필터링 + Vault 메트릭(stats 수집) + elapsed timing |
-| Axis 6: 실사용 검증 | 4 | 0 | **0%** | 🔴 | **미검증.** Provider→OP1/OP2→Provider 왕복, PTC 오퍼레이터 LLM 주도 조합, live session subprocess, 연속 안정성 전부 실증되지 않음 |
-| **종합** | **47** | **43** | **91%** | 🟡 | **코드 완료, 워크플로우 검증 미실시** |
+| 범주 | 점수/상태 | 판정 |
+|---|---:|---|
+| Karpathy LLM Wiki 철학/아키텍처 정렬 | 86점대 | Vault/Markdown/SOT, 생명주기, Graphify derived view 방향은 정렬됨 |
+| 현재 구현 완성도 | 74점대 | Hermes 중심 POC와 일부 런타임은 존재하지만 provider-neutral 경계가 아직 닫히지 않음 |
+| 종합 정렬도 | **80/100** | 방향은 맞지만 P0/P1/P2 gate가 남아 있음 |
+| production-ready | **NOT CLAIMED** | 테스트 수나 POC만으로 프로덕션을 주장하지 않음 |
 
-> ⚠️ **워크플로우 검증 공백**
-> - 메일서비스 Provider→Mailbox→OP→Mailbox→Provider 왕복 미실증
-> - PTC 오퍼레이터 세션의 LLM 주도 도구 조합 미검증 (현재 ygg 템플릿 하드코딩만 동작)
-> - live session subprocess 실제 포그라운드 오퍼레이터 세션 미실증
-> - 10회 연속 producer+consumer 안정성 미측정
->
-> 현재 상태: 코드 완료 · 816 passed / 0 failed · **워크플로우 검증 대기 중**
+#### 상위 비정렬 개정 메모
+
+| 과거 표현 | 15차 기준 정렬 |
+|---|---|
+| “코드 완료”, “91%”, “모듈 100% LIVE” | 과도한 완료 선언. 현재는 80/100 정렬 상태와 gate 기반 판정으로 표현 |
+| “멀티프로바이더 교차 메모리 실증 완료” | fake/POC 수준과 실제 provider 동일 UX를 분리. 동일 UX는 아직 NOT PASS |
+| “PTC 풀체인 검증 완료” | PTC IPC/샌드박스 구성요소는 있으나 production/consumption kitchen split, typed egress, sandbox fail-closed는 NOT PASS |
+| “Graphify 실시간 검증/완전 위상” | Graphify는 SOT가 아닌 derived view. full topology support bundle 검증은 PARTIAL |
+| “TMUX live session” | TMUX는 사람이 보는 visual witness이며 core execution path가 아님 |
+
+### 현재 책임 경계 상태
+
+#### 필수 승격군 — 15차 경계 모듈
+
+아래 항목은 선택적 README 설명이 아니다. 각 gate가 닫힐 때까지 공개 문서의
+상태표에 남아 있어야 하는 15차 재정렬 경계 모듈이다.
+
+| 영역 | 현재 판정 | 이유 |
+|---|---|---|
+| Vault / Markdown SOT | BOUNDED LIVE | 정규 기억 표면은 Vault/Markdown이며 Graphify보다 우선함 |
+| Mailbox / Receipt / Event Log | BOUNDED LIVE | background-first 실행 근거. TMUX보다 우선하는 machine-readable evidence |
+| Provider Common Boundary | P0 IN PROGRESS | common runtime의 Hermes default/direct import 제거가 필요 |
+| SourceRef Resolver Registry | PARTIAL | provider-specific storage를 common registry가 직접 알지 않도록 경계 재정렬 필요 |
+| Affordance Intent Router | NOT PASS | LLM-facing handle은 signature-only나 provider-specific 문구가 아니라 affordance contract를 사용해야 함 |
+| PTC Production Kitchen | NOT PASS | write/mutate role과 evidence/receipt/schema 책임 분리가 아직 닫히지 않음 |
+| PTC Consumption Kitchen | NOT PASS | read/search/support-only role 분리와 Vault mutation 금지가 아직 닫히지 않음 |
+| PTC Egress / Sandbox Gate | NOT PASS | raw stdout debug-only, typed egress, production sandbox fail-closed가 아직 닫히지 않음 |
+| Provenance Ring Lineage | PARTIAL | POC 세로 절편은 있으나 append-only accumulation과 overwrite 분리 필요 |
+| Graphify Support Verifier | PARTIAL | Graphify hint는 Vault 재검증을 거쳐야 하며 full topology support 검증은 미완 |
+| TMUX Live Witness | POLICY ONLY | live 관찰 보조 표면. background execution success를 대체하지 않음 |
+
+#### 승격후보군 — Acceptance / UX Gate
+
+아래 항목은 중요하지만 아직 15차 module-define 파일로 승격되지 않은 gate다.
+승격 전까지는 위 필수 모듈을 제약하는 acceptance criteria로 취급한다.
+
+| 후보 | 현재 판정 | 승격 트리거 |
+|---|---|---|
+| Provider Final Answer UX | NOT PASS | provider/operator 출력이 workflow trace가 아니라 판단으로 시작하는 전용 계약이 필요해질 때 |
+| Cross-Provider Same UX | NOT PASS | Hermes POC 근거를 provider-neutral CLI UX 계약으로 일반화해야 할 때 |
+
+#### PASS 용어 규칙
+
+| 용어 | 의미 |
+|---|---|
+| `BOUNDED LIVE` | 좁은 범위의 코드/테스트/로그 근거가 있음. 전체 제품 완료는 아님 |
+| `PARTIAL` | 방향과 일부 구현은 있으나 핵심 gate가 닫히지 않음 |
+| `NOT PASS` | 현재 근거로는 해당 claim을 주장할 수 없음 |
+| `POLICY ONLY` | 운영 방침은 정했지만 기능 완료 근거는 별도 필요 |
 
 ---
-### 아키텍처 정렬도 상세 (Axis 1 — 하위 호환 유지)
-
-아래 표는 Axis 1의 모듈별 상태를 4단계(LIVE / PARTIAL / STUB / ABSENT)로 명시합니다.
-
-| 등급 | 의미 |
-|---|---|
-| 🟢 **LIVE** | 런타임 코드 존재, 테스트 PASS 또는 핵심 검증 완료 |
-| 🟡 **PARTIAL** | 코드/계약 존재, 엔드투엔드 관통 미검증 또는 오퍼레이터 세션 통합 중 |
-| 🟠 **STUB** | 파일/개념만 존재하거나 뼈대 코드만 스텁 상태 |
-| 🔴 **ABSENT** | 코드 미존재, 설계 문서만 있거나 없음 |
-
-#### 생산면 (Production Side)
-| 모듈 | 상태 | 비고 |
-|---|---|---|
-| Session Structure Signal | 🟢 LIVE | 나이테 확립. Same-Run Typed Ref Source 검증 완료 |
-| Admission Gate | 🟢 LIVE | `admission_gate.v1.schema.json` + `_validate_admission` 최소 품질 검증. `run_producer`에서 `save_to_vault` 전 게이트 통과 필수. 12차 P0 승급 |
-| Distiller | 🟢 LIVE | 가드레일 + 페르소나 존재. 한국어 sentence 기반 SPO 추출(`_extract_subject`/`_extract_predicate`) 구현 완료. Phase C-live C1+C2+C3 PASS — SPO→save→receipt 왕복 검증 완료 |
-| Evaluator | 🟢 LIVE | 오염 감지 + prune 발행 평가. GC 생명주기 Step 1 담당. Phase C-live C1 PASS — LLM 자발 prune 발행 검증 |
-| Amundsen | 🟢 LIVE | 대륙 분기 스키마 + 런타임 + 페르소나 구현. 11차 Rev.2 승격 |
-| Map Maker | 🟢 LIVE | 위상 계산 + 페르소나 구현. Q05 엣지 판정(`_determine_edge_type`) 결정론적 구현 완료. 11차 Rev.2 승격 |
-| Gardener | 🟢 LIVE | 물리적 식재 + 페르소나. `_handle_prune`로 SUPERSEDED archive 격리 + `_run_hygiene_check`(5항목 H1~H5 위생점검). Phase C-live C1+C2+C3 PASS — prune→분류→archive 풀체인 검증 |
-| Postman | 🟢 LIVE | **투트랙 배달.** Track1(계약): `deliver_receipt` → delivery_receipts.jsonl (Mailbox). Track2(관찰): `_postman_notify` → tmux 실시간 알림 (Provider + OP 자신). POC Phase 1-6 18/18 PASS |
-| 수동 편집 보호 | 🟢 LIVE | `wiki_write_guard.py` 콘텐츠 해시 가드 + atomic write. 5개 테스트 PASS |
-| 피드백 루프 | 🟢 LIVE | `_run_feedback_loop` + `_handle_prune` gardener_receipts 기록 → prune/curate intent 자동 발행. 왕복 검증 완료. 13차 승급 (STUB→PARTIAL→LIVE) |
-
-#### 소비면 (Consumption Side)
-| 모듈 | 상태 | 비고 |
-|---|---|---|
-| Pathfinder | 🟢 LIVE | 페르소나 존재. rank-bm25 (순수 BM25) + ACTIVE 필터 + `_boost_by_edges` 3-stage 검색 파이프라인 구현. No Heavy Deps (11차) |
-| Support Bundle | 🟢 LIVE | 3-tier 나이테 추적 + lifecycle_status + edge_context + context_bundle_ref. Bounded bundle 라이브 검증 완료 (11차 Rev.2) |
-| Mailbox | 🟢 LIVE | 멀티프로바이더 POC Phase 1-6 18/18 PASS. `status.json`+`manifest.json` 운영. Reverse Push 영수증 동작 |
-| Lifecycle Filter | 🟢 LIVE | 프론트매터 파싱 및 ACTIVE/SUPERSEDED 상태 필터링 완벽 작동 |
-
-#### 인프라 / 크로스커팅
-| 모듈 | 상태 | 비고 |
-|---|---|---|
-| SKILL.md 콜드스타트 | 🟢 LIVE | 프로바이더 자동 인식 및 진입점 호출 동작 |
-| Typed PTC Engine | 🟢 LIVE | `primitives.py` SPO+엣지+BM25+prune+부스트 처리 (+500줄). `_determine_edge_type` Q05 6종 판정. `_handle_prune` Gardener 연동. `_boost_by_edges` 생명주기 부스트. 11차 Rev.2 승격 |
-| Persona System (9역할) | 🟢 LIVE | 9개 페르소나 완비 (effort normalizer 대체) |
-| Reasoning Lease | 🟢 LIVE | Multi-OS 샌드박스 (Mac/WSL2) 클린룸 제안. Windows 미지원은 설계 결정 (12차 Phase 1 승급) |
-| Vault (SOT) | 🟢 LIVE | 디렉토리 동작. Atomic write guard + 콘텐츠 해시 보호 (wiki_write_guard.py). 운영 메트릭 + 무결성 해시 검증 (vault_integrity.py). 12차 P2 승급 |
-| Graphify 파생 뷰 | 🟢 LIVE | 커뮤니티 파생 스크립트 동작 (GPL 의존성 제거 완료). 구조 커버리지 리포트(graphify_coverage.json) + freshness guard 동작 확인. 12차 승급 |
-| Cross-Provider | 🟢 LIVE | 멀티프로바이더 Mailbox POC Phase 1-6 18/18 PASS. Provider 간 교차 메모리 실증 완료. 13차 승급 |
-| Hermes Adapter | 🟢 LIVE | Background gateway contract bounded verification PASS. 계약 완전성 문서화 (`hermes_provider_skill_bridge_entrypoint.py`). 12차 승급 |
-| i18n 파이프라인 | 🟢 LIVE | `wiki_capture_signal.py` language_code fail-closed 검증. 다국어 왕복 테스트. 12차 P2 승급 |
-| 인라인 출처 마킹 | 🟢 LIVE | `wiki_production_safety_gate.py` provenance_refs 게이트 + source_trace_path. 추적 자동화 완료. 12차 P2 승급 |
-| 원자적 롤백 | 🟢 LIVE | `atomic_write_wiki_page` temp file + os.replace + guard-before-write. save/prune/curate 3종 롤백 시나리오 검증. 12차 P2 승급 |
-| PTC Sandbox Executor | 🟢 LIVE | `sandbox_executor.py` batch+IPC 듀얼 모드. bwrap 클린룸에서 LLM 코드 실행. 14차 구현 |
-| PTC IPC Server | 🟢 LIVE | `ipc_server.py` Unix Domain Socket 기반 26종 PTC 도구 dispatch. 14차 구현 |
-| PTC Stub Generator | 🟢 LIVE | `stub_generator.py` LLM 코드에 IPC 콜백 함수 주입. 14차 구현 |
-| Live Session | 🟢 LIVE | `live_session.py` Provider→Operator 포그라운드 CLI. 14차 구현 |
-| YGG Session Manager | 🟢 LIVE | `scripts/ygg` 글로벌 OP 세션 레지스트리. Provider 고유 세션마다 Producer/Consumer 페어를 순차 할당한다. 첫 세션은 OP1/OP2, 다음 세션은 OP3/OP4이며, 각 페어 내부에서 홀수 OP는 Producer, 짝수 OP는 Consumer다. 16차 구현 |
-
-#### 총 정렬도 요약
-| 영역 | 블록 수 | 🟢 LIVE | 🟡 PARTIAL | 🟠 STUB | 🔴 ABSENT | 정렬률 |
-|---|---|---|---|---|---|---|
-| 생산면 | 10 | 10 | 0 | 0 | 0 | 100% |
-| 소비면 | 4 | 4 | 0 | 0 | 0 | 100% |
-| 인프라 | 16 | 16 | 0 | 0 | 0 | 100% |
-| **전체** | **30** | **30** | **0** | **0** | **0** | **100%** |
 
 
 ## 시스템 요구사항 및 설정
 
 openyggdrasil은 AI 프로바이더(예: Hermes, Claude Code, Cursor)에 부착되는
-콜드스타트 스킬로 동작합니다. 백그라운드 데몬을 시작하거나 별도 서버
-프로세스를 관리할 필요가 없습니다.
+세션 스코프 콜드스타트 스킬을 지향합니다. 목표 운영 모델은 백그라운드
+데몬이나 별도 서버 관리를 요구하지 않는 것이지만, 이는 아직 production-ready
+보장이 아닙니다.
 
 > **⚠️ 추론 토큰 임대 모델 (비동기 다중화 / Asynchronous Multiplexing):**
 > openyggdrasil은 자체 API 키를 가지지 않으며, **프로바이더 본체(IDE)의 추론 토큰을 역으로 빌려서(Lease) 작동**합니다.
-> 사용자와의 대화를 방해하지 않기 위해 오퍼레이터는 비동기 백그라운드 작업으로 스폰됩니다. 따라서, 프로바이더가 환경 변수로 자신의 API 키를 넘겨주어 오퍼레이터가 자율 실행하게 하거나, 오퍼레이터가 표준 출력(Stdout)으로 뱉어내는 **프롬프트(Task Contract)**를 프로바이더가 백그라운드에서 비동기로 감지하고 대답을 밀어넣는(Multiplexing) 논블로킹 '역호출 핑퐁' 구조로 작동합니다.
+> 사용자와의 대화를 방해하지 않기 위해 오퍼레이터는 비동기 백그라운드 작업 경계를 지향합니다. 프로바이더 어댑터는 scoped auth delegation 또는 task-contract multiplexing 같은 명시적 추론 임대 경계를 제공할 수 있지만, 공통 경계는 provider-neutral로 남아야 하며 아직 production-ready로 닫힌 상태가 아닙니다.
 
 ### 1. 프로바이더가 openyggdrasil을 인식하는 방법
 
@@ -170,6 +152,30 @@ openyggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python
 시스템 레벨 백그라운드 데몬은 없지만, 프로바이더 세션에 바인딩된 오퍼레이터 세션이
 세션 수명 동안 메일박스를 통해 상주할 수 있습니다. 작업이 완료되거나 타임아웃 시
 깔끔하게 종료됩니다.
+
+### 4. TMUX Live Witness 정책
+
+TMUX는 사람을 위한 선택적 **live witness 표면**입니다. 사용자가 live 검증 중 Provider Session과 Operator Session의 의사결정 흐름을 눈으로 확인할 수 있게 해 줍니다.
+
+TMUX는 **core execution path가 아닙니다.** 기본 운영 모드는 background-first입니다:
+
+- Provider와 Operator Session은 Mailbox, receipt, event log, provider-owned background task를 통해 실행됩니다.
+- Producer/Consumer 작업은 TMUX pane이 붙어 있지 않아도 계속되어야 합니다.
+- TMUX pane은 background runtime이 이미 생산하는 log, inbox, receipt, status snapshot을 tail하거나 관찰할 수 있습니다.
+- TMUX pane이 닫히거나 실패하는 것은 관측성 손실이지 memory engine 실패가 아닙니다.
+- TMUX capture는 사람이 읽는 보조 근거로 쓸 수 있지만, machine-readable receipt, schema-valid trace, test result를 대체할 수 없습니다.
+
+상태 용어는 정확히 구분합니다:
+
+| 상태 | 의미 |
+|---|---|
+| `background_task_passed` | provider/operator 작업이 정상 background path로 완료됨 |
+| `tmux_visual_witness_available` | 사람이 TMUX에서 live 흐름을 볼 수 있음 |
+| `tmux_visual_witness_unavailable` | 시각 관찰 표면은 없지만 background path는 정상일 수 있음 |
+| `foreground_equivalent` | true live foreground가 아니라 background log/receipt로 검증됨 |
+| `live_foreground_claimed` | 실제 foreground/live provider surface가 검증된 경우에만 사용 |
+
+Provider adapter는 TMUX dashboard를 다르게 구현할 수 있지만, TMUX를 provider-neutral runtime의 필수 의존성으로 만들면 안 됩니다.
 
 ### 수동 설치 확인
 
@@ -233,7 +239,7 @@ openyggdrasil은 특정 도구에 종속되지 않는 공용 지식 저장소로
 - **프로바이더 B(예: Claude Code)가 읽고 갱신합니다:** 며칠 뒤 다른 에이전트가 켜지면, 앞선 에이전트가 쓴 문서를 검색해서 읽고 작업을 이어갑니다. 만약 결정이 변경되면 기존 지식을 `SUPERSEDED`(대체됨)로 밀어내고 새 지식을 씁니다.
 - **다시 프로바이더 A가 인지합니다:** 다음에 처음 접속했던 에이전트가 들어오면, 자신이 과거에 썼던 낡은 지식이 아니라 다른 에이전트가 최신화해 둔 지식을 읽게 됩니다.
 
-이것이 가능한 이유는 모든 에이전트가 자신만의 내부 트랜스크립트 포맷을 버리고, openyggdrasil의 **엄격한 프론트매터 스키마(Markdown + YAML)** 라는 단일 진실 원천(Vault) 규격을 공유하기 때문입니다.
+이것이 가능한 이유는 에이전트가 각자의 내부 트랜스크립트 포맷을 그대로 노출하지 않고, openyggdrasil의 **프론트매터 스키마(Markdown + YAML)** 라는 단일 진실 원천(Vault) 규격으로 수렴하도록 설계되었기 때문입니다.
 
 ## 핵심 철학
 
@@ -250,8 +256,8 @@ openyggdrasil에서 카테고리는 단순한 폴더가 아니라 **독립된 �
 
 ### 3. 출처 추적과 진화의 계통수 (Tree Rings & Lineage)
 최신 문서만 덮어쓰는 구조에서는 과거의 중요한 근원(Origin) 정보가 서서히 소실됩니다. *"시간은 선형으로 흐르지만, 맥락은 선형으로 진화하지 않기 때문입니다."* 이를 방지하기 위해 지식을 진화하는 **계통수(Evolution Tree)**로 취급합니다.
-- **나이테(Ring) 각인:** 저장되는 모든 지식 블록에는 기원 정보(`provider_id`, `session_uid`, `timestamp`)가 데이터 모델 레벨에서 영구적으로 각인됩니다.
-- 가장 기초가 되는 결정(Root/Trunk)은 보존되고, 폐기된 로직(Branch)은 물리적 삭제 대신 명시적으로 무효화(`SUPERSEDED`) 처리됩니다. 이를 통해 어떤 프로바이더가 접속하든 지식의 변경 이력을 완벽하게 역추적할 수 있습니다.
+- **나이테(Ring) 각인:** 수용된 지식 블록에는 기원 정보(`provider_id`, `session_uid`, `timestamp`)가 데이터 모델 레벨에서 각인됩니다.
+- 가장 기초가 되는 결정(Root/Trunk)은 보존되고, 폐기된 로직(Branch)은 물리적 삭제 대신 명시적으로 무효화(`SUPERSEDED`) 처리됩니다. 이를 통해 에이전트는 프로바이더가 달라져도 결정의 변경 이력을 제한된 계통 경로로 점검할 수 있습니다.
 
 ### 4. 구조적 관계망 (Graphify 연동)
 Safi Shamsi의 [Graphify (v5)](https://github.com/safishamsi/graphify) 개념을 적용하여 마크다운 문서를 NetworkX 그래프 및 Louvain 커뮤니티로 변환합니다. 이를 통해 디렉토리가 달라도 의미적으로 연결된 지식을 탐색할 수 있습니다.
@@ -266,8 +272,8 @@ openyggdrasil은 외부 Vector DB 없이 작동하는 순수 로컬 기반의 �
 ### 추론 의사결정 재구조화 (9차 → 10차 계승)
 
 > **[9차 확립 → 10차 계승]** 추론 파이프라인의 중심축이 `effort` 기반 정규화에서
-> **LLM-facing 어포던스 계약** 기반으로 전환되었으며, 오퍼레이터가 CQRS 분리된
-> Producer/Consumer 세션에서 SKILL 어포던스 아래 PTC 도구를 자유롭게 조합합니다.
+> **LLM-facing 어포던스 계약** 기반으로 전환되었습니다. 15차 기준으로 PTC 도구 조합은
+> Producer/Consumer 역할별 kitchen과 runtime allowlist 안에서만 허용되어야 합니다.
 
 **기존 관점:** *"이 작업은 high effort인가 medium effort인가?"*
 **새 관점:** *"이 판단은 누가, 어떤 역할로, 어떤 근거를 보고, 언제 멈춰야 하는가?"*
@@ -315,7 +321,7 @@ openyggdrasil은 외부 Vector DB 없이 작동하는 순수 로컬 기반의 �
                   │
 ┌─────────────────▼──────────────────────┐
 │  Vault (단일 진실 원천 / 영구 SOT)     │
-│  ├── concepts/   (--- YAML ---)        │  <-- 절대 불변하는 마크다운 파일들
+│  ├── concepts/   (--- YAML ---)        │  <-- 보존 대상 마크다운 파일들
 │  └── entities/   (--- YAML ---)        │
 └────────────────────────────────────────┘
 ```
@@ -354,7 +360,7 @@ sources: [출처 참조 또는 공개 소스 경로]
 ```
 
 **코드베이스 구현 (Frontmatter Parser):**
-`runtime/retrieval/skill_frontmatter_parser.py`를 통해 마크다운 파일의 YAML 프론트매터를 추출하고 JSON Schema로 검증합니다. Graphify와 Pathfinder는 이 데이터를 기반으로 동작합니다.
+`runtime/retrieval/skill_frontmatter_parser.py`는 마크다운 파일의 YAML 프론트매터를 추출하고 JSON Schema로 검증하기 위한 코드 경로입니다. Graphify와 Pathfinder는 관계를 지원 근거로 쓰기 전에 이 정규화된 데이터를 확인해야 합니다.
 
 **Vault 승격 규칙 — 기록되려면:**
 - 영속적이고, 사소하지 않고, 재파생이 어렵고, 미래 세션에서 재사용 가능해야 함
@@ -363,7 +369,7 @@ sources: [출처 참조 또는 공개 소스 경로]
 #### Graphify: 파생 가시성 계층
 
 Vault 위에 그래프/위키/인덱스 뷰를 구축하는 **파생 계층**입니다.
-**Graphify가 실패해도 핵심 파이프라인(캡처, 생명주기, Mailbox)은 영향받지 않습니다.**
+**Graphify 실패는 핵심 캡처, 생명주기, Mailbox 경로를 막지 않아야 합니다. 이는 production-ready 선언이 아니라 support verification gate입니다.**
 
 **왜 Graphify를 채택했는가:**
 
@@ -425,8 +431,8 @@ Vault 위에 그래프/위키/인덱스 뷰를 구축하는 **파생 계층**입
 ```
 
 Graphify 산출물은 Pathfinder의 검색 품질을 향상시키지만,
-**Pathfinder는 Graphify 힌트를 항상 Vault 원본과 교차 검증합니다.**
-Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니다.
+**Pathfinder는 Graphify 힌트를 지원 근거로 쓰기 전에 Vault 원본과 교차 검증해야 합니다.**
+Graphify가 제안한 관계가 Vault에서 확인되지 않으면 SOT가 아니라 신뢰되지 않은 힌트로 취급해야 합니다.
 
 ---
 
@@ -468,7 +474,7 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 무시됩니�
 ```
 
 **핵심 제약:** 오퍼레이터 세션(Producer/Consumer)은 프로바이더 세션과 물리적으로 다른 컨텍스트 윈도우(PID)에서 실행되며, 메모리를 공유하지 않습니다.
-Mailbox(JSONL 파일시스템)만이 유일한 통신 채널입니다. (Mock 19/19 + Mailbox Phase 1-6 18/18 PASS 검증 완료)
+Mailbox(JSONL 파일시스템)만이 유일한 통신 채널입니다. 기존 Mock/Mailbox POC 근거는 bounded proof로 취급하며, 이것만으로 모든 provider 동일 UX나 production-ready를 주장하지 않습니다.
 
 #### 세션 정의 (Session Definitions)
 
@@ -510,17 +516,17 @@ SKILL만으로는 프로바이더가 "내 오퍼레이터가 살아있나? 뭘 �
 소비 파이프라인은 Vault 전체를 덤프하지 않습니다. **Pathfinder**가 설명
 가능하고, 생명주기를 인식하며, **출처가 추적된 제한된 지원 번들(Provenance-tracked Bounded Support Bundle)**을 구축합니다.
 
-단순한 지식 요약본이 아니라, 이 번들(`support_bundle.v1.schema.json` 계약) 내부에는 원본 맥락을 100% 복원할 수 있는 **3단계 출처 추적 장치**가 구조적으로 포함됩니다:
+단순한 지식 요약본이 아니라, 이 번들(`support_bundle.v1.schema.json` 계약) 내부에는 원본 맥락으로 되돌아갈 수 있는 **3단계 출처 추적 장치**가 구조적으로 포함됩니다:
 1. **Breadcrumb (`source_paths`)**: 지식이 추출된 원천 파일의 URI 배열.
 2. **Topology ID (`episode_ids`, `claim_ids`)**: Vault/Graphify 내에서 해당 지식이 생성된 맥락적 위상 좌표.
-3. **Evidence Refs (`safe_ref`)**: 필요 시 원시 대화 로그(Conversation Logs)나 터미널 실행 결과 원본으로 곧바로 찾아갈 수 있는 안전한 포인터.
+3. **Evidence Refs (`safe_ref`)**: 필요 시 지원 로그나 터미널 실행 근거를 점검할 수 있는 안전한 포인터.
 
-결과적으로 에이전트는 요약본과 함께 "최초의 탄생 맥락으로 언제든 돌아갈 수 있는 명시적 주소"를 한 번에 제공받아, **Postman**을 통해 타입이 지정된 **Mailbox** 계약으로 안전하게 수신합니다.
+결과적으로 에이전트는 요약본과 함께 기원 점검을 위한 제한된 근거 주소를 제공받아, **Postman**을 통해 타입이 지정된 **Mailbox** 계약으로 안전하게 수신합니다.
 
 
 ## PTC (Programmatic Tool Calling) 개념과 아키텍처
 
-openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool Calling)** 아키텍처를 기반으로 동작합니다.
+openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool Calling)** 아키텍처를 중심으로 재정렬 중입니다. 현재 PTC IPC/샌드박스/템플릿 경로는 부분 근거이며, production/consumption kitchen split, typed egress, sandbox fail-closed는 아직 닫히지 않은 gate입니다.
 
 **원천 SOT (Source of Truth):**
 이 아키텍처는 Anthropic의 [Programmatic Tool Calling](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/programmatic-tool-calling) (PTC) 기능과 개방형 에이전트 루프(REPL) 철학을 모티브로 삼고 있습니다.
@@ -553,18 +559,18 @@ openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool C
 2. 스크립트가 실행되며 여러 도구를 연속적으로 호출하고, 중간 데이터를 필터링하여 토큰과 지연 시간을 절약합니다.
 3. 이 방식은 효율적이고 유연하지만, 지식을 정규화하고 엄격한 생명주기를 가진 메모리로 저장하기에는 에이전트가 작성한 스크립트의 로직 무결성에 의존해야 하므로 예측 가능성이 떨어지고 런타임 환각에 취약합니다.
 
-### openyggdrasil의 PTC 변형 — 26종 도구 팔레트 + IPC 콜백 루프 (14차)
+### openyggdrasil의 PTC 변형 — 26종 도구 팔레트 + IPC 콜백 루프
 
 ```
   ┌──────────────────────────────────────────────────────────────┐
-  │               openyggdrasil (14차 PTC Palette)               │
+  │               openyggdrasil (PTC Palette)                    │
   │                                                              │
   │  1. Provider: ygg가 LLM 코드 템플릿을 생성하여 OP1/OP2에 발행  │
   │  2. Stub Generator: IPC preamble + 26종 도구 함수 주입       │
   │  3. Sandbox Executor: bwrap 클린룸에서 Python 스크립트 실행    │
   │  4. IPC Server: Unix Domain Socket으로 호스트 primitives 호출 │
-  │  5. 도구 조합: LLM/템플릿이 extract_spo→suggest_placement→     │
-  │     save_note 등 26종 중 필요한 것을 자유롭게 조합             │
+  │  5. 도구 조합: LLM/템플릿이 역할별 allowlist 안에서             │
+  │     필요한 production/consumption 도구만 조합                  │
   │  6. Result: 최종 결과를 sandbox 밖으로 반환, receipt 기록       │
   └──────────────────────────────┬───────────────────────────────┘
                                  │ Transport: Unix Domain Socket
@@ -584,12 +590,13 @@ openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool C
   └──────────────────────────────────────────────────────────────┘
 ```
 
-14차에서 openyggdrasil의 PTC 모델은 구버전의 **Typed PTC Engine**(JSON Execution Plan 강제, 8-Tool Chain)에서 완전히 전환되었습니다.
+openyggdrasil의 PTC 모델은 구버전의 **Typed PTC Engine**(JSON Execution Plan 강제, 8-Tool Chain)에서 26종 도구 팔레트 + IPC 콜백 루프 방향으로 전환되었습니다.
 
 1. **도구 팔레트화:** 8종 제한 → 26종. SEARCH, PROVENANCE, PRODUCTION, GRAPH, CHAIN, CORE 6개 그룹으로 구성. 각 도구는 어포던스 기반 설명(`Use this when` / `Do NOT use when`)을 preamble에 포함합니다.
-2. **IPC 콜백 루프:** bwrap 클린룸 내 Python 코드가 Unix Domain Socket을 통해 호스트의 primitives를 호출합니다. Claude Code의 bubblewrap + allowed_callers 패턴과 동일한 격리 수준입니다.
-3. **이중 경로:** Producer/Consumer는 고정 체인(extract_decisions→build_vault_node→save_to_vault)과 PTC 체인(`ygg tell --ptc op1`)을 병행 지원합니다. PTC 체인에서는 템플릿 코드가 26종 도구를 조합하여 생산/소비합니다.
-4. **LLM 자유 조합 (현재 상태):** 도구는 26종 모두 사용 가능하나, 현재 PTC 생산 경로는 `extract_spo → suggest_placement → save_note` 고정 템플릿을 사용합니다. LLM이 임의의 도구 조합으로 코드를 직접 작성하는 완전 자유 조합은 다음 단계입니다.
+2. **IPC 콜백 루프:** bwrap 클린룸 내 Python 코드가 Unix Domain Socket을 통해 호스트의 primitives를 호출합니다. 다만 production sandbox fail-closed와 typed egress는 아직 별도 gate로 닫아야 합니다.
+3. **이중 경로:** Producer/Consumer는 고정 체인(extract_decisions→build_vault_node→save_to_vault)과 PTC 체인(`ygg tell --ptc op1`)을 병행 지원합니다. 이중 경로 자체가 production-ready를 의미하지는 않습니다.
+4. **LLM 자유 조합 (현재 상태):** 도구는 26종 표면으로 노출되지만, 현재 PTC 생산 경로는 `extract_spo → suggest_placement → save_note` 중심 템플릿에 가깝습니다. LLM이 역할별 kitchen 안에서 임의의 도구 조합 코드를 안전하게 작성하는 상태는 P1 gate입니다.
+5. **P1 재정렬 필요:** production(write/mutate) kitchen과 consumption(read/search/support) kitchen이 분리되어야 하며, 소비면에서 `save_note`, `create_edge`, `prune_node` 같은 mutation 도구가 기본 손잡이로 보이면 안 됩니다.
 
 ### PTC 도입 배경: 기존 Vector DB / ElasticSearch와의 차별점 (토큰 효율성)
 
@@ -635,9 +642,9 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 | **실행 컨텍스트** | 에이전트의 쉘/도구호출 능력으로 Python 스크립트 실행 |
 | **추론 토큰** | PTC 계약 가드레일 통과 및 복잡한 판단에 필요한 LLM 추론 능력 |
 
-**오퍼레이터 세션이 곧 파이프라인입니다.** 파이프라인 모듈 중 일부(작업 도구)는
-순수 Python으로 결정론적 실행되지만, 핵심 판단(계약 가드레일)은 에이전트의
-추론 토큰을 소비하여 동작합니다.
+**오퍼레이터 세션은 목표 파이프라인 실행 주체입니다.** 일부 유틸리티 경로는
+순수 Python으로 결정론적 실행되지만, 핵심 판단(계약 가드레일)은 명시적인
+Reasoning Lease 경계를 필요로 합니다. 이것은 full PTC kitchen이 production-ready라는 뜻이 아닙니다.
 
 향후 독립적인 API 키 지정을 통해 프로바이더 없이 자체 실행하는 모드도
 지원할 계획입니다.
@@ -654,10 +661,10 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 
 ```
   ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    전체 생명주기 개요                                     │
+  │              목표 생명주기 개요 (아직 닫히지 않은 gate 포함)                  │
   │                                                                        │
   │  ① 프로바이더가 SKILL.md를 읽음                                          │
-  │  ② 프로바이더 에이전트가 판단: "캡처" 또는 "검색"                           │
+  │  ② 프로바이더 어댑터/워커가 판단: "캡처" 또는 "검색"                         │
   │                                                                        │
   │  캡처 경로 (생산)                         검색 경로 (소비)                 │
   │  ──────────────                         ──────────────                  │
@@ -672,14 +679,14 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 
 ### 생산 트리거 — 프로바이더 에이전트의 맥락 인지와 의뢰 (1차 구조화)
 
-프로바이더 에이전트(예: Hermes, Claude Code)는 사용자와 대화하며 **"이 아키텍처 결정이나 디버깅 맥락은 영구적인 지식(Wiki)으로 기록해야 한다"**는 니즈를 능동적으로 인지합니다.
+목표 UX에서는 프로바이더 에이전트나 어댑터가 사용자와 대화하며 **"이 아키텍처 결정이나 디버깅 맥락은 영구적인 지식(Wiki)으로 기록해야 한다"**는 니즈를 인지해야 합니다. 현재 상태는 Hermes-native automatic MemoryTicket hook이나 provider natural async reflection의 PASS를 주장하지 않습니다.
 
-이때 프로바이더 에이전트는 무거운 전체 텍스트를 복사하여 넘기지 않습니다. 대신 `SKILL.md`를 참고하여 **어디를 읽으면 되는지 가리키는 원본 포인터(jsonl)와 얕은 요약본**으로 구성된 `Session Structure Signal`을 생성해 오퍼레이터 세션에게 의뢰를 주입합니다.
+이 니즈가 명시적으로 감지되거나 라우팅되면, 프로바이더 에이전트는 무거운 전체 텍스트를 복사하여 넘기지 않아야 합니다. 대신 `SKILL.md`를 참고하여 **어디를 읽으면 되는지 가리키는 근거 포인터와 얕은 요약본**으로 구성된 `Session Structure Signal`을 생성해 오퍼레이터 세션에게 의뢰를 주입해야 합니다.
 
 ```text
   🤖 프로바이더 에이전트 (사용자와 직접 대화하는 Front-stage 주체)
        │
-       │  ① 대화 중 기억할 맥락을 인지 (Wiki화 니즈 발생)
+       │  ① 기억할 맥락을 식별하거나 라우팅받음 (Wiki화 니즈 발생)
        │
        │  ② 레포 루트의 SKILL.md를 참고하여 진입점과 규칙 확인
        │
@@ -690,7 +697,7 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
        │       trigger_type:        "hard_trigger"
        │       surface_reason:      "게이트웨이 패턴 사용 결정 (얕은 요약)"
        │       turn_range:          { from: 12, to: 18 }
-       │       source_ref:          { path_hint: "sessions/abc123.jsonl" } // ⭐️ 핵심: 원본 포인터
+       │       source_ref:          { path_hint: "sessions/abc123.jsonl" } // 근거 손잡이, 원문 덤프 아님
        │     }
        │
        │  ④ 메일박스에 Intent 발행 후 오퍼레이터 비동기 스폰 (Fire-and-Forget)
@@ -702,21 +709,21 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 
 **핵심 규칙:**
 - **포인터 기반 의뢰 (`source_ref` 필수):** 프로바이더 에이전트는 원본 대화를 훼손하거나 복제하지 않습니다. 반드시 `turn_delta.v1.jsonl` 등의 로그 파일 위치를 가리키는 `source_ref` 포인터를 넘겨야 합니다. 이를 누락한 신호는 Admission Gate에서 거부됩니다.
-- **비동기 콜드스타트 (Non-blocking):** openyggdrasil은 프로바이더를 멈추지 않습니다. 메일박스(어포던스)를 통한 비동기 위임 후 백그라운드에서 조용히 실행되며, 시스템을 점유하는 영구 데몬 없이 작업이 끝나면 영수증을 남기고 종료됩니다.
-- **추론 자원 임대 (Reasoning Lease):** 오퍼레이터가 백그라운드에서 심층 구조화(Distill/Evaluate)를 수행하려면 지능이 필요합니다. 프로바이더는 스폰 시점에 **자신의 API 키(인증 권한)를 넘겨주거나**, 백그라운드 프로세스가 내뿜는 프롬프트를 **비동기로 다중화(Multiplexing)하여 대신 처리**함으로써 자신의 추론 자원을 반드시 빌려주어야(Lease) 합니다.
+- **비동기 콜드스타트 (Non-blocking target):** openyggdrasil은 프로바이더를 멈추지 않는 방향을 지향합니다. 목표 경로는 Mailbox/background execution으로 위임하고 작업 근거가 생기면 receipt를 남기는 것이며, 실제 판정은 provider adapter 지원과 machine-readable receipt에 묶입니다.
+- **추론 자원 임대 (Reasoning Lease):** 오퍼레이터가 백그라운드에서 심층 구조화(Distill/Evaluate)를 수행하려면 지능이 필요합니다. 프로바이더 어댑터는 scoped auth delegation 또는 task-contract multiplexing 같은 명시적 추론 임대 경계를 제공해야 하며, 공통 경계는 provider-neutral로 남아야 합니다.
 
 
 
-### 생산 파이프라인 — CQRS Producer/Consumer + PTC 병행 (14차 LIVE)
+### 생산 파이프라인 — CQRS Producer/Consumer + PTC 병행
 
-> ✅ **14차 검증 완료.** PTC 풀체인 (LLM 코드 → bwrap → Unix Socket → primitives 콜백) 실증 완료. Producer/Consumer 이중 경로(고정 체인 + PTC 체인) 모두 운영 중. 816 passed / 0 failed.
+> ⚠️ **15차 재정렬 기준:** PTC IPC/샌드박스/템플릿 실행 경로는 존재하지만, PTC production/consumption kitchen split, typed egress, sandbox fail-closed가 아직 닫히지 않았습니다. 따라서 이 절은 production-ready 선언이 아니라 현재 실행 모델과 다음 gate를 설명합니다.
 
 캡처 신호가 시스템에 들어오면, 이를 단순히 자동화된 블랙박스에 넘기지 않습니다. 이 과정은 프로바이더 세션과 오퍼레이터 세션의 명확한 역할 분담을 통해 이루어집니다:
 
-1. **초기 맥락 인지 (프로바이더 에이전트):** 프로바이더 에이전트가 `SKILL.md`를 참고하여 대화 중 기억해야 할 맥락을 인지하고, `surface_reason`과 `source_ref`가 포함된 초기 신호(Session Structure Signal)를 구성해 OpenYggdrasil 런타임에 주입합니다.
-2. **심층 구조화 (오퍼레이터 세션):** 런타임은 이 의뢰를 받아 프로바이더의 추론 자원(Reasoning Lease)을 빌려 오퍼레이터 세션을 스폰합니다. 오퍼레이터 세션은 고정된 파이프라인이나 단일 모듈이 아닌, **부여된 작업 계약(Task Contract)에 따라 역할을 바꾸는 다면기(Role-Polymorphic Leased Executor)**입니다.
+1. **초기 맥락 인지 (프로바이더 어댑터 / 워커):** 프로바이더 어댑터나 워커가 `SKILL.md`를 참고하여 기억해야 할 맥락을 라우팅합니다. 근거가 있을 때에만 `surface_reason`과 `source_ref`가 포함된 초기 신호(Session Structure Signal)를 구성해 OpenYggdrasil 런타임에 주입해야 합니다.
+2. **심층 구조화 (오퍼레이터 세션):** 목표 흐름에서 런타임은 이 의뢰를 프로바이더 어댑터의 추론 임대(Reasoning Lease) 경계를 통해 받고 오퍼레이터 세션을 스폰합니다. 오퍼레이터 세션은 고정된 파이프라인이나 단일 모듈이 아니라, **부여된 작업 계약(Task Contract)에 따라 역할을 바꾸는 다면기(Role-Polymorphic Leased Executor)** 개념입니다.
 
-오퍼레이터 세션은 PTC(Programmatic Tool Calling) 본질에 맞게, Producer/Consumer 역할을 수행하기 위해 **ygg가 생성한 템플릿 코드를 bwrap 샌드박스에서 실행**하여 26종 도구를 조합합니다. (PTC 체인) 또는 `extract_decisions→build_vault_node→save_to_vault` 고정 체인을 직접 실행합니다. (고정 체인)
+오퍼레이터 세션은 PTC(Programmatic Tool Calling) 본질에 맞게, Producer/Consumer 역할을 수행하기 위해 **ygg가 생성한 템플릿 코드를 bwrap 샌드박스에서 실행**할 수 있습니다. 현재 안전한 목표는 26종 도구를 한 표면에 섞어 두는 것이 아니라, production kitchen과 consumption kitchen을 분리하고 역할별 allowlist와 typed egress를 강제하는 것입니다.
 
 이 체인을 구성하는 OpenYggdrasil의 도구들은 두 가지 실행 경로를 가집니다:
 
@@ -730,7 +737,7 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
   🌳 PTC 오퍼레이터 세션 (지식 생산/기록을 담당하는 역할 가변 백그라운드 주체)
        │
        │  ① OpenYggdrasil이 Task Contract (Distiller/Amundsen/Gardener 등) 부여
-       │  ② 오퍼레이터 세션이 부여된 역할에 맞춰 코드를 작성하여 생산 도구 호출
+       │  ② 오퍼레이터 세션이 부여된 역할에 맞는 kitchen 안에서 도구 호출
        │
        ▼
   ┌─ PTC Engine (실행 환경) — Allowlisted 도구 풀 ──────────────────┐
@@ -781,7 +788,7 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
   └──────────────────────────────────────────────────────────┘
        │
        ▼
-  오퍼레이터 세션이 수신증(Receipt)을 Mailbox에 남기고 종료 (생산 및 기록 완료)
+  오퍼레이터 세션이 수신증(Receipt)을 Mailbox에 남기고 종료 (해당 생산 작업 처리)
 ```
 
 ### PTC 실행 계획 — 기본 전략 예시 (캡처)
@@ -802,7 +809,7 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
 ]
 ```
 
-SKILL은 이 계획을 참조하되, PTC primitive를 자유롭게 조합하여 실행합니다. *(PTC 코드 예시는 [아래](#ptc-코드-작성-예시)를 참조)*
+SKILL은 이 계획을 참조하되, PTC primitive 조합은 역할별 kitchen 경계 안에서만 허용되어야 합니다. 현재 README의 예시는 목표 형태를 설명하며, 모든 자유 조합이 production-safe로 검증되었다는 뜻이 아닙니다. *(PTC 코드 예시는 [아래](#ptc-코드-작성-예시)를 참조)*
 
 **계획 생성 모드 3가지:**
 
@@ -812,14 +819,14 @@ SKILL은 이 계획을 참조하되, PTC primitive를 자유롭게 조합하여 
 | `lease_backed_llm` | 신호가 복잡 (모호한 트레이드오프) | 가드레일 3회 추론 소비 |
 | `typed_unavailable` | LLM 추론 실패 시 | typed unavailable 결과 반환 — 묵시적 폴백 금지 |
 
-모든 경계에서 **타입이 지정된 계약**이 핸드오프를 검증합니다. 어떤 모듈이든
+주요 경계에서 **타입이 지정된 계약**이 핸드오프를 검증해야 합니다. 어떤 모듈이든
 입력을 거부하면, 체인은 타입이 지정된 `stop_reason`과 함께 정지합니다 —
 데이터를 조용히 삭제하지 않습니다.
 
 <a id="ptc-코드-작성-예시"></a>
-#### PTC 코드 작성 예시 (14차 실제)
+#### PTC 코드 작성 예시
 
-현재 Producer PTC 체인(`ygg tell --ptc op1`)은 아래 템플릿을 bwrap sandbox에서 실행합니다. 26종 도구 중 3개를 조합하여 지식 저장을 완료합니다:
+현재 Producer PTC 체인(`ygg tell --ptc op1`)은 아래와 같은 템플릿을 bwrap sandbox에서 실행할 수 있습니다. 이 예시는 저장 시나리오를 설명하지만, 이것만으로 PTC production kitchen 전체 PASS를 주장하지 않습니다:
 
 ```python
 # PTC preamble injected by stub_generator.py (26종 도구 함수 주입)
@@ -848,20 +855,20 @@ def main():
 main()
 ```
 
-이 스크립트가 bwrap 클린룸 내에서 실행되는 동안, `extract_spo`, `find_similar`, `suggest_placement`, `save_note` 각각은 Unix Domain Socket을 통해 호스트의 `ipc_server.py`로 콜백됩니다. 중간 데이터는 LLM 컨텍스트를 전혀 오염시키지 않으며, 오직 `result()` 호출의 출력만 Producer에게 반환됩니다.
+이 스크립트가 bwrap 클린룸 내에서 실행되는 동안, `extract_spo`, `find_similar`, `suggest_placement`, `save_note` 각각은 Unix Domain Socket을 통해 호스트의 `ipc_server.py`로 콜백됩니다. 목표는 중간 데이터를 LLM 컨텍스트에 직접 싣지 않고 typed result만 반환하는 것이지만, raw stdout debug-only 전환과 typed egress 검증은 아직 별도 gate입니다.
 
 ### 추론 모델의 한계와 마지노선 (Reasoning Model Baseline & Limitations)
 
-PTC 파이프라인에서 오퍼레이터 세션은 bwrap 샌드박스 내에서 26종 도구 팔레트를 IPC 콜백으로 호출합니다. Unix Domain Socket을 통한 각 호출은 호스트 측 primitives에서 검증됩니다. 이를 강제하는 것이 openyggdrasil의 **계약 가드레일(Contract Guardrails)**입니다.
+PTC 파이프라인에서 오퍼레이터 세션은 bwrap 샌드박스 내에서 26종 도구 팔레트를 IPC 콜백으로 호출합니다. Unix Domain Socket을 통한 각 호출은 호스트 측 primitives에서 검증되어야 합니다. 이를 닫는 것이 openyggdrasil의 **계약 가드레일(Contract Guardrails)**입니다.
 
-이러한 고도의 제약 환경을 완주하기 위한 **추론 모델의 마지노선(Baseline)은 Claude 3.5 Sonnet 또는 GPT-4o 등급의 프론티어 모델**입니다.
+이러한 고도의 제약 환경을 완주하기 위한 **추론 모델의 마지노선(Baseline)은 instruction-following과 code-reasoning이 강한 프론티어급 모델**입니다.
 
 **성능 미달 모델의 전형적인 실패(LLM Failure) 사례:**
 - **도구 조합 실패:** 26종 도구 중 적절한 것을 선택하지 못하고 무관한 도구를 호출하여 체인 단절.
 - **IPC 타임아웃:** Unix Socket 응답을 제대로 처리하지 못해 `socket_unavailable` 에러 발생.
 - **환각 및 단계 건너뛰기:** 데이터 처리 단계를 임의로 스킵하고, 환각(Hallucination)에 기반한 결과물로 파이프라인을 종료하려 시도.
 
-openyggdrasil은 모델의 선의나 자율성에 기대지 않습니다. 모델이 프롬프트를 무시하고 돌발 행동을 하더라도, 메인 시스템(Vault)은 샌드박스와 타입 검증에 의해 100% 보호받습니다. 위 마지노선을 충족하지 못하는 모델은 사전에 즉각적으로 걸러지며, 프로바이더 영수증(`hermes_routing_receipt`)에 `production_readiness_claimed` 마크를 획득할 수 없습니다.
+openyggdrasil은 모델의 선의나 자율성에 기대지 않는 방향을 지향합니다. 다만 현재 상태에서 “100% 보호”를 주장하지 않습니다. production mode에서는 sandbox unavailable을 `typed_unavailable`로 닫고, role allowlist와 typed egress를 runtime이 강제해야 합니다. 이 gate가 닫히기 전에는 PTC production-ready를 주장하지 않습니다.
 
 ---
 
@@ -907,27 +914,29 @@ openyggdrasil은 모델의 선의나 자율성에 기대지 않습니다. 모델
 
 **핵심 규칙:**
 - 에이전트는 원시 Vault 덤프가 아닌 **제한된 지원 번들**을 받습니다.
-  번들 내 모든 사실은 출처와 생명주기 상태를 함께 전달합니다.
+  번들 내 사실은 출처와 생명주기 상태를 함께 전달해야 합니다.
 - 토픽이 **SUPERSEDED** 또는 **STALE**이면, 검색 결과가 이를 명시적으로
-  표시합니다 — 에이전트에게 조용히 오래된 맥락을 제공하지 않습니다.
-- **출처 참조는 필수입니다.** 검색 결과는 항상 해당 지식을 생산한 원래
-  프로바이더 세션으로 링크합니다.
+  표시해야 하며, 오래된 맥락을 현재 맥락처럼 제공해서는 안 됩니다.
+- **출처 참조는 필수입니다.** 검색 결과는 source ref를 포함하거나,
+  source ref가 없을 때 typed unavailable로 닫혀야 합니다.
 - 이것이 **LLM Wiki** 패턴입니다: 프로바이더가 원시 트랜스크립트에서 지식을
   재파생하지 않고, 점진적으로 구축되고 생명주기가 관리되는 지식 표면을 질의합니다.
 
 ### 소비 파이프라인 — 오퍼레이터 세션이 Vault를 검색하는 과정
 
-여기서 핵심을 이해해야 합니다: **Consumer 오퍼레이터 세션 = Pathfinder입니다.**
-별도의 검색 시스템이 존재하는 게 아닙니다. 프로바이더가 빌려준 오퍼레이터 세션이
-자기 추론 토큰으로 Python 스크립트를 실행하고, 그 결과를 자기가 가져갑니다.
+여기서 목표 경계는 명확합니다: **Consumer 오퍼레이터 세션은 Pathfinder 역할로 제한되어야 합니다.**
+별도의 무제한 검색 시스템이 아니라, 프로바이더가 위임한 소비면 오퍼레이터가
+read/search/support bundle 조립 역할 안에서만 도구를 사용해야 합니다.
+
+15차 기준으로 소비면의 핵심 경계는 더 엄격합니다. Consumer는 read/search/support bundle 조립만 담당해야 하며, Vault mutation 도구를 호출하면 안 됩니다. 현재 팔레트 표면에 production 도구와 consumption 도구가 함께 보이는 부분은 P1 kitchen split의 개정 대상입니다.
 
 ```
   Consumer 오퍼레이터 세션 (프로바이더가 빌려준 LLM)
        │
        │  ① SKILL.md에서 검색 진입점 확인
        │
-       │  ② 26종 PTC 도구 팔레트 중 필요한 도구 선택
-       │     → LLM이 상황에 맞게 도구 조합 코드를 작성
+       │  ② Consumption Kitchen의 read/search/support 도구 선택
+       │     → 역할별 allowlist 안에서 필요한 도구 조합
        │
        │  ③ bwrap 샌드박스에서 코드 실행
        │     → IPC 서버(Unix Socket)로 도구 호출
@@ -936,9 +945,8 @@ openyggdrasil은 모델의 선의나 자율성에 기대지 않습니다. 모델
        ▼
   ┌─ PTC 도구 팔레트 (26종) ─────────────────────────────────┐
   │                                                          │
-  │  오퍼레이터는 상황에 따라 도구를 자유롭게 조합한다.        │
-  │  Claude Code의 PTC와 동일한 원리:                          │
-  │  LLM이 코드를 작성 → 코드가 도구 호출 → 최종 결과만 반환    │
+  │  오퍼레이터는 consumption 역할 안에서 도구를 조합한다.       │
+  │  목표 원리: 코드가 허용된 도구만 호출 → typed support 반환   │
   │                                                          │
   │  검색 도구:                                               │
   │  ┌─ bm25_search ─────────────────────────────────────┐   │
@@ -966,9 +974,8 @@ openyggdrasil은 모델의 선의나 자율성에 기대지 않습니다. 모델
   │  └─ assemble_unanchored_bundle ─────────────────────┘   │
   │     비앵커 번들 리턴 (anchor_type: "none")                │
   │                                                          │
-  │  기타 도구: save_note, create_edge, prune_node,           │
-  │            validate_node, find_similar, trace_evolution   │
-  │            suggest_placement, get_category_tree 등        │
+  │  주의: save_note, create_edge, prune_node 같은 mutation    │
+  │        도구는 consumption 기본 kitchen에 노출되면 안 된다. │
   └──────────────────────────────────────────────────────────┘
        │
        ▼
@@ -977,33 +984,52 @@ openyggdrasil은 모델의 선의나 자율성에 기대지 않습니다. 모델
 ```
 
 **핵심 규칙:**
-- 도구는 **팔레트**다. 강제된 9단계 직렬 파이프라인이 아니다.
-- LLM이 필요한 도구만 선택하여 조합 코드를 작성한다.
+- 도구는 **팔레트**지만, 역할별 kitchen 경계를 가져야 한다.
+- LLM이 필요한 도구만 선택하더라도 consumption 역할에서는 mutation 도구를 호출하지 않는다.
 - `deep_search` 하나로 충분하면 한 번에 끝낸다.
 - 출처 추적이 필요하면 `locate_region → select_topic_anchor → read_source_paths`를 조합한다.
 - `origin_claims`와 `recent_claims`는 서로 의존하지 않으므로 병렬 호출 가능.
 - 모든 도구는 `stub_generator.py` preamble에 "Use this when / Do NOT use this when" 형식의
   어포던스 설명을 제공받는다.
+- P1 완료 전까지 “LLM 자유 조합 전체 PASS” 또는 “Consumer kitchen PASS”를 주장하지 않는다.
 
 ### PTC 도구 설계 원칙 (어포던스 기반)
 
 Claude Code의 PTC는 **시그니처가 아니라 어포던스**로 도구를 설명한다.
 같은 원리로 OpenYggdrasil도 각 도구에 호출 시점을 명시한다:
 
+15차 기준으로 provider-facing 또는 LLM-facing primitive는 최소한 아래 계약
+형태를 가져야 한다:
+
+```text
+Use this when:
+Do not use this when:
+If ambiguous:
+Typed unavailable when:
+Required evidence refs:
+Hard nonclaims:
+```
+
 ```python
 # locate_region(query_text) → {region_id, ...}
 #   Use this when: Vault 내 지식의 지역을 파악할 때
 #   Do NOT use when: 이미 topic_id를 알고 있을 때
 #   If ambiguous: select_topic_anchor 전에 먼저 호출
+#   Typed unavailable when: Vault index가 없거나 source refs가 누락되었을 때
 
 # deep_search(topic, max_depth=3, limit=20) → {trail, ...}
 #   Use this when: 종합적인 Vault 탐색이 필요할 때
 #   Do NOT use when: 특정 출처만 필요할 때 → use read_origin_claims
+#   Required evidence refs: source_paths, claim_ids, lifecycle_status
 ```
 
 > **도구는 만든 사람을 떠난다.** (evan-moon, 2026)
 > 함수 시그니처는 선언이고, 설명은 설득이다.
 > 호출자가 LLM이면 "Use this when"이 없으면 도구는 발견되지 않는다.
+
+Signature-only 계약은 LLM-facing 문서로는 불완전하다. 기계 메타데이터로는
+존재할 수 있지만, provider나 leased Operator Session의 판단을 이끄는
+표면으로는 충분하지 않다.
 
 ### PTC 도구 사용 예시
 
@@ -1111,10 +1137,10 @@ RESULT = {"sources": sources}
   → 프로바이더는 출처와 생명주기가 증명된 맥락을 받음
 ```
 
-소비면은 **절대 맥락을 조작하지 않습니다.** Vault가 비어있으면 Pathfinder는
+소비면은 **맥락을 조작하지 않아야 합니다.** Vault가 비어있으면 Pathfinder는
 정직하게 `anchor_type: "none"` 결과를 리턴합니다. 출처를 검증할 수 없으면
-`origin_shortcut_missing`으로 정지합니다. 오퍼레이터 세션은 항상 자신이 무엇을
-받고 있고 왜 받는지 정확히 알 수 있습니다.
+`origin_shortcut_missing`으로 정지합니다. 오퍼레이터 세션은 무엇을 받고 있고
+왜 받는지 점검할 수 있는 근거를 받아야 합니다.
 
 ---
 
@@ -1133,15 +1159,16 @@ RESULT = {"sources": sources}
 | ⑨ | **Gardener** | 생명주기 전환: ACTIVE → SUPERSEDED → STALE | 지식은 축적만이 아니라 가지치기도 필요 |
 | ⑩ | **Postman** | 제한된 지원 번들 라우팅 | 전달은 부수효과가 아닌 계약 |
 | ⑪ | **Mailbox** | 프로바이더 세션 수신함 | 타입 안전 소비 표면 |
-| ⑫ | **Pathfinder** | 설명 가능한 지원 자료 검색 | 모든 검색 결과는 출처와 생명주기 증거를 수반 |
+| ⑫ | **Pathfinder** | 설명 가능한 지원 자료 검색 | 검색 결과는 출처와 생명주기 증거를 수반하거나 typed unavailable로 닫혀야 함 |
 
 ## Reasoning Lease
 
 일부 복잡한 신호나 모호한 트레이드오프는 단순한 PTC 도구 호출을 넘어섭니다 —
-시간 예산과 격리 보장이 있는 확장된 LLM 추론이 필요합니다.
+시간 예산과 격리 정책이 있는 확장된 LLM 추론이 필요합니다.
 
-openyggdrasil은 이를 **Reasoning Lease** 계층으로 처리합니다. PTC 엔진의
-`lease_backed_llm` 모드가 활성화되면 이 계층이 동작합니다:
+openyggdrasil은 이를 **Reasoning Lease** 경계로 처리하는 것을 지향합니다.
+`lease_backed_llm` 모드는 목표 실행 lane이며, production proof는 typed egress,
+role allowlist, receipt, sandbox fail-closed가 함께 닫힐 때에만 주장할 수 있습니다:
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -1153,8 +1180,8 @@ openyggdrasil은 이를 **Reasoning Lease** 계층으로 처리합니다. PTC �
 │  └─────────────────┘                                     │
 │           +                                               │
 │  ┌─────────────────┐                                     │
-│  │ 샌드박스        │  신뢰할 수 없는 코드가 격리 실행         │
-│  │ 격리           │  실패 → 롤백, 손상 아님                  │
+│  │ 샌드박스        │  신뢰할 수 없는 코드는 격리 실행되어야 함 │
+│  │ 격리           │  실패 → typed unavailable / 롤백 경로    │
 │  └─────────────────┘                                     │
 │           +                                               │
 │  ┌─────────────────┐                                     │
@@ -1165,8 +1192,8 @@ openyggdrasil은 이를 **Reasoning Lease** 계층으로 처리합니다. PTC �
 ```
 
 Reasoning Lease는 필수 의존성인 `bubblewrap`을 통해 비특권 샌드박스에서
-실행되어, 오퍼레이터 세션의 복잡한 자율 루프가 메인 시스템을 오염시키지 않도록
-안전하게 격리합니다.
+실행되어야 하며, 샌드박스가 불가용한 production 실행은 격리를 주장하지 말고
+fail-closed로 닫혀야 합니다.
 
 ---
 
@@ -1259,13 +1286,13 @@ openyggdrasil은 LSP를 직접 사용하지 않지만, 그 **capability negotiat
 1. **메모리는 엔진이지, 텍스트 더미가 아닙니다.** 모든 메모리 조각에는 출처,
    생명주기 상태, 타입 계약이 있습니다.
 
-2. **기계적 기반, 필수적 추론.** 파이프라인의 구조적 뼈대(스키마 검증, AST 추출,
+2. **기계적 기반, 명시적 추론 경계.** 파이프라인의 구조적 뼈대(스키마 검증, AST 추출,
    위상 클러스터링)는 결정론적으로 작동하지만, 의미 있는 지식 생산(Distill,
-   Semantic Edge)에는 Reasoning Lease를 통한 LLM 추론이 필수입니다.
+   Semantic Edge)에는 명시적인 Reasoning Lease 경계가 필요합니다.
 
 3. **기본적으로 프로바이더 중립.** 어떤 프로바이더도 Vault에 특별한 접근권을
-   갖지 않습니다. Hermes, Codex, Claude Code, 미래의 프로바이더가 동일한
-   계약을 공유합니다.
+   가져서는 안 됩니다. Hermes, Codex, Claude Code, 미래의 프로바이더가 동일한
+   provider-neutral 계약을 공유하도록 만드는 것이 목표입니다.
 
 4. **외부 인프라 없음.** 순수 Python, 그래프에는 NetworkX, 저장에는 파일시스템.
    기본 파이프라인에 데이터베이스, 벡터 스토어, Docker 불필요.
