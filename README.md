@@ -1206,7 +1206,9 @@ Operator Session.
 
 <a id="modules"></a>
 
-## The 12-Module Chain
+## The 12-Module Chain + 15th Boundary Modules
+
+The original 12 modules are the base knowledge production/consumption chain. As of the 15th realignment, this table is no longer enough to describe the current responsibility boundaries. Provider-neutral boundaries, SourceRef, PTC kitchens, Provenance Ring, Graphify verification, and TMUX/Attach/Talk UX now need explicit boundary modules.
 
 | # | Module | Role | Key Insight |
 |---|---|---|---|
@@ -1222,6 +1224,37 @@ Operator Session.
 | ⑩ | **Postman** | Routes bounded support bundles | Delivery is a contract, not a side effect |
 | ⑪ | **Mailbox** | Provider session inbox | Type-safe consumption surface |
 | ⑫ | **Pathfinder** | Retrieves explainable support material | Retrieval results should carry provenance and lifecycle proof, or typed unavailable |
+
+15th required promotion group:
+
+| # | Boundary module | Current verdict | Responsibility |
+|---:|---|---|---|
+| 20 | **Provider Common Boundary** | P0 IN PROGRESS | Keep Hermes and other provider-specific implementations from binding directly into the common runtime |
+| 21 | **SourceRef Resolver Registry** | PARTIAL | Hide provider-specific source stores behind registry/adapters; common core handles pointers only |
+| 22 | **Affordance Intent Router** | NOT PASS | Route user intent and worker behavior through affordance contracts, not signatures alone |
+| 23 | **PTC Production Kitchen** | NOT PASS | Let worker-authored sandbox code produce memory while enforcing write/mutate tools, evidence, receipts, and schemas |
+| 24 | **PTC Consumption Kitchen** | NOT PASS | Retrieval/recall/support-bundle kitchen; consumption must not expose Vault mutation as default handles |
+| 25 | **PTC Egress / Sandbox Gate** | NOT PASS | Raw stdout is debug-only; provider-facing results require typed egress and production sandbox fail-closed |
+| 26 | **Provenance Ring Lineage** | PARTIAL | Engrave `source_ref`, `anchor_hash`, and message range into append-only Tree Rings |
+| 27 | **Graphify Support Verifier** | PARTIAL | Reverify Graphify hints against Vault/provenance before using them as support-bundle candidates |
+| 28 | **TMUX Live Witness** | POLICY ONLY | Human visual observation surface; not SOT and not execution proof |
+| 29 | **Session Attach Gateway** | NOT PASS | Target `ygg status/attach/tmux` UX that attaches to active project/session registry |
+| 30 | **Interactive Operator Talk Lane** | NOT PASS | Target `ygg talk OP1/OP2` through typed mailbox/event input, not raw tmux/stdin |
+
+15th promotion candidate group:
+
+| Candidate # | Candidate | Current verdict | Promotion trigger |
+|---:|---|---|---|
+| 31 | **Provider Final Answer UX** | NOT PASS | Promote when provider/operator output needs a dedicated contract that starts with judgment, evidence, and uncertainty rather than workflow trace |
+| 32 | **Cross-Provider Same UX** | NOT PASS | Promote when Hermes POC evidence must be generalized into a provider-neutral same-UX contract for Codex, Claude Code, Cursor, Gemini CLI, and similar providers |
+
+Hard nonclaims:
+
+```text
+The 15th boundary module table is not an implementation-complete claim.
+Required promotion modules must remain visible in the public README until each gate is closed.
+Promotion candidates are important acceptance/UX gates, but they are not yet standalone module-definition files.
+```
 
 ---
 ## Reasoning Lease

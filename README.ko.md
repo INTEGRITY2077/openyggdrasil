@@ -1397,7 +1397,9 @@ RESULT = {"sources": sources}
 
 <a id="modules"></a>
 
-## 12-모듈 체인
+## 12-모듈 체인 + 15차 경계 모듈
+
+아래 12개는 원래의 지식 생산/소비 기본 체인입니다. 15차 기준으로 이 표만으로는 현재 책임 경계를 충분히 설명하지 못합니다. 특히 provider-neutral 경계, SourceRef, PTC kitchen, Provenance Ring, Graphify 검증, TMUX/Attach/Talk UX는 별도 경계 모듈로 승격되었거나 승격 대기 상태입니다.
 
 | # | 모듈 | 역할 | 핵심 인사이트 |
 |---|---|---|---|
@@ -1413,6 +1415,37 @@ RESULT = {"sources": sources}
 | ⑩ | **Postman** | 제한된 지원 번들 라우팅 | 전달은 부수효과가 아닌 계약 |
 | ⑪ | **Mailbox** | 프로바이더 세션 수신함 | 타입 안전 소비 표면 |
 | ⑫ | **Pathfinder** | 설명 가능한 지원 자료 검색 | 검색 결과는 출처와 생명주기 증거를 수반하거나 typed unavailable로 닫혀야 함 |
+
+15차 필수 승격군:
+
+| # | 경계 모듈 | 현재 판정 | 책임 |
+|---:|---|---|---|
+| 20 | **Provider Common Boundary** | P0 IN PROGRESS | Hermes 등 특정 provider 구현이 common runtime에 강결합되지 않도록 분리 |
+| 21 | **SourceRef Resolver Registry** | PARTIAL | provider별 원본 저장소 접근을 registry/adapter 뒤로 숨기고 공통 코어는 pointer만 다룸 |
+| 22 | **Affordance Intent Router** | NOT PASS | 사용자 의도와 worker 행동을 signature가 아니라 affordance contract로 라우팅 |
+| 23 | **PTC Production Kitchen** | NOT PASS | worker가 작성한 sandbox code로 기억을 생산하되 write/mutate 도구와 evidence/receipt/schema를 강제 |
+| 24 | **PTC Consumption Kitchen** | NOT PASS | 검색/회상/support bundle 전용 kitchen. 소비면에서 Vault mutation 도구를 기본 손잡이로 노출하지 않음 |
+| 25 | **PTC Egress / Sandbox Gate** | NOT PASS | raw stdout은 debug-only, provider-facing 결과는 typed egress. production sandbox unavailable은 fail-closed |
+| 26 | **Provenance Ring Lineage** | PARTIAL | source_ref, anchor_hash, message range를 append-only 나이테로 각인 |
+| 27 | **Graphify Support Verifier** | PARTIAL | Graphify hint를 Vault/provenance로 재검증한 뒤 support bundle 후보로만 사용 |
+| 28 | **TMUX Live Witness** | POLICY ONLY | 사람이 보는 live 관찰 표면. SOT나 execution proof가 아님 |
+| 29 | **Session Attach Gateway** | NOT PASS | 목표 `ygg status/attach/tmux`가 active project/session registry에 붙는 UX |
+| 30 | **Interactive Operator Talk Lane** | NOT PASS | 목표 `ygg talk OP1/OP2`를 raw tmux/stdin이 아닌 typed mailbox/event 입력으로 처리 |
+
+15차 승격후보군:
+
+| 후보 # | 후보 | 현재 판정 | 승격 트리거 |
+|---:|---|---|---|
+| 31 | **Provider Final Answer UX** | NOT PASS | provider/operator 출력이 workflow trace가 아니라 판단, 근거, 불확실성으로 시작하는 전용 계약이 필요해질 때 |
+| 32 | **Cross-Provider Same UX** | NOT PASS | Hermes POC 근거를 Codex/Claude Code/Cursor/Gemini CLI 등 provider-neutral 동일 UX 계약으로 일반화해야 할 때 |
+
+하드 비주장:
+
+```text
+15차 경계 모듈 표는 구현 완료 선언이 아니다.
+필수 승격군은 public README에서 계속 보이는 책임 경계이며, 각 gate가 닫힐 때까지 PASS로 올리지 않는다.
+승격후보군은 중요하지만 아직 독립 module-define으로 승격되지 않은 acceptance/UX gate다.
+```
 
 ## Reasoning Lease
 
