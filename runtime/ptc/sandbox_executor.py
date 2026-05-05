@@ -5,7 +5,7 @@ Two modes:
   batch: vault + runtime 복사 → bwrap → 1회 실행 → 결과 수집
   ipc:   Unix Domain Socket → LLM 코드가 IPC 콜백으로 primitives 호출
 
-IPC 콜백 루프는 proxoauth의 stub_generator + host.docker.internal 패턴을
+IPC 콜백 루프는 capability stub + host callback 패턴을
 bwrap + Unix Domain Socket으로 구현한 것이다.
 """
 from __future__ import annotations

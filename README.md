@@ -342,8 +342,8 @@ sources: [source refs or public paths]
 openyggdrasil is designed to operate as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). The target operating model does not require system-level background daemons or separate server management. Operator Sessions should be bound to their Provider Session's lifetime and exit on timeout or completion, but this is not a production-ready guarantee yet.
 
 > **⚠️ Reasoning Lease Model (Asynchronous Multiplexing):**
-> openyggdrasil does not have its own API keys; it **borrows (leases) the reasoning tokens of the provider agent (IDE) in reverse**.
-> In the target non-blocking path, the Operator runs behind the user chat and therefore needs an explicit provider-owned reasoning lease. A provider adapter may satisfy that lease through scoped auth delegation or asynchronous task-contract multiplexing, but the common boundary must remain provider-neutral. This boundary is not a production-ready claim.
+> openyggdrasil does not have its own API keys, and it must not extract provider credentials.
+> In the target non-blocking path, the Operator may run behind the user chat only through an explicit, user-authorized provider-session task contract. A provider adapter may satisfy that contract through scoped delegation or asynchronous task-contract multiplexing, but the common boundary must remain provider-neutral. This boundary is not a production-ready claim.
 
 ### 1. How Providers Recognize openyggdrasil
 
@@ -812,10 +812,11 @@ The primary reason openyggdrasil abandoned heavy external infrastructure in favo
 
 ## Execution Model
 
-openyggdrasil does not have its own LLM or API keys.
+openyggdrasil does not have its own LLM or API keys, and it must not extract
+provider credentials or bypass provider billing, security, or terms.
 When a provider (Hermes, Claude Code, Cursor, etc.) enters this repository,
 it reads **`SKILL.md`** at the root and executes the entrypoints defined
-there using its own tokens.
+there only inside the user's active, authorized provider session.
 
 ```
   Provider Agent
@@ -837,12 +838,12 @@ there using its own tokens.
   → or PTC chain (`--ptc`) executes code from the 26-tool palette
 ```
 
-Two things are borrowed from the provider:
+Two capabilities may be used through the active provider session:
 
-| Borrowed | Description |
+| Capability | Description |
 |---|---|
 | **Execution context** | The agent's shell/tool-calling ability to run Python scripts |
-| **Reasoning tokens** | The LLM reasoning capability required to pass PTC contract guardrails and make complex decisions |
+| **Reasoning capacity** | The provider session's model reasoning capability, used only through explicit task contracts and runtime guardrails |
 
 **The Operator Session is the intended pipeline execution subject.** Some utility paths run deterministically in pure Python, while decision-heavy guardrails require an explicit reasoning-lease boundary. This does not mean the full PTC kitchen is production-ready.
 
@@ -1394,5 +1395,8 @@ You are free to use, modify, and distribute the code under the terms of this lic
 While the code is open-source, the brand names **"openyggdrasil"** and **"INTEGRITY2077"**, along with their associated logos and trade dress, are strictly protected. The Apache 2.0 License explicitly **does not grant** permission to use these trademarks.
 
 If you fork or distribute a modified version of this project, you must change the name and cannot use the openyggdrasil or INTEGRITY2077 branding to identify your version.
+
+**Third-party marks and affiliation:**
+Third-party product, provider, project, and company names in this repository are used only for nominative identification, interoperability, compatibility notes, or attribution. openyggdrasil is an independent project and is not affiliated with, sponsored by, endorsed by, certified by, or approved by Anthropic, OpenAI, Microsoft, Google, Cursor, Graphify, NetworkX, or any other third-party owner unless that owner explicitly states otherwise.
 
 See [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md) for companion dependency notices.

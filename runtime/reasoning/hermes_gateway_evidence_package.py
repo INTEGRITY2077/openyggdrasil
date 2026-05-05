@@ -7,13 +7,13 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from harness_common import utc_now_iso
-from reasoning.hermes_official_gateway_contract import (
-    build_p0_official_hermes_gateway_contract,
-    validate_p0_official_hermes_gateway_contract,
+from reasoning.hermes_provider_owned_gateway_contract import (
+    build_p0_provider_owned_hermes_gateway_contract,
+    validate_p0_provider_owned_hermes_gateway_contract,
 )
 
 
-CLASSIFIER_SCHEMA_VERSION = "p0_official_hermes_gateway_evidence_package_classifier.v1"
+CLASSIFIER_SCHEMA_VERSION = "p0_provider_owned_hermes_gateway_evidence_package_classifier.v1"
 
 PASS_SAFE_PROVIDER_GATEWAY_EVIDENCE = "PASS_SAFE_PROVIDER_GATEWAY_EVIDENCE"
 TYPED_UNAVAILABLE_LIVE_PROOF = "TYPED_UNAVAILABLE_LIVE_PROOF"
@@ -142,7 +142,7 @@ def _candidate_from_input(
     return None, "unsupported", "unsupported_candidate_package_shape"
 
 
-def classify_p0_official_hermes_gateway_evidence_package(
+def classify_p0_provider_owned_hermes_gateway_evidence_package(
     candidate_package: Mapping[str, Any] | str | PathLike[str],
 ) -> dict[str, Any]:
     """Classify a candidate gateway evidence package through the P0-G2 contract.
@@ -161,10 +161,10 @@ def classify_p0_official_hermes_gateway_evidence_package(
         )
 
     try:
-        contract = build_p0_official_hermes_gateway_contract(
+        contract = build_p0_provider_owned_hermes_gateway_contract(
             gateway_proof=_candidate_for_contract(candidate or {})
         )
-        validate_p0_official_hermes_gateway_contract(contract)
+        validate_p0_provider_owned_hermes_gateway_contract(contract)
     except Exception:
         return _typed_unavailable_classification(
             reason_code="p0_g2_contract_validation_failed",
@@ -204,7 +204,7 @@ def classify_p0_official_hermes_gateway_evidence_package(
     }
 
 
-def validate_p0_official_hermes_gateway_evidence_classification(
+def validate_p0_provider_owned_hermes_gateway_evidence_classification(
     classification: Mapping[str, Any],
 ) -> None:
     if classification.get("schema_version") != CLASSIFIER_SCHEMA_VERSION:
@@ -220,7 +220,7 @@ def validate_p0_official_hermes_gateway_evidence_classification(
     if contract is not None:
         if not isinstance(contract, Mapping):
             raise ValueError("P0 gateway evidence classifier contract must be mapping or null")
-        validate_p0_official_hermes_gateway_contract(contract)
+        validate_p0_provider_owned_hermes_gateway_contract(contract)
 
     verdict = classification.get("verdict")
     contract_status = classification.get("contract_status")

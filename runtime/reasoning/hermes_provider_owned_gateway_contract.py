@@ -77,10 +77,10 @@ SUBAGENT_READY_REFS = (
 )
 GATEWAY_OWNER_TYPES = {"app_assigned_gateway", "provider_owned_gateway"}
 INVOCATION_SURFACES = {
-    "official_app_assigned_command",
-    "official_provider_command",
-    "official_provider_subagent_delegate",
-    "official_provider_skill_entrypoint",
+    "app_assigned_command",
+    "provider_command",
+    "provider_subagent_delegate",
+    "provider_skill_entrypoint",
 }
 GATEWAY_CAPABILITIES = {
     "command_gateway",
@@ -182,9 +182,9 @@ DEFAULT_SAFETY_FLAGS = {
 
 
 @lru_cache(maxsize=1)
-def load_p0_official_hermes_gateway_contract_schema() -> dict[str, Any]:
+def load_p0_provider_owned_hermes_gateway_contract_schema() -> dict[str, Any]:
     return json.loads(
-        (CONTRACTS_ROOT / "p0_official_hermes_gateway_contract.v1.schema.json").read_text(
+        (CONTRACTS_ROOT / "p0_provider_owned_hermes_gateway_contract.v1.schema.json").read_text(
             encoding="utf-8"
         )
     )
@@ -313,28 +313,28 @@ def _missing_consumer_refs(safe_refs: Mapping[str, str]) -> list[str]:
     return missing
 
 
-def validate_p0_official_hermes_gateway_contract(payload: Mapping[str, Any]) -> None:
+def validate_p0_provider_owned_hermes_gateway_contract(payload: Mapping[str, Any]) -> None:
     jsonschema.validate(
         instance=dict(payload),
-        schema=load_p0_official_hermes_gateway_contract_schema(),
+        schema=load_p0_provider_owned_hermes_gateway_contract_schema(),
     )
 
-    if payload.get("schema_version") != "p0_official_hermes_gateway_contract.v1":
-        raise ValueError("invalid P0 official Hermes gateway contract schema_version")
+    if payload.get("schema_version") != "p0_provider_owned_hermes_gateway_contract.v1":
+        raise ValueError("invalid P0 provider-owned Hermes gateway contract schema_version")
     if payload.get("gateway_status") not in GATEWAY_STATUSES:
-        raise ValueError("invalid P0 official Hermes gateway status")
+        raise ValueError("invalid P0 provider-owned Hermes gateway status")
     if payload.get("provider") not in {"hermes", None}:
-        raise ValueError("P0 official gateway provider must be hermes")
-    if payload.get("runtime_owner") != "runtime/reasoning/hermes_official_gateway_contract.py":
-        raise ValueError("invalid P0 official gateway runtime owner")
+        raise ValueError("P0 provider-owned gateway provider must be hermes")
+    if payload.get("runtime_owner") != "runtime/reasoning/hermes_provider_owned_gateway_contract.py":
+        raise ValueError("invalid P0 provider-owned gateway runtime owner")
     if payload.get("static_contract_only") is not True:
-        raise ValueError("P0 official gateway contract must remain static only")
+        raise ValueError("P0 provider-owned gateway contract must remain static only")
     if payload.get("typed_refs_only") is not True:
-        raise ValueError("P0 official gateway contract must use typed refs only")
+        raise ValueError("P0 provider-owned gateway contract must use typed refs only")
 
     for flag_name in DEFAULT_SAFETY_FLAGS:
         if payload.get(flag_name) is not False:
-            raise ValueError(f"unsafe P0 official gateway flag: {flag_name}")
+            raise ValueError(f"unsafe P0 provider-owned gateway flag: {flag_name}")
 
     for field in ("contract_ref", *REF_FIELDS):
         value = payload.get(field)
@@ -357,9 +357,9 @@ def validate_p0_official_hermes_gateway_contract(payload: Mapping[str, Any]) -> 
         if payload.get("provider") != "hermes":
             raise ValueError("static contract ready requires provider hermes")
         if payload.get("gateway_owner_type") not in GATEWAY_OWNER_TYPES:
-            raise ValueError("static contract ready requires official gateway owner type")
+            raise ValueError("static contract ready requires provider-owned gateway owner type")
         if payload.get("invocation_surface") not in INVOCATION_SURFACES:
-            raise ValueError("static contract ready requires official invocation surface")
+            raise ValueError("static contract ready requires provider-declared invocation surface")
         if payload.get("gateway_capability") not in GATEWAY_CAPABILITIES:
             raise ValueError("static contract ready requires gateway capability")
         for field in CORE_READY_REFS:
@@ -402,12 +402,12 @@ def validate_p0_official_hermes_gateway_contract(payload: Mapping[str, Any]) -> 
         raise ValueError("reason_codes are required")
 
 
-def build_p0_official_hermes_gateway_contract(
+def build_p0_provider_owned_hermes_gateway_contract(
     *,
     gateway_proof: Mapping[str, Any],
     safety_flags: Mapping[str, bool] | None = None,
 ) -> dict[str, Any]:
-    """Build and validate the static P0 official Hermes gateway proof shape.
+    """Build and validate the static P0 provider-owned Hermes gateway proof shape.
 
     This does not call Hermes, patch Hermes source, read provider state, or
     prove a live gateway. It only classifies a future gateway proof package
@@ -465,12 +465,12 @@ def build_p0_official_hermes_gateway_contract(
         safety_reject_reasons = _unique_refs(reason_codes)
     elif gateway_owner_type not in GATEWAY_OWNER_TYPES:
         gateway_status = "typed_unavailable"
-        unavailable_condition = "official_gateway_owner_type_absent"
-        reason_codes = ["official_gateway_owner_type_absent"]
+        unavailable_condition = "provider_gateway_owner_type_absent"
+        reason_codes = ["provider_gateway_owner_type_absent"]
     elif invocation_surface not in INVOCATION_SURFACES:
         gateway_status = "typed_unavailable"
-        unavailable_condition = "official_invocation_surface_absent"
-        reason_codes = ["official_invocation_surface_absent"]
+        unavailable_condition = "provider_invocation_surface_absent"
+        reason_codes = ["provider_invocation_surface_absent"]
     elif gateway_capability not in GATEWAY_CAPABILITIES:
         gateway_status = "typed_unavailable"
         unavailable_condition = "gateway_capability_absent"
@@ -519,8 +519,8 @@ def build_p0_official_hermes_gateway_contract(
             gateway_status = "static_contract_ready"
             reason_codes = [
                 "static_contract_ready",
-                "official_gateway_owner_boundary_present",
-                "official_invocation_surface_present",
+                "provider_gateway_owner_boundary_present",
+                "provider_declared_invocation_surface_present",
                 "typed_task_or_unavailable_shape_present",
                 "context_window_refs_present",
             ]
@@ -532,7 +532,7 @@ def build_p0_official_hermes_gateway_contract(
                 reason_codes.append("provider_skill_or_subagent_refs_present")
 
     contract_ref = (
-        f"p0-official-hermes-gateway-contract-ref://openyggdrasil/p0-g2/{contract_id}"
+        f"p0-provider-owned-hermes-gateway-contract-ref://openyggdrasil/p0-g2/{contract_id}"
         if gateway_status != "reject"
         else None
     )
@@ -550,7 +550,7 @@ def build_p0_official_hermes_gateway_contract(
     safe_portable_refs = _unique_refs([ref for ref in ref_values if ref])
 
     payload = {
-        "schema_version": "p0_official_hermes_gateway_contract.v1",
+        "schema_version": "p0_provider_owned_hermes_gateway_contract.v1",
         "contract_id": contract_id,
         "contract_ref": contract_ref,
         "provider": provider if provider == "hermes" else None,
@@ -612,7 +612,7 @@ def build_p0_official_hermes_gateway_contract(
         "safe_portable_refs": safe_portable_refs,
         "input_schema_versions": _as_string_list(request.get("input_schema_versions")),
         "ptc_callable": True,
-        "runtime_owner": "runtime/reasoning/hermes_official_gateway_contract.py",
+        "runtime_owner": "runtime/reasoning/hermes_provider_owned_gateway_contract.py",
         "static_contract_only": True,
         "typed_refs_only": True,
         "foreground_env_injection_used": False,
@@ -642,5 +642,5 @@ def build_p0_official_hermes_gateway_contract(
         "hermes_answer_quality_claimed": False,
         "created_at": utc_now_iso(),
     }
-    validate_p0_official_hermes_gateway_contract(payload)
+    validate_p0_provider_owned_hermes_gateway_contract(payload)
     return payload

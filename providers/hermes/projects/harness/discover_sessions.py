@@ -28,7 +28,7 @@ from topic_episode_placement_engine import evaluate_session_placement
 RAW_TRANSCRIPTS = DEFAULT_VAULT / "raw" / "transcripts"
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Discover unpromoted official Hermes sessions and enqueue promotion jobs."
+        description="Discover unpromoted provider-owned Hermes session records and enqueue promotion jobs."
     )
     parser.add_argument(
         "--profiles",

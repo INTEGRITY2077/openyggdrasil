@@ -9,18 +9,18 @@ from typing import Any, Mapping, Sequence
 
 from harness_common import utc_now_iso
 from reasoning.hermes_gateway_evidence_intake import (
-    run_p0_official_hermes_gateway_evidence_intake,
-    validate_p0_official_hermes_gateway_evidence_intake,
+    run_p0_provider_owned_hermes_gateway_evidence_intake,
+    validate_p0_provider_owned_hermes_gateway_evidence_intake,
 )
 from reasoning.hermes_gateway_evidence_package import (
     TYPED_UNAVAILABLE_LIVE_PROOF,
-    classify_p0_official_hermes_gateway_evidence_package,
-    validate_p0_official_hermes_gateway_evidence_classification,
+    classify_p0_provider_owned_hermes_gateway_evidence_package,
+    validate_p0_provider_owned_hermes_gateway_evidence_classification,
 )
 
 
 SURFACE_UNAVAILABLE_SCHEMA_VERSION = (
-    "p0_official_hermes_gateway_surface_unavailable_evidence.v1"
+    "p0_provider_owned_hermes_gateway_surface_unavailable_evidence.v1"
 )
 EXPECTED_MISSING_CONDITION = (
     "no_current_safe_provider_owned_or_app_assigned_hermes_command_or_subagent_"
@@ -90,7 +90,7 @@ def _require_expected_missing_condition(missing_condition: str) -> str:
     return condition
 
 
-def build_p0_official_hermes_gateway_surface_unavailable_candidate(
+def build_p0_provider_owned_hermes_gateway_surface_unavailable_candidate(
     *,
     missing_condition: str = EXPECTED_MISSING_CONDITION,
 ) -> dict[str, Any]:
@@ -103,7 +103,7 @@ def build_p0_official_hermes_gateway_surface_unavailable_candidate(
         "missing_condition": condition,
         "gateway_owner_type": "app_assigned_gateway",
         "gateway_owner_ref": "gateway-owner-ref://openyggdrasil/p0-g6/hermes/surface-unavailable",
-        "invocation_surface": "official_app_assigned_command",
+        "invocation_surface": "app_assigned_command",
         "gateway_capability": "command_gateway",
         # Omitted intentionally: provider_gateway_surface_ref. Its absence is
         # the machine-checkable typed-unavailable proof for the current blocker.
@@ -111,7 +111,7 @@ def build_p0_official_hermes_gateway_surface_unavailable_candidate(
             "gateway-capability-ref://openyggdrasil/p0-g6/hermes/command-required"
         ),
         "provider_gateway_contract_ref": (
-            "gateway-contract-ref://openyggdrasil/p0-g6/official-hermes-gateway-required"
+            "gateway-contract-ref://openyggdrasil/p0-g6/provider-owned-hermes-gateway-required"
         ),
         "gateway_request_ref": (
             "gateway-request-ref://openyggdrasil/p0-g6/surface-unavailable-request"
@@ -135,9 +135,9 @@ def build_p0_official_hermes_gateway_surface_unavailable_candidate(
         "surface_scan_verification_ref": P0_G5_VERIFICATION_REF,
         "input_schema_versions": [
             SURFACE_UNAVAILABLE_SCHEMA_VERSION,
-            "p0_official_hermes_gateway_evidence_package_classifier.v1",
-            "p0_official_hermes_gateway_evidence_intake.v1",
-            "p0_official_hermes_gateway_contract.v1",
+            "p0_provider_owned_hermes_gateway_evidence_package_classifier.v1",
+            "p0_provider_owned_hermes_gateway_evidence_intake.v1",
+            "p0_provider_owned_hermes_gateway_contract.v1",
         ],
     }
 
@@ -153,8 +153,8 @@ def _write_json(path: str | PathLike[str], payload: Mapping[str, Any]) -> Path:
 
 
 def _classify_candidate(candidate: Mapping[str, Any]) -> dict[str, Any]:
-    classification = classify_p0_official_hermes_gateway_evidence_package(candidate)
-    validate_p0_official_hermes_gateway_evidence_classification(classification)
+    classification = classify_p0_provider_owned_hermes_gateway_evidence_package(candidate)
+    validate_p0_provider_owned_hermes_gateway_evidence_classification(classification)
     return classification
 
 
@@ -165,16 +165,16 @@ def _run_intake_with_candidate_path(
     intake_output_path: str | PathLike[str] | None,
 ) -> dict[str, Any]:
     _write_json(candidate_path, candidate)
-    artifact = run_p0_official_hermes_gateway_evidence_intake(
+    artifact = run_p0_provider_owned_hermes_gateway_evidence_intake(
         candidate_path,
         output_path=intake_output_path,
         source_ref=P0_G6_SOURCE_REF,
     )
-    validate_p0_official_hermes_gateway_evidence_intake(artifact)
+    validate_p0_provider_owned_hermes_gateway_evidence_intake(artifact)
     return artifact
 
 
-def build_p0_official_hermes_gateway_surface_unavailable_evidence(
+def build_p0_provider_owned_hermes_gateway_surface_unavailable_evidence(
     *,
     missing_condition: str = EXPECTED_MISSING_CONDITION,
     candidate_output_path: str | PathLike[str] | None = None,
@@ -188,7 +188,7 @@ def build_p0_official_hermes_gateway_surface_unavailable_evidence(
     """
 
     condition = _require_expected_missing_condition(missing_condition)
-    candidate = build_p0_official_hermes_gateway_surface_unavailable_candidate(
+    candidate = build_p0_provider_owned_hermes_gateway_surface_unavailable_candidate(
         missing_condition=condition
     )
     classification = _classify_candidate(candidate)
@@ -238,11 +238,11 @@ def build_p0_official_hermes_gateway_surface_unavailable_evidence(
         "static_builder_only": True,
         "created_at": utc_now_iso(),
     }
-    validate_p0_official_hermes_gateway_surface_unavailable_evidence(result)
+    validate_p0_provider_owned_hermes_gateway_surface_unavailable_evidence(result)
     return result
 
 
-def validate_p0_official_hermes_gateway_surface_unavailable_evidence(
+def validate_p0_provider_owned_hermes_gateway_surface_unavailable_evidence(
     evidence: Mapping[str, Any],
 ) -> None:
     if evidence.get("schema_version") != SURFACE_UNAVAILABLE_SCHEMA_VERSION:
@@ -273,14 +273,14 @@ def validate_p0_official_hermes_gateway_surface_unavailable_evidence(
     classification = evidence.get("classification")
     if not isinstance(classification, Mapping):
         raise ValueError("P0-G6 evidence requires classification mapping")
-    validate_p0_official_hermes_gateway_evidence_classification(classification)
+    validate_p0_provider_owned_hermes_gateway_evidence_classification(classification)
     if classification.get("verdict") != TYPED_UNAVAILABLE_LIVE_PROOF:
         raise ValueError("P0-G6 classification must remain typed unavailable")
 
     intake_artifact = evidence.get("intake_artifact")
     if not isinstance(intake_artifact, Mapping):
         raise ValueError("P0-G6 evidence requires intake_artifact mapping")
-    validate_p0_official_hermes_gateway_evidence_intake(intake_artifact)
+    validate_p0_provider_owned_hermes_gateway_evidence_intake(intake_artifact)
     if intake_artifact.get("verdict") != TYPED_UNAVAILABLE_LIVE_PROOF:
         raise ValueError("P0-G6 intake artifact must remain typed unavailable")
 

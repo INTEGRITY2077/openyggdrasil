@@ -559,7 +559,7 @@
         "non_typed_ptc_egress",
         "host_context_pollution",
         "host_death_without_session_close",
-        "proxoauth_provider_api_proxy",
+        "unauthorized_provider_api_proxy",
         "stdin_injection",
         "state_db_raw_polling",
         "provider_tool_decision_override",
@@ -640,7 +640,7 @@
         "host_death_without_session_close": {
           "const": false
         },
-        "proxoauth_provider_api_proxy": {
+        "unauthorized_provider_api_proxy": {
           "const": false
         },
         "stdin_injection": {

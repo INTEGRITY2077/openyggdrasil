@@ -107,8 +107,8 @@ openyggdrasil은 AI 프로바이더(예: Hermes, Claude Code, Cursor)에 부착�
 보장이 아닙니다.
 
 > **⚠️ 추론 토큰 임대 모델 (비동기 다중화 / Asynchronous Multiplexing):**
-> openyggdrasil은 자체 API 키를 가지지 않으며, **프로바이더 본체(IDE)의 추론 토큰을 역으로 빌려서(Lease) 작동**합니다.
-> 사용자와의 대화를 방해하지 않기 위해 오퍼레이터는 비동기 백그라운드 작업 경계를 지향합니다. 프로바이더 어댑터는 scoped auth delegation 또는 task-contract multiplexing 같은 명시적 추론 임대 경계를 제공할 수 있지만, 공통 경계는 provider-neutral로 남아야 하며 아직 production-ready로 닫힌 상태가 아닙니다.
+> openyggdrasil은 자체 API 키를 가지지 않으며, 프로바이더 자격 증명을 추출해서도 안 됩니다.
+> 사용자와의 대화를 방해하지 않기 위해 오퍼레이터는 비동기 백그라운드 작업 경계를 지향합니다. 이 경로는 사용자가 승인한 active provider session의 명시적 작업 계약을 통해서만 실행되어야 합니다. 프로바이더 어댑터는 scoped delegation 또는 task-contract multiplexing 같은 추론 임대 경계를 제공할 수 있지만, 공통 경계는 provider-neutral로 남아야 하며 아직 production-ready로 닫힌 상태가 아닙니다.
 
 ### 1. 프로바이더가 openyggdrasil을 인식하는 방법
 
@@ -966,7 +966,7 @@ Reasoning Lease 경계를 필요로 합니다. 이것은 full PTC kitchen이 pro
 **핵심 규칙:**
 - **포인터 기반 의뢰 (`source_ref` 필수):** 프로바이더 에이전트는 원본 대화를 훼손하거나 복제하지 않습니다. 반드시 `turn_delta.v1.jsonl` 등의 로그 파일 위치를 가리키는 `source_ref` 포인터를 넘겨야 합니다. 이를 누락한 신호는 Admission Gate에서 거부됩니다.
 - **비동기 콜드스타트 (Non-blocking target):** openyggdrasil은 프로바이더를 멈추지 않는 방향을 지향합니다. 목표 경로는 Mailbox/background execution으로 위임하고 작업 근거가 생기면 receipt를 남기는 것이며, 실제 판정은 provider adapter 지원과 machine-readable receipt에 묶입니다.
-- **추론 자원 임대 (Reasoning Lease):** 오퍼레이터가 백그라운드에서 심층 구조화(Distill/Evaluate)를 수행하려면 지능이 필요합니다. 프로바이더 어댑터는 scoped auth delegation 또는 task-contract multiplexing 같은 명시적 추론 임대 경계를 제공해야 하며, 공통 경계는 provider-neutral로 남아야 합니다.
+- **추론 자원 임대 (Reasoning Lease):** 오퍼레이터가 백그라운드에서 심층 구조화(Distill/Evaluate)를 수행하려면 지능이 필요합니다. 이 지능은 프로바이더 자격 증명 추출이나 우회가 아니라, 사용자가 승인한 provider session의 명시적 작업 계약과 런타임 가드레일을 통해서만 사용되어야 합니다. 공통 경계는 provider-neutral로 남아야 합니다.
 
 
 
@@ -1634,5 +1634,8 @@ openyggdrasil은 LSP를 직접 사용하지 않지만, 그 **capability negotiat
 
 이 프로젝트를 포크하거나 수정된 버전을 배포하는 경우, 이름을 변경해야 하며
 openyggdrasil 또는 INTEGRITY2077 브랜딩을 사용하여 해당 버전을 식별할 수 없습니다.
+
+**타사 상표 및 제휴 고지:**
+이 저장소에 등장하는 타사 제품, 프로바이더, 프로젝트, 회사명은 식별, 상호운용성 설명, 호환성 메모, 출처 표기를 위한 지명적 사용입니다. openyggdrasil은 해당 권리자가 명시적으로 밝히지 않는 한 Anthropic, OpenAI, Microsoft, Google, Cursor, Graphify, NetworkX 또는 기타 타사 권리자와 제휴, 후원, 보증, 인증, 승인 관계에 있지 않은 독립 프로젝트입니다.
 
 동반 의존성 고지는 [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)를 참조하세요.

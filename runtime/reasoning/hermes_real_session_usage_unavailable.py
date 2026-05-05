@@ -8,8 +8,8 @@ from harness_common import utc_now_iso
 from reasoning.hermes_gateway_surface_unavailable import (
     EXPECTED_MISSING_CONDITION,
     P0_G6_SOURCE_REF,
-    build_p0_official_hermes_gateway_surface_unavailable_evidence,
-    validate_p0_official_hermes_gateway_surface_unavailable_evidence,
+    build_p0_provider_owned_hermes_gateway_surface_unavailable_evidence,
+    validate_p0_provider_owned_hermes_gateway_surface_unavailable_evidence,
 )
 from reasoning.hermes_real_session_usage_probe import (
     build_hermes_real_session_usage_probe,
@@ -79,7 +79,7 @@ def build_hermes_real_session_usage_unavailable_proof_package(
 ) -> dict[str, Any]:
     """Project P0-G6 surface-unavailable evidence into an R9 proof package."""
 
-    validate_p0_official_hermes_gateway_surface_unavailable_evidence(
+    validate_p0_provider_owned_hermes_gateway_surface_unavailable_evidence(
         surface_unavailable_evidence
     )
     if surface_unavailable_evidence.get("missing_condition") != EXPECTED_MISSING_CONDITION:
@@ -116,7 +116,7 @@ def build_hermes_real_session_usage_unavailable_proof_package(
         # Intentionally omitted: provider_gateway_evidence_ref. Its absence is
         # the R9 typed-unavailable projection under current P0 truth.
         "input_schema_versions": [
-            "p0_official_hermes_gateway_surface_unavailable_evidence.v1",
+            "p0_provider_owned_hermes_gateway_surface_unavailable_evidence.v1",
             "hermes_real_session_usage_probe.v1",
             R9_TYPED_UNAVAILABLE_PROJECTION_SCHEMA_VERSION,
         ],
@@ -136,9 +136,9 @@ def build_hermes_real_session_usage_unavailable_projection(
     surface_evidence = (
         dict(surface_unavailable_evidence)
         if surface_unavailable_evidence is not None
-        else build_p0_official_hermes_gateway_surface_unavailable_evidence()
+        else build_p0_provider_owned_hermes_gateway_surface_unavailable_evidence()
     )
-    validate_p0_official_hermes_gateway_surface_unavailable_evidence(surface_evidence)
+    validate_p0_provider_owned_hermes_gateway_surface_unavailable_evidence(surface_evidence)
 
     proof_package = build_hermes_real_session_usage_unavailable_proof_package(
         surface_evidence

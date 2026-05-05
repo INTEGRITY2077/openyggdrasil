@@ -12,12 +12,12 @@ from reasoning.hermes_gateway_evidence_package import (
     CLASSIFIER_SCHEMA_VERSION,
     CLASSIFIER_VERDICTS,
     TYPED_UNAVAILABLE_LIVE_PROOF,
-    classify_p0_official_hermes_gateway_evidence_package,
-    validate_p0_official_hermes_gateway_evidence_classification,
+    classify_p0_provider_owned_hermes_gateway_evidence_package,
+    validate_p0_provider_owned_hermes_gateway_evidence_classification,
 )
 
 
-INTAKE_SCHEMA_VERSION = "p0_official_hermes_gateway_evidence_intake.v1"
+INTAKE_SCHEMA_VERSION = "p0_provider_owned_hermes_gateway_evidence_intake.v1"
 
 RAW_MATERIAL_KEYS = {
     "candidate",
@@ -125,11 +125,11 @@ def _redacted_artifact(
         "redacted": True,
         "static_intake_only": True,
     }
-    validate_p0_official_hermes_gateway_evidence_intake(artifact)
+    validate_p0_provider_owned_hermes_gateway_evidence_intake(artifact)
     return artifact
 
 
-def run_p0_official_hermes_gateway_evidence_intake(
+def run_p0_provider_owned_hermes_gateway_evidence_intake(
     candidate_json_path: str | PathLike[str],
     *,
     output_path: str | PathLike[str] | None = None,
@@ -147,8 +147,8 @@ def run_p0_official_hermes_gateway_evidence_intake(
     if load_error is not None:
         classification = _typed_unavailable_classification(load_error)
     else:
-        classification = classify_p0_official_hermes_gateway_evidence_package(candidate or {})
-    validate_p0_official_hermes_gateway_evidence_classification(classification)
+        classification = classify_p0_provider_owned_hermes_gateway_evidence_package(candidate or {})
+    validate_p0_provider_owned_hermes_gateway_evidence_classification(classification)
 
     artifact = _redacted_artifact(
         candidate_path=candidate_path,
@@ -167,7 +167,7 @@ def run_p0_official_hermes_gateway_evidence_intake(
     return artifact
 
 
-def validate_p0_official_hermes_gateway_evidence_intake(artifact: Mapping[str, Any]) -> None:
+def validate_p0_provider_owned_hermes_gateway_evidence_intake(artifact: Mapping[str, Any]) -> None:
     if artifact.get("schema_version") != INTAKE_SCHEMA_VERSION:
         raise ValueError("invalid P0 gateway evidence intake schema_version")
     if artifact.get("classifier_schema_version") != CLASSIFIER_SCHEMA_VERSION:

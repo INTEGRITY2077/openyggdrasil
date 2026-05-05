@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://openyggdrasil.local/contracts/p0_official_hermes_gateway_contract.v1.schema.json",
-  "title": "openyggdrasil P0 Official Hermes Gateway Contract v1",
+  "$id": "https://openyggdrasil.local/contracts/p0_provider_owned_hermes_gateway_contract.v1.schema.json",
+  "title": "openyggdrasil P0 Provider-Owned Hermes Gateway Contract v1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -79,7 +79,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "p0_official_hermes_gateway_contract.v1"
+      "const": "p0_provider_owned_hermes_gateway_contract.v1"
     },
     "contract_id": {
       "$ref": "#/$defs/identifier"
@@ -146,10 +146,10 @@
     "invocation_surface": {
       "type": "string",
       "enum": [
-        "official_app_assigned_command",
-        "official_provider_command",
-        "official_provider_subagent_delegate",
-        "official_provider_skill_entrypoint",
+        "app_assigned_command",
+        "provider_command",
+        "provider_subagent_delegate",
+        "provider_skill_entrypoint",
         "none"
       ]
     },
@@ -264,7 +264,7 @@
       "const": true
     },
     "runtime_owner": {
-      "const": "runtime/reasoning/hermes_official_gateway_contract.py"
+      "const": "runtime/reasoning/hermes_provider_owned_gateway_contract.py"
     },
     "static_contract_only": {
       "const": true
