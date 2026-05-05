@@ -202,6 +202,68 @@ Required evidence refs: Mailbox receipt, event log, schema-valid trace, test res
 Hard nonclaims: TMUX 화면은 SOT가 아니며, raw stdin/tmux 주입은 Operator Talk의 정본 입력이 아니다.
 ```
 
+현재 수동 TMUX witness 세팅:
+
+```bash
+# WSL / Linux에서 tmux 설치 확인
+tmux -V
+
+# Ubuntu / WSL에 tmux가 없다면 사용자가 직접 설치
+sudo apt-get update
+sudo apt-get install -y tmux
+
+# openyggdrasil 프로젝트와 관찰 대상 operator mailbox 지정
+PROJECT=/mnt/d/0_PROJECT/openyggdrasil
+OP=OP1
+SESSION=openyggdrasil-witness
+MAILBOX="$HOME/.yggdrasil/sessions/$OP"
+VAULT="$PROJECT/vault"
+
+# 관찰용 디렉터리 준비. memory job을 만들지는 않는다.
+mkdir -p "$MAILBOX" "$VAULT"
+
+# witness 세션 생성
+tmux new-session -d -s "$SESSION" -c "$PROJECT"
+tmux rename-window -t "$SESSION:0" witness
+
+# Pane 0: mailbox receipt/status 관찰
+tmux send-keys -t "$SESSION:0.0" \
+  "watch -n 1 'printf \"mailbox: $MAILBOX\\n\\n\"; ls -lah \"$MAILBOX\"; printf \"\\nreceipts\\n\"; tail -n 20 \"$MAILBOX\"/receipts.jsonl 2>/dev/null; printf \"\\nquery_receipts\\n\"; tail -n 20 \"$MAILBOX\"/query_receipts.jsonl 2>/dev/null'" C-m
+
+# Pane 1: intent/query 입력 로그 관찰
+tmux split-window -h -t "$SESSION:0" -c "$PROJECT" \
+  "tail -F \"$MAILBOX\"/intents.jsonl \"$MAILBOX\"/queries.jsonl 2>/dev/null"
+
+# Pane 2: Vault 파일 변화 관찰
+tmux split-window -v -t "$SESSION:0.1" -c "$PROJECT" \
+  "watch -n 2 'find \"$VAULT\" -maxdepth 2 -type f | sort | tail -n 40'"
+
+tmux select-layout -t "$SESSION:0" tiled
+
+# foreground로 붙기
+tmux attach -t "$SESSION"
+```
+
+운영 명령:
+
+```bash
+tmux ls                         # 실행 중인 witness 세션 확인
+tmux attach -t openyggdrasil-witness
+tmux detach-client -s openyggdrasil-witness  # 또는 붙어 있는 화면에서 Ctrl-b d
+tmux kill-session -t openyggdrasil-witness
+```
+
+목표 `ygg` UX는 아직 구현 완료가 아닙니다:
+
+```text
+ygg status      # target, NOT PASS
+ygg attach      # target, NOT PASS
+ygg tmux        # target, NOT PASS
+ygg talk OP1    # target, NOT PASS; raw tmux/stdin 입력이 아니라 typed event여야 함
+```
+
+주의: 위 수동 tmux 명령은 **관찰 pane을 띄우는 방법**입니다. 사용자의 판단 요청이나 Operator Talk payload를 `tmux send-keys`로 주입하는 것은 정본 입력이 아니며 PASS 근거가 될 수 없습니다.
+
 상태 용어는 정확히 구분합니다:
 
 | 상태 | 의미 |

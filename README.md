@@ -426,6 +426,68 @@ Required evidence refs: Mailbox receipt, event log, schema-valid trace, test res
 Hard nonclaims: TMUX is not SOT, and raw stdin/tmux injection is not the canonical Operator Talk input.
 ```
 
+Current manual TMUX witness setup:
+
+```bash
+# Check tmux on WSL / Linux
+tmux -V
+
+# If tmux is missing on Ubuntu / WSL, install it explicitly
+sudo apt-get update
+sudo apt-get install -y tmux
+
+# Point tmux at the openyggdrasil project and one operator mailbox
+PROJECT=/mnt/d/0_PROJECT/openyggdrasil
+OP=OP1
+SESSION=openyggdrasil-witness
+MAILBOX="$HOME/.yggdrasil/sessions/$OP"
+VAULT="$PROJECT/vault"
+
+# Prepare observer directories. This does not create a memory job.
+mkdir -p "$MAILBOX" "$VAULT"
+
+# Create the witness session
+tmux new-session -d -s "$SESSION" -c "$PROJECT"
+tmux rename-window -t "$SESSION:0" witness
+
+# Pane 0: observe mailbox receipts/status
+tmux send-keys -t "$SESSION:0.0" \
+  "watch -n 1 'printf \"mailbox: $MAILBOX\\n\\n\"; ls -lah \"$MAILBOX\"; printf \"\\nreceipts\\n\"; tail -n 20 \"$MAILBOX\"/receipts.jsonl 2>/dev/null; printf \"\\nquery_receipts\\n\"; tail -n 20 \"$MAILBOX\"/query_receipts.jsonl 2>/dev/null'" C-m
+
+# Pane 1: observe intent/query input logs
+tmux split-window -h -t "$SESSION:0" -c "$PROJECT" \
+  "tail -F \"$MAILBOX\"/intents.jsonl \"$MAILBOX\"/queries.jsonl 2>/dev/null"
+
+# Pane 2: observe Vault file changes
+tmux split-window -v -t "$SESSION:0.1" -c "$PROJECT" \
+  "watch -n 2 'find \"$VAULT\" -maxdepth 2 -type f | sort | tail -n 40'"
+
+tmux select-layout -t "$SESSION:0" tiled
+
+# Attach in the foreground
+tmux attach -t "$SESSION"
+```
+
+Operational commands:
+
+```bash
+tmux ls                         # list running witness sessions
+tmux attach -t openyggdrasil-witness
+tmux detach-client -s openyggdrasil-witness  # or Ctrl-b d from the attached screen
+tmux kill-session -t openyggdrasil-witness
+```
+
+Target `ygg` UX is not implemented yet:
+
+```text
+ygg status      # target, NOT PASS
+ygg attach      # target, NOT PASS
+ygg tmux        # target, NOT PASS
+ygg talk OP1    # target, NOT PASS; must become a typed event, not raw tmux/stdin input
+```
+
+Note: the manual tmux commands above only launch observer panes. Sending user judgment requests or Operator Talk payloads through `tmux send-keys` is not canonical input and cannot be marked PASS evidence.
+
 Status terms must stay precise:
 
 | Status | Meaning |
