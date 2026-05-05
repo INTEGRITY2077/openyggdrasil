@@ -1,5 +1,5 @@
 """
-PTC Sandbox Executor — 14차 Axis 4: LLM 코드를 bubblewrap 클린룸에서 실행.
+PTC Sandbox Executor — 14차 Axis 4: LLM 코드를 bubblewrap 샌드박스에서 실행.
 
 Two modes:
   batch: vault + runtime 복사 → bwrap → 1회 실행 → 결과 수집

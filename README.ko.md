@@ -791,7 +791,7 @@ openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool C
   │                                                              │
   │  1. Provider: ygg가 LLM 코드 템플릿을 생성하여 OP1/OP2에 발행  │
   │  2. Stub Generator: IPC preamble + 26종 도구 함수 주입       │
-  │  3. Sandbox Executor: bwrap 클린룸에서 Python 스크립트 실행    │
+  │  3. Sandbox Executor: bwrap 샌드박스에서 Python 스크립트 실행  │
   │  4. IPC Server: Unix Domain Socket으로 호스트 primitives 호출 │
   │  5. 도구 조합: LLM/템플릿이 역할별 allowlist 안에서             │
   │     필요한 production/consumption 도구만 조합                  │
@@ -849,7 +849,7 @@ Hard nonclaims: 현재 PTC IPC/샌드박스 수직 슬라이스는 full PTC chai
 openyggdrasil의 PTC 모델은 구버전의 **Typed PTC Engine**(JSON Execution Plan 강제, 8-Tool Chain)에서 26종 도구 팔레트 + IPC 콜백 루프 방향으로 전환되었습니다.
 
 1. **도구 팔레트화:** 8종 제한 → 26종. SEARCH, PROVENANCE, PRODUCTION, GRAPH, CHAIN, CORE 6개 그룹으로 구성. 각 도구는 어포던스 기반 설명(`Use this when` / `Do NOT use when`)을 preamble에 포함합니다.
-2. **IPC 콜백 루프:** bwrap 클린룸 내 Python 코드가 Unix Domain Socket을 통해 호스트의 primitives를 호출합니다. 다만 production sandbox fail-closed와 typed egress는 아직 별도 gate로 닫아야 합니다.
+2. **IPC 콜백 루프:** bwrap 샌드박스 내부의 Python 코드가 Unix Domain Socket을 통해 호스트의 primitives를 호출합니다. 다만 production sandbox fail-closed와 typed egress는 아직 별도 gate로 닫아야 합니다.
 3. **이중 경로:** Producer/Consumer는 고정 체인(extract_decisions→build_vault_node→save_to_vault)과 PTC 체인(`ygg tell --ptc op1`)을 병행 지원합니다. 이중 경로 자체가 production-ready를 의미하지는 않습니다.
 4. **LLM 자유 조합 (현재 상태):** 도구는 26종 표면으로 노출되지만, 현재 PTC 생산 경로는 `extract_spo → suggest_placement → save_note` 중심 템플릿에 가깝습니다. LLM이 역할별 kitchen 안에서 임의의 도구 조합 코드를 안전하게 작성하는 상태는 P1 gate입니다.
 5. **P1 재정렬 필요:** production(write/mutate) kitchen과 consumption(read/search/support) kitchen이 분리되어야 하며, 소비면에서 `save_note`, `create_edge`, `prune_node` 같은 mutation 도구가 기본 손잡이로 보이면 안 됩니다.
@@ -1111,7 +1111,7 @@ def main():
 main()
 ```
 
-이 스크립트가 bwrap 클린룸 내에서 실행되는 동안, `extract_spo`, `find_similar`, `suggest_placement`, `save_note` 각각은 Unix Domain Socket을 통해 호스트의 `ipc_server.py`로 콜백됩니다. 목표는 중간 데이터를 LLM 컨텍스트에 직접 싣지 않고 typed result만 반환하는 것이지만, raw stdout debug-only 전환과 typed egress 검증은 아직 별도 gate입니다.
+이 스크립트가 bwrap 샌드박스 내부에서 실행되는 동안, `extract_spo`, `find_similar`, `suggest_placement`, `save_note` 각각은 Unix Domain Socket을 통해 호스트의 `ipc_server.py`로 콜백됩니다. 목표는 중간 데이터를 LLM 컨텍스트에 직접 싣지 않고 typed result만 반환하는 것이지만, raw stdout debug-only 전환과 typed egress 검증은 아직 별도 gate입니다.
 
 ### 추론 모델의 한계와 마지노선 (Reasoning Model Baseline & Limitations)
 

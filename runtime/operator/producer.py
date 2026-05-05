@@ -590,7 +590,7 @@ def _handle_promote(vault: Path, node_id: str) -> bool:
 
 
 def _handle_sandbox_exec(mailbox: Path, vault: Path, msg: dict) -> dict:
-    """intent: sandbox-exec 처리 — LLM 코드를 bubblewrap 클린룸에서 실행.
+    """intent: sandbox-exec 처리 — LLM 코드를 bubblewrap 샌드박스에서 실행.
 
     msg["payload"]["code"]: LLM이 작성한 Python 코드
     msg["payload"]["timeout"]: (선택) 실행 제한 시간(초), 기본 120

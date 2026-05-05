@@ -736,7 +736,7 @@ The standard PTC paradigm allows the agent to freely write Python code within a 
   │                                                              │
   │  1. Provider: ygg generates LLM code templates for OP1/OP2   │
   │  2. Stub Generator: injects IPC preamble + 26 tool functions │
-  │  3. Sandbox Executor: runs Python script in bwrap cleanroom  │
+  │  3. Sandbox Executor: runs Python script in bwrap sandbox    │
   │  4. IPC Server: calls host primitives via Unix Domain Socket │
   │  5. Tool composition: template combines only allowed          │
   │     production/consumption tools for the current role         │
@@ -794,7 +794,7 @@ Hard nonclaims: the current PTC IPC/sandbox vertical slice is not full PTC chain
 openyggdrasil's PTC model has moved from the legacy **Typed PTC Engine** (JSON Execution Plan, 8-Tool Chain) toward a 26-tool palette plus IPC callback loop:
 
 1. **Tool Palette:** 8 tools → 26 across 6 groups (SEARCH, PROVENANCE, PRODUCTION, GRAPH, CHAIN, CORE). Each tool includes affordance-based descriptions (`Use this when` / `Do NOT use when`) in the preamble.
-2. **IPC Callback Loop:** Python code running inside a bwrap cleanroom calls host primitives via a Unix Domain Socket. production sandbox fail-closed and typed egress are still separate gates.
+2. **IPC Callback Loop:** Python code running inside a bwrap sandbox calls host primitives via a Unix Domain Socket. production sandbox fail-closed and typed egress are still separate gates.
 3. **Dual Path:** Producer/Consumer supports both a fixed chain (extract_decisions→build_vault_node→save_to_vault) and a PTC chain (`ygg tell --ptc op1`). Dual path support itself is not a production-ready claim.
 4. **LLM Free Composition (current state):** The 26-tool surface exists, but the current PTC production path is still close to the `extract_spo → suggest_placement → save_note` template. Safe role-scoped free composition inside kitchens is a P1 gate.
 5. **P1 realignment required:** production(write/mutate) kitchen and consumption(read/search/support) kitchen must be split. Consumption surfaces must not expose `save_note`, `create_edge`, or `prune_node` as default handles.
@@ -1036,7 +1036,7 @@ def main():
 main()
 ```
 
-While this script runs inside the bwrap cleanroom, each call to `extract_spo`, `find_similar`, `suggest_placement`, and `save_note` is routed via Unix Domain Socket to the host's `ipc_server.py`. The goal is to avoid putting intermediate data directly into LLM context and return typed results, but raw stdout debug-only conversion and typed egress validation are still separate gates.
+While this script runs inside the bwrap sandbox, each call to `extract_spo`, `find_similar`, `suggest_placement`, and `save_note` is routed via Unix Domain Socket to the host's `ipc_server.py`. The goal is to avoid putting intermediate data directly into LLM context and return typed results, but raw stdout debug-only conversion and typed egress validation are still separate gates.
 
 ### Reasoning Model Baseline & Limitations
 

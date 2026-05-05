@@ -158,7 +158,7 @@ def build_provider_packaging_known_limitations_matrix(
             provider_specific_smoke_status="passed",
             failure_mode="known_limitation",
             clear_failure_instruction=(
-                "Claude Code packaging must remain clean-room and may not copy, vendor, translate, or mechanically port local Claude Code implementation source."
+                "Claude Code packaging must remain independently designed and may not copy, vendor, translate, or mechanically port local Claude Code implementation source."
             ),
             operator_instruction=(
                 "Use deploy_skill.py to generate .claude/skills/openyggdrasil/SKILL.md and keep product behavior claims out of the package baseline."
@@ -166,7 +166,7 @@ def build_provider_packaging_known_limitations_matrix(
             extra_contracts=("claude_code_provider_packaging_baseline.v1",),
             limitation_refs=[
                 "contracts/claude_code_provider_packaging_baseline.v1.schema.json",
-                "providers/claude-code/README.md clean-room boundary",
+                "providers/claude-code/README.md independent attachment boundary",
             ],
         ),
         _base_row(

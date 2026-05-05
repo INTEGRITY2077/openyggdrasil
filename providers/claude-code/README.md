@@ -22,10 +22,10 @@ Claude Code implementation source.
 - `inbox_binding.v1`
 - `turn_delta.v1`
 
-## Clean-Room Boundary
+## Independent Attachment Boundary
 
 - Public docs and contracts may reference product-level behavior.
-- Private/reference source may inform behavior only through clean-room notes and
+- Private/reference source may inform behavior only through independent design notes and
   independently designed openyggdrasil contracts.
 - Raw Claude Code sessions and transcripts are not copied into openyggdrasil.
 - The inbox is session-bound; no global inbox is allowed.

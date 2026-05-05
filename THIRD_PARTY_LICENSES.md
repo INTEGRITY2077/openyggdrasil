@@ -3,7 +3,7 @@
 This file records public third-party license notices for companion dependencies
 that are intentionally part of the openyggdrasil distribution surface.
 
-It currently documents direct permissive dependencies and accepted clean-room dependencies: Graphify, Dulwich, NetworkX, rank-bm25, python-frontmatter, jsonschema, and PyYAML.
+It currently documents direct permissive dependencies and reviewed companion dependencies: Graphify, Dulwich, NetworkX, rank-bm25, python-frontmatter, jsonschema, and PyYAML.
 It is not a complete SBOM and does not claim full transitive dependency coverage.
 
 ## Direct Third-Party Notices
