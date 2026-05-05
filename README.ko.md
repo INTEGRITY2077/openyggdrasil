@@ -26,7 +26,8 @@
 >
 > openyggdrasil은 Karpathy식 LLM Wiki를 provider-neutral production memory로 확장하는 방향의 런타임입니다.
 > 다만 현재 문서는 **production-ready 완료 선언**이 아닙니다. 2026-05-06 기준 실제 상태는
-> SourceRef, PTC kitchen, Provenance Ring, Graphify, TMUX witness의 경계를 다시 닫는 단계입니다.
+> SourceRef, PTC kitchen, Provenance Ring, Graphify, TMUX witness, Session Attach,
+> Operator Talk의 경계를 다시 닫는 단계입니다.
 >
 > 현재 상태: provider-neutral production memory 방향은 ACTIVE · production-ready는 NOT CLAIMED ·
 > multi-provider 동일 UX는 NOT PASS · 일부 Hermes/OP1/OP2 POC는 부분 검증 상태
@@ -37,7 +38,7 @@
 |---|---:|---|
 | Karpathy LLM Wiki 철학/아키텍처 정렬 | 86점대 | Vault/Markdown/SOT, 생명주기, Graphify derived view 방향은 정렬됨 |
 | 현재 구현 완성도 | 74점대 | Hermes 중심 POC와 일부 런타임은 존재하지만 provider-neutral 경계가 아직 닫히지 않음 |
-| 종합 정렬도 | **80/100** | 방향은 맞지만 P0/P1/P2 gate가 남아 있음 |
+| 종합 정렬도 | **80/100** | 방향은 맞지만 P0/P1/P2/P3 gate가 남아 있음 |
 | production-ready | **NOT CLAIMED** | 테스트 수나 POC만으로 프로덕션을 주장하지 않음 |
 
 #### 상위 비정렬 개정 메모
@@ -49,6 +50,7 @@
 | “PTC 풀체인 검증 완료” | PTC IPC/샌드박스 구성요소는 있으나 production/consumption kitchen split, typed egress, sandbox fail-closed는 NOT PASS |
 | “Graphify 실시간 검증/완전 위상” | Graphify는 SOT가 아닌 derived view. full topology support bundle 검증은 PARTIAL |
 | “TMUX live session” | TMUX는 사람이 보는 visual witness이며 core execution path가 아님 |
+| “`ygg attach/talk`가 현재 동작함” | 전역 attach와 Operator Talk는 필수 gate지만 아직 NOT PASS |
 
 ### 현재 책임 경계 상태
 
@@ -70,6 +72,8 @@
 | Provenance Ring Lineage | PARTIAL | POC 세로 절편은 있으나 append-only accumulation과 overwrite 분리 필요 |
 | Graphify Support Verifier | PARTIAL | Graphify hint는 Vault 재검증을 거쳐야 하며 full topology support 검증은 미완 |
 | TMUX Live Witness | POLICY ONLY | live 관찰 보조 표면. background execution success를 대체하지 않음 |
+| Session Attach Gateway | NOT PASS | 전역 `ygg` attach/status/tmux는 active project/session registry를 찾아야 하며, 암묵적 기억 작업을 만들면 안 됨 |
+| Interactive Operator Talk Lane | NOT PASS | OP1/OP2와의 직접 대화는 raw TMUX/stdin 주입이 아니라 typed mailbox/event 입력으로 들어가야 함 |
 
 #### 승격후보군 — Acceptance / UX Gate
 

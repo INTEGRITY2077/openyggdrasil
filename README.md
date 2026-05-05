@@ -27,7 +27,8 @@
 > openyggdrasil is a runtime aimed at extending Karpathy-style LLM Wiki into
 > provider-neutral production memory. This document is **not** a production-ready
 > completion claim. As of 2026-05-06, the project is realigning the boundaries
-> around SourceRef, PTC Kitchen, Provenance Ring, Graphify, and TMUX witness.
+> around SourceRef, PTC Kitchen, Provenance Ring, Graphify, TMUX witness,
+> Session Attach, and Operator Talk.
 >
 > Current state: provider-neutral production memory direction is ACTIVE ·
 > production-ready is NOT CLAIMED · multi-provider same UX is NOT PASS ·
@@ -39,7 +40,7 @@
 |---|---:|---|
 | Karpathy LLM Wiki philosophy/architecture alignment | 86-ish | Vault/Markdown/SOT, lifecycle, and Graphify-as-derived-view are directionally aligned |
 | Current implementation completeness | 74-ish | Hermes-centered POCs and some runtime surfaces exist, but provider-neutral boundaries are not closed |
-| Overall alignment | **80/100** | The direction is sound, but P0/P1/P2 gates remain open |
+| Overall alignment | **80/100** | The direction is sound, but P0/P1/P2/P3 gates remain open |
 | production-ready | **NOT CLAIMED** | Test count or a POC is not enough to claim production readiness |
 
 #### Top-Level Realignment Notes
@@ -51,6 +52,7 @@
 | “PTC full-chain verified” | PTC IPC/sandbox pieces exist, but production/consumption kitchen split, typed egress, and sandbox fail-closed are NOT PASS |
 | “Graphify live/full topology” | Graphify is a derived view, not SOT. Full topology support-bundle verification is PARTIAL |
 | “TMUX live session” | TMUX is a human visual witness, not the core execution path |
+| “`ygg attach/talk` works now” | Global attach and direct Operator Talk are required gates, but they are NOT PASS |
 
 ### Current Responsibility Boundary Status
 
@@ -72,6 +74,8 @@ boundary modules that must stay visible until each gate is closed.
 | Provenance Ring Lineage | PARTIAL | A POC vertical slice exists, but append-only accumulation and overwrite separation remain open |
 | Graphify Support Verifier | PARTIAL | Graphify hints must be reverified against Vault; full topology support verification is unfinished |
 | TMUX Live Witness | POLICY ONLY | Human observation surface; does not replace background execution success |
+| Session Attach Gateway | NOT PASS | Global `ygg` attach/status/tmux must resolve an active project/session registry without spawning implicit memory work |
+| Interactive Operator Talk Lane | NOT PASS | Direct OP1/OP2 conversation must enter through typed mailbox/event input, not raw TMUX/stdin injection |
 
 #### Promotion Candidate Group — Acceptance / UX Gates
 
