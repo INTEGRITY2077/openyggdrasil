@@ -14,12 +14,12 @@
 </p>
 
 <p align="center">
-  <a href="#왜-필요한가">왜 필요한가</a> •
-  <a href="#작동-방식">작동 방식</a> •
-  <a href="#12-모듈-체인">모듈</a> •
+  <a href="#why">왜 필요한가</a> •
+  <a href="#how-it-works">작동 방식</a> •
+  <a href="#modules">모듈</a> •
   <a href="#reasoning-lease">Reasoning Lease</a> •
-  <a href="#시스템-요구사항-및-설정">설정</a> •
-  <a href="#영감--감사">영감</a>
+  <a href="#setup">설정</a> •
+  <a href="#inspirations">영감</a>
 </p>
 
 > ⚠️ **15차 프로덕션 UX 재정렬 중**
@@ -96,6 +96,8 @@
 
 ---
 
+
+<a id="setup"></a>
 
 ## 시스템 요구사항 및 설정
 
@@ -295,6 +297,8 @@ python runtime/import_smoke.py
 
 
 ---
+<a id="why"></a>
+
 ## 왜 필요한가
 
 모든 AI 코딩 도구 — Hermes, Codex, Claude Code, Cursor, Gemini CLI — 는 각자의
@@ -648,6 +652,8 @@ Graphify 산출물은 Pathfinder의 검색 품질을 향상시키지만,
 Graphify가 제안한 관계가 Vault에서 확인되지 않으면 SOT가 아니라 신뢰되지 않은 힌트로 취급해야 합니다.
 
 ---
+
+<a id="how-it-works"></a>
 
 ## 시스템 아키텍처
 
@@ -1389,6 +1395,8 @@ RESULT = {"sources": sources}
 
 ---
 
+<a id="modules"></a>
+
 ## 12-모듈 체인
 
 | # | 모듈 | 역할 | 핵심 인사이트 |
@@ -1466,6 +1474,8 @@ openyggdrasil/
 ```
 
 ---
+
+<a id="inspirations"></a>
 
 ## 영감 & 감사
 

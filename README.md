@@ -14,12 +14,12 @@
 </p>
 
 <p align="center">
-  <a href="#why-this-exists">Why</a> •
+  <a href="#why">Why</a> •
   <a href="#how-it-works">How</a> •
-  <a href="#the-12-module-chain">Modules</a> •
+  <a href="#modules">Modules</a> •
   <a href="#reasoning-lease">Reasoning Lease</a> •
-  <a href="#system-requirements--setup">Setup</a> •
-  <a href="#inspirations--acknowledgements">Inspirations</a>
+  <a href="#setup">Setup</a> •
+  <a href="#inspirations">Inspirations</a>
 </p>
 
 > ⚠️ **15th Production UX Realignment**
@@ -96,6 +96,8 @@ acceptance criteria that constrain the required modules above.
 | `PARTIAL` | Direction and partial implementation exist, but core gates remain open |
 | `NOT PASS` | The current evidence cannot support the claim |
 | `POLICY ONLY` | The operating policy exists; functional proof is still separate |
+
+<a id="why"></a>
 
 ## Why This Exists
 Every AI coding tool — Hermes, Codex, Claude Code, Cursor, Gemini CLI — has its
@@ -332,6 +334,8 @@ tags: [classification tags]
 sources: [source refs or public paths]
 ---
 ```
+
+<a id="setup"></a>
 
 ## System Requirements & Setup
 
@@ -594,6 +598,8 @@ Graphify artifacts enhance Pathfinder's retrieval quality, but
 If a relationship suggested by Graphify cannot be verified in the Vault, it must be treated as an untrusted hint rather than SOT.
 
 ---
+
+<a id="how-it-works"></a>
 
 ## System Architecture
 
@@ -1198,6 +1204,8 @@ exist as machine metadata, but they are not enough to guide a provider or leased
 Operator Session.
 
 
+<a id="modules"></a>
+
 ## The 12-Module Chain
 
 | # | Module | Role | Key Insight |
@@ -1271,6 +1279,8 @@ openyggdrasil/
 ```
 
 ---
+
+<a id="inspirations"></a>
 
 ## Inspirations & Acknowledgements
 
