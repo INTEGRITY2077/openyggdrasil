@@ -1434,6 +1434,15 @@ Graphify는 구조 분석 계층을 제공합니다 — 코드베이스와 지�
 | 신뢰도 라벨 (EXTRACTED / INFERRED / AMBIGUOUS) | → 검색 결과의 출처 신뢰도 |
 | 순수 Python, 로컬, 오프라인 | → **외부 인프라 의존성 없음** |
 
+### 특수 런타임 의존성
+
+openyggdrasil은 기본적으로 순수 로컬/파일시스템 중심으로 작동하지만, 한국어 구조화와 샌드박스 격리에는 다음 프로젝트의 도움을 받습니다.
+
+| 프로젝트 | 역할 | 라이선스/감사 |
+|---|---|---|
+| [`kiwipiepy`](https://github.com/bab2min/kiwipiepy) | 한국어 형태소 분석 및 문장 분리. `runtime/ptc/primitives.py::extract_decisions()`가 한국어 문장을 더 안정적으로 나누기 위해 사용합니다. | LGPL v3, (c) bab2min |
+| [`bubblewrap`](https://github.com/containers/bubblewrap) (`bwrap`) | Reasoning Lease와 PTC sandbox 실행에서 비특권 Linux/WSL 격리를 제공하는 핵심 의존성입니다. | 컨테이너 격리 경계의 기반 프로젝트 |
+
 ### [rank-bm25](https://github.com/dorianbrown/rank_bm25)
 
 rank-bm25는 순수 Python BM25 Okapi 구현체입니다. openyggdrasil은

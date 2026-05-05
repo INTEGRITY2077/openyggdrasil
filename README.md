@@ -1226,6 +1226,15 @@ into navigable graphs:
 | Confidence labels (EXTRACTED / INFERRED / AMBIGUOUS) | → Provenance confidence in retrieval results |
 | Pure Python, local, offline | → **No external infrastructure dependency** |
 
+### Special Runtime Dependencies
+
+openyggdrasil stays local and filesystem-first, but Korean structuring and sandbox isolation depend on these projects.
+
+| Project | Role | License / acknowledgement |
+|---|---|---|
+| [`kiwipiepy`](https://github.com/bab2min/kiwipiepy) | Korean morphological analysis and sentence splitting. `runtime/ptc/primitives.py::extract_decisions()` uses it for more reliable Korean sentence segmentation. | LGPL v3, (c) bab2min |
+| [`bubblewrap`](https://github.com/containers/bubblewrap) (`bwrap`) | Core dependency for unprivileged Linux/WSL isolation in Reasoning Lease and PTC sandbox execution. | Foundation for the local sandbox boundary |
+
 ---
 
 ## Design Principles
