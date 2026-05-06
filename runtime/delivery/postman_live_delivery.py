@@ -47,7 +47,7 @@ def submit_live_delivery(
     recipient: str,
     message_type: str,
     payload: dict[str, Any],
-    provider_id: str = "hermes-dev",
+    provider_id: str,
     mail_id: str | None = None,
 ) -> dict[str, Any]:
     """Provider 요청을 Postman live-delivery packet으로 위탁하고 수신인 OP mailbox/live_inbox에 전달한다.

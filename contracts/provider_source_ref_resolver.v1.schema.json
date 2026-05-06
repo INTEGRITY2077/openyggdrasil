@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/provider_source_ref_resolver.v1.schema.json",
+  "title": "Provider SourceRef Resolver Contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provider_id",
+    "scheme",
+    "capability_id",
+    "redaction_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "provider_source_ref_resolver.v1"
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scheme": {
+      "type": "string",
+      "minLength": 1,
+      "description": "예: hermes-session-json. scheme 등록은 adapter/bootstrap 경계에서 수행한다."
+    },
+    "capability_id": {
+      "const": "source_ref.resolve"
+    },
+    "required_options": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": []
+    },
+    "redaction_policy": {
+      "type": "string",
+      "enum": ["pointer_only", "redacted_excerpt", "not_applicable"]
+    },
+    "result_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "source_ref", "resolver_status", "redaction_status"],
+      "properties": {
+        "status": {"type": "string", "enum": ["resolved", "unavailable", "reject"]},
+        "source_ref": {"type": "string", "minLength": 1},
+        "origin_locator": {"type": "string"},
+        "commit_watermark": {"type": "string"},
+        "anchor_hash": {"type": "string"},
+        "resolver_status": {"type": "string", "enum": ["resolved", "unavailable", "reject"]},
+        "redaction_status": {"type": "string", "enum": ["pointer_only", "not_applicable", "redacted"]},
+        "reason": {"type": "string"}
+      }
+    },
+    "typed_unavailable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "provider_id", "capability_id", "reason", "fallback_lane", "evidence_ref"],
+      "properties": {
+        "status": {"const": "typed_unavailable"},
+        "provider_id": {"type": "string", "minLength": 1},
+        "capability_id": {"const": "source_ref.resolve"},
+        "reason": {"type": "string", "minLength": 1},
+        "fallback_lane": {"type": "string", "minLength": 1},
+        "evidence_ref": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

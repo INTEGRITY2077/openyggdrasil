@@ -7,11 +7,20 @@
   "required": [
     "schema_version",
     "source_ref",
-    "message_index_range",
     "provider_session_id",
     "surface_reason",
     "commit_watermark",
-    "anchor_hash"
+    "anchor_hash",
+    "intent_field",
+    "decomposition_guard",
+    "min_split_unit",
+    "why_not_atomic",
+    "topic_hint",
+    "category_community_hint"
+  ],
+  "oneOf": [
+    {"required": ["message_index_range"]},
+    {"required": ["message_id_range"]}
   ],
   "properties": {
     "schema_version": {"const": "memory_ticket.v1"},
@@ -25,10 +34,39 @@
       },
       "additionalProperties": false
     },
+    "message_id_range": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": ["integer", "string"]},
+        "end": {"type": ["integer", "string"]}
+      },
+      "additionalProperties": false
+    },
     "provider_session_id": {"type": "string", "minLength": 1},
     "surface_reason": {"type": "string", "minLength": 1},
     "commit_watermark": {"type": "string", "minLength": 1},
     "anchor_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "intent_field": {"type": "string", "minLength": 1},
+    "decomposition_guard": {"const": "preserve_paragraph_intent_before_decision_atoms"},
+    "min_split_unit": {"enum": ["paragraph_intent", "topic_decision_cluster"]},
+    "why_not_atomic": {"type": "string", "minLength": 1},
+    "topic_hint": {"type": "string", "minLength": 1},
+    "category_community_hint": {"type": "string", "minLength": 6},
+    "trigger_kind": {
+      "enum": [
+        "explicit_user_save_command",
+        "strong_memory_stimulus",
+        "topic_decision_completed",
+        "boundary_correction",
+        "reusable_operational_rule",
+        "category_community_shift",
+        "currentness_changed"
+      ]
+    },
+    "breadcrumb": {"type": "string"},
+    "why_this_topic_matters": {"type": "string"},
+    "recency_anchor": {"type": "string"},
     "decision": {"type": "string"},
     "context": {"type": "string"},
     "conclusion": {"type": "string"},

@@ -75,3 +75,45 @@ def resolve_hermes_session_json_source_ref(
         "resolver_status": "resolved",
         "redaction_status": "pointer_only",
     }
+
+
+def resolve_hermes_session_json_registered(
+    *,
+    source_ref: str,
+    range_hint: dict[str, Any] | None = None,
+    anchor_hash: str = "",
+    resolver_options: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """registry가 호출하는 Hermes session JSON adapter wrapper."""
+    range_hint = range_hint or {}
+    resolver_options = resolver_options or {}
+    sessions_dir = resolver_options.get("sessions_dir")
+    if not sessions_dir:
+        return {
+            "status": "unavailable",
+            "reason": "resolver_option_missing:sessions_dir",
+            "source_ref": source_ref,
+            "resolver_status": "unavailable",
+            "redaction_status": "not_applicable",
+        }
+    return resolve_hermes_session_json_source_ref(
+        source_ref=source_ref,
+        message_index_range={"start": int(range_hint.get("start", 0)), "end": int(range_hint.get("end", 0))},
+        sessions_dir=Path(sessions_dir),
+        anchor_hash=anchor_hash,
+    )
+
+
+def register_hermes_session_json_resolver() -> None:
+    """Hermes adapter boundary에서 hermes-session-json scheme을 명시 등록한다."""
+    from .registry import register_source_ref_resolver
+
+    register_source_ref_resolver("hermes-session-json", resolve_hermes_session_json_registered)
+
+
+__all__ = [
+    "_canonical_anchor_hash",
+    "register_hermes_session_json_resolver",
+    "resolve_hermes_session_json_registered",
+    "resolve_hermes_session_json_source_ref",
+]

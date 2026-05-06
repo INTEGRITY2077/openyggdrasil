@@ -359,6 +359,7 @@ def _render_provenance_ring_page(*, ring_node: dict) -> str:
     lifecycle = ring_node["lifecycle"]
     community = ring_node["community"]
     retrieval = ring_node["retrieval_contract"]
+    safety_belt = ring_node.get("paragraph_intent_safety_belt", {})
     return f"""---
 id: {ring_node['node_id']}
 title: {topic['title']}
@@ -400,12 +401,17 @@ lifecycle_state: ACTIVE
 {json.dumps(community, ensure_ascii=False, indent=2)}
 ```
 
-## 7. Retrieval Contract
+## 7. Paragraph Intent Safety Belt
+```json
+{json.dumps(safety_belt, ensure_ascii=False, indent=2)}
+```
+
+## 8. Retrieval Contract
 ```json
 {json.dumps(retrieval, ensure_ascii=False, indent=2)}
 ```
 
-## 8. Raw Evidence Pointers
+## 9. Raw Evidence Pointers
 - source_ref: {ring['source_ref']}
 - origin_locator: {ring['origin_locator']}
 - commit_watermark: {ring['commit_watermark']}
@@ -476,9 +482,46 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     }
 
 
+CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD = "preserve_paragraph_intent_before_decision_atoms"
+
+
+def _is_atom_tag_hint(value: str) -> bool:
+    normalized = (value or "").strip()
+    if not normalized:
+        return True
+    if len(normalized) <= 5:
+        return True
+    if " " not in normalized and "/" not in normalized and "community" not in normalized.lower() and "category" not in normalized.lower():
+        return True
+    return False
+
+
+def _admit_memory_ticket_payload(payload: dict) -> tuple[bool, str]:
+    if not str(payload.get("source_ref") or ""):
+        return False, "missing_source_ref"
+    if not (payload.get("message_index_range") or payload.get("message_id_range")):
+        return False, "missing_message_range"
+    if not str(payload.get("anchor_hash") or ""):
+        return False, "missing_anchor_hash"
+    for key in ("intent_field", "decomposition_guard", "min_split_unit", "why_not_atomic", "topic_hint", "category_community_hint"):
+        if not str(payload.get(key) or ""):
+            return False, f"missing_{key}"
+    if str(payload.get("decomposition_guard")) != CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD:
+        return False, "invalid_decomposition_guard"
+    if str(payload.get("min_split_unit")) not in {"paragraph_intent", "topic_decision_cluster"}:
+        return False, "invalid_min_split_unit"
+    if _is_atom_tag_hint(str(payload.get("category_community_hint") or "")):
+        return False, "category_community_hint_too_atomic"
+    return True, "admitted"
+
+
 def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
     """MemoryTicket 원본 범위를 resolver로 읽고 나이테 기억 노드 최소 POC 산출물을 만든다."""
     payload = msg.get("payload", {}) or {}
+    admitted, admission_reason = _admit_memory_ticket_payload(payload)
+    if not admitted:
+        return {"status": "rejected", "nodes": [], "source_ref_status": "not_resolved", "reason": admission_reason}
+
     source_ref = str(payload.get("source_ref") or "")
     range_hint = payload.get("message_index_range") or {}
     anchor_hash = str(payload.get("anchor_hash") or "")
@@ -487,8 +530,10 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         resolver_options["sessions_dir"] = payload.get("sessions_dir")
 
     try:
+        from runtime.source_ref.bootstrap import register_default_source_ref_resolvers
         from runtime.source_ref.registry import resolve_source_ref
 
+        register_default_source_ref_resolvers()
         resolved = resolve_source_ref(
             source_ref=source_ref,
             range_hint={"start": int(range_hint.get("start", 0)), "end": int(range_hint.get("end", 0))},
@@ -552,6 +597,16 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
             "community_id": community_id,
             "placement_reason": str(payload.get("surface_reason") or "MemoryTicket provenance placement"),
             "related_nodes": [],
+        },
+        "paragraph_intent_safety_belt": {
+            "intent_field": str(payload.get("intent_field") or ""),
+            "decomposition_guard": str(payload.get("decomposition_guard") or ""),
+            "min_split_unit": str(payload.get("min_split_unit") or ""),
+            "why_not_atomic": str(payload.get("why_not_atomic") or ""),
+            "topic_hint": str(payload.get("topic_hint") or ""),
+            "category_community_hint": str(payload.get("category_community_hint") or ""),
+            "trigger_kind": str(payload.get("trigger_kind") or ""),
+            "breadcrumb": str(payload.get("breadcrumb") or ""),
         },
         "retrieval_contract": {
             "keywords": [decision, topic_title, source_ref, community_key],

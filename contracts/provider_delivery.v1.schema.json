@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/provider_delivery.v1.schema.json",
+  "title": "Provider Delivery Contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provider_id",
+    "recipient",
+    "message_type",
+    "payload",
+    "capability_id"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "provider_delivery.v1"
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "명시 provider id. common runtime은 기본 provider를 암묵 선택하지 않는다."
+    },
+    "capability_id": {
+      "type": "string",
+      "enum": ["tell", "ask", "memory_ticket", "status", "receipt"]
+    },
+    "recipient": {
+      "type": "string",
+      "pattern": "^OP[0-9]+$"
+    },
+    "message_type": {
+      "type": "string",
+      "enum": ["save", "query", "memory_ticket"]
+    },
+    "payload": {
+      "type": "object"
+    },
+    "typed_unavailable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "provider_id", "capability_id", "reason", "fallback_lane", "evidence_ref"],
+      "properties": {
+        "status": {"const": "typed_unavailable"},
+        "provider_id": {"type": "string", "minLength": 1},
+        "capability_id": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "fallback_lane": {"type": "string", "minLength": 1},
+        "evidence_ref": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}
