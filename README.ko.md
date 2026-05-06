@@ -102,9 +102,11 @@
 ## 시스템 요구사항 및 설정
 
 openyggdrasil은 AI 프로바이더(예: Hermes, Claude Code, Cursor)에 부착되는
-세션 스코프 콜드스타트 스킬을 지향합니다. 목표 운영 모델은 백그라운드
-데몬이나 별도 서버 관리를 요구하지 않는 것이지만, 이는 아직 production-ready
-보장이 아닙니다.
+세션 스코프 콜드스타트 스킬을 지향합니다. 목표 운영 모델은 항상 켜져 있는
+시스템 레벨 서버나 별도 서버 관리를 요구하지 않는 것입니다. 다만 active
+Provider Session 주변에 세션 스코프 background worker/watcher가 생길 수
+있으며, 이들은 반드시 수명주기와 cleanup 검증에 묶여야 합니다. 이는 아직
+production-ready 보장이 아닙니다.
 
 > **⚠️ 추론 토큰 임대 모델 (비동기 다중화 / Asynchronous Multiplexing):**
 > openyggdrasil은 자체 API 키를 가지지 않으며, 프로바이더 자격 증명을 추출해서도 안 됩니다.
@@ -117,6 +119,27 @@ openyggdrasil은 AI 프로바이더(예: Hermes, Claude Code, Cursor)에 부착�
 - 에이전트의 스킬 설정을 `SKILL.md`의 절대 경로로 지정합니다.
 - 에이전트가 이 계약을 읽으면, 메모리 검색 및 캡처를 위한 정확한 진입점,
   명령 형태, 경계를 파악합니다.
+
+Provider-first 콜드스타트 규칙:
+
+- 사용자는 먼저 Hermes, Claude Code, Codex, Cursor 같은 정상 프로바이더 UX로 세션을 엽니다.
+- 그 다음 프로바이더가 openyggdrasil 레포지토리 경로, URL, 또는 스킬 참조를 받고 `SKILL.md`를 읽습니다.
+- 첫 설치 환경은 전역 `ygg` 명령이나 `ygg pro1`, `ygg op1`, `ygg op2` 같은 attach 명령이 이미 존재한다고 가정하면 안 됩니다.
+- bootstrap 전에 `ygg-*` attach wrapper, legacy `oy-*` wrapper, 또는 사전 설치된 `ygg` 명령이 전역으로 보인다면, session-group health record로 검증되기 전까지는 로컬/개발 잔존물로 취급합니다.
+- 레포지토리 안의 로컬 도구는 프로바이더가 레포지토리를 인식한 뒤 발견하는 bootstrap 자산입니다. 이미 프로바이더 세션이 붙어 있다는 근거가 아닙니다.
+- `ygg pro1`은 보편적인 첫 진입점도, provider identity도 아닙니다. openyggdrasil을 인식한 뒤 사용할 수 있는 선택적 Provider attach/witness 명령입니다. 내부 tmux 세션명은 `ygg-pro1`일 수 있습니다.
+
+활성 세션 health는 lane 단독이 아니라 그룹 단위로 봅니다:
+
+```text
+사용자 명령   내부 tmux   Runtime evidence
+ygg pro1      ygg-pro1        provider_lane.v1
+ygg op1       ygg-op1      OP1 registry/mailbox/live watcher
+ygg op2       ygg-op2      OP2 registry/mailbox/live watcher
+정본 근거                  mailbox / receipts / event logs / attachment artifacts
+```
+
+이 그룹 중 한쪽이라도 stale이면 전체 그룹은 degraded입니다. 불확실하다고 해서 `oy-2`, `oy-3` 또는 추가 OP pair를 자동 fallback으로 만들면 안 됩니다. 새 Provider/Operator pair는 명시적으로 만들고 다시 bind해야 합니다.
 
 ### 2. 시스템 요구사항 & 의존성 설치
 
@@ -132,7 +155,7 @@ openyggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python
 - **`Python 3.10+`**: 로컬 환경에 설치되어 접근 가능해야 합니다.
 
 **Python 패키지 (pip):**
-- **`graphifyy`**: (주의: 개념적 이름은 Graphify(v5)이나 PyPI 패키지명은 `graphifyy`입니다) 구조 분석 및 그래프 구축을 위한 코어 동반 패키지
+- **`graphifyy`**: <https://github.com/safishamsi/graphify> 의 공식 Graphify 패키지입니다. 설치 전 현재 PyPI 최신 버전을 확인(`python -m pip index versions graphifyy`)하고 PyPI에서 최신으로 설치/업그레이드(`python -m pip install -U graphifyy` 또는 `python -m pip install -U -r requirements.txt`)해야 합니다. CLI/import 표면은 `graphify`입니다.
 - **`networkx`**: 그래프 파생, 노드 인덱싱, 탐색, Louvain 커뮤니티 탐지용
 - **`jsonschema`**: 프로바이더 계약 및 메일박스 스키마의 엄격한 검증용
 - **`pyyaml`**: 설정 및 매니페스트 파일 읽기/쓰기용
@@ -161,7 +184,77 @@ openyggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python
 세션 수명 동안 메일박스를 통해 상주할 수 있습니다. 작업이 완료되거나 타임아웃 시
 깔끔하게 종료됩니다.
 
-### 4. TMUX Live Witness 정책
+깨끗한 콜드스타트의 의미:
+
+- 이미 attach된 Provider lane을 가정하지 않습니다.
+- 전역 `ygg-*` attach wrapper 또는 legacy `oy-*` 명령을 요구하지 않습니다.
+- 이전 OP registry pair를 health 근거 없이 신뢰하지 않습니다.
+- 이전 Vault proof artifact를 현재 runtime state로 취급하지 않습니다.
+- 프로바이더가 workspace를 발견하고 검증한 뒤에만 attach/witness lane을 안내합니다.
+
+### 4. 위성 운영 모델 (Satellite Operating Model)
+
+openyggdrasil은 **서버 모델**이 아니라 **위성 모델**입니다.
+
+중심은 active Provider Session입니다. Producer, Consumer, mailbox, watcher,
+선택적 TMUX pane은 그 세션 주위를 도는 위성입니다. 이들은 active Provider
+Session을 지원하기 위해 존재하며, 독립적인 상시 서버가 되면 안 됩니다.
+
+```text
+Provider Session
+  ├─ OP1 Producer 위성       세션 스코프 background worker
+  ├─ OP2 Consumer 위성       세션 스코프 background worker
+  ├─ Mailbox 위성            로컬 파일 큐 / receipt 원장
+  ├─ Watcher 위성            해당 mailbox를 보는 로컬 polling 프로세스
+  └─ TMUX witness 위성       사람이 보는 선택적 시각 표면
+```
+
+각 위성의 정체성:
+
+| 위성 | 정체 | 정체가 아닌 것 |
+|---|---|---|
+| Mailbox | 로컬 파일 기반 큐와 receipt 원장 | 서버, socket API, public service |
+| Watcher | 세션 스코프 로컬 polling worker | always-on daemon, global server |
+| OP1 Producer | Provider Session에 묶인 background 생산 worker | 독립 memory server |
+| OP2 Consumer | Provider Session에 묶인 background 소비/support worker | 독립 search server |
+| TMUX witness | 사람이 보는 선택적 관찰 표면 | SOT, 실행 gate, 정본 입력 lane |
+
+위성 수명주기 규칙:
+
+- 위성은 프로바이더가 workspace를 인식한 뒤에만 만들어야 합니다.
+- 위성은 하나의 active Provider/Operator session group에 붙어야 합니다.
+- stale 위성이 하나라도 있으면 전체 그룹은 degraded입니다.
+- cleanup은 명시적이고 backup-first여야 합니다.
+- 불확실하다고 해서 `oy-2`, `oy-3`, 추가 OP pair 같은 fallback 위성을 자동 생성하면 안 됩니다.
+- 정본 근거는 mailbox receipt, event log, schema trace, attachment artifact입니다.
+
+```mermaid
+flowchart LR
+  P["Active Provider Session<br/>(center)"]
+  OP1["OP1 Producer<br/>satellite worker"]
+  OP2["OP2 Consumer<br/>satellite worker"]
+  MB["Mailbox<br/>local file queue + receipts"]
+  W["Watcher<br/>session-scoped polling"]
+  T["TMUX Witness<br/>optional visual satellite"]
+  V["Vault / Support Bundle"]
+  E["Canonical evidence<br/>receipts / logs / schemas"]
+
+  P --> MB
+  MB --> OP1 --> V
+  MB --> OP2 --> V
+  W -. "polls active mailbox" .-> MB
+  T -. "observes only" .-> W
+  MB --> E
+  OP1 --> E
+  OP2 --> E
+```
+
+Hard nonclaim: "서버가 없다"는 말은 항상 켜져 있는 시스템 레벨
+openyggdrasil 서비스가 필요 없다는 뜻입니다. background process가 절대
+없다는 뜻이 아닙니다. 세션 스코프 위성 worker는 존재할 수 있지만,
+수명주기-bound, healthchecked, cleanup-verifiable이어야 합니다.
+
+### 5. TMUX Live Witness 정책
 
 TMUX는 사람을 위한 선택적 **live witness 표면**입니다. 사용자가 live 검증 중 Provider Session과 Operator Session의 의사결정 흐름을 눈으로 확인할 수 있게 해 줍니다.
 
@@ -257,13 +350,17 @@ tmux detach-client -s openyggdrasil-witness  # 또는 붙어 있는 화면에서
 tmux kill-session -t openyggdrasil-witness
 ```
 
-목표 `ygg` UX는 아직 구현 완료가 아닙니다:
+목표 attach/witness UX는 아직 production-ready가 아닙니다. public repo에서는
+전역 `ygg`, `ygg-*`, 또는 legacy `oy-*` 명령이 이미 설치되어 있다고 가정하지 않습니다.
+의도한 사용자 명령면은 `ygg`이고, `ygg-*`는 첫 설치 요건이 아니라 내부 tmux lane 이름입니다:
 
 ```text
-ygg status      # target, NOT PASS
-ygg attach      # target, NOT PASS
-ygg tmux        # target, NOT PASS
-ygg talk OP1    # target, NOT PASS; raw tmux/stdin 입력이 아니라 typed event여야 함
+ygg pro1     # target/dev Provider attach/witness 명령. 내부 tmux: ygg-pro1
+ygg op1      # target/dev OP1 생산면 attach/witness 명령. 내부 tmux: ygg-op1
+ygg op2      # target/dev OP2 소비면 attach/witness 명령. 내부 tmux: ygg-op2
+ygg doctor   # target/dev session-group healthcheck. production lifecycle proof는 NOT PASS
+ygg status   # target/dev status surface
+ygg talk OP1 # target, NOT PASS; raw tmux/stdin 입력이 아니라 typed event여야 함
 ```
 
 주의: 위 수동 tmux 명령은 **관찰 pane을 띄우는 방법**입니다. 사용자의 판단 요청이나 Operator Talk payload를 `tmux send-keys`로 주입하는 것은 정본 입력이 아니며 PASS 근거가 될 수 없습니다.

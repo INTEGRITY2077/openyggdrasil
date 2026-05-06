@@ -1,4 +1,4 @@
-graphifyy>=4.0.0
+graphifyy>=0.7.7
 jsonschema>=4.0.0
 pyyaml>=6.0.0
 networkx>=3.0.0

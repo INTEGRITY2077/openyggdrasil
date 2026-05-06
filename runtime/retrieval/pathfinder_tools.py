@@ -284,6 +284,74 @@ def _extract_community_ids(text: str, records: list[Mapping[str, Any]]) -> list[
     return _unique_preserve_order(community_ids)
 
 
+def _yaml_scalar(text: str, key: str) -> str:
+    match = re.search(rf"^\s*{re.escape(key)}\s*:\s*(.*?)\s*$", text, flags=re.MULTILINE)
+    return match.group(1).strip().strip('"\'') if match else ""
+
+
+def _first_record_with(records: list[Mapping[str, Any]], *keys: str) -> Mapping[str, Any]:
+    for record in records:
+        if all(str(record.get(key) or "").strip() for key in keys):
+            return record
+    return {}
+
+
+def _concept_node_path_for_topic(*, topic_text: str, vault_root: Path) -> Path | None:
+    node_id = _yaml_scalar(topic_text, "id")
+    if not node_id:
+        return None
+    candidate = vault_root / "concepts" / f"{node_id}.md"
+    return candidate if candidate.exists() else None
+
+
+def _community_path_for_id(*, community_id: str, vault_root: Path) -> Path | None:
+    if not community_id.startswith("community:"):
+        return None
+    key = community_id.split(":", 1)[1]
+    candidate = vault_root / "communities" / f"{key}.md"
+    return candidate if candidate.exists() else None
+
+
+def _typed_unavailable_bundle(*, query_text: str, missing_refs: list[str]) -> dict[str, Any]:
+    return {
+        "schema_version": "ring_support_bundle.v1",
+        "bundle_mode": "provenance-ring-mixed",
+        "query_text": query_text,
+        "ring_ids": [],
+        "origin_claims": [],
+        "recent_rings": [],
+        "source_paths": [],
+        "community_edges": [],
+        "semantic_edges": [],
+        "typed_unavailable": {
+            "schema_version": "typed_unavailable.v1",
+            "unavailable_ref": f"oy-vault://op2-support-bundle/{build_page_id(query_text)[:32]}",
+            "created_at": utc_now_iso(),
+            "reason_code": "unresolved_evidence_ref",
+            "blocked_stage": "recall_support_bundle",
+            "missing_or_rejected_refs": [
+                {
+                    "ref": f"oy-vault://{ref}",
+                    "reason_code": "unresolved_evidence_ref",
+                    "rejection_kind": "unresolved",
+                }
+                for ref in missing_refs
+            ],
+            "raw_provider_material_included": False,
+            "skill_body_included": False,
+            "portable_local_path_included": False,
+            "fabricated_answer": False,
+            "no_overclaim_boundary": {
+                "live_readiness_claimed": False,
+                "production_readiness_claimed": False,
+                "reasoning_lease_solved_claimed": False,
+                "public_runtime_integration_complete_claimed": False,
+                "readiness_91_percent_claimed": False,
+            },
+        },
+    }
+
+
 def _select_ring_topic_key(*, query_text: str, vault_root: Path) -> str | None:
     query_words = {w for w in re.split(r"\s+", query_text.lower()) if w}
     best: tuple[int, str] | None = None
@@ -294,7 +362,7 @@ def _select_ring_topic_key(*, query_text: str, vault_root: Path) -> str | None:
         hay = text.lower()
         score = sum(1 for word in query_words if word and word in hay)
         if score <= 0:
-            score = 1
+            continue
         key = path.stem
         if best is None or score > best[0]:
             best = (score, key)
@@ -314,22 +382,15 @@ def build_ring_support_bundle(
     """
     selected_topic_key = topic_key or _select_ring_topic_key(query_text=query_text, vault_root=vault_root)
     if not selected_topic_key:
-        return {
-            "schema_version": "ring_support_bundle.v1",
-            "bundle_mode": "provenance-ring-mixed",
-            "query_text": query_text,
-            "ring_ids": [],
-            "origin_claims": [],
-            "recent_rings": [],
-            "source_paths": [],
-            "community_edges": [],
-            "semantic_edges": [],
-        }
+        return _typed_unavailable_bundle(query_text=query_text, missing_refs=["queries/*", "concepts/PRN-*.md"])
 
     topic_path = vault_root / "queries" / f"{selected_topic_key}.md"
     topic_text = topic_path.read_text(encoding="utf-8", errors="ignore") if topic_path.exists() else ""
     prov_path = vault_root / "_meta" / "provenance" / f"{selected_topic_key}.md"
     prov_text = prov_path.read_text(encoding="utf-8", errors="ignore") if prov_path.exists() else ""
+    concept_path = _concept_node_path_for_topic(topic_text=topic_text, vault_root=vault_root)
+    concept_text = concept_path.read_text(encoding="utf-8", errors="ignore") if concept_path else ""
+
     records = _extract_json_objects_from_fenced_blocks(prov_text)
     if not records:
         # 기존 parser가 이해하는 페이지면 그 결과도 보조로 사용한다.
@@ -337,15 +398,31 @@ def build_ring_support_bundle(
             records = list(parse_provenance_records(prov_text))
         except Exception:
             records = []
-    all_text = topic_text + "\n" + prov_text
-    ring_ids = _extract_ring_ids(all_text, records)
-    community_ids = _extract_community_ids(all_text, records)
+    prn_records = _extract_json_objects_from_fenced_blocks(topic_text + "\n" + concept_text)
+    all_records = list(records) + list(prn_records)
+    all_text = topic_text + "\n" + prov_text + "\n" + concept_text
+    ring_ids = _extract_ring_ids(all_text, all_records)
+    community_ids = _extract_community_ids(all_text, all_records)
+    community_id = community_ids[0] if community_ids else ""
+    ring_record = _first_record_with(all_records, "ring_id", "source_ref", "origin_locator", "provider_session_id") or _first_record_with(all_records, "ring_id", "source_ref", "origin_locator")
+    paragraph_intent = _first_record_with(
+        all_records,
+        "intent_field",
+        "decomposition_guard",
+        "min_split_unit",
+        "why_not_atomic",
+    )
+    lifecycle_record = _first_record_with(all_records, "state")
+    community_path = _community_path_for_id(community_id=community_id, vault_root=vault_root) if community_id else None
+
     origin_claims = [
         {
             "episode_id": str(row.get("episode_id") or ""),
             "claim_id": str(row.get("claim_id") or ""),
             "support_fact": str(row.get("support_fact") or row.get("answer_summary") or row.get("question_summary") or ""),
             "source_rel": str(row.get("derived_from") or row.get("promoted_from") or ""),
+            "source_ref": str(row.get("source_ref") or ""),
+            "origin_locator": str(row.get("origin_locator") or ""),
             "lane": "origin",
         }
         for row in records
@@ -356,17 +433,25 @@ def build_ring_support_bundle(
             "episode_id": str(row.get("episode_id") or ""),
             "source_ref": str(row.get("source_ref") or ""),
             "origin_locator": str(row.get("origin_locator") or ""),
+            "provider_session_id": str(row.get("provider_session_id") or ""),
+            "message_index_range": row.get("message_index_range") or None,
+            "anchor_hash": str(row.get("anchor_hash") or ""),
+            "commit_watermark": str(row.get("commit_watermark") or ""),
             "lane": "recent",
         }
         for ring_id in ring_ids
-        for row in (records or [{"ring_id": ring_id}])
-        if str(row.get("ring_id") or ring_id) == ring_id
+        for row in (all_records or [{"ring_id": ring_id}])
+        if str(row.get("ring_id") or ring_id) == ring_id and (row.get("source_ref") or row.get("origin_locator") or row.get("episode_id"))
     ]
     source_paths: list[str] = []
     if topic_path.exists():
         source_paths.append(str(topic_path.resolve()))
     if prov_path.exists():
         source_paths.append(str(prov_path.resolve()))
+    if concept_path and concept_path.exists():
+        source_paths.append(str(concept_path.resolve()))
+    if community_path and community_path.exists():
+        source_paths.append(str(community_path.resolve()))
     for row in records:
         rel = str(row.get("derived_from") or row.get("promoted_from") or "").strip()
         if rel:
@@ -389,15 +474,48 @@ def build_ring_support_bundle(
         }
         for ring_id in ring_ids
     ]
+
+    missing_refs: list[str] = []
+    if not ring_ids:
+        missing_refs.append("ring_id")
+    if not ring_record:
+        missing_refs.append("source_ref/origin_locator")
+    if not paragraph_intent:
+        missing_refs.append("paragraph_intent_safety_belt")
+    if not community_ids:
+        missing_refs.append("community_id")
+    lifecycle_state = _yaml_scalar(topic_text, "lifecycle_state") or _yaml_scalar(concept_text, "lifecycle_state") or str(lifecycle_record.get("state") or "")
+    if not lifecycle_state:
+        missing_refs.append("lifecycle_state")
+    if missing_refs:
+        unavailable = _typed_unavailable_bundle(query_text=query_text, missing_refs=missing_refs)
+        unavailable["topic_key"] = selected_topic_key
+        unavailable["source_paths"] = _unique_preserve_order(source_paths)
+        return unavailable
+
     return {
         "schema_version": "ring_support_bundle.v1",
         "bundle_mode": "provenance-ring-mixed",
         "query_text": query_text,
         "topic_key": selected_topic_key,
+        "topic_hint": str(paragraph_intent.get("topic_hint") or _yaml_scalar(topic_text, "title") or ""),
+        "topic_id": _yaml_scalar(topic_text, "id") or _yaml_scalar(concept_text, "id") or None,
         "ring_ids": ring_ids,
+        "ring_id": ring_ids[0] if ring_ids else None,
+        "community_id": community_id or None,
+        "source_ref": str(ring_record.get("source_ref") or ""),
+        "origin_locator": str(ring_record.get("origin_locator") or ""),
+        "provider_session_id": str(ring_record.get("provider_session_id") or ""),
+        "message_index_range": ring_record.get("message_index_range") or None,
+        "anchor_hash": str(ring_record.get("anchor_hash") or ""),
+        "commit_watermark": str(ring_record.get("commit_watermark") or ""),
+        "lifecycle_state": lifecycle_state,
+        "current_authority": _yaml_scalar(topic_text, "current_authority") or _yaml_scalar(concept_text, "current_authority") or None,
+        "paragraph_intent_safety_belt": dict(paragraph_intent),
         "origin_claims": origin_claims,
         "recent_rings": recent_rings,
         "source_paths": _unique_preserve_order(source_paths),
+        "support_facts": _unique_preserve_order([str(row.get("support_fact") or "") for row in origin_claims]),
         "community_edges": community_edges,
         "semantic_edges": semantic_edges,
     }

@@ -339,7 +339,7 @@ sources: [source refs or public paths]
 
 ## System Requirements & Setup
 
-openyggdrasil is designed to operate as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). The target operating model does not require system-level background daemons or separate server management. Operator Sessions should be bound to their Provider Session's lifetime and exit on timeout or completion, but this is not a production-ready guarantee yet.
+openyggdrasil is designed to operate as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). The target operating model does not require an always-on system-level server or separate server management. It may create session-scoped background workers/watchers around the active Provider Session; those workers must be lifecycle-bound and cleanup-verifiable. This is not a production-ready guarantee yet.
 
 > **⚠️ Reasoning Lease Model (Asynchronous Multiplexing):**
 > openyggdrasil does not have its own API keys, and it must not extract provider credentials.
@@ -350,6 +350,27 @@ openyggdrasil is designed to operate as a session-scoped skill attached to your 
 Providers attach to openyggdrasil by reading the **`SKILL.md`** manifest at the repository root. To initiate the connection:
 - Point your agent's skill configuration to the absolute path of `SKILL.md`.
 - The agent reads this contract, which defines the declared entrypoints, command shapes, and boundaries for memory retrieval and capture.
+
+Provider-first cold-start rule:
+
+- The user first opens a normal provider session through that provider's native UX.
+- The provider then receives the openyggdrasil repository path, URL, or skill reference and reads `SKILL.md`.
+- A first-install environment must not assume a global `ygg` command or attach commands such as `ygg pro1`, `ygg op1`, or `ygg op2` already exist.
+- If a `ygg-*` attach wrapper, legacy `oy-*` wrapper, or preinstalled `ygg` command is already globally visible before bootstrap, treat it as local/dev residue unless it is validated against a session-group health record.
+- Repository-local tooling, if present, is a bootstrap asset discovered after the provider recognizes the repository. It is not evidence that a provider session is already attached.
+- `ygg pro1` is not a universal first entrypoint and not a provider identity. It is an optional local Provider attach/witness command after openyggdrasil has been recognized. Its internal tmux session name may be `ygg-pro1`.
+
+Active session health is group-based, not lane-based:
+
+```text
+User command   Internal tmux   Runtime evidence
+ygg pro1       ygg-pro1            provider_lane.v1
+ygg op1        ygg-op1          OP1 registry/mailbox/live watcher
+ygg op2        ygg-op2          OP2 registry/mailbox/live watcher
+Canonical evidence            mailbox / receipts / event logs / attachment artifacts
+```
+
+If any side of that group is stale, the whole group is degraded. Implementations must not create fallback lanes such as `oy-2`, `oy-3`, or extra OP pairs as an automatic response to uncertainty. A new Provider/Operator pair must be explicitly created and rebound.
 
 ### 2. System Requirements & Dependency Installation
 
@@ -363,7 +384,7 @@ openyggdrasil runs purely locally. The core runtime relies mostly on the Python 
 - **`Python 3.10+`**: Must be installed and accessible in the local environment.
 
 **Python Packages (via pip):**
-- **`graphifyy`**: (Note: The conceptual name is Graphify(v5), but the PyPI package name is `graphifyy`) The core companion package for structural analysis and graph building
+- **`graphifyy`**: Official Graphify package from <https://github.com/safishamsi/graphify>. Before installation, check the current PyPI version (`python -m pip index versions graphifyy`) and install/upgrade from PyPI (`python -m pip install -U graphifyy` or `python -m pip install -U -r requirements.txt`). The CLI/import surface is `graphify`.
 - **`networkx`**: for graph derivation, node indexing, traversal, and Louvain community detection
 - **`jsonschema`**: for strictly validating provider contracts and mailbox schemas
 - **`pyyaml`**: for reading/writing configuration and manifest files
@@ -388,7 +409,72 @@ openyggdrasil runs purely locally. The core runtime relies mostly on the Python 
 
 Once dependencies are approved and installed, the provider can execute the skill entrypoints defined in `SKILL.md`. The openyggdrasil runtime **cold-starts per Provider Session**. There are no system-level background daemons, but Operator Sessions bound to a Provider Session may persist via Mailbox polling for the session's lifetime. They exit cleanly on timeout or Provider Session termination.
 
-### 4. TMUX Live Witness Policy
+A clean cold start means:
+
+- no pre-attached Provider lane is assumed;
+- no global `ygg-*` attach wrapper or legacy `oy-*` command is required;
+- no previous OP registry pair is trusted without health evidence;
+- no previous Vault proof artifact is treated as current runtime state;
+- the provider must discover and validate the workspace before advertising an attach/witness lane.
+
+### 4. Satellite Operating Model
+
+openyggdrasil uses a **satellite model**, not a server model.
+
+The active Provider Session is the center. The Producer, Consumer, mailbox, watcher, and optional TMUX panes are satellites that orbit that session. They exist to support the active Provider Session and must not become independent always-on services.
+
+```text
+Provider Session
+  ├─ OP1 Producer satellite       session-scoped background worker
+  ├─ OP2 Consumer satellite       session-scoped background worker
+  ├─ Mailbox satellite            local file queue / receipt ledger
+  ├─ Watcher satellite            local polling process for that mailbox
+  └─ TMUX witness satellite       optional human visual surface
+```
+
+What each satellite is:
+
+| Satellite | What it is | What it is not |
+|---|---|---|
+| Mailbox | Local file-based queue and receipt ledger | Server, socket API, public service |
+| Watcher | Session-scoped local polling worker | Always-on daemon, global server |
+| OP1 Producer | Background write/production worker bound to a Provider Session | Standalone memory server |
+| OP2 Consumer | Background read/support worker bound to a Provider Session | Standalone search server |
+| TMUX witness | Optional human inspection surface | SOT, execution gate, canonical input lane |
+
+Satellite lifecycle rules:
+
+- satellites must be created only after the provider has recognized the workspace;
+- satellites must be attached to one active Provider/Operator session group;
+- stale satellites degrade the whole group;
+- cleanup must be explicit and backup-first;
+- uncertainty must not create fallback satellites such as `oy-2`, `oy-3`, or extra OP pairs;
+- canonical evidence remains mailbox receipts, event logs, schema traces, and attachment artifacts.
+
+```mermaid
+flowchart LR
+  P["Active Provider Session<br/>(center)"]
+  OP1["OP1 Producer<br/>satellite worker"]
+  OP2["OP2 Consumer<br/>satellite worker"]
+  MB["Mailbox<br/>local file queue + receipts"]
+  W["Watcher<br/>session-scoped polling"]
+  T["TMUX Witness<br/>optional visual satellite"]
+  V["Vault / Support Bundle"]
+  E["Canonical evidence<br/>receipts / logs / schemas"]
+
+  P --> MB
+  MB --> OP1 --> V
+  MB --> OP2 --> V
+  W -. "polls active mailbox" .-> MB
+  T -. "observes only" .-> W
+  MB --> E
+  OP1 --> E
+  OP2 --> E
+```
+
+Hard nonclaim: "no server" means no always-on system-level openyggdrasil service is required. It does **not** mean there are never background processes. Session-scoped satellite workers may exist, but they must be lifecycle-bound, healthchecked, and cleanup-verifiable.
+
+### 5. TMUX Live Witness Policy
 
 TMUX is an optional **live witness surface** for humans. It exists so a user can visually inspect the decision flow across Provider Sessions and Operator Sessions while a live verification run is in progress.
 
@@ -484,13 +570,18 @@ tmux detach-client -s openyggdrasil-witness  # or Ctrl-b d from the attached scr
 tmux kill-session -t openyggdrasil-witness
 ```
 
-Target `ygg` UX is not implemented yet:
+Target attach/witness UX is not production-ready yet. In the public repository,
+do not assume global `ygg`, `ygg-*`, or legacy `oy-*` commands are preinstalled. The intended
+user-facing command surface is `ygg`; `ygg-*` names are internal tmux lane names,
+not first-install requirements:
 
 ```text
-ygg status      # target, NOT PASS
-ygg attach      # target, NOT PASS
-ygg tmux        # target, NOT PASS
-ygg talk OP1    # target, NOT PASS; must become a typed event, not raw tmux/stdin input
+ygg pro1    # target/dev Provider attach/witness command; internal tmux: ygg-pro1
+ygg op1     # target/dev Producer OP1 attach/witness command; internal tmux: ygg-op1
+ygg op2     # target/dev Consumer OP2 attach/witness command; internal tmux: ygg-op2
+ygg doctor  # target/dev session-group healthcheck; production lifecycle proof is NOT PASS
+ygg status  # target/dev status surface
+ygg talk OP1 # target, NOT PASS; must become a typed event, not raw tmux/stdin input
 ```
 
 Note: the manual tmux commands above only launch observer panes. Sending user judgment requests or Operator Talk payloads through `tmux send-keys` is not canonical input and cannot be marked PASS evidence.

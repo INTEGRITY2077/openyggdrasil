@@ -161,7 +161,7 @@ def run_consumer(mailbox: Path, vault: Path):
         if build_ring_support_bundle is not None:
             try:
                 ring_bundle = build_ring_support_bundle(query_text=query_text, vault_root=vault)
-                if ring_bundle.get("ring_ids"):
+                if ring_bundle.get("ring_ids") or ring_bundle.get("typed_unavailable"):
                     bundle["support_bundle"] = ring_bundle
             except Exception as exc:
                 log_event("ring_support_bundle_skip", reason=type(exc).__name__)

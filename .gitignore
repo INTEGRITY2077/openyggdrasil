@@ -70,3 +70,11 @@ projects/**/_archive/
 .cursor/
 .windsurf/
 GEMINI.md
+# repository regression tests
+!/tests/
+!/tests/**
+
+# Python test caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
