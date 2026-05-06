@@ -1,7 +1,31 @@
 from __future__ import annotations
 
+import sys
+
+# When this file is executed directly as `python runtime/import_smoke.py`,
+# Python puts `runtime/` at the front of sys.path.  That makes the repo's
+# `runtime/operator/` package shadow the standard-library `operator` module
+# while stdlib modules such as `enum` are importing.  Remove the runtime path
+# before importing any stdlib module that may reach `operator`, then restore it
+# for the runtime surface imports below.
+_RUNTIME_DIR = __file__.replace("\\", "/").rsplit("/", 1)[0].rstrip("/")
+_REMOVED_RUNTIME_PATHS = [
+    entry
+    for entry in sys.path
+    if (entry or ".").replace("\\", "/").rstrip("/") == _RUNTIME_DIR
+]
+sys.path[:] = [
+    entry
+    for entry in sys.path
+    if (entry or ".").replace("\\", "/").rstrip("/") != _RUNTIME_DIR
+]
+
 import importlib
+import json
 from dataclasses import dataclass
+import operator as _stdlib_operator  # noqa: F401 - pins stdlib operator in sys.modules
+
+sys.path[:0] = _REMOVED_RUNTIME_PATHS or [_RUNTIME_DIR]
 
 
 CANONICAL_RUNTIME_MODULES = [
@@ -203,3 +227,19 @@ def smoke_import_modules(module_names: list[str] | tuple[str, ...]) -> ImportSmo
 
 def smoke_import_runtime_surface() -> ImportSmokeResult:
     return smoke_import_modules(CANONICAL_RUNTIME_MODULES + COMPATIBILITY_SHIM_MODULES + RUNTIME_UTILITY_MODULES)
+
+
+def main() -> int:
+    result = smoke_import_runtime_surface()
+    payload = {
+        "ok": result.ok,
+        "imported_count": len(result.imported),
+        "failed_count": len(result.failed),
+        "failed": list(result.failed),
+    }
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0 if result.ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

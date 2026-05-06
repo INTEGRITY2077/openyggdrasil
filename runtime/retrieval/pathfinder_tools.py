@@ -85,6 +85,11 @@ def locate_region(*, query_text: str, vault_root: Path = DEFAULT_VAULT) -> dict[
     }
 
 
+def find_region(*, query_text: str, vault_root: Path = DEFAULT_VAULT) -> dict[str, Any]:
+    """Backward-compatible alias for older Pathfinder PTC imports."""
+    return locate_region(query_text=query_text, vault_root=vault_root)
+
+
 def select_topic_anchor(
     *,
     query_text: str,
@@ -128,6 +133,22 @@ def select_topic_anchor(
     }
 
 
+def find_topic_anchor(
+    *,
+    query_text: str,
+    region_id: str | None = None,
+    vault_root: Path = DEFAULT_VAULT,
+    evaluator: Callable[..., Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Backward-compatible alias for older Pathfinder PTC imports."""
+    return select_topic_anchor(
+        query_text=query_text,
+        region_id=region_id,
+        vault_root=vault_root,
+        evaluator=evaluator,
+    )
+
+
 def get_origin_claims(
     *,
     topic_id: str,
@@ -166,6 +187,16 @@ def read_recent_claims(
     return rows[: max(1, limit)]
 
 
+def get_recent_episodes(
+    *,
+    topic_id: str,
+    vault_root: Path = DEFAULT_VAULT,
+    limit: int = 3,
+) -> list[dict[str, Any]]:
+    """Backward-compatible alias for older Pathfinder PTC imports."""
+    return read_recent_claims(topic_id=topic_id, vault_root=vault_root, limit=limit)
+
+
 def read_source_paths(
     *,
     topic_id: str,
@@ -185,6 +216,16 @@ def read_source_paths(
             if source_rel:
                 resolved.add(str((vault_root / source_rel).resolve()))
     return sorted(resolved)
+
+
+def get_raw_sources(
+    *,
+    topic_id: str,
+    claim_ids: list[str] | None = None,
+    vault_root: Path = DEFAULT_VAULT,
+) -> list[str]:
+    """Backward-compatible alias for older Pathfinder PTC imports."""
+    return read_source_paths(topic_id=topic_id, claim_ids=claim_ids, vault_root=vault_root)
 
 
 def build_support_bundle(
@@ -238,6 +279,11 @@ def build_support_bundle(
 
 def assemble_unanchored_bundle(*, query_text: str) -> dict[str, Any]:
     return _unanchored_bundle(query_text=query_text)
+
+
+def build_unanchored_bundle(*, query_text: str) -> dict[str, Any]:
+    """Backward-compatible alias for older Pathfinder PTC imports."""
+    return assemble_unanchored_bundle(query_text=query_text)
 
 
 def _extract_json_objects_from_fenced_blocks(text: str) -> list[dict[str, Any]]:
