@@ -1,10 +1,12 @@
 # Runtime Delivery
 
-`runtime/delivery/` owns Postman, mailbox, and support-bundle delivery.
+`runtime/delivery/` owns Delivery Monitor, mailbox, and Evidence Pack delivery.
+Legacy Postman/support_bundle names remain only where schema or module
+compatibility requires them.
 
 ## Responsibilities
 
-- build bounded `support_bundle.v1` artifacts
+- build bounded Evidence Pack artifacts (`support_bundle.v1` compatibility)
 - score and package inbox packets
 - store session-bound mailbox state
 - guard against mailbox contamination and unrelated memory leakage

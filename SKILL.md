@@ -45,7 +45,7 @@ boundaries.
 - canonical memory surface: `vault/`
 - Graphify companion stack: `common/graphify/`
 
-Do not depend on private docs, raw provider sessions, or operator-local
+Do not depend on private docs, raw provider sessions, or human-local
 materials during bootstrap.
 
 ## Repo-Owned Tools
@@ -93,7 +93,7 @@ safe.
 
 ### 1. Stay In The Current Workspace
 
-Work only inside the current workspace unless the operator explicitly narrows a
+Work only inside the current workspace unless the user explicitly narrows a
 different target root.
 
 ### 2. Preserve Provider Boundaries
@@ -200,27 +200,39 @@ that satisfy:
 - `runtime/reasoning/hermes_provider_skill_bridge_entrypoint.py`
 
 Required live refs include `typed_task_id`, `typed_result_ref` or
-`typed_unavailable_ref`, before/after main-context-window refs, and producer
-and consumer refs whenever producer/consumer usage is claimed.
+`typed_unavailable_ref`, before/after main-context-window refs, and Memory
+Saver/Finder refs whenever Memory Saver/Finder usage is claimed.
 
 ## Capture (Production)
 
 Use this when the provider determines knowledge should be durably preserved
 beyond the current session.
 
+Display names and compatibility ids:
+
+```text
+MS1 = Memory Saver 1 = legacy internal OP1
+MF1 = Memory Finder 1 = legacy internal OP2
+```
+
+Use `ms1` and `mf1` only as `ygg` command targets after the cold-start health
+check confirms `ygg` is available. Treat `MS1` and `MF1` as prose/display
+labels, not standalone commands. Treat `OP1` and `OP2` as internal
+compatibility ids only.
+
 **Dual routing (equal authority):**
 
-```
-"기억해둬" / "저장해" 요청
-  ├─ Hermes memory → 단기 세션 기억 (built-in)
-  └─ ygg tell OP1  → 장기 Vault 저장 (openyggdrasil)
+```text
+memory/save request
+  -> Hermes memory for current-session memory (built-in)
+  -> ygg tell ms1 for durable Vault save (openyggdrasil)
 ```
 
 Entrypoint:
 
 ```bash
-ygg tell OP1 "결정: <요약> ..."
-ygg tell --ptc OP1 "결정: <요약> ..."   # PTC 자유 조합 경로
+ygg tell ms1 "Decision: <summary> ..."
+ygg tell --ptc ms1 "Decision: <summary> ..."   # PTC composition path
 ```
 
 Both paths must be triggered. Hermes memory handles the session scope;
@@ -230,29 +242,32 @@ Neither replaces the other.
 Verify with:
 
 ```bash
-ygg status OP1   # receipt 확인
+ygg status ms1   # Result Receipt check
 ```
 
 ## Retrieve (Consumption)
 
 Use this when the provider needs to recall knowledge from the long-term Vault.
 
+Use `MF1` / `Memory Finder 1` as the prose/display name. In command examples,
+always keep the `ygg` prefix. Treat `OP2` as the legacy internal compatibility
+id only.
+
 Entrypoint:
 
 ```bash
-ygg ask OP2 "검색어"
-ygg ask --ptc OP2 "검색어"   # PTC deep_search 경로
+ygg ask mf1 "query"
+ygg ask --ptc mf1 "query"   # PTC deep_search path
 ```
 
 Verify with:
 
 ```bash
-ygg status OP2   # 검색 결과 확인
+ygg status mf1   # Result Receipt check
 ```
 
 The Provider should use retrieved knowledge to continue its reasoning chain.
 Memory (session) + Vault (cross-session) together form the complete recall surface.
-
 ## Success Condition
 
 The skill is successful when:

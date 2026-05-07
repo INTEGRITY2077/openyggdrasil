@@ -28,14 +28,14 @@ or safety refs cannot be named.
 ## Required evidence refs
 
 Require named refs for source, task, result or unavailable result, context
-window boundary, and the relevant producer or consumer receipt.
+window boundary, and the relevant Memory Saver/Finder Result Receipt.
 
 ## Hard nonclaims
 
 Do not claim Reasoning Lease solved, Hermes subagent bridge complete, live
 readiness, production readiness, production PTC implemented, public runtime
 integration complete, background live integration, Hermes answer quality,
-consumer UX complete, or full product readiness.
+Memory Finder UX complete, or full product readiness.
 
 ## Planning Phase
 

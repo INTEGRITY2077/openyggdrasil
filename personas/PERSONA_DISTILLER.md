@@ -27,8 +27,8 @@ missing.
 
 ## Required evidence refs
 
-Require source_ref, signal_ref, language_code or unavailable reason, and
-producer_ref when the output is meant for wiki capture.
+Require source_ref, signal_ref, language_code or unavailable reason, and Memory
+Saver handoff ref when the output is meant for wiki capture.
 
 ## Hard nonclaims
 

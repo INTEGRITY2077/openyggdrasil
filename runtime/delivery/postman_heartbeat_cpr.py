@@ -17,8 +17,18 @@ REQUIRED_ENGINE_COMPONENTS = ("tmux", "watcher", "mailbox", "receipt_registry")
 READY_STATES = {"active", "available", "healthy", "ok", "present", "ready", "running"}
 ROLE_ALIASES = {
     "provider": ("provider", "pro1", "ygg-pro1", "hermes"),
-    "op1": ("op1", "producer", "ygg-op1"),
-    "op2": ("op2", "consumer", "ygg-op2"),
+    "op1": ("op1", "ms1", "memory_saver_1", "producer", "ygg-op1", "ygg-ms1"),
+    "op2": ("op2", "mf1", "memory_finder_1", "consumer", "ygg-op2", "ygg-mf1"),
+}
+ROLE_DISPLAY_NAMES = {
+    "provider": "Provider Lane",
+    "op1": "MS1 Memory Saver",
+    "op2": "MF1 Memory Finder",
+}
+ROLE_COMMAND_TARGETS = {
+    "provider": "ygg pro1",
+    "op1": "ygg ms1",
+    "op2": "ygg mf1",
 }
 FORBIDDEN_TEXT_TOKENS = (
     "---\nname:",
@@ -32,6 +42,8 @@ LOCAL_PATH_RE = re.compile(r"^(?:[A-Za-z]:[\\/]|file://|/[A-Za-z0-9_.-])")
 
 
 POSTMAN_ROLE = {
+    "display_name": "Engine Heartbeat Coordinator",
+    "legacy_internal_role_id": "postman",
     "owns": [
         "heartbeat_cpr",
         "engine_bootstrap_presence_check",
@@ -62,7 +74,7 @@ def _clean_string(value: Any, *, max_length: int = 600) -> str:
     text = " ".join(str(value or "").strip().split())
     lowered = text.lower().replace("\\", "/")
     if any(token.lower().replace("\\", "/") in lowered for token in FORBIDDEN_TEXT_TOKENS):
-        raise ValueError("Postman CPR payload contains unsafe provider material")
+        raise ValueError("Engine Heartbeat CPR payload contains unsafe provider material")
     return text[:max_length]
 
 
@@ -147,6 +159,8 @@ def _live_group_report(live_group: Mapping[str, Any]) -> tuple[dict[str, Any], l
         record = _live_role_record(live_group, role)
         ready, status = _status_ready(record)
         roles[role] = {
+            "display_name": ROLE_DISPLAY_NAMES[role],
+            "command_target": ROLE_COMMAND_TARGETS[role],
             "ready": ready,
             "status": status,
             "detail": _safe_detail(record, ("session_name", "pane_id", "target", "evidence_ref")),
@@ -221,7 +235,7 @@ def _safe_source_paths(values: Iterable[Any]) -> list[str]:
         if not text:
             continue
         if LOCAL_PATH_RE.match(text):
-            raise ValueError("Postman CPR source_paths must be portable relative pointers")
+            raise ValueError("Engine Heartbeat CPR source_paths must be portable relative pointers")
         source_paths.append(text)
     return _non_empty_strings(source_paths, limit=16)
 
@@ -444,10 +458,11 @@ def build_postman_heartbeat_cpr_payload(
     receipt_registry: Mapping[str, Any] | None = None,
     created_at: str | None = None,
 ) -> dict[str, Any]:
-    """Build the Postman-owned CPR handoff for provider current-dialogue use.
+    """Build the Engine Heartbeat CPR handoff for provider current-dialogue use.
 
-    Postman owns the liveness, delivery, receipt, and inbox handoff surface. It
-    does not validate the semantic quality of OP1/OP2 memory content.
+    The Engine Heartbeat Coordinator owns liveness, delivery, Result Receipt,
+    and inbox handoff surfaces. It does not validate the semantic quality of
+    MS1/MF1 memory content.
     """
 
     generated_at = created_at or utc_now_iso()
@@ -474,9 +489,19 @@ def build_postman_heartbeat_cpr_payload(
         "heartbeat_cpr_status": status,
         "postman_role": dict(POSTMAN_ROLE),
         "provider_role": "current_dialogue_judgment_owner",
+        "display_roles": {
+            "provider": ROLE_DISPLAY_NAMES["provider"],
+            "ms1": ROLE_DISPLAY_NAMES["op1"],
+            "mf1": ROLE_DISPLAY_NAMES["op2"],
+            "delivery": POSTMAN_ROLE["display_name"],
+        },
+        "memory_worker_roles": {
+            "ms1": "structured_long_term_memory_saver",
+            "mf1": "evidence_backed_memory_finder",
+        },
         "operator_roles": {
             "op1": "structured_long_term_memory_supplier",
-            "op2": "evidence_backed_support_bundle_supplier",
+            "op2": "evidence_backed_evidence_pack_supplier",
         },
         "live_group": live_report,
         "engine_bootstrap": engine_report,
@@ -486,7 +511,7 @@ def build_postman_heartbeat_cpr_payload(
             "handoff_status": handoff_status,
             "packet_type": POSTMAN_CPR_PACKET_TYPE,
             "manual_prompt_injection_required": False,
-            "provider_action": "evaluate_current_dialogue_with_postman_supplied_evidence_metadata",
+            "provider_action": "evaluate_current_dialogue_with_engine_heartbeat_supplied_evidence_metadata",
             "completion_claim": "handoff_only",
         },
         "typed_unavailable": typed_unavailable,

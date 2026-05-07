@@ -37,7 +37,7 @@ def _live_group() -> dict[str, Any]:
 def _engine_status() -> dict[str, Any]:
     return {
         "tmux": {"status": "running", "evidence_ref": "tmux-ref://openyggdrasil/regression"},
-        "watcher": {"status": "healthy", "consumer": "postman"},
+        "watcher": {"status": "healthy", "consumer": "engine_heartbeat_coordinator"},
         "mailbox": {"status": "healthy", "namespace": "regression"},
         "receipt_registry": {"status": "ready", "receipt_id": "op2-regression-receipt"},
     }
@@ -64,7 +64,7 @@ def _ring_support_bundle() -> dict[str, Any]:
             "vault/communities/postman-cpr-regression.md",
         ],
         "support_facts": [
-            "Postman CPR regression preserves OP2 support metadata for Provider current-dialogue handoff."
+            "Engine Heartbeat CPR regression preserves MF1 evidence metadata for Provider current-dialogue handoff."
         ],
         "origin_claims": [{"claim_id": "claim:PRN-postman-cpr-regression"}],
         "recent_rings": [{"ring_id": "ring-postman-cpr-regression"}],
@@ -242,7 +242,7 @@ def run_postman_heartbeat_cpr_regression(
     workspace_root: Path | None = None,
     cleanup: bool = True,
 ) -> dict[str, Any]:
-    """Run an isolated end-to-end Postman CPR regression check.
+    """Run an isolated end-to-end Engine Heartbeat CPR regression check.
 
     The default path uses a temporary workspace, injects a Provider-bound CPR
     packet, reads it back, and removes the workspace before returning.
