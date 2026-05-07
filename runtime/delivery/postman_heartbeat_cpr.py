@@ -226,6 +226,20 @@ def _safe_source_paths(values: Iterable[Any]) -> list[str]:
     return _non_empty_strings(source_paths, limit=16)
 
 
+def _safe_portable_text(value: Any, *, max_length: int = 240) -> str:
+    text = _clean_string(value, max_length=max_length).replace("\\", "/")
+    if not text or LOCAL_PATH_RE.match(text):
+        return ""
+    return text
+
+
+def _safe_portable_strings(values: Iterable[Any], *, limit: int = 16) -> list[str]:
+    return _non_empty_strings(
+        (_safe_portable_text(value) for value in values),
+        limit=limit,
+    )
+
+
 def _typed_unavailable_from(source: Mapping[str, Any]) -> dict[str, Any] | None:
     value = source.get("typed_unavailable")
     if not isinstance(value, Mapping):
@@ -234,6 +248,54 @@ def _typed_unavailable_from(source: Mapping[str, Any]) -> dict[str, Any] | None:
     if payload.get("schema_version") == "typed_unavailable.v1":
         validate_typed_unavailable(payload)
     return payload
+
+
+def _safe_hard_nonclaims(value: Any) -> dict[str, bool]:
+    if not isinstance(value, Mapping):
+        return {}
+    allowed = (
+        "not_grammar_checker",
+        "not_kiwi_replacement",
+        "not_semantic_quality_proof",
+        "not_canonical_text_rewriter",
+        "not_es_hangul_code_copied",
+    )
+    return {key: bool(value.get(key)) for key in allowed if key in value}
+
+
+def _safe_korean_query_expansion(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    schema_version = _safe_portable_text(value.get("schema_version"))
+    if schema_version != "korean_query_expansion.v1":
+        return None
+    metadata = {
+        "schema_version": schema_version,
+        "original_query": _safe_portable_text(value.get("original_query")),
+        "expansion_status": _safe_portable_text(value.get("expansion_status")),
+        "expansion_tokens": _safe_portable_strings(value.get("expansion_tokens") or ()),
+        "expansions": _safe_portable_strings(value.get("expansions") or ()),
+        "used_as_secondary_signal": bool(value.get("used_as_secondary_signal")),
+        "primary_language_analyzer": _safe_portable_text(value.get("primary_language_analyzer")),
+        "hard_nonclaims": _safe_hard_nonclaims(value.get("hard_nonclaims")),
+    }
+    typed_unavailable = _typed_unavailable_from(value)
+    if typed_unavailable:
+        metadata["typed_unavailable"] = typed_unavailable
+    return metadata
+
+
+def _korean_query_expansion_from(receipt: Mapping[str, Any], support: Mapping[str, Any]) -> dict[str, Any] | None:
+    candidates: list[Any] = [support.get("korean_query_expansion")]
+    bundle = receipt.get("bundle")
+    if isinstance(bundle, Mapping):
+        candidates.append(bundle.get("korean_query_expansion"))
+    candidates.append(receipt.get("korean_query_expansion"))
+    for candidate in candidates:
+        metadata = _safe_korean_query_expansion(candidate)
+        if metadata:
+            return metadata
+    return None
 
 
 def _support_candidates(receipt: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -330,6 +392,9 @@ def _support_metadata(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, 
         "semantic_edges_count": len(support.get("semantic_edges") or []) if isinstance(support.get("semantic_edges"), list) else 0,
         "typed_unavailable": typed_unavailable,
     }
+    korean_query_expansion = _korean_query_expansion_from(receipt, support)
+    if korean_query_expansion:
+        metadata["korean_query_expansion"] = korean_query_expansion
     missing: list[str] = []
     if not receipt:
         missing.append("op2_receipt")

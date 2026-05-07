@@ -84,6 +84,25 @@ def _ring_support_bundle() -> dict:
     }
 
 
+def _korean_query_expansion() -> dict:
+    return {
+        "schema_version": "korean_query_expansion.v1",
+        "original_query": "ㅎㄱ",
+        "expansion_status": "ready",
+        "expansion_tokens": ["ko_cho:ㅎㄱ", "ko_qwerty:gksrmf"],
+        "expansions": ["ㅎㄱ", "한글"],
+        "used_as_secondary_signal": True,
+        "primary_language_analyzer": "kiwipiepy_or_existing_tokenizer",
+        "hard_nonclaims": {
+            "not_grammar_checker": True,
+            "not_kiwi_replacement": True,
+            "not_semantic_quality_proof": True,
+            "not_canonical_text_rewriter": True,
+            "not_es_hangul_code_copied": True,
+        },
+    }
+
+
 def test_postman_cpr_injects_operator_brief_into_provider_inbox(tmp_path: Path) -> None:
     bootstrap_skill_provider_session(
         workspace_root=tmp_path,
@@ -184,6 +203,45 @@ def test_postman_cpr_prefers_nested_completed_ring_support_bundle() -> None:
     assert metadata["typed_unavailable"] is None
     assert payload["hard_nonclaims"]["full_ux_passed"] is False
     assert payload["hard_nonclaims"]["graphify_full_topology_passed"] is False
+
+
+def test_postman_cpr_preserves_korean_query_expansion_metadata_without_overclaim() -> None:
+    ring_bundle = _ring_support_bundle()
+    ring_bundle["korean_query_expansion"] = _korean_query_expansion()
+    op2_receipt = {
+        "in_reply_to": "ask-worker2-korean",
+        "delivery_id": "postman-korean-delivery",
+        "receipt_id": "op2-korean-receipt",
+        "bundle": {
+            "contract": "support_bundle.v1",
+            "support_bundle": ring_bundle,
+        },
+    }
+
+    payload = build_postman_heartbeat_cpr_payload(
+        live_group=_live_group(),
+        engine_status=_engine_status(),
+        op2_receipt=op2_receipt,
+        created_at="2026-05-07T00:00:00+00:00",
+    )
+
+    metadata = payload["op2_support_metadata"]["korean_query_expansion"]
+    assert payload["heartbeat_cpr_status"] == "ready"
+    assert metadata["schema_version"] == "korean_query_expansion.v1"
+    assert metadata["original_query"] == "ㅎㄱ"
+    assert metadata["expansion_status"] == "ready"
+    assert metadata["expansion_tokens"] == ["ko_cho:ㅎㄱ", "ko_qwerty:gksrmf"]
+    assert metadata["expansions"] == ["ㅎㄱ", "한글"]
+    assert metadata["used_as_secondary_signal"] is True
+    assert metadata["primary_language_analyzer"] == "kiwipiepy_or_existing_tokenizer"
+    assert metadata["hard_nonclaims"]["not_grammar_checker"] is True
+    assert metadata["hard_nonclaims"]["not_kiwi_replacement"] is True
+    assert metadata["hard_nonclaims"]["not_semantic_quality_proof"] is True
+    assert metadata["hard_nonclaims"]["not_canonical_text_rewriter"] is True
+    assert metadata["hard_nonclaims"]["not_es_hangul_code_copied"] is True
+    assert "\\" not in str(metadata)
+    assert "D:/" not in str(metadata)
+    assert payload["hard_nonclaims"]["postman_semantic_quality_owner"] is False
 
 
 def test_postman_cpr_fails_closed_with_typed_unavailable_when_health_is_missing() -> None:
