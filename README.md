@@ -1,4 +1,4 @@
-<p align="center">
+﻿<p align="center">
   <h1 align="center">🌳 openyggdrasil</h1>
   <p align="center">
     <strong>A provider-neutral memory engine for AI coding agents</strong>
@@ -28,6 +28,24 @@ openyggdrasil is a local, provider-neutral memory layer for AI coding agents. It
 
 This top section is repo-native guidance for first contact. Do not assume the user already installed a local Hermes skill, a global `ygg` command, or any OpenYggdrasil runtime state.
 
+Canonical terminology used by this README:
+
+```text
+Provider Unit N = PRO N + MS N + MF N
+PRO N = Provider Lane N
+MS N  = Memory Saver N  = legacy OP(2N - 1)
+MF N  = Memory Finder N = legacy OP(2N)
+Delivery Monitor = internal Postman
+Status Brief = internal CPR/operator_brief
+Evidence Pack = internal support_bundle
+Result Receipt = internal receipt/query_receipt
+Save Request = internal MemoryTicket/save intent
+Find Request = internal recall query
+Checkpoint = internal gate/proof/POC
+```
+
+Legacy `OP`, `producer`, `consumer`, `operator`, `receipt`, `support_bundle`, and `Postman` names can still appear where the README references runtime schemas, file paths, code modules, or historical compatibility ids. They are not the primary user-facing role names.
+
 Use this when:
 - You are seeing this repository for the first time.
 - A user gives you only the repository URL or path.
@@ -36,8 +54,8 @@ Use this when:
 
 Do not use this when:
 - You are trying to claim production readiness, Full UX PASS, multi-provider parity, or completion metrics.
-- You are trying to infer live OP1/OP2 behavior from files, tests, receipts, or README prose alone.
-- You are about to create extra operators, background sessions, or global commands without explicit user approval.
+- You are trying to infer live MS1/MF1 behavior from files, tests, Result Receipts, or README prose alone.
+- You are about to create extra memory workers, background sessions, or global commands without explicit user approval.
 
 If ambiguous:
 - Treat a URL-only request as orientation, not a code review.
@@ -54,21 +72,21 @@ First install path:
 Typed unavailable when:
 - The repository has not been cloned or the working directory is unknown.
 - Required local prerequisites are missing and the user has not approved installation.
-- A requested live Provider/Operator claim cannot be observed in a user-visible live lane.
-- A requested source, receipt, or Vault node cannot be resolved to concrete evidence.
+- A requested live Provider Unit claim cannot be observed in a user-visible live lane.
+- A requested source, Result Receipt, or Vault node cannot be resolved to concrete evidence.
 
 Required evidence refs:
 - Static documentation claims need file paths and line references.
 - Runtime claims need command output or test results.
-- Provider/Operator workflow claims need mailbox/receipt/event-log evidence.
+- Provider Unit workflow claims need mailbox/Result Receipt/event-log evidence.
 - Live UX claims need user-observable tmux/live-lane evidence in addition to machine-readable evidence.
 
 Hard nonclaims:
 - This repository is not declared production-ready here.
 - The top README is not a PASS certificate.
-- A completion table, plan, test count, or receipt does not by itself prove Full UX PASS.
+- A completion table, plan, test count, or Result Receipt does not by itself prove Full UX PASS.
 - Hermes-specific evidence does not automatically prove provider-neutral behavior.
-- `ygg`, OP1, OP2, attach, and talk commands must not be assumed to exist before setup verifies them.
+- `ygg`, MS1/MF1 (legacy OP1/OP2), attach, and talk commands must not be assumed to exist before setup verifies them.
 
 <a id="why"></a>
 
@@ -89,7 +107,7 @@ There's no accumulation, no lifecycle, no cross-provider sharing.
 
 > **The Fundamental Difference — When You Pay the Cognitive Cost:**
 > - **RAG (Read-time):** Raw text → chunk → embed → Vector DB. Similarity search **at query time**. Retrieval quality is bounded by **ingestion quality**. If what you stored is unstructured, no embedding model can make the search results structured.
-> - **openyggdrasil (Write-time):** Provider delegates (save intent) → Operator Session processes **at production time**: Distill → Evaluate → Classify → Plant into structured Vault. Search operates on **pre-structured knowledge**.
+> - **openyggdrasil (Write-time):** Provider Lane delegates a Save Request → Memory Saver processes it at write time: extract → evaluate → place → save into structured Vault. Search operates on **pre-structured knowledge**.
 >
 > In Karpathy's analogy: RAG greps raw source code every time. openyggdrasil runs a **pre-compiled binary**.
 
@@ -127,9 +145,9 @@ Inspired by Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6b
 |---|---|---|
 | Shallow provider signal | `runtime/capture/session_structure_signal.py::build_session_structure_signal` | Carries `provider_id`, `provider_session_id`, `turn_range`, `surface_reason`, and `source_ref`; it does not carry the whole raw transcript. |
 | Mailbox write request | `runtime/operator/producer.py::run_producer` | Reads `save`, `memory_ticket`, `prune`, `curate`, `sandbox-exec`, and `promote` intents from `mailbox/intents.jsonl` or legacy `messages.jsonl`. |
-| Mailbox retrieval request | `runtime/operator/consumer.py::run_consumer` | Reads `query_text` from `mailbox/queries.jsonl` and builds support bundles from the Vault. |
+| Mailbox retrieval request | `runtime/operator/consumer.py::run_consumer` | Reads `query_text` from `mailbox/queries.jsonl` and builds Evidence Packs from the Vault. |
 
-The normal write path uses `payload.context_snapshot` as its source material. That text is split by `extract_decisions()` into candidate decision/policy/fact/architecture sentences, converted by `build_spo_triples()` into `Subject / Predicate / Object` triples, wrapped by `build_vault_node()` as an `N-<content_hash>` node, passed through the Admission Gate, and finally written by `save_to_vault()` as Markdown.
+The normal write path uses `payload.context_snapshot` as its source material. That text is split by `extract_decisions()` into candidate decision/policy/fact/architecture sentences, converted by `build_spo_triples()` into `Subject / Predicate / Object` triples, wrapped by `build_vault_node()` as an `N-<content_hash>` node, passed through the Admission Checkpoint, and finally written by `save_to_vault()` as Markdown.
 
 ```text
 Mailbox intent
@@ -137,8 +155,8 @@ Mailbox intent
   -> decision candidates
   -> S-P-O triples
   -> Vault node dict
-  -> admission gate
-  -> Markdown file + receipt
+  -> admission checkpoint
+  -> Markdown file + Result Receipt
 ```
 
 ### 2. Domain Separation = Defining Continents (Continents & Terrain)
@@ -150,7 +168,7 @@ In openyggdrasil, a category is not just a folder; it is the **knowledge domain 
 | `vault/entities/N-*.md` | Products, tools, companies, frameworks, named entities | `_classify_continent()` routes here when it sees entity markers. |
 | `vault/comparisons/N-*.md` | Comparisons, contrasts, tradeoffs | Comparison markers route here. |
 | `vault/queries/*.md` | Canonical topic / provenance ring pages | Created by the `memory_ticket` path. |
-| `vault/_meta/provenance/*.md` | Episode/claim/ring provenance records | Source records for ring support bundles. |
+| `vault/_meta/provenance/*.md` | Episode/claim/ring provenance records | Source records for ring Evidence Packs. |
 | `vault/communities/*.md` | Community placement hints | Auxiliary grouping for community id and related rings/topics. |
 
 In naming terms, Amundsen owns continent boundaries, Map Maker owns topic/community/edge coordinates, and Gardener owns physical planting and lifecycle hygiene. In the current public runtime, these are not all fully independent LLM-module PASS surfaces; they are implemented as a mix of deterministic, stub, and POC paths across `primitives.py`, `producer.py`, `cultivation/*`, and `placement/*`.
@@ -246,7 +264,7 @@ runtime/retrieval/graphify_snapshot_adapter.py
   -> wraps graphify-out as a non_sot snapshot
 
 runtime/retrieval/graph_query_support_bundle.py
-  -> turns graph hints into support-bundle candidates and requires SOT/provenance verification
+  -> turns graph hints into Evidence Pack candidates and requires SOT/provenance verification
 ```
 
 Graphify outputs such as `graph.json`, `summary.json`, `GRAPH_REPORT.md`, and `graph.html` are navigation artifacts. They do not write the Vault, and providers must not answer from Graphify alone. If Graphify is unavailable, retrieval quality may degrade, but core capture, lifecycle, and mailbox delivery must continue.
@@ -312,11 +330,11 @@ sources: [source refs or public paths]
 
 ## System Requirements & Setup
 
-openyggdrasil is designed to operate as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). The target operating model does not require an always-on system-level server or separate server management. It may create session-scoped background workers/watchers around the active Provider Session; those workers must be lifecycle-bound and cleanup-verifiable. This is not a production-ready guarantee yet.
+openyggdrasil is designed to operate as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). The target operating model does not require an always-on system-level server or separate server management. It may create session-scoped MS/MF workers/watchers around the active Provider Lane; those workers must be lifecycle-bound and cleanup-verifiable. This is not a production-ready guarantee yet.
 
 > **⚠️ Reasoning Lease Model (Asynchronous Multiplexing):**
 > openyggdrasil does not have its own API keys, and it must not extract provider credentials.
-> In the target non-blocking path, the Operator may run behind the user chat only through an explicit, user-authorized provider-session task contract. A provider adapter may satisfy that contract through scoped delegation or asynchronous task-contract multiplexing, but the common boundary must remain provider-neutral. This boundary is not a production-ready claim.
+> In the target non-blocking path, a Memory Saver/Finder worker may run behind the user chat only through an explicit, user-authorized Provider Unit task contract. A provider adapter may satisfy that contract through scoped delegation or asynchronous task-contract multiplexing, but the common boundary must remain provider-neutral. This boundary is not a production-ready claim.
 
 ### 1. How Providers Recognize openyggdrasil
 
@@ -328,22 +346,22 @@ Provider-first cold-start rule:
 
 - The user first opens a normal provider session through that provider's native UX.
 - The provider then receives the openyggdrasil repository path, URL, or skill reference and reads `SKILL.md`.
-- A first-install environment must not assume a global `ygg` command or attach commands such as `ygg pro1`, `ygg op1`, or `ygg op2` already exist.
+- A first-install environment must not assume a global `ygg` command or attach commands such as `ygg pro1`, `ygg ms1`, or `ygg mf1` already exist.
 - If a `ygg-*` attach wrapper, legacy `oy-*` wrapper, or preinstalled `ygg` command is already globally visible before bootstrap, treat it as local/dev residue unless it is validated against a session-group health record.
 - Repository-local tooling, if present, is a bootstrap asset discovered after the provider recognizes the repository. It is not evidence that a provider session is already attached.
-- `ygg pro1` is not a universal first entrypoint and not a provider identity. It is an optional local Provider attach/witness command after openyggdrasil has been recognized. Its internal tmux session name may be `ygg-pro1`.
+- `ygg pro1` is not a universal first entrypoint and not a provider identity. It is an optional local Provider Lane attach/witness command after openyggdrasil has been recognized. Its internal tmux session name may be `ygg-pro1`.
 
 Active session health is group-based, not lane-based:
 
 ```text
 User command   Internal tmux   Runtime evidence
 ygg pro1       ygg-pro1            provider_lane.v1
-ygg op1        ygg-op1          OP1 registry/mailbox/live watcher
-ygg op2        ygg-op2          OP2 registry/mailbox/live watcher
-Canonical evidence            mailbox / receipts / event logs / attachment artifacts
+ygg ms1        ygg-op1          MS1 Memory Saver registry/mailbox/live watcher (legacy OP1)
+ygg mf1        ygg-op2          MF1 Memory Finder registry/mailbox/live watcher (legacy OP2)
+Canonical evidence            mailbox / Result Receipts / event logs / attachment artifacts
 ```
 
-If any side of that group is stale, the whole group is degraded. Implementations must not create fallback lanes such as `oy-2`, `oy-3`, or extra OP pairs as an automatic response to uncertainty. A new Provider/Operator pair must be explicitly created and rebound.
+If any side of that group is stale, the whole group is degraded. Implementations must not create fallback lanes such as `oy-2`, `oy-3`, or extra MS/MF pairs as an automatic response to uncertainty. A new Provider Unit MS/MF pair must be explicitly created and rebound.
 
 ### 2. System Requirements & Dependency Installation
 
@@ -380,13 +398,13 @@ openyggdrasil runs purely locally. The core runtime relies mostly on the Python 
 
 ### 3. Session-Scoped Cold Start
 
-Once dependencies are approved and installed, the provider can execute the skill entrypoints defined in `SKILL.md`. The openyggdrasil runtime **cold-starts per Provider Session**. There are no system-level background daemons, but Operator Sessions bound to a Provider Session may persist via Mailbox polling for the session's lifetime. They exit cleanly on timeout or Provider Session termination.
+Once dependencies are approved and installed, the provider can execute the skill entrypoints defined in `SKILL.md`. The openyggdrasil runtime **cold-starts per Provider Session**. There are no system-level background daemons, but Memory Saver/Finder sessions bound to a Provider Lane may persist via Mailbox polling for the session's lifetime. They exit cleanly on timeout or Provider Session termination.
 
 A clean cold start means:
 
 - no pre-attached Provider lane is assumed;
 - no global `ygg-*` attach wrapper or legacy `oy-*` command is required;
-- no previous OP registry pair is trusted without health evidence;
+- no previous MS/MF registry pair is trusted without health evidence;
 - no previous Vault proof artifact is treated as current runtime state;
 - the provider must discover and validate the workspace before advertising an attach/witness lane.
 
@@ -394,13 +412,14 @@ A clean cold start means:
 
 openyggdrasil uses a **satellite model**, not a server model.
 
-The active Provider Session is the center. The Producer, Consumer, mailbox, watcher, and optional TMUX panes are satellites that orbit that session. They exist to support the active Provider Session and must not become independent always-on services.
+The active Provider Session is the center. The Memory Saver, Memory Finder, mailbox, watcher, and optional TMUX panes are satellites that orbit that session. They exist to support the active Provider Session and must not become independent always-on services.
 
 ```text
-Provider Session
-  ├─ OP1 Producer satellite       session-scoped background worker
-  ├─ OP2 Consumer satellite       session-scoped background worker
-  ├─ Mailbox satellite            local file queue / receipt ledger
+Provider Unit
+  ├─ PRO Provider Lane            active user-facing provider session
+  ├─ MS1 Memory Saver satellite   session-scoped background save worker (legacy OP1)
+  ├─ MF1 Memory Finder satellite  session-scoped background find worker (legacy OP2)
+  ├─ Mailbox satellite            local file queue / Result Receipt ledger
   ├─ Watcher satellite            local polling process for that mailbox
   └─ TMUX witness satellite       optional human visual surface
 ```
@@ -409,68 +428,68 @@ What each satellite is:
 
 | Satellite | What it is | What it is not |
 |---|---|---|
-| Mailbox | Local file-based queue and receipt ledger | Server, socket API, public service |
+| Mailbox | Local file-based queue and Result Receipt ledger | Server, socket API, public service |
 | Watcher | Session-scoped local polling worker | Always-on daemon, global server |
-| OP1 Producer | Background write/production worker bound to a Provider Session | Standalone memory server |
-| OP2 Consumer | Background read/support worker bound to a Provider Session | Standalone search server |
-| TMUX witness | Optional human inspection surface | SOT, execution gate, canonical input lane |
+| MS1 Memory Saver | Background save worker bound to a Provider Unit (legacy OP1) | Standalone memory server |
+| MF1 Memory Finder | Background find worker bound to a Provider Unit (legacy OP2) | Standalone search server |
+| TMUX witness | Optional human inspection surface | SOT, execution Checkpoint, canonical input lane |
 
 Satellite lifecycle rules:
 
 - satellites must be created only after the provider has recognized the workspace;
-- satellites must be attached to one active Provider/Operator session group;
+- satellites must be attached to one active Provider Unit session group;
 - stale satellites degrade the whole group;
 - cleanup must be explicit and backup-first;
-- uncertainty must not create fallback satellites such as `oy-2`, `oy-3`, or extra OP pairs;
-- canonical evidence remains mailbox receipts, event logs, schema traces, and attachment artifacts.
+- uncertainty must not create fallback satellites such as `oy-2`, `oy-3`, or extra MS/MF pairs;
+- canonical evidence remains mailbox Result Receipts, event logs, schema traces, and attachment artifacts.
 
 ```mermaid
 flowchart LR
-  P["Active Provider Session<br/>(center)"]
-  OP1["OP1 Producer<br/>satellite worker"]
-  OP2["OP2 Consumer<br/>satellite worker"]
-  MB["Mailbox<br/>local file queue + receipts"]
+  P["Active Provider Lane<br/>(PRO)"]
+  MS1["MS1 Memory Saver<br/>legacy OP1"]
+  MF1["MF1 Memory Finder<br/>legacy OP2"]
+  MB["Mailbox<br/>local file queue + Result Receipts"]
   W["Watcher<br/>session-scoped polling"]
   T["TMUX Witness<br/>optional visual satellite"]
-  V["Vault / Support Bundle"]
-  E["Canonical evidence<br/>receipts / logs / schemas"]
+  V["Vault / Evidence Pack"]
+  E["Canonical evidence<br/>Result Receipts / logs / schemas"]
 
   P --> MB
-  MB --> OP1 --> V
-  MB --> OP2 --> V
+  MB --> MS1 --> V
+  MB --> MF1 --> V
   W -. "polls active mailbox" .-> MB
   T -. "observes only" .-> W
   MB --> E
-  OP1 --> E
-  OP2 --> E
+  MS1 --> E
+  MF1 --> E
 ```
 
 Hard nonclaim: "no server" means no always-on system-level openyggdrasil service is required. It does **not** mean there are never background processes. Session-scoped satellite workers may exist, but they must be lifecycle-bound, healthchecked, and cleanup-verifiable.
 
 ### 5. TMUX Live Witness Policy
 
-TMUX is an optional **live witness surface** for humans. It exists so a user can visually inspect the decision flow across Provider Sessions and Operator Sessions while a live verification run is in progress.
+TMUX is an optional **live witness surface** for humans. It exists so a user can visually inspect the decision flow across Provider Lanes and Memory Saver/Finder sessions while a live verification run is in progress.
 
 TMUX is **not** the core execution path. The default operating mode remains background-first:
 
-- Provider and Operator Sessions run through the Mailbox, receipts, event logs, and provider-owned background tasks.
-- Producer/Consumer work must continue even when no TMUX pane is attached.
-- TMUX panes may tail the same logs, inboxes, receipts, or status snapshots that the background runtime already produces.
+- Provider Lane and Memory Saver/Finder sessions run through the Mailbox, Result Receipts, event logs, and provider-owned background tasks.
+- Memory Saver/Finder work must continue even when no TMUX pane is attached.
+- TMUX panes may tail the same logs, inboxes, Result Receipts, or status snapshots that the background runtime already produces.
 - Closing or failing a TMUX pane is an observability loss, not a memory-engine failure.
-- A TMUX capture may be used as human-readable evidence, but it must not replace machine-readable receipts, schema-valid traces, or test results.
+- A TMUX capture may be used as human-readable evidence, but it must not replace machine-readable Result Receipts, schema-valid traces, or test results.
 
 ```mermaid
 flowchart LR
   U["User"]
   P["Provider Session"]
-  M["Mailbox / Event Log / Receipt"]
-  O["Operator Session"]
-  V["Vault / Support Bundle"]
+  M["Mailbox / Event Log / Result Receipt"]
+  O["MS/MF Session"]
+  V["Vault / Evidence Pack"]
   T["TMUX Live Witness<br/>(visual only)"]
   G["Session Attach Gateway<br/>(target: ygg attach/tmux, NOT PASS)"]
-  L["Operator Talk Lane<br/>(target: ygg talk OP1/OP2, NOT PASS)"]
-  E["typed operator_user_input event"]
-  R["Machine-readable evidence<br/>receipts / schema traces / tests"]
+  L["Memory Lane Talk<br/>(target: ygg talk MS1/MF1, NOT PASS)"]
+  E["typed memory_lane_user_input event"]
+  R["Machine-readable evidence<br/>Result Receipts / schema traces / tests"]
 
   P --> M --> O --> V
   U --> G --> T
@@ -478,18 +497,18 @@ flowchart LR
   T -. "tail / observe only" .-> O
   U --> L --> E --> M
   M --> R
-  T -. "not SOT / not execution gate" .-> R
+  T -. "not SOT / not execution Checkpoint" .-> R
 ```
 
 TMUX affordance contract:
 
 ```text
-Use this when: a human needs to visually follow Provider/Operator flow during live verification.
+Use this when: a human needs to visually follow Provider Unit flow during live verification.
 Do not use this when: you need canonical proof that background work, memory write, or retrieval succeeded.
-If ambiguous: inspect receipts, event logs, and schema traces first; treat TMUX as an auxiliary screen.
-Typed unavailable when: tmux is missing or pane attach fails while background receipts are still healthy -> `tmux_visual_witness_unavailable`.
-Required evidence refs: Mailbox receipt, event log, schema-valid trace, test result.
-Hard nonclaims: TMUX is not SOT, and raw stdin/tmux injection is not the canonical Operator Talk input.
+If ambiguous: inspect Result Receipts, event logs, and schema traces first; treat TMUX as an auxiliary screen.
+Typed unavailable when: tmux is missing or pane attach fails while background Result Receipts are still healthy -> `tmux_visual_witness_unavailable`.
+Required evidence refs: Mailbox Result Receipt, event log, schema-valid trace, test result.
+Hard nonclaims: TMUX is not SOT, and raw stdin/tmux injection is not the canonical Memory Lane Talk input.
 ```
 
 Current manual TMUX witness setup:
@@ -502,9 +521,10 @@ tmux -V
 sudo apt-get update
 sudo apt-get install -y tmux
 
-# Point tmux at the openyggdrasil project and one operator mailbox
+# Point tmux at the openyggdrasil project and one Memory Saver mailbox
 PROJECT=/mnt/d/0_PROJECT/openyggdrasil
-OP=OP1
+LANE=MS1
+OP=OP1  # internal legacy mailbox id for MS1
 SESSION=openyggdrasil-witness
 MAILBOX="$HOME/.yggdrasil/sessions/$OP"
 VAULT="$PROJECT/vault"
@@ -516,7 +536,7 @@ mkdir -p "$MAILBOX" "$VAULT"
 tmux new-session -d -s "$SESSION" -c "$PROJECT"
 tmux rename-window -t "$SESSION:0" witness
 
-# Pane 0: observe mailbox receipts/status
+# Pane 0: observe mailbox Result Receipts/status
 tmux send-keys -t "$SESSION:0.0" \
   "watch -n 1 'printf \"mailbox: $MAILBOX\\n\\n\"; ls -lah \"$MAILBOX\"; printf \"\\nreceipts\\n\"; tail -n 20 \"$MAILBOX\"/receipts.jsonl 2>/dev/null; printf \"\\nquery_receipts\\n\"; tail -n 20 \"$MAILBOX\"/query_receipts.jsonl 2>/dev/null'" C-m
 
@@ -550,14 +570,14 @@ not first-install requirements:
 
 ```text
 ygg pro1    # target/dev Provider attach/witness command; internal tmux: ygg-pro1
-ygg op1     # target/dev Producer OP1 attach/witness command; internal tmux: ygg-op1
-ygg op2     # target/dev Consumer OP2 attach/witness command; internal tmux: ygg-op2
+ygg ms1     # target/dev Memory Saver MS1 attach/witness command; internal tmux: ygg-op1
+ygg mf1     # target/dev Memory Finder MF1 attach/witness command; internal tmux: ygg-op2
 ygg doctor  # target/dev session-group healthcheck; production lifecycle proof is NOT PASS
 ygg status  # target/dev status surface
-ygg talk OP1 # target, NOT PASS; must become a typed event, not raw tmux/stdin input
+ygg talk MS1 # target, NOT PASS; must become a typed event, not raw tmux/stdin input
 ```
 
-Note: the manual tmux commands above only launch observer panes. Sending user judgment requests or Operator Talk payloads through `tmux send-keys` is not canonical input and cannot be marked PASS evidence.
+Note: the manual tmux commands above only launch observer panes. Sending user judgment requests or Memory Lane Talk payloads through `tmux send-keys` is not canonical input and cannot be marked PASS evidence.
 
 Status terms must stay precise:
 
@@ -566,7 +586,7 @@ Status terms must stay precise:
 | `background_task_passed` | The provider/operator work completed through the normal background path. |
 | `tmux_visual_witness_available` | A human can inspect the live flow in TMUX. |
 | `tmux_visual_witness_unavailable` | The visual witness is unavailable; the background path may still be healthy. |
-| `foreground_equivalent` | The system was verified through background logs/receipts, not a true live foreground surface. |
+| `foreground_equivalent` | The system was verified through background logs/Result Receipts, not a true live foreground surface. |
 | `live_foreground_claimed` | Allowed only when an actual foreground/live provider surface was verified. |
 
 Provider adapters may implement TMUX dashboards differently, but they must not make TMUX a hard dependency of the provider-neutral runtime.
@@ -673,26 +693,26 @@ If a relationship suggested by Graphify cannot be verified in the Vault, it must
 
 ## System Architecture
 
-### Two-Sided Engine + CQRS Operator Session Loop (9th North Star)
+### Provider Unit Memory Loop
 
 Building on this philosophy, openyggdrasil treats memory as a **two-sided engine** — a **Production Side** that captures and curates knowledge, and a **Consumption Side** that retrieves and delivers it.
 
-From the 9th North Star, background execution subjects are named **Operator Sessions**. The term "Session" emphasizes that each subject has a clear start/end lifecycle and a 1:1 pairing relationship with a Provider Session.
-The Operator Session runs in **physically separated independent background processes** following the **CQRS (Command Query Responsibility Segregation)** principle, communicating with the Provider Agent only through the **Mailbox**.
+From the 9th North Star, background execution subjects are named **Memory Worker Sessions**. The term "Session" emphasizes that each subject has a clear start/end lifecycle and a 1:1 pairing relationship with a Provider Lane.
+The Memory Worker Session runs in **physically separated independent background processes** following the **CQRS (Command Query Responsibility Segregation)** principle, communicating with the Provider Lane only through the **Mailbox**.
 ```
-  Provider (e.g., Hermes)
+  Provider Lane (e.g., Hermes)
   Detects decisions during user conversation
        │
-       │  Emits save-intent / query-intent
+       │  Emits Save Request / Find Request
        ▼
   ┌─────────────────────────────────────────────────────────┐
   │                    MAILBOX (JSONL)                       │
   │  (Sole communication channel between sessions)          │
   └────────────────┬───────────────────┬────────────────────┘
-                   │  save-intent      │  query-intent
+                   │  Save Request      │  Find Request
                    ▼                   ▼
   ┌───────────────────────────┐  ┌───────────────────────────┐
-  │  Producer Operator Session│  │  Consumer Operator Session│
+  │  Memory Saver Session│  │  Memory Finder Session│
   │  (Independent background) │  │  (Independent background) │
   │                           │  │                           │
   │  SKILL composes PTC       │  │  SKILL composes PTC       │
@@ -702,12 +722,12 @@ The Operator Session runs in **physically separated independent background proce
               │                              │
               ▼                              ▼
   ┌───────────────────────────┐  ┌───────────────────────────┐
-  │     VAULT (SOT)           │  │  Receipt → Mailbox        │
-  │  Produced nodes stored    │  │  → Provider receives      │
+  │     VAULT (SOT)           │  │  Result Result Result Receipt → Mailbox        │
+  │  Saved nodes stored    │  │  → Provider Lane receives      │
   └───────────────────────────┘  └───────────────────────────┘
 ```
 
-**Key constraint:** Operator Sessions (Producer/Consumer) run in physically separate context windows (PIDs) from the Provider Session, with no shared memory.
+**Key constraint:** Memory Worker Sessions (Memory Saver/Finder; legacy Producer/Consumer) run in physically separate context windows (PIDs) from the Provider Session, with no shared memory.
 The Mailbox (JSONL filesystem) is the only communication channel. Existing Mock/Mailbox POC evidence is bounded proof; it does not prove all-provider same UX or production readiness.
 
 #### Session Definitions
@@ -715,27 +735,27 @@ The Mailbox (JSONL filesystem) is the only communication channel. Existing Mock/
 | Term | Definition | Physical Boundary |
 |---|---|---|
 | **Provider Session** | The PID of a provider's conversation window | User runs 3 Hermes instances → 3 independent Provider Sessions |
-| **Operator Session** | A background independent process spawned by the provider | Producer and Consumer are each separate Operator Sessions (CQRS) |
+| **Memory Worker Session** | A background independent process spawned by the Provider Lane | Memory Saver and Memory Finder are each separate worker sessions (legacy CQRS operator sessions) |
 
-**Scaling Model:** When N providers each summon operators, up to **N×2** Operator Sessions exist simultaneously.
+**Scaling Model:** When N providers each summon operators, up to **N×2** Memory Worker Sessions exist simultaneously.
 
 **Start Type Distinction:**
 
 | Type | Meaning | When |
 |---|---|---|
 | **Cold Start (Setup)** | One-time. SKILL.md recognition, dependency installation, Vault initialization | After repo clone |
-| **Session Start (Initial Summon)** | Provider worker summons operator for the first time today via SKILL | Provider session start |
+| **Session Start (Initial Summon)** | Provider worker summons an MS/MF worker for the first time today via SKILL | Provider session start |
 
 **SKILL.md vs Mailbox Role Separation:**
 
 | | SKILL.md | Mailbox |
 |---|---|---|
 | Nature | **Static** reminder | **Dynamic** state awareness channel |
-| Role | Announces the operator's existence | Conveys the operator's current state |
+| Role | Announces the memory worker's existence | Conveys the operator's current state |
 | Limitation | Cannot tell current state | — |
 
 SKILL alone cannot tell a provider "Is my operator alive? What has it processed?"
-The **only channel** for a provider to be aware of its loosely-coupled operator's state is the Mailbox.
+The **only channel** for a provider to be aware of its loosely-coupled memory worker's state is the Mailbox.
 **Therefore, Mailbox Hygiene determines overall system health.**
 ### Production Side — "What to remember"
 
@@ -747,14 +767,14 @@ through lifecycle transitions.
 ### Consumption Side — "What to deliver"
 
 The consumption pipeline doesn't dump the entire vault. **Pathfinder** builds
-explainable, lifecycle-aware, and **Provenance-tracked Bounded Support Bundles**.
+explainable, lifecycle-aware, and **Provenance-tracked Bounded Evidence Packs**.
 
 Rather than just raw text summaries, these bundles (governed by the `support_bundle.v1.schema.json` contract) structurally embed a **3-tier provenance tracking mechanism** that lets the agent trace back toward the original context:
 1. **Breadcrumbs (`source_paths`)**: The array of URI paths to the original files where the knowledge was extracted.
 2. **Topology IDs (`episode_ids`, `claim_ids`)**: The contextual topological coordinates within Vault/Graphify where this knowledge was generated.
 3. **Evidence Refs (`safe_ref`)**: Safe pointers to supporting logs or terminal execution evidence when available, allowing the agent to inspect the less-compressed source context if needed.
 
-Consequently, the agent receives both the distilled summary and bounded evidence addresses for origin inspection, securely delivered via the typed **Mailbox** contract by **Postman**.
+Consequently, the agent receives both the distilled summary and bounded evidence addresses for origin inspection, securely delivered via the typed **Mailbox** contract by **Delivery Monitor** (internal Postman).
 
 
 ## PTC (Programmatic Tool Calling) Concept & Architecture
@@ -798,13 +818,13 @@ The standard PTC paradigm allows the agent to freely write Python code within a 
   ┌──────────────────────────────────────────────────────────────┐
   │               openyggdrasil (PTC Palette)                    │
   │                                                              │
-  │  1. Provider: ygg generates LLM code templates for OP1/OP2   │
+  │  1. Provider: ygg generates LLM code templates for MS1/MF1 (legacy OP1/OP2)   │
   │  2. Stub Generator: injects IPC preamble + 26 tool functions │
   │  3. Sandbox Executor: runs Python script in bwrap sandbox    │
   │  4. IPC Server: calls host primitives via Unix Domain Socket │
   │  5. Tool composition: template combines only allowed          │
   │     production/consumption tools for the current role         │
-  │  6. Result: output returned from sandbox, recorded as receipt │
+  │  6. Result: output returned from sandbox, recorded as Result Receipt │
   └──────────────────────────────┬───────────────────────────────┘
                                  │ Transport: Unix Domain Socket
                                  ▼
@@ -829,7 +849,7 @@ The current implementation injects a mixed 26-tool surface from `_preamble.py` a
 
 | Kitchen | Default job | Default allowed tools | Explicitly forbidden |
 |---|---|---|---|
-| Production Kitchen | Validate a new memory candidate and plant it into the Vault | `extract_spo`, `validate_node`, `find_similar`, `check_conflicts`, `suggest_placement`, `get_category_tree`, `save_note`, `create_edge`, `prune_node`, `result` | Acting like a consumption support-bundle surface; using raw stdout as provider-facing output |
+| Production Kitchen | Validate a new memory candidate and plant it into the Vault | `extract_spo`, `validate_node`, `find_similar`, `check_conflicts`, `suggest_placement`, `get_category_tree`, `save_note`, `create_edge`, `prune_node`, `result` | Acting like a consumption Evidence Pack surface; using raw stdout as provider-facing output |
 | Consumption Kitchen | Search the existing Vault and return bounded evidence | `search_vault`, `deep_search`, `rank_by_relevance`, `locate_region`, `select_topic_anchor`, `read_origin_claims`, `read_recent_claims`, `collect_claim_ids`, `read_source_paths`, `assemble_support_bundle`, `assemble_unanchored_bundle`, `trace_evolution`, `get_community`, `get_node`, `get_edges`, `result` | Vault mutation such as `save_note`, `create_edge`, or `prune_node` |
 | Common / Debug | Final result return and bounded inspection | `result`; `get_all_nodes` is limited to debug/admin surfaces | Pushing large raw Vault dumps into provider context |
 
@@ -840,14 +860,14 @@ The high-risk handles should read like this:
 | `save_note` | Allowed | Forbidden | Not yet enforced by a runtime allowlist |
 | `create_edge` | Allowed | Forbidden | Not yet enforced by a runtime allowlist |
 | `prune_node` | Allowed | Forbidden | Not yet enforced by a runtime allowlist |
-| `assemble_support_bundle` | Usually forbidden | Allowed | Must become a consumption output surface |
+| `assemble_support_bundle` | Usually forbidden | Allowed | Internal tool that must produce a Provider-facing Evidence Pack |
 | `search_vault` / `deep_search` | Bounded preflight only | Allowed | Needs role-specific affordance text and schema gates |
 | `result` | Allowed | Allowed | Must be wrapped in typed egress; raw stdout is debug-only |
 
 PTC Kitchen affordance contract:
 
 ```text
-Use this when: an Operator Session must compose multiple Vault tools inside a sandbox while keeping role responsibilities separate.
+Use this when: a Memory Worker Session must compose multiple Vault tools inside a sandbox while keeping role responsibilities separate.
 Do not use this when: all tools are mixed into one LLM surface that can freely cross mutation/read boundaries.
 If ambiguous: writing memory or changing lifecycle goes to Production Kitchen; finding support for the user goes to Consumption Kitchen.
 Typed unavailable when: role allowlist, typed egress, or sandbox fail-closed is not enforced by runtime.
@@ -859,7 +879,7 @@ openyggdrasil's PTC model has moved from the legacy **Typed PTC Engine** (JSON E
 
 1. **Tool Palette:** 8 tools → 26 across 6 groups (SEARCH, PROVENANCE, PRODUCTION, GRAPH, CHAIN, CORE). Each tool includes affordance-based descriptions (`Use this when` / `Do NOT use when`) in the preamble.
 2. **IPC Callback Loop:** Python code running inside a bwrap sandbox calls host primitives via a Unix Domain Socket. production sandbox fail-closed and typed egress are still separate gates.
-3. **Dual Path:** Producer/Consumer supports both a fixed chain (extract_decisions→build_vault_node→save_to_vault) and a PTC chain (`ygg tell --ptc op1`). Dual path support itself is not a production-ready claim.
+3. **Dual Path:** Memory Saver/Finder supports both a fixed chain (extract_decisions→build_vault_node→save_to_vault) and a PTC chain (`ygg tell --ptc ms1`). Dual path support itself is not a production-ready claim.
 4. **LLM Free Composition (current state):** The 26-tool surface exists, but the current PTC production path is still close to the `extract_spo → suggest_placement → save_note` template. Safe role-scoped free composition inside kitchens is a P1 gate.
 5. **P1 realignment required:** production(write/mutate) kitchen and consumption(read/search/support) kitchen must be split. Consumption surfaces must not expose `save_note`, `create_edge`, or `prune_node` as default handles.
 
@@ -871,7 +891,7 @@ The primary reason openyggdrasil abandoned heavy external infrastructure in favo
 
 - **Context Exclusion of Intermediate Data:** When the agent calls utility tools like `scan_topology` or `filter_lifecycle`, massive amounts of intermediate data (e.g., scanning 20 Vault documents) should remain outside the agent's context window. The data is processed, filtered, and aggregated within Python memory before a typed result is returned.
 - **Elimination of Model Round-Trip Overhead:** Querying 10 knowledge nodes as independent tools consumes massive tokens because it invokes the LLM individually for each query. By using PTC to read 10 documents within a single code execution block and returning only a summarized conclusion, token usage is reduced by approximately **10x or more**.
-- **Returning Only the Final Summary:** The agent is shielded from the vast noise of the search process. It only receives the final, highly refined `bounded support bundle`.
+- **Returning Only the Final Summary:** The agent is shielded from the vast noise of the search process. It only receives the final, highly refined bounded Evidence Pack.
 
 
 ## Execution Model
@@ -883,7 +903,7 @@ it reads **`SKILL.md`** at the root and executes the entrypoints defined
 there only inside the user's active, authorized provider session.
 
 ```
-  Provider Agent
+  Provider Lane
        │
        │  Enters repo → discovers SKILL.md
        │
@@ -909,7 +929,7 @@ Two capabilities may be used through the active provider session:
 | **Execution context** | The agent's shell/tool-calling ability to run Python scripts |
 | **Reasoning capacity** | The provider session's model reasoning capability, used only through explicit task contracts and runtime guardrails |
 
-**The Operator Session is the intended pipeline execution subject.** Some utility paths run deterministically in pure Python, while decision-heavy guardrails require an explicit reasoning-lease boundary. This does not mean the full PTC kitchen is production-ready.
+**The Memory Worker Session is the intended pipeline execution subject.** Some utility paths run deterministically in pure Python, while decision-heavy guardrails require an explicit reasoning-lease boundary. This does not mean the full PTC kitchen is production-ready.
 
 Independent API key configuration for self-hosted execution (without a
 provider) is planned for the future.
@@ -927,7 +947,7 @@ There are two distinct invocation paths — one for **writing** knowledge
   ┌─────────────────────────────────────────────────────────────────────────┐
   │              TARGET LIFECYCLE OVERVIEW (GATES STILL OPEN)               │
   │                                                                        │
-  │  ① Provider reads SKILL.md                                             │
+  │  ① Provider Lane reads SKILL.md                                             │
   │  ② Provider adapter/worker decides: "capture" or "retrieve"            │
   │                                                                        │
   │  CAPTURE PATH (Production)                RETRIEVE PATH (Consumption)  │
@@ -935,20 +955,20 @@ There are two distinct invocation paths — one for **writing** knowledge
   │  ③ Agent calls capture entrypoint         ③ Agent calls retrieve       │
   │     with structured signal                   entrypoint with query     │
   │  ④ Signal → 12-module chain               ④ Pathfinder → Vault scan   │
-  │  ⑤ Vault updated                          ⑤ Support bundle assembled  │
-  │  ⑥ Postman → Mailbox receipt              ⑥ Mailbox → Agent receives  │
+  │  ⑤ Vault updated                          ⑤ Evidence Pack assembled  │
+  │  ⑥ Delivery Monitor → Mailbox Result Receipt     ⑥ Mailbox → Agent receives  │
   │                                              bounded retrieval result  │
   └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Production Trigger — Context Recognition and Delegation (First-Pass)
 
-Target UX: a Provider Agent or adapter should recognize when an architectural decision or debugging insight is **valuable enough to be recorded (wiki-fied)**. Current status does not claim Hermes-native automatic MemoryTicket hooks or provider natural async reflection are PASS.
+Target UX: a Provider Lane or adapter should recognize when an architectural decision or debugging insight is **valuable enough to be recorded (wiki-fied)**. Current status does not claim Hermes-native automatic MemoryTicket hooks or provider natural async reflection are PASS.
 
-When this need is explicitly detected or routed, the Provider Agent should avoid copy-pasting the entire heavy text block. Instead, it should consult `SKILL.md` to construct a lightweight `Session Structure Signal`. This signal acts as a shallow request, pairing a brief summary with bounded pointers to relevant evidence handles.
+When this need is explicitly detected or routed, the Provider Lane should avoid copy-pasting the entire heavy text block. Instead, it should consult `SKILL.md` to construct a lightweight `Session Structure Signal`. This signal acts as a shallow request, pairing a brief summary with bounded pointers to relevant evidence handles.
 
 ```
-  Provider Agent (The main entity interacting with the user)
+  Provider Lane (the user-facing PRO lane)
        │
        │  ① Identifies or receives a context worth wiki-fying
        │
@@ -964,63 +984,63 @@ When this need is explicitly detected or routed, the Provider Agent should avoid
        │       source_ref:          { path_hint: "sessions/abc123.jsonl" } // evidence handle, not raw dump
        │     }
        │
-       │  ④ Publishes Intent to Mailbox & spawns Operator asynchronously (Fire-and-Forget)
+       │  ④ Publishes Intent to Mailbox & spawns an MS/MF worker asynchronously (Fire-and-Forget)
        │     → Provider immediately returns to user chat (Non-blocking)
        │
        ▼
-  Operator Session (Runs in background, receiving request via Mailbox)
+  Memory Worker Session (runs in background, receiving request via Mailbox)
 ```
 
 **Key rules:**
-- **Pointer-Based Delegation (`source_ref` is mandatory):** The Provider Agent must not mutate or unnecessarily duplicate raw conversations. It must pass a `source_ref` pointing to the relevant `.jsonl` log or evidence handle. Signals missing this pointer are rejected by the Admission Gate.
-- **Asynchronous Cold-Start (Non-blocking target):** openyggdrasil should not block the provider. The target path delegates through Mailbox/background execution and leaves a receipt when the job is done; this is still bounded by provider adapter support and receipt evidence.
-- **Reasoning Lease:** The Operator needs intelligence to perform deep structuring (Distill/Evaluate) in the background. The Provider adapter must expose an explicit reasoning-lease boundary, such as scoped auth delegation or asynchronous multiplexing of task contracts emitted by the background Operator.
+- **Pointer-Based Delegation (`source_ref` is mandatory):** The Provider Lane must not mutate or unnecessarily duplicate raw conversations. It must pass a `source_ref` pointing to the relevant `.jsonl` log or evidence handle. Signals missing this pointer are rejected by the Admission Checkpoint.
+- **Asynchronous Cold-Start (Non-blocking target):** openyggdrasil should not block the provider. The target path delegates through Mailbox/background execution and leaves a Result Receipt when the job is done; this is still bounded by provider adapter support and Result Receipt evidence.
+- **Reasoning Lease:** The Memory Worker needs intelligence to perform deep structuring (Distill/Evaluate) in the background. The Provider adapter must expose an explicit reasoning-lease boundary, such as scoped auth delegation or asynchronous multiplexing of task contracts emitted by the background Memory Worker.
 
 
 
-### Production Pipeline — CQRS Producer/Consumer + PTC Dual Path
+### Production Pipeline — CQRS Memory Saver/Finder + PTC Dual Path
 
 > ⚠️ **15th realignment note:** PTC IPC/sandbox/template execution paths exist, but PTC production/consumption kitchen split, typed egress, and sandbox fail-closed are not closed. This section describes the current execution model and next gates; it is not a production-ready claim.
 
-When a capture signal enters the system, it is not blindly handed off to an automated black box. This process is divided between the Provider Session and a dynamically leased Operator Session:
+When a capture signal enters the system, it is not blindly handed off to an automated black box. This process is divided between the Provider Session and a dynamically leased Memory Worker Session:
 
 1. **Initial Context Recognition (Provider Adapter / Worker)**: The provider adapter or worker reads `SKILL.md` to route contexts worth remembering. It should construct an initial signal (`Session Structure Signal` containing `surface_reason` and `source_ref`) and inject it into the OpenYggdrasil runtime only when evidence is available.
-2. **Deep Structuring (Operator Session)**: In the target flow, the runtime receives this request through the provider adapter's Reasoning Lease boundary and spawns an Operator Session. This Operator Session is **not** meant to be a fixed pipeline sequence. It is a **Role-Polymorphic Leased Executor** concept assigned specifically to knowledge production roles (Distiller, Evaluator, Amundsen, Gardener).
+2. **Deep Structuring (Memory Worker Session)**: In the target flow, the runtime receives this request through the provider adapter's Reasoning Lease boundary and spawns a Memory Worker Session. This Memory Worker Session is **not** meant to be a fixed pipeline sequence. It is a **Role-Polymorphic Leased Executor** concept assigned specifically to knowledge production roles (Distiller, Evaluator, Amundsen, Gardener).
 
-True to the nature of PTC, the Operator Session can **execute template code inside a bwrap sandbox** for its Producer/Consumer role. The safe target is not to mix all 26 tools into one surface, but to split production and consumption kitchens and enforce role-specific allowlists plus typed egress.
+True to the nature of PTC, the Memory Worker Session can **execute template code inside a bwrap sandbox** for its Memory Saver/Finder role. The safe target is not to mix all 26 tools into one surface, but to split production and consumption kitchens and enforce role-specific allowlists plus typed egress.
 
-The tools provided to the Operator Session follow two execution paths:
+The tools provided to the Memory Worker Session follow two execution paths:
 
-1. **Contract Guardrails (Requires Reasoning)**: Consume the Operator Session's reasoning tokens. The Operator Session must make judgments (distillation, evaluation, classification), but the guardrails strictly enforce the JSON Schema output.
-2. **Utility Tools (No Reasoning)**: Pure Python deterministic functions. The Operator Session just passes the verified payload from the previous step to normalize, save, and package data.
+1. **Contract Guardrails (Requires Reasoning)**: Consume the Memory Worker Session's reasoning tokens. The Memory Worker Session must make judgments (distillation, evaluation, classification), but the guardrails strictly enforce the JSON Schema output.
+2. **Utility Tools (No Reasoning)**: Pure Python deterministic functions. The Memory Worker Session just passes the verified payload from the previous step to normalize, save, and package data.
 
 ```
-  Session Structure Signal (Injected by Provider Agent)
+  Session Structure Signal (Injected by Provider Lane)
        │
        ▼
-  PTC Operator Session (Role-Polymorphic Executor assigned to Knowledge Production)
+  PTC Memory Worker Session (Role-Polymorphic Executor assigned to Knowledge Production)
        │
        │  ① OpenYggdrasil provides a Task Contract (Distiller/Amundsen/Gardener etc)
-       │  ② Operator Session invokes tools inside the role-specific kitchen
+       │  ② Memory Worker Session invokes tools inside the role-specific kitchen
        │
        ▼
   ┌─ PTC Engine (Runtime) — Allowlisted Tool Pool ───────────────────────────┐
   │                                                                          │
-  │  [Contract Guardrails — Structure Operator Session's reasoning]          │
+  │  [Contract Guardrails — Structure Memory Worker Session's reasoning]          │
   │                                                                          │
   │  ┌─ distill_signal (Guardrail — Refers to Affordance Contract) ────────┐ │
   │  │  Deeply distill shallow signal into structural decisions            │ │
-  │  │  Role: Guardrail (Consumes Operator Session's reasoning)             │ │
+  │  │  Role: Guardrail (Consumes Memory Worker Session's reasoning)             │ │
   │  └─────────────────────────────────────────────────────────────────────┘ │
   │                                                  ▼                       │
   │  ┌─ evaluate_candidate (Guardrail) ────────────────────────────────────┐ │
   │  │  Judges promotion worthiness, dedupes, threshold gating             │ │
-  │  │  Role: Guardrail (Consumes Operator Session's reasoning)             │ │
+  │  │  Role: Guardrail (Consumes Memory Worker Session's reasoning)             │ │
   │  └─────────────────────────────────────────────────────────────────────┘ │
   │                                                  ▼                       │
   │  ┌─ classify_novelty (Guardrail) ──────────────────────────────────────┐ │
   │  │  Classifies category & new continent (novelty)                      │ │
-  │  │  Role: Guardrail (Consumes Operator Session's reasoning)             │ │
+  │  │  Role: Guardrail (Consumes Memory Worker Session's reasoning)             │ │
   │  └─────────────────────────────────────────────────────────────────────┘ │
   │                                                  ▼                       │
   │  [Utility Tools — Pure Python functions for packing & planting]          │
@@ -1046,13 +1066,13 @@ The tools provided to the Operator Session follow two execution paths:
   │  └─────────────────────────────────────────────────────────────────────┘ │
   │                                                  ▼                       │
   │  ┌─ deliver_receipt (Utility) ─────────────────────────────────────────┐ │
-  │  │  Generates Mailbox receipt                                          │ │
+  │  │  Generates Mailbox Result Receipt                                          │ │
   │  │  Role: Utility (Deterministic Python)                               │ │
   │  └─────────────────────────────────────────────────────────────────────┘ │
   └──────────────────────────────────────────────────────────────────────────┘
        │
        ▼
-  Operator Session leaves a Receipt in the Mailbox and terminates (task complete)
+  Memory Worker Session leaves a Result Receipt in the Mailbox and terminates (task complete)
 ```
 
 ### PTC Execution Plan — Default Strategy Example (Production)
@@ -1067,12 +1087,12 @@ The PTC engine orchestrates these tools using one of three modes, depending on t
 | `lease_backed_llm` | Complex signals / ambiguity | Guardrail reasoning (3x) → Utility execution |
 | `typed_unavailable` | Lease rejection / LLM failure | Returns typed unavailable result — silent fallback forbidden |
 
-If the Operator Session violates the **typed contracts** at any guardrail (e.g., trying to submit a string instead of an array), the chain should stop with a typed `stop_reason` rather than silently dropping data.
+If the Memory Worker Session violates the **typed contracts** at any guardrail (e.g., trying to submit a string instead of an array), the chain should stop with a typed `stop_reason` rather than silently dropping data.
 
 <a id="ptc-code-example"></a>
 #### PTC Code Example
 
-The current Producer PTC chain (`ygg tell --ptc op1`) can run a template like this inside a bwrap sandbox. This explains a save scenario; it does not prove the full PTC production kitchen is PASS:
+The current Memory Saver PTC chain (`ygg tell --ptc ms1`) can run a template like this inside a bwrap sandbox. This explains a save scenario; it does not prove the full PTC production kitchen is PASS:
 
 ```python
 # PTC preamble injected by stub_generator.py (26 tool functions injected)
@@ -1105,7 +1125,7 @@ While this script runs inside the bwrap sandbox, each call to `extract_spo`, `fi
 
 ### Reasoning Model Baseline & Limitations
 
-In the PTC pipeline, the Operator Session invokes the 26-tool palette via IPC callbacks inside a bwrap sandbox. Each call through the Unix Domain Socket is validated by host-side primitives. This is enforced by openyggdrasil's **Contract Guardrails**.
+In the PTC pipeline, the Memory Worker Session invokes the 26-tool palette via IPC callbacks inside a bwrap sandbox. Each call through the Unix Domain Socket is validated by host-side primitives. This is enforced by openyggdrasil's **Contract Guardrails**.
 
 To successfully navigate this highly constrained environment, the **Reasoning Model Baseline is a frontier-class instruction-following and code-reasoning model**.
 
@@ -1123,10 +1143,10 @@ openyggdrasil is designed not to rely on the LLM's goodwill or autonomy. However
 
 When a provider session needs context from past decisions — "What did we
 decide about the gateway pattern?" — the provider's agent **invokes
-openyggdrasil's Operator Session** to search the accumulated knowledge.
+openyggdrasil's Memory Finder** to search the accumulated knowledge.
 
 ```
-  Provider Agent (working on a new task)
+  Provider Lane (working on a new task)
        │
        │  ① Agent recognizes it needs past context
        │     e.g., "We discussed this pattern before..."
@@ -1142,7 +1162,7 @@ openyggdrasil's Operator Session** to search the accumulated knowledge.
        │
        │  ④ openyggdrasil cold-starts Pathfinder
        │     → Scans Vault for matching topics
-       │     → Assembles bounded support bundle
+       │     → Assembles bounded Evidence Pack
        │     → Returns lifecycle-aware, provenance-tracked result
        │
        ▼
@@ -1160,7 +1180,7 @@ openyggdrasil's Operator Session** to search the accumulated knowledge.
 ```
 
 **Key rules:**
-- The agent receives a **bounded support bundle**, not a raw Vault dump.
+- The agent receives a **bounded Evidence Pack**, not a raw Vault dump.
   Facts in the bundle are expected to carry provenance and lifecycle state.
 - If the topic has been **SUPERSEDED** or **STALE**, the retrieval result
   should explicitly state this instead of presenting outdated context as current.
@@ -1172,14 +1192,14 @@ openyggdrasil's Operator Session** to search the accumulated knowledge.
 
 ### PTC Tool Palette — Consumption Kitchen Boundary
 
-The Consumer Operator should assemble read/search/support bundles. It must not mutate the Vault. The current palette shape still needs a P1 kitchen split so production tools and consumption tools are not exposed as one default surface.
+The Memory Finder should assemble read/search/Evidence Packs. It must not mutate the Vault. The current palette shape still needs a P1 kitchen split so production tools and consumption tools are not exposed as one default surface.
 
 ```
   Retrieval Query
        │
        ▼
   ┌─ PTC Consumption Kitchen ────────────────────────────────┐
-  │  Operator writes role-scoped code → sandbox → IPC         │
+  │  Memory Worker writes role-scoped code → sandbox → IPC    │
   │  Each tool has affordance: "Use this when / Do NOT..."     │
   │                                                          │
   │  Search:  bm25_search, deep_search                       │
@@ -1193,7 +1213,7 @@ The Consumer Operator should assemble read/search/support bundles. It must not m
   └──────────────────────────────────────────────────────────┘
        │
        ▼
-  Support Bundle returned. LLM context untainted.
+  Evidence Pack returned. LLM context untainted.
   │  Searches Vault indices to find the closest match        │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
@@ -1216,7 +1236,7 @@ The Consumer Operator should assemble read/search/support bundles. It must not m
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
   ┌─ 6. build_bundle (Guardrail) ────────────────────────────┐
-  │  Operator Session constructs the final explainable context │
+  │  Memory Worker Session constructs the final explainable context │
   │  Decides what facts are actually relevant to the query   │
   └──────────────────────────────────────────────┬───────────┘
                                                  ▼
@@ -1233,7 +1253,7 @@ The Consumer Operator should assemble read/search/support bundles. It must not m
 | Mode | Condition | Execution Pattern |
 |---|---|---|
 | `fast_path` | Exact match (Cache hit) | `resolve_anchor` skips LLM → Utility → Mailbox |
-| `deep_search` | Vague query (e.g., "how did we do X?") | Operator Session scans topology → reads multiple pages → builds bundle |
+| `deep_search` | Vague query (e.g., "how did we do X?") | Memory Worker Session scans topology → reads multiple pages → builds bundle |
 | `graphify_assisted` | Cross-domain query | Uses Graphify hints for semantic search |
 
 The consumption side **must not fabricate context**. If the Vault is empty,
@@ -1248,7 +1268,7 @@ Until the P1 kitchen split is complete, do not claim “LLM free composition PAS
 
 The PTC palette is an LLM-facing surface. A tool is not defined only by its
 function name or JSON schema; it also needs an affordance contract that tells a
-provider or Operator Session when the tool is appropriate.
+provider or Memory Worker Session when the tool is appropriate.
 
 Every provider-facing or LLM-facing primitive should be documented in this
 shape:
@@ -1266,13 +1286,13 @@ This is especially important for the production/consumption kitchen split:
 
 | Kitchen | Allowed affordance | Hard boundary |
 |---|---|---|
-| Production | create, mutate, stamp, save, receipt | must carry `source_ref`, receipt, and schema evidence |
-| Consumption | read, search, assemble support, explain provenance | must not expose Vault mutation tools as default handles |
+| Production | create, mutate, stamp, save, Result Receipt | must carry `source_ref`, Result Receipt, and schema evidence |
+| Consumption | read, search, assemble Evidence Pack, explain provenance | must not expose Vault mutation tools as default handles |
 | Shared utility | validate, normalize, classify, package typed result | must close as typed unavailable when evidence is missing |
 
 Signature-only contracts are incomplete LLM-facing documentation. They may
 exist as machine metadata, but they are not enough to guide a provider or leased
-Operator Session.
+Memory Worker Session.
 
 
 <a id="modules"></a>
@@ -1284,7 +1304,7 @@ The original 12 modules are the base knowledge production/consumption chain. As 
 | # | Module | Role | Key Insight |
 |---|---|---|---|
 | ① | **Signal** | Captures raw provider/session events | Preserves the original signal without mutation |
-| ② | **Admission Gate** | Filters noise from signal | Not everything deserves to be remembered |
+| ② | **Admission Checkpoint** | Filters noise from signal | Not everything deserves to be remembered |
 | ③ | **Seedkeeper** | Stamps provenance on each candidate | Every memory must know where it came from |
 | ④ | **Distiller** | Extracts structured decisions from raw signals | Decisions, not transcripts, are the unit of memory |
 | ⑤ | **Evaluator** | Scores promotion worthiness | Syntactic validity ≠ worth remembering |
@@ -1292,7 +1312,7 @@ The original 12 modules are the base knowledge production/consumption chain. As 
 | ⑦ | **Nursery** | Cultivates accepted candidates | New knowledge needs incubation before promotion |
 | ⑧ | **Map Maker** | Places memory in topic/community structures | Navigable structure, not flat dumps |
 | ⑨ | **Gardener** | Lifecycle transitions: ACTIVE → SUPERSEDED → STALE | Knowledge must be pruned, not just accumulated |
-| ⑩ | **Postman** | Routes bounded support bundles | Delivery is a contract, not a side effect |
+| ⑩ | **Delivery Monitor** | Routes bounded Evidence Packs (internal Postman transport) | Delivery is a contract, not a side effect |
 | ⑪ | **Mailbox** | Provider session inbox | Type-safe consumption surface |
 | ⑫ | **Pathfinder** | Retrieves explainable support material | Retrieval results should carry provenance and lifecycle proof, or typed unavailable |
 
@@ -1303,14 +1323,14 @@ The original 12 modules are the base knowledge production/consumption chain. As 
 | 20 | **Provider Common Boundary** | P0 IN PROGRESS | Keep Hermes and other provider-specific implementations from binding directly into the common runtime |
 | 21 | **SourceRef Resolver Registry** | PARTIAL | Hide provider-specific source stores behind registry/adapters; common core handles pointers only |
 | 22 | **Affordance Intent Router** | NOT PASS | Route user intent and worker behavior through affordance contracts, not signatures alone |
-| 23 | **PTC Production Kitchen** | NOT PASS | Let worker-authored sandbox code produce memory while enforcing write/mutate tools, evidence, receipts, and schemas |
-| 24 | **PTC Consumption Kitchen** | NOT PASS | Retrieval/recall/support-bundle kitchen; consumption must not expose Vault mutation as default handles |
-| 25 | **PTC Egress / Sandbox Gate** | NOT PASS | Raw stdout is debug-only; provider-facing results require typed egress and production sandbox fail-closed |
+| 23 | **PTC Production Kitchen** | NOT PASS | Let worker-authored sandbox code produce memory while enforcing write/mutate tools, evidence, Result Receipts, and schemas |
+| 24 | **PTC Consumption Kitchen** | NOT PASS | Retrieval/recall/Evidence Pack kitchen; consumption must not expose Vault mutation as default handles |
+| 25 | **PTC Egress / Sandbox Checkpoint** | NOT PASS | Raw stdout is debug-only; provider-facing results require typed egress and production sandbox fail-closed |
 | 26 | **Provenance Ring Lineage** | PARTIAL | Engrave `source_ref`, `anchor_hash`, and message range into append-only Tree Rings |
-| 27 | **Graphify Support Verifier** | PARTIAL | Reverify Graphify hints against Vault/provenance before using them as support-bundle candidates |
+| 27 | **Graphify Support Verifier** | PARTIAL | Reverify Graphify hints against Vault/provenance before using them as Evidence Pack candidates |
 | 28 | **TMUX Live Witness** | POLICY ONLY | Human visual observation surface; not SOT and not execution proof |
 | 29 | **Session Attach Gateway** | NOT PASS | Target `ygg status/attach/tmux` UX that attaches to active project/session registry |
-| 30 | **Interactive Operator Talk Lane** | NOT PASS | Target `ygg talk OP1/OP2` through typed mailbox/event input, not raw tmux/stdin |
+| 30 | **Interactive Memory Lane Talk** | NOT PASS | Target `ygg talk MS1/MF1` through typed mailbox/event input, not raw tmux/stdin |
 
 15th promotion candidate group:
 
@@ -1365,14 +1385,14 @@ The Reasoning Lease should run in an unprivileged sandbox via the mandatory depe
 openyggdrasil/
 ├── contracts/          # JSON schemas — the API between modules
 ├── runtime/
-│   ├── admission/      # Gate, Seedkeeper, Amundsen handoff
+│   ├── admission/      # Checkpoint, Seedkeeper, Amundsen handoff
 │   ├── capture/        # Signal capture, Decision Distiller
 │   ├── evaluation/     # Evaluator, promotion worthiness
 │   ├── cultivation/    # Nursery, Gardener, lifecycle
 │   ├── placement/      # Map Maker, topic/episode placement
 │   ├── provenance/     # Source tracking, temporal edges
 │   ├── retrieval/      # Pathfinder, PTC tools, Graphify adapters
-│   ├── delivery/       # Postman, Mailbox, support bundles
+│   ├── delivery/       # Delivery Monitor (internal Postman), Mailbox, Evidence Packs
 │   ├── reasoning/      # Reasoning Lease, provider gates
 │   ├── runner/         # Orchestration, regression entrypoints
 │   ├── ptc/            # Programmatic Tool Calling engine
@@ -1409,7 +1429,7 @@ openyggdrasil stays local and filesystem-first, but graph topology, contract val
 | Project | Role | License / acknowledgement |
 |---|---|---|
 | [`NetworkX`](https://networkx.org/) | Graph foundation for Vault/Graphify derived topology, node traversal, and Louvain community-based topic structure. | BSD-licensed Python graph ecosystem |
-| [`jsonschema`](https://python-jsonschema.readthedocs.io/) | Runtime validation foundation for Mailbox, receipt, support bundle, and provider contracts. | MIT-licensed JSON Schema validation project |
+| [`jsonschema`](https://python-jsonschema.readthedocs.io/) | Runtime validation foundation for Mailbox, Result Receipt, Evidence Pack, and provider contracts. | MIT-licensed JSON Schema validation project |
 | [`PyYAML`](https://pyyaml.org/) | Parser foundation for Vault Markdown YAML frontmatter, configuration, and manifests. | MIT-licensed YAML parser project |
 | [`rank-bm25`](https://github.com/dorianbrown/rank_bm25) | Local BM25 retrieval foundation for Pathfinder. It narrows Vault candidates without a vector DB or embedding service. | Apache 2.0-licensed BM25 implementation |
 | [`kiwipiepy`](https://github.com/bab2min/kiwipiepy) | Korean morphological analysis and sentence splitting. `runtime/ptc/primitives.py::extract_decisions()` uses it for more reliable Korean sentence segmentation. | LGPL v3, (c) bab2min |
