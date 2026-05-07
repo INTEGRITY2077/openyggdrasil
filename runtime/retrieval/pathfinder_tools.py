@@ -358,6 +358,14 @@ def _community_path_for_id(*, community_id: str, vault_root: Path) -> Path | Non
     return candidate if candidate.exists() else None
 
 
+def _vault_source_path(path: Path, *, vault_root: Path) -> str:
+    try:
+        relative = path.resolve().relative_to(vault_root.resolve())
+        return f"vault/{relative.as_posix()}"
+    except Exception:
+        return str(path).replace("\\", "/")
+
+
 def _typed_unavailable_bundle(*, query_text: str, missing_refs: list[str]) -> dict[str, Any]:
     return {
         "schema_version": "ring_support_bundle.v1",
@@ -491,17 +499,17 @@ def build_ring_support_bundle(
     ]
     source_paths: list[str] = []
     if topic_path.exists():
-        source_paths.append(str(topic_path.resolve()))
+        source_paths.append(_vault_source_path(topic_path, vault_root=vault_root))
     if prov_path.exists():
-        source_paths.append(str(prov_path.resolve()))
+        source_paths.append(_vault_source_path(prov_path, vault_root=vault_root))
     if concept_path and concept_path.exists():
-        source_paths.append(str(concept_path.resolve()))
+        source_paths.append(_vault_source_path(concept_path, vault_root=vault_root))
     if community_path and community_path.exists():
-        source_paths.append(str(community_path.resolve()))
+        source_paths.append(_vault_source_path(community_path, vault_root=vault_root))
     for row in records:
         rel = str(row.get("derived_from") or row.get("promoted_from") or "").strip()
         if rel:
-            source_paths.append(str((vault_root / rel).resolve()))
+            source_paths.append(_vault_source_path(vault_root / rel, vault_root=vault_root))
     community_edges = [
         {
             "community_id": cid,
@@ -536,6 +544,13 @@ def build_ring_support_bundle(
     if missing_refs:
         unavailable = _typed_unavailable_bundle(query_text=query_text, missing_refs=missing_refs)
         unavailable["topic_key"] = selected_topic_key
+        unavailable["ring_ids"] = ring_ids
+        unavailable["ring_id"] = ring_ids[0] if ring_ids else None
+        unavailable["community_id"] = community_id or None
+        unavailable["community_edges"] = community_edges
+        unavailable["semantic_edges"] = semantic_edges
+        unavailable["origin_claims"] = origin_claims
+        unavailable["recent_rings"] = recent_rings
         unavailable["source_paths"] = _unique_preserve_order(source_paths)
         return unavailable
 

@@ -22,80 +22,55 @@
   <a href="#inspirations">영감</a>
 </p>
 
-> ⚠️ **15차 프로덕션 UX 재정렬 중**
->
-> openyggdrasil은 Karpathy식 LLM Wiki를 provider-neutral production memory로 확장하는 방향의 런타임입니다.
-> 다만 현재 문서는 **production-ready 완료 선언**이 아닙니다. 2026-05-06 기준 실제 상태는
-> SourceRef, PTC kitchen, Provenance Ring, Graphify, TMUX witness, Session Attach,
-> Operator Talk의 경계를 다시 닫는 단계입니다.
->
-> 현재 상태: provider-neutral production memory 방향은 ACTIVE · production-ready는 NOT CLAIMED ·
-> multi-provider 동일 UX는 NOT PASS · 일부 Hermes/OP1/OP2 POC는 부분 검증 상태
+## 처음 보는 분을 위한 안내: 설치하거나 판단하기 전에 읽어야 할 것
 
-### 📊 15차 정렬 스코어카드 — 80/100 (2026-05-06)
+openyggdrasil은 AI 코딩 에이전트가 세션과 프로바이더를 넘어 오래 남겨야 할 프로젝트 지식을 저장·회상·개정하도록 돕는 로컬 provider-neutral 메모리 계층입니다. 원본 대화 전체를 기억으로 덤프하는 것이 아니라, 출처와 생명주기를 가진 지식 후보를 Vault에 정리하는 방향을 지향합니다.
 
-| 범주 | 점수/상태 | 판정 |
-|---|---:|---|
-| Karpathy LLM Wiki 철학/아키텍처 정렬 | 86점대 | Vault/Markdown/SOT, 생명주기, Graphify derived view 방향은 정렬됨 |
-| 현재 구현 완성도 | 74점대 | Hermes 중심 POC와 일부 런타임은 존재하지만 provider-neutral 경계가 아직 닫히지 않음 |
-| 종합 정렬도 | **80/100** | 방향은 맞지만 P0/P1/P2/P3 gate가 남아 있음 |
-| production-ready | **NOT CLAIMED** | 테스트 수나 POC만으로 프로덕션을 주장하지 않음 |
+이 최상단 문구는 로컬 Hermes 스킬이 아직 설치되지 않은 초회 세션을 위한 레포지토리 자체 안내입니다. 사용자가 이미 전역 `ygg` 명령, Hermes skill, OP1/OP2 런타임 상태를 갖고 있다고 가정하지 마십시오.
 
-#### 상위 비정렬 개정 메모
+Use this when:
+- 이 레포지토리를 처음 봅니다.
+- 사용자가 레포지토리 URL이나 경로만 제공합니다.
+- 사용자가 로컬 설치 또는 실행 가능 여부를 묻습니다.
+- 명령을 실행하기 전에 무엇을 먼저 읽어야 할지 판단해야 합니다.
 
-| 과거 표현 | 15차 기준 정렬 |
-|---|---|
-| “코드 완료”, “91%”, “모듈 100% LIVE” | 과도한 완료 선언. 현재는 80/100 정렬 상태와 gate 기반 판정으로 표현 |
-| “멀티프로바이더 교차 메모리 실증 완료” | fake/POC 수준과 실제 provider 동일 UX를 분리. 동일 UX는 아직 NOT PASS |
-| “PTC 풀체인 검증 완료” | PTC IPC/샌드박스 구성요소는 있으나 production/consumption kitchen split, typed egress, sandbox fail-closed는 NOT PASS |
-| “Graphify 실시간 검증/완전 위상” | Graphify는 SOT가 아닌 derived view. full topology support bundle 검증은 PARTIAL |
-| “TMUX live session” | TMUX는 사람이 보는 visual witness이며 core execution path가 아님 |
-| “`ygg attach/talk`가 현재 동작함” | 전역 attach와 Operator Talk는 필수 gate지만 아직 NOT PASS |
+Do not use this when:
+- production-ready, Full UX PASS, multi-provider parity, 완료도 수치를 주장하려 합니다.
+- 파일, 테스트, receipt, README 문구만 보고 OP1/OP2 live 동작을 추정하려 합니다.
+- 사용자 승인 없이 추가 operator, background session, global command를 만들려 합니다.
 
-### 현재 책임 경계 상태
+If ambiguous:
+- URL만 받은 요청은 코드 리뷰가 아니라 레포지토리 orientation으로 취급합니다.
+- 먼저 이 레포지토리가 무엇인지 몇 문장으로 설명합니다.
+- 설치 가능성 요청이면 local prerequisite, 문서화된 설치 표면, dependency resolver, 가장 작은 smoke 또는 healthcheck만 확인합니다.
+- 사용자가 요청하지 않은 broad archaeology, LOC inventory, 전체 아키텍처 리뷰, 완료 상태 승격을 하지 않습니다.
 
-#### 필수 승격군 — 15차 경계 모듈
+First install path:
+1. 아래 설정 섹션부터 읽습니다.
+2. 설치 전에 로컬 선행 요건을 확인합니다.
+3. 패키지나 시스템 의존성을 설치하기 전에는 사용자 허가를 받습니다.
+4. 설정 후에는 이전 로컬 환경의 가정이 아니라 이 레포지토리의 계약과 런타임 근거를 기준으로 판단합니다.
 
-아래 항목은 선택적 README 설명이 아니다. 각 gate가 닫힐 때까지 공개 문서의
-상태표에 남아 있어야 하는 15차 재정렬 경계 모듈이다.
+Typed unavailable when:
+- 레포지토리가 아직 clone되지 않았거나 작업 디렉토리가 불명확합니다.
+- 필요한 로컬 선행 요건이 없고 사용자가 설치를 승인하지 않았습니다.
+- 요청된 Provider/Operator live claim을 사용자가 볼 수 있는 live lane에서 관측할 수 없습니다.
+- 요청된 source, receipt, Vault node를 구체적 근거로 해소할 수 없습니다.
 
-| 영역 | 현재 판정 | 이유 |
-|---|---|---|
-| Vault / Markdown SOT | BOUNDED LIVE | 정규 기억 표면은 Vault/Markdown이며 Graphify보다 우선함 |
-| Mailbox / Receipt / Event Log | BOUNDED LIVE | background-first 실행 근거. TMUX보다 우선하는 machine-readable evidence |
-| Provider Common Boundary | P0 IN PROGRESS | common runtime의 Hermes default/direct import 제거가 필요 |
-| SourceRef Resolver Registry | PARTIAL | provider-specific storage를 common registry가 직접 알지 않도록 경계 재정렬 필요 |
-| Affordance Intent Router | NOT PASS | LLM-facing handle은 signature-only나 provider-specific 문구가 아니라 affordance contract를 사용해야 함 |
-| PTC Production Kitchen | NOT PASS | write/mutate role과 evidence/receipt/schema 책임 분리가 아직 닫히지 않음 |
-| PTC Consumption Kitchen | NOT PASS | read/search/support-only role 분리와 Vault mutation 금지가 아직 닫히지 않음 |
-| PTC Egress / Sandbox Gate | NOT PASS | raw stdout debug-only, typed egress, production sandbox fail-closed가 아직 닫히지 않음 |
-| Provenance Ring Lineage | PARTIAL | POC 세로 절편은 있으나 append-only accumulation과 overwrite 분리 필요 |
-| Graphify Support Verifier | PARTIAL | Graphify hint는 Vault 재검증을 거쳐야 하며 full topology support 검증은 미완 |
-| TMUX Live Witness | POLICY ONLY | live 관찰 보조 표면. background execution success를 대체하지 않음 |
-| Session Attach Gateway | NOT PASS | 전역 `ygg` attach/status/tmux는 active project/session registry를 찾아야 하며, 암묵적 기억 작업을 만들면 안 됨 |
-| Interactive Operator Talk Lane | NOT PASS | OP1/OP2와의 직접 대화는 raw TMUX/stdin 주입이 아니라 typed mailbox/event 입력으로 들어가야 함 |
+Required evidence refs:
+- 정적 문서 주장은 파일 경로와 행 번호가 필요합니다.
+- 런타임 주장은 명령 출력 또는 테스트 결과가 필요합니다.
+- Provider/Operator workflow 주장은 mailbox, receipt, event log 근거가 필요합니다.
+- Live UX 주장은 machine-readable evidence에 더해 사용자가 관측 가능한 tmux/live-lane 근거가 필요합니다.
 
-#### 승격후보군 — Acceptance / UX Gate
-
-아래 항목은 중요하지만 아직 15차 module-define 파일로 승격되지 않은 gate다.
-승격 전까지는 위 필수 모듈을 제약하는 acceptance criteria로 취급한다.
-
-| 후보 | 현재 판정 | 승격 트리거 |
-|---|---|---|
-| Provider Final Answer UX | NOT PASS | provider/operator 출력이 workflow trace가 아니라 판단으로 시작하는 전용 계약이 필요해질 때 |
-| Cross-Provider Same UX | NOT PASS | Hermes POC 근거를 provider-neutral CLI UX 계약으로 일반화해야 할 때 |
-
-#### PASS 용어 규칙
-
-| 용어 | 의미 |
-|---|---|
-| `BOUNDED LIVE` | 좁은 범위의 코드/테스트/로그 근거가 있음. 전체 제품 완료는 아님 |
-| `PARTIAL` | 방향과 일부 구현은 있으나 핵심 gate가 닫히지 않음 |
-| `NOT PASS` | 현재 근거로는 해당 claim을 주장할 수 없음 |
-| `POLICY ONLY` | 운영 방침은 정했지만 기능 완료 근거는 별도 필요 |
+Hard nonclaims:
+- 이 최상단 문구는 production-ready 선언이 아닙니다.
+- README 최상단은 PASS 인증서가 아닙니다.
+- 완료도 표, plan, test count, receipt만으로 Full UX PASS를 증명하지 않습니다.
+- Hermes 전용 근거는 provider-neutral 동작 증명이 아닙니다.
+- `ygg`, OP1, OP2, attach, talk 명령은 setup 검증 전 존재한다고 가정하지 않습니다.
 
 ---
-
 
 <a id="setup"></a>
 

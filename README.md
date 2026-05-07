@@ -22,80 +22,53 @@
   <a href="#inspirations">Inspirations</a>
 </p>
 
-> ⚠️ **15th Production UX Realignment**
->
-> openyggdrasil is a runtime aimed at extending Karpathy-style LLM Wiki into
-> provider-neutral production memory. This document is **not** a production-ready
-> completion claim. As of 2026-05-06, the project is realigning the boundaries
-> around SourceRef, PTC Kitchen, Provenance Ring, Graphify, TMUX witness,
-> Session Attach, and Operator Talk.
->
-> Current state: provider-neutral production memory direction is ACTIVE ·
-> production-ready is NOT CLAIMED · multi-provider same UX is NOT PASS ·
-> some Hermes/OP1/OP2 POCs are partially verified.
+## First Contact: read this before installing or judging the project
 
-### 📊 15th Alignment Scorecard — 80/100 (2026-05-06)
+openyggdrasil is a local, provider-neutral memory layer for AI coding agents. It is meant to help an agent preserve, retrieve, and revise durable project knowledge across sessions and providers without dumping raw chat transcripts into memory.
 
-| Category | Score/State | Verdict |
-|---|---:|---|
-| Karpathy LLM Wiki philosophy/architecture alignment | 86-ish | Vault/Markdown/SOT, lifecycle, and Graphify-as-derived-view are directionally aligned |
-| Current implementation completeness | 74-ish | Hermes-centered POCs and some runtime surfaces exist, but provider-neutral boundaries are not closed |
-| Overall alignment | **80/100** | The direction is sound, but P0/P1/P2/P3 gates remain open |
-| production-ready | **NOT CLAIMED** | Test count or a POC is not enough to claim production readiness |
+This top section is repo-native guidance for first contact. Do not assume the user already installed a local Hermes skill, a global `ygg` command, or any OpenYggdrasil runtime state.
 
-#### Top-Level Realignment Notes
+Use this when:
+- You are seeing this repository for the first time.
+- A user gives you only the repository URL or path.
+- A user asks whether this can be installed or tried locally.
+- You need to decide what to read before running commands.
 
-| Previous wording | 15th-aligned wording |
-|---|---|
-| “code complete”, “91%”, “100% LIVE modules” | Overclaims completion. Use 80/100 alignment plus gate-based verdicts instead |
-| “cross-provider memory access verified” | Separate fake/POC evidence from real same-UX provider parity. Same UX is still NOT PASS |
-| “PTC full-chain verified” | PTC IPC/sandbox pieces exist, but production/consumption kitchen split, typed egress, and sandbox fail-closed are NOT PASS |
-| “Graphify live/full topology” | Graphify is a derived view, not SOT. Full topology support-bundle verification is PARTIAL |
-| “TMUX live session” | TMUX is a human visual witness, not the core execution path |
-| “`ygg attach/talk` works now” | Global attach and direct Operator Talk are required gates, but they are NOT PASS |
+Do not use this when:
+- You are trying to claim production readiness, Full UX PASS, multi-provider parity, or completion metrics.
+- You are trying to infer live OP1/OP2 behavior from files, tests, receipts, or README prose alone.
+- You are about to create extra operators, background sessions, or global commands without explicit user approval.
 
-### Current Responsibility Boundary Status
+If ambiguous:
+- Treat a URL-only request as orientation, not a code review.
+- Explain the repository purpose in a few sentences first.
+- For installability, check only local prerequisites, documented install surfaces, dependency resolution, and the smallest documented smoke or healthcheck.
+- Do not run broad archaeology, LOC inventory, full architecture review, or completion-state promotion unless the user asks for it.
 
-#### Required Promotion Group — 15th Boundary Modules
+First install path:
+1. Start from the setup section below.
+2. Verify local prerequisites before installing anything.
+3. Ask before installing packages or system dependencies.
+4. After setup, use the repository-provided contracts and runtime evidence, not assumptions from a previous local environment.
 
-These rows are not optional README commentary. They are the 15th realignment
-boundary modules that must stay visible until each gate is closed.
+Typed unavailable when:
+- The repository has not been cloned or the working directory is unknown.
+- Required local prerequisites are missing and the user has not approved installation.
+- A requested live Provider/Operator claim cannot be observed in a user-visible live lane.
+- A requested source, receipt, or Vault node cannot be resolved to concrete evidence.
 
-| Area | Current Verdict | Reason |
-|---|---|---|
-| Vault / Markdown SOT | BOUNDED LIVE | The canonical memory surface is Vault/Markdown and takes precedence over Graphify |
-| Mailbox / Receipt / Event Log | BOUNDED LIVE | Background-first machine-readable evidence; stronger than TMUX witness |
-| Provider Common Boundary | P0 IN PROGRESS | Common runtime still needs Hermes default/direct import removal |
-| SourceRef Resolver Registry | PARTIAL | Common registry must stop knowing provider-specific storage directly |
-| Affordance Intent Router | NOT PASS | LLM-facing handles must use affordance contracts, not signature-only or provider-specific wording |
-| PTC Production Kitchen | NOT PASS | write/mutate role, evidence, receipt, and schema responsibilities are not closed |
-| PTC Consumption Kitchen | NOT PASS | read/search/support-only role split and Vault mutation ban are not closed |
-| PTC Egress / Sandbox Gate | NOT PASS | raw stdout debug-only, typed egress, and production sandbox fail-closed remain open |
-| Provenance Ring Lineage | PARTIAL | A POC vertical slice exists, but append-only accumulation and overwrite separation remain open |
-| Graphify Support Verifier | PARTIAL | Graphify hints must be reverified against Vault; full topology support verification is unfinished |
-| TMUX Live Witness | POLICY ONLY | Human observation surface; does not replace background execution success |
-| Session Attach Gateway | NOT PASS | Global `ygg` attach/status/tmux must resolve an active project/session registry without spawning implicit memory work |
-| Interactive Operator Talk Lane | NOT PASS | Direct OP1/OP2 conversation must enter through typed mailbox/event input, not raw TMUX/stdin injection |
+Required evidence refs:
+- Static documentation claims need file paths and line references.
+- Runtime claims need command output or test results.
+- Provider/Operator workflow claims need mailbox/receipt/event-log evidence.
+- Live UX claims need user-observable tmux/live-lane evidence in addition to machine-readable evidence.
 
-#### Promotion Candidate Group — Acceptance / UX Gates
-
-These are important gates, but they are not yet promoted into standalone
-15th module-definition files. Until promoted, they should be treated as
-acceptance criteria that constrain the required modules above.
-
-| Candidate | Current Verdict | Promotion Trigger |
-|---|---|---|
-| Provider Final Answer UX | NOT PASS | Promote when provider/operator outputs need a dedicated contract that starts with judgment, not workflow trace |
-| Cross-Provider Same UX | NOT PASS | Promote when Hermes POC evidence must be generalized into a provider-neutral CLI UX contract |
-
-#### PASS Vocabulary
-
-| Term | Meaning |
-|---|---|
-| `BOUNDED LIVE` | Narrow code/test/log evidence exists. It is not whole-product completion |
-| `PARTIAL` | Direction and partial implementation exist, but core gates remain open |
-| `NOT PASS` | The current evidence cannot support the claim |
-| `POLICY ONLY` | The operating policy exists; functional proof is still separate |
+Hard nonclaims:
+- This repository is not declared production-ready here.
+- The top README is not a PASS certificate.
+- A completion table, plan, test count, or receipt does not by itself prove Full UX PASS.
+- Hermes-specific evidence does not automatically prove provider-neutral behavior.
+- `ygg`, OP1, OP2, attach, and talk commands must not be assumed to exist before setup verifies them.
 
 <a id="why"></a>
 

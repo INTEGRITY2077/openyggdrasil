@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -99,6 +100,7 @@ def run_producer(mailbox: Path, vault: Path):
                 "nodes": nodes,
                 "ring_ids": ring_ids,
                 "canonical_topic_path": result.get("canonical_topic_path"),
+                "support_bundle_seed": result.get("support_bundle_seed"),
                 "source_ref_status": result.get("source_ref_status"),
                 "reason": result.get("reason"),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -360,6 +362,7 @@ def _render_provenance_ring_page(*, ring_node: dict) -> str:
     community = ring_node["community"]
     retrieval = ring_node["retrieval_contract"]
     safety_belt = ring_node.get("paragraph_intent_safety_belt", {})
+    quality = ring_node.get("quality_assessment", {})
     return f"""---
 id: {ring_node['node_id']}
 title: {topic['title']}
@@ -411,7 +414,12 @@ lifecycle_state: ACTIVE
 {json.dumps(retrieval, ensure_ascii=False, indent=2)}
 ```
 
-## 9. Raw Evidence Pointers
+## 9. Quality Assessment
+```json
+{json.dumps(quality, ensure_ascii=False, indent=2)}
+```
+
+## 10. Raw Evidence Pointers
 - source_ref: {ring['source_ref']}
 - origin_locator: {ring['origin_locator']}
 - commit_watermark: {ring['commit_watermark']}
@@ -496,15 +504,46 @@ def _is_atom_tag_hint(value: str) -> bool:
     return False
 
 
+def _is_nonempty_string(value) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _valid_index_range(value) -> bool:
+    if not isinstance(value, dict):
+        return False
+    start = value.get("start")
+    end = value.get("end")
+    return isinstance(start, int) and isinstance(end, int) and start >= 0 and end >= start
+
+
+def _valid_id_range(value) -> bool:
+    if not isinstance(value, dict):
+        return False
+    start = value.get("start")
+    end = value.get("end")
+    return isinstance(start, (int, str)) and isinstance(end, (int, str)) and str(start) != "" and str(end) != ""
+
+
 def _admit_memory_ticket_payload(payload: dict) -> tuple[bool, str]:
-    if not str(payload.get("source_ref") or ""):
-        return False, "missing_source_ref"
-    if not (payload.get("message_index_range") or payload.get("message_id_range")):
-        return False, "missing_message_range"
-    if not str(payload.get("anchor_hash") or ""):
+    if payload.get("schema_version") != "memory_ticket.v1":
+        return False, "invalid_schema_version"
+    for key in ("source_ref", "provider_session_id", "surface_reason", "commit_watermark"):
+        if not _is_nonempty_string(payload.get(key)):
+            return False, f"missing_{key}"
+    has_index_range = "message_index_range" in payload
+    has_id_range = "message_id_range" in payload
+    if has_index_range == has_id_range:
+        return False, "invalid_message_range_choice"
+    if has_index_range and not _valid_index_range(payload.get("message_index_range")):
+        return False, "invalid_message_index_range"
+    if has_id_range and not _valid_id_range(payload.get("message_id_range")):
+        return False, "invalid_message_id_range"
+    if not _is_nonempty_string(payload.get("anchor_hash")):
         return False, "missing_anchor_hash"
+    if not re.fullmatch(r"[0-9a-f]{64}", str(payload.get("anchor_hash"))):
+        return False, "invalid_anchor_hash"
     for key in ("intent_field", "decomposition_guard", "min_split_unit", "why_not_atomic", "topic_hint", "category_community_hint"):
-        if not str(payload.get(key) or ""):
+        if not _is_nonempty_string(payload.get(key)):
             return False, f"missing_{key}"
     if str(payload.get("decomposition_guard")) != CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD:
         return False, "invalid_decomposition_guard"
@@ -513,6 +552,41 @@ def _admit_memory_ticket_payload(payload: dict) -> tuple[bool, str]:
     if _is_atom_tag_hint(str(payload.get("category_community_hint") or "")):
         return False, "category_community_hint_too_atomic"
     return True, "admitted"
+
+
+def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ring_node: dict) -> dict:
+    capsule = ring_node["decision_capsule"]
+    community = ring_node["community"]
+    ring = ring_node["provenance_rings"][0]
+    checks = {
+        "decision_capsule_present": bool(capsule.get("decision")),
+        "context_present": bool(str(capsule.get("context") or "").strip()),
+        "conclusion_present": bool(str(capsule.get("conclusion") or "").strip()),
+        "evidence_pointer_present": bool(capsule.get("evidence")),
+        "reuse_condition_present": bool(str(capsule.get("reuse_condition") or "").strip()),
+        "source_ref_resolved": resolved.get("status") == "resolved",
+        "bounded_message_range_present": isinstance(ring.get("message_index_range"), dict),
+        "anchor_hash_verified": str(ring.get("anchor_hash") or "") == str(payload.get("anchor_hash") or ""),
+        "paragraph_intent_guard_present": ring_node.get("paragraph_intent_safety_belt", {}).get("decomposition_guard") == CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD,
+        "community_not_atomic": not _is_atom_tag_hint(str(payload.get("category_community_hint") or community.get("community_id") or "")),
+        "raw_transcript_absent": True,
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    return {
+        "evaluator": "memory_ticket_producer_quality_gate.v1",
+        "verdict": "pass" if not failed else "needs_review",
+        "confidence": 0.91 if not failed else 0.62,
+        "reason_codes": failed,
+        "ambiguity": "low" if not failed else "medium",
+        "duplication_risk": "unknown_without_graph_dedupe",
+        "misclassification_risk": "low" if checks["community_not_atomic"] else "high",
+        "recallability": "community_and_source_path_retrievable" if not failed else "partial",
+        "checks": checks,
+        "hard_nonclaims": [
+            "graph_dedupe_not_executed",
+            "human_evaluator_not_executed",
+        ],
+    }
 
 
 def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
@@ -613,6 +687,11 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
             "support_lanes": ["origin", "recent", "source_paths", "community_edges", "semantic_edges"],
         },
     }
+    ring_node["quality_assessment"] = _build_memory_ticket_quality_assessment(
+        payload=payload,
+        resolved=resolved,
+        ring_node=ring_node,
+    )
     paths = _write_provenance_ring_artifacts(vault, ring_node=ring_node)
     return {
         "status": "acknowledged",
@@ -625,6 +704,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
             "ring_ids": [ring_id],
             "source_paths": list(paths.values()),
             "community_id": community_id,
+            "quality_assessment": ring_node["quality_assessment"],
         },
     }
 
