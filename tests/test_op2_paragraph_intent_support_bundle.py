@@ -1,4 +1,5 @@
 import operator  # noqa: F401 - stdlib pre-import prevents runtime/operator shadowing in this repo layout.
+import json
 import sys
 from pathlib import Path
 
@@ -8,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "runtime"))
 
 from runtime.retrieval.pathfinder_tools import build_ring_support_bundle
+from runtime.operator.consumer import run_consumer
 
 
 VAULT = Path(__file__).resolve().parent / "fixtures" / "op2_support_bundle_vault"
@@ -62,3 +64,138 @@ def test_ring_support_bundle_fails_closed_with_typed_unavailable_shape():
     assert unavailable["blocked_stage"] == "recall_support_bundle"
     assert unavailable["fabricated_answer"] is False
     assert unavailable["raw_provider_material_included"] is False
+
+
+def _write_live_topology_fixture(vault: Path) -> None:
+    query = vault / "queries" / "live-topology-proof.md"
+    provenance = vault / "_meta" / "provenance" / "live-topology-proof.md"
+    prn_concept = vault / "concepts" / "PRN-live-topology.md"
+    legacy_concept = vault / "concepts" / "N-live-proof.md"
+    community = vault / "communities" / "live-topology.md"
+    for path in (query, provenance, prn_concept, legacy_concept, community):
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+    ring = {
+        "ring_id": "ring-live-topology",
+        "source_ref": "hermes-session-json://worker2-live-topology",
+        "origin_locator": "hermes-session-json://worker2-live-topology#message_index=2..3",
+        "provider_session_id": "worker2-live-topology",
+        "message_index_range": {"start": 2, "end": 3},
+        "anchor_hash": "a" * 64,
+        "commit_watermark": "session:worker2-live-topology:message_index:3",
+    }
+    paragraph = {
+        "intent_field": "Preserve Provider current-dialogue CPR reflection as a topology proof.",
+        "decomposition_guard": "preserve_paragraph_intent_before_decision_atoms",
+        "min_split_unit": "paragraph_intent",
+        "why_not_atomic": "The route proof needs ring, community, source path, and currentness together.",
+        "topic_hint": "Provider CPR topology",
+        "category_community_hint": "OpenYggdrasil provider CPR topology completion",
+    }
+    community_payload = {
+        "community_id": "community:live-topology",
+        "placement_reason": "Provider CPR topology completion proof",
+        "related_nodes": ["PRN-live-topology"],
+    }
+    page = f"""---
+id: PRN-live-topology
+title: Provider CPR topology completion
+type: workflow
+status: ACTIVE
+community: community:live-topology
+sources: [hermes-session-json://worker2-live-topology]
+root_claim: Provider CPR topology completion has ring support.
+current_authority: active
+ring_id: ring-live-topology
+lifecycle_state: ACTIVE
+---
+# Provider CPR topology completion
+
+## Provenance Rings
+```json
+[{json.dumps(ring)}]
+```
+
+## Community Placement
+```json
+{json.dumps(community_payload)}
+```
+
+## Paragraph Intent Safety Belt
+```json
+{json.dumps(paragraph)}
+```
+"""
+    query.write_text(page, encoding="utf-8")
+    prn_concept.write_text(page, encoding="utf-8")
+    legacy_concept.write_text(
+        page.replace("id: PRN-live-topology", "id: N-live-proof\ncanonical_node_id: PRN-live-topology")
+        .replace("title: Provider CPR topology completion", "title: opaque-token-only provider bridge")
+        + "\nopaque-token-only\n",
+        encoding="utf-8",
+    )
+    provenance.write_text(
+        "# Provenance Rings\n```json\n"
+        + json.dumps(
+            {
+                "episode_id": "episode:ring:ring-live-topology",
+                "claim_id": "claim:PRN-live-topology",
+                "support_fact": "Provider CPR topology completion has ring support.",
+                "ring_id": "ring-live-topology",
+                "community_id": "community:live-topology",
+                "derived_from": "queries/live-topology-proof.md",
+                "source_ref": "hermes-session-json://worker2-live-topology",
+                "origin_locator": "hermes-session-json://worker2-live-topology#message_index=2..3",
+            }
+        )
+        + "\n```\n",
+        encoding="utf-8",
+    )
+    community.write_text(
+        "# live-topology\n\n- community_id: community:live-topology\n- ring_id: ring-live-topology\n",
+        encoding="utf-8",
+    )
+
+
+def test_ring_support_bundle_uses_matched_node_when_query_text_cannot_select_topic(tmp_path):
+    _write_live_topology_fixture(tmp_path)
+
+    bundle = build_ring_support_bundle(
+        query_text="opaque-token-only",
+        vault_root=tmp_path,
+        matched_nodes=[
+            {
+                "node_id": "N-live-proof",
+                "_source_path": "vault/concepts/N-live-proof.md",
+            }
+        ],
+    )
+
+    assert bundle["schema_version"] == "ring_support_bundle.v1"
+    assert bundle["topic_key"] == "live-topology-proof"
+    assert bundle["ring_id"] == "ring-live-topology"
+    assert bundle["community_id"] == "community:live-topology"
+    assert bundle.get("typed_unavailable") is None
+    assert "vault/queries/live-topology-proof.md" in bundle["source_paths"]
+    assert "vault/_meta/provenance/live-topology-proof.md" in bundle["source_paths"]
+    assert "vault/concepts/PRN-live-topology.md" in bundle["source_paths"]
+    assert "vault/communities/live-topology.md" in bundle["source_paths"]
+
+
+def test_consumer_attaches_completed_ring_bundle_from_matched_node(tmp_path):
+    _write_live_topology_fixture(tmp_path)
+    mailbox = tmp_path / "mailbox"
+    mailbox.mkdir()
+    (mailbox / "queries.jsonl").write_text(
+        json.dumps({"mail_id": "ask-live", "payload": {"query_text": "opaque-token-only"}}) + "\n",
+        encoding="utf-8",
+    )
+
+    run_consumer(mailbox, tmp_path)
+
+    receipt = json.loads((mailbox / "query_receipts.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    ring_bundle = receipt["bundle"]["support_bundle"]
+    assert ring_bundle["ring_id"] == "ring-live-topology"
+    assert ring_bundle["community_id"] == "community:live-topology"
+    assert ring_bundle.get("typed_unavailable") is None
+    assert receipt["bundle"]["source_paths"] == ["concepts/N-live-proof.md"]

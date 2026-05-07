@@ -160,7 +160,11 @@ def run_consumer(mailbox: Path, vault: Path):
         bundle = format_consumer_result(query_text, matches)
         if build_ring_support_bundle is not None:
             try:
-                ring_bundle = build_ring_support_bundle(query_text=query_text, vault_root=vault)
+                ring_bundle = build_ring_support_bundle(
+                    query_text=query_text,
+                    vault_root=vault,
+                    matched_nodes=matches,
+                )
                 if ring_bundle.get("ring_ids") or ring_bundle.get("typed_unavailable"):
                     bundle["support_bundle"] = ring_bundle
             except Exception as exc:

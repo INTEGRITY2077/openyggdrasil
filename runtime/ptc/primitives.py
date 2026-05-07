@@ -472,6 +472,16 @@ def format_consumer_result(
 
     [11차 Rev.2] lifecycle_status, edge_context, context_bundle_ref 필드 추가.
     """
+    def _source_path_for_node(node: dict[str, Any]) -> str:
+        source_path = str(node.get("_source_path") or "").strip()
+        if source_path:
+            return source_path
+        content_hash = str(node.get("content_hash") or "").strip()
+        if content_hash:
+            return f"N-{content_hash}.md"
+        node_id = str(node.get("node_id") or "").strip()
+        return f"{node_id}.md" if node_id else "typed_unavailable_node_path"
+
     return {
         "contract": "support_bundle.v1",
         "query": query,
@@ -487,7 +497,7 @@ def format_consumer_result(
             }
             for n in matched_nodes
         ],
-        "source_paths": [f"N-{n.get('content_hash', '')}.md" for n in matched_nodes],
+        "source_paths": [_source_path_for_node(n) for n in matched_nodes],
         "lifecycle_records": [],
         "lifecycle_status": lifecycle_status or {},
         "edge_context": edge_context or [],
@@ -632,6 +642,7 @@ def load_vault(vault_path: Path) -> list[dict[str, Any]]:
             "metadata": fm,
             "created_at": fm.get("created", ""),
             "content_hash": fm.get("content_hash", ""),
+            "_source_path": str(f.relative_to(vault_path)).replace("\\", "/"),
         }
         # Extract S-P-O from body
         body = text[end+3:]

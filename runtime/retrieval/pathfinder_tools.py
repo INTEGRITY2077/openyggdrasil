@@ -358,12 +358,83 @@ def _community_path_for_id(*, community_id: str, vault_root: Path) -> Path | Non
     return candidate if candidate.exists() else None
 
 
+def _candidate_paths_from_matched_nodes(*, matched_nodes: list[Mapping[str, Any]], vault_root: Path) -> list[Path]:
+    paths: list[Path] = []
+    for node in matched_nodes:
+        metadata = node.get("metadata") if isinstance(node.get("metadata"), Mapping) else {}
+        raw_paths = [
+            node.get("_source_path"),
+            node.get("source_path"),
+            metadata.get("_source_path") if isinstance(metadata, Mapping) else None,
+            metadata.get("source_path") if isinstance(metadata, Mapping) else None,
+        ]
+        for raw_path in raw_paths:
+            if not raw_path:
+                continue
+            path_text = str(raw_path).strip().replace("\\", "/")
+            if path_text.startswith("vault/"):
+                candidate = vault_root / path_text.removeprefix("vault/")
+            else:
+                candidate = Path(path_text)
+                if not candidate.is_absolute():
+                    candidate = vault_root / candidate
+            if candidate.exists():
+                paths.append(candidate)
+
+        metadata_node_id = metadata.get("node_id") if isinstance(metadata, Mapping) else ""
+        node_id = str(node.get("node_id") or metadata_node_id or "").strip()
+        if not node_id:
+            continue
+        for continent in ("concepts", "entities", "comparisons", "queries"):
+            candidate = vault_root / continent / f"{node_id}.md"
+            if candidate.exists():
+                paths.append(candidate)
+    seen: set[str] = set()
+    unique_paths: list[Path] = []
+    for path in paths:
+        key = str(path.resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_paths.append(path)
+    return unique_paths
+
+
 def _vault_source_path(path: Path, *, vault_root: Path) -> str:
     try:
         relative = path.resolve().relative_to(vault_root.resolve())
         return f"vault/{relative.as_posix()}"
     except Exception:
         return str(path).replace("\\", "/")
+
+
+def _topic_key_from_candidate_paths(*, candidate_paths: list[Path], vault_root: Path) -> str | None:
+    tokens: set[str] = set()
+    for path in candidate_paths:
+        if path.parent.name == "queries":
+            return path.stem
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        tokens.update(_extract_ring_ids(text, _extract_json_objects_from_fenced_blocks(text)))
+        tokens.update(_extract_community_ids(text, _extract_json_objects_from_fenced_blocks(text)))
+        for key in ("id", "canonical_node_id", "node_id"):
+            value = _yaml_scalar(text, key)
+            if value:
+                tokens.add(value)
+        source_ref = _yaml_scalar(text, "source_ref")
+        if source_ref:
+            tokens.add(source_ref)
+
+    if not tokens:
+        return None
+    best: tuple[int, str] | None = None
+    for query_path in (vault_root / "queries").glob("*.md"):
+        text = query_path.read_text(encoding="utf-8", errors="ignore")
+        score = sum(1 for token in tokens if token and token in text)
+        if score <= 0:
+            continue
+        if best is None or score > best[0]:
+            best = (score, query_path.stem)
+    return best[1] if best else None
 
 
 def _typed_unavailable_bundle(*, query_text: str, missing_refs: list[str]) -> dict[str, Any]:
@@ -428,6 +499,7 @@ def build_ring_support_bundle(
     query_text: str,
     vault_root: Path = DEFAULT_VAULT,
     topic_key: str | None = None,
+    matched_nodes: list[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """나이테 기억 노드용 origin/recent/source/community/edge 혼합 support bundle을 구성한다.
 
@@ -435,6 +507,9 @@ def build_ring_support_bundle(
     감지될 때 OP2 receipt 안에 추가로 싣는다.
     """
     selected_topic_key = topic_key or _select_ring_topic_key(query_text=query_text, vault_root=vault_root)
+    if not selected_topic_key and matched_nodes:
+        candidate_paths = _candidate_paths_from_matched_nodes(matched_nodes=matched_nodes, vault_root=vault_root)
+        selected_topic_key = _topic_key_from_candidate_paths(candidate_paths=candidate_paths, vault_root=vault_root)
     if not selected_topic_key:
         return _typed_unavailable_bundle(query_text=query_text, missing_refs=["queries/*", "concepts/PRN-*.md"])
 
@@ -541,6 +616,8 @@ def build_ring_support_bundle(
     lifecycle_state = _yaml_scalar(topic_text, "lifecycle_state") or _yaml_scalar(concept_text, "lifecycle_state") or str(lifecycle_record.get("state") or "")
     if not lifecycle_state:
         missing_refs.append("lifecycle_state")
+    if not source_paths:
+        missing_refs.append("source_paths")
     if missing_refs:
         unavailable = _typed_unavailable_bundle(query_text=query_text, missing_refs=missing_refs)
         unavailable["topic_key"] = selected_topic_key
