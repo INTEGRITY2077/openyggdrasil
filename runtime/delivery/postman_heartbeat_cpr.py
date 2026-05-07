@@ -236,9 +236,24 @@ def _typed_unavailable_from(source: Mapping[str, Any]) -> dict[str, Any] | None:
     return payload
 
 
-def _support_metadata(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
-    receipt = dict(op2_receipt or {})
-    support = _mapping_at(
+def _support_candidates(receipt: Mapping[str, Any]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    bundle = receipt.get("bundle")
+    if isinstance(bundle, Mapping):
+        nested = _mapping_at(
+            bundle,
+            (
+                "support_bundle",
+                "ring_support_bundle",
+                "recall_support_bundle",
+                "pathfinder_bundle",
+            ),
+        )
+        if nested:
+            candidates.append(nested)
+        if bundle:
+            candidates.append(dict(bundle))
+    direct = _mapping_at(
         receipt,
         (
             "support_bundle",
@@ -247,24 +262,72 @@ def _support_metadata(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, 
             "pathfinder_bundle",
         ),
     )
-    typed_unavailable = _typed_unavailable_from(support) or _typed_unavailable_from(receipt)
-    facts = _non_empty_strings(
-        support.get("support_facts")
-        or support.get("facts")
-        or receipt.get("support_facts")
-        or receipt.get("facts")
-        or (),
-        limit=12,
+    if direct:
+        candidates.append(direct)
+    return candidates
+
+
+def _support_score(candidate: Mapping[str, Any]) -> tuple[int, int, int, int]:
+    schema = str(candidate.get("schema_version") or "")
+    has_ring = int(
+        schema == "ring_support_bundle.v1"
+        or bool(candidate.get("ring_id"))
+        or bool(candidate.get("ring_ids"))
     )
+    has_sources = int(bool(candidate.get("source_paths")))
+    has_facts = int(bool(candidate.get("support_facts") or candidate.get("facts") or candidate.get("origin_claims")))
+    has_topology = int(
+        bool(candidate.get("community_edges"))
+        or bool(candidate.get("semantic_edges"))
+        or bool(candidate.get("origin_locator"))
+    )
+    return has_ring, has_sources, has_facts, has_topology
+
+
+def _select_support(receipt: Mapping[str, Any]) -> dict[str, Any]:
+    candidates = _support_candidates(receipt)
+    if not candidates:
+        return {}
+    return max(candidates, key=_support_score)
+
+
+def _support_fact_texts(support: Mapping[str, Any], receipt: Mapping[str, Any]) -> list[str]:
+    direct = support.get("support_facts") or support.get("facts") or receipt.get("support_facts") or receipt.get("facts")
+    if direct:
+        return _non_empty_strings(direct, limit=12)
+    origin_facts: list[str] = []
+    for row in support.get("origin_claims") or ():
+        if isinstance(row, Mapping):
+            origin_facts.append(str(row.get("support_fact") or ""))
+    return _non_empty_strings(origin_facts, limit=12)
+
+
+def _support_metadata(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
+    receipt = dict(op2_receipt or {})
+    support = _select_support(receipt)
+    typed_unavailable = _typed_unavailable_from(support) or _typed_unavailable_from(receipt)
+    facts = _support_fact_texts(support, receipt)
     source_paths = _safe_source_paths(support.get("source_paths") or receipt.get("source_paths") or ())
     support_status = "available" if source_paths and facts else "typed_unavailable" if typed_unavailable else "missing"
     metadata = {
         "status": support_status,
+        "support_schema_version": _first_text(support, ("schema_version",)),
         "support_facts": facts,
         "source_paths": source_paths,
         "source_ref": _first_text(support, ("source_ref", "support_bundle_ref", "canonical_note")),
         "community_id": _first_text(support, ("community_id", "ring_id", "topic_id")),
         "currentness": _first_text(support, ("currentness", "current_authority", "lifecycle_state")),
+        "topic_key": _first_text(support, ("topic_key",)),
+        "ring_id": _first_text(support, ("ring_id",)),
+        "origin_locator": _first_text(support, ("origin_locator",)),
+        "provider_session_id": _first_text(support, ("provider_session_id",)),
+        "message_index_range": support.get("message_index_range") if isinstance(support.get("message_index_range"), Mapping) else None,
+        "anchor_hash_present": bool(support.get("anchor_hash")),
+        "commit_watermark": _first_text(support, ("commit_watermark",)),
+        "origin_claims_count": len(support.get("origin_claims") or []) if isinstance(support.get("origin_claims"), list) else 0,
+        "recent_rings_count": len(support.get("recent_rings") or []) if isinstance(support.get("recent_rings"), list) else 0,
+        "community_edges_count": len(support.get("community_edges") or []) if isinstance(support.get("community_edges"), list) else 0,
+        "semantic_edges_count": len(support.get("semantic_edges") or []) if isinstance(support.get("semantic_edges"), list) else 0,
         "typed_unavailable": typed_unavailable,
     }
     missing: list[str] = []
@@ -278,10 +341,10 @@ def _support_metadata(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, 
 def _mailbox_correlation(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
     receipt = dict(op2_receipt or {})
     correlation = {
-        "mail_id": _first_text(receipt, ("mail_id", "query_mail_id", "source_mail_id", "message_id")),
+        "mail_id": _first_text(receipt, ("mail_id", "query_mail_id", "source_mail_id", "message_id", "in_reply_to")),
         "delivery_id": _first_text(receipt, ("delivery_id", "postman_delivery_id")),
         "receipt_id": _first_text(receipt, ("receipt_id", "op2_receipt_id", "consumer_receipt_id")),
-        "op2_query_receipt_id": _first_text(receipt, ("op2_query_receipt_id", "query_receipt_id")),
+        "op2_query_receipt_id": _first_text(receipt, ("op2_query_receipt_id", "query_receipt_id", "receipt_id")),
     }
     missing = [key for key, value in correlation.items() if not value]
     return correlation, [f"correlation_{key}" for key in missing]

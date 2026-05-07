@@ -51,6 +51,39 @@ def _op2_receipt() -> dict:
     }
 
 
+def _ring_support_bundle() -> dict:
+    return {
+        "schema_version": "ring_support_bundle.v1",
+        "topic_key": "live-topology-proof",
+        "ring_id": "ring-live-topology",
+        "community_id": "community:live-topology",
+        "source_ref": "hermes-session-json://worker2-live-topology",
+        "origin_locator": "hermes-session-json://worker2-live-topology#message_index=2..3",
+        "provider_session_id": "worker2-live-topology",
+        "message_index_range": {"start": 2, "end": 3},
+        "anchor_hash": "a" * 64,
+        "commit_watermark": "session:worker2-live-topology:message_index:3",
+        "lifecycle_state": "ACTIVE",
+        "current_authority": "active",
+        "source_paths": [
+            "vault/queries/live-topology-proof.md",
+            "vault/_meta/provenance/live-topology-proof.md",
+            "vault/concepts/PRN-live-topology.md",
+            "vault/communities/live-topology.md",
+        ],
+        "origin_claims": [
+            {
+                "episode_id": "episode:ring:ring-live-topology",
+                "claim_id": "claim:PRN-live-topology",
+                "support_fact": "Provider CPR topology completion has ring support.",
+            }
+        ],
+        "recent_rings": [{"ring_id": "ring-live-topology"}],
+        "community_edges": [{"community_id": "community:live-topology"}],
+        "semantic_edges": [{"type": "PROVENANCE_RING_SUPPORTS"}],
+    }
+
+
 def test_postman_cpr_injects_operator_brief_into_provider_inbox(tmp_path: Path) -> None:
     bootstrap_skill_provider_session(
         workspace_root=tmp_path,
@@ -94,6 +127,63 @@ def test_postman_cpr_injects_operator_brief_into_provider_inbox(tmp_path: Path) 
     )
     assert len(rows) == 1
     assert rows[0]["message_id"] == result["message_id"]
+
+
+def test_postman_cpr_prefers_nested_completed_ring_support_bundle() -> None:
+    op2_receipt = {
+        "in_reply_to": "ask-worker2-ring",
+        "delivery_id": "postman-ring-delivery",
+        "receipt_id": "op2-ring-receipt",
+        "bundle": {
+            "contract": "support_bundle.v1",
+            "source_paths": ["concepts/N-live-proof.md"],
+            "support_facts": [
+                {
+                    "node_id": "N-live-proof",
+                    "subject": "opaque-token-only provider bridge",
+                }
+            ],
+            "support_bundle": _ring_support_bundle(),
+        },
+    }
+
+    payload = build_postman_heartbeat_cpr_payload(
+        live_group=_live_group(),
+        engine_status=_engine_status(),
+        op2_receipt=op2_receipt,
+        created_at="2026-05-07T00:00:00+00:00",
+    )
+
+    metadata = payload["op2_support_metadata"]
+    assert payload["heartbeat_cpr_status"] == "ready"
+    assert payload["provider_inbox_handoff"]["handoff_status"] == "ready_for_provider_current_dialogue"
+    assert payload["mailbox_correlation"]["mail_id"] == "ask-worker2-ring"
+    assert payload["mailbox_correlation"]["op2_query_receipt_id"] == "op2-ring-receipt"
+    assert metadata["status"] == "available"
+    assert metadata["support_schema_version"] == "ring_support_bundle.v1"
+    assert metadata["topic_key"] == "live-topology-proof"
+    assert metadata["ring_id"] == "ring-live-topology"
+    assert metadata["community_id"] == "community:live-topology"
+    assert metadata["source_ref"] == "hermes-session-json://worker2-live-topology"
+    assert metadata["origin_locator"] == "hermes-session-json://worker2-live-topology#message_index=2..3"
+    assert metadata["provider_session_id"] == "worker2-live-topology"
+    assert metadata["message_index_range"] == {"start": 2, "end": 3}
+    assert metadata["anchor_hash_present"] is True
+    assert metadata["commit_watermark"] == "session:worker2-live-topology:message_index:3"
+    assert metadata["currentness"] == "active"
+    assert metadata["source_paths"] == [
+        "vault/queries/live-topology-proof.md",
+        "vault/_meta/provenance/live-topology-proof.md",
+        "vault/concepts/PRN-live-topology.md",
+        "vault/communities/live-topology.md",
+    ]
+    assert metadata["origin_claims_count"] == 1
+    assert metadata["recent_rings_count"] == 1
+    assert metadata["community_edges_count"] == 1
+    assert metadata["semantic_edges_count"] == 1
+    assert metadata["typed_unavailable"] is None
+    assert payload["hard_nonclaims"]["full_ux_passed"] is False
+    assert payload["hard_nonclaims"]["graphify_full_topology_passed"] is False
 
 
 def test_postman_cpr_fails_closed_with_typed_unavailable_when_health_is_missing() -> None:
