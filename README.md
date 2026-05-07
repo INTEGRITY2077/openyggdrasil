@@ -1413,8 +1413,15 @@ openyggdrasil stays local and filesystem-first, but graph topology, contract val
 | [`PyYAML`](https://pyyaml.org/) | Parser foundation for Vault Markdown YAML frontmatter, configuration, and manifests. | MIT-licensed YAML parser project |
 | [`rank-bm25`](https://github.com/dorianbrown/rank_bm25) | Local BM25 retrieval foundation for Pathfinder. It narrows Vault candidates without a vector DB or embedding service. | Apache 2.0-licensed BM25 implementation |
 | [`kiwipiepy`](https://github.com/bab2min/kiwipiepy) | Korean morphological analysis and sentence splitting. `runtime/ptc/primitives.py::extract_decisions()` uses it for more reliable Korean sentence segmentation. | LGPL v3, (c) bab2min |
+| [`es-hangul`](https://github.com/toss/es-hangul) | Reviewed Korean-specific Hangul string utility reference for initial consonants, jamo composition/decomposition, josa/batchim handling, QWERTY/Hangul conversion, and future clean-room query expansion. It is not currently a Python runtime dependency and must not replace Kiwi morphology. | MIT, (c) Viva Republica, Inc. Thanks to Toss for maintaining a modern Hangul utility surface. |
 | [`bubblewrap`](https://github.com/containers/bubblewrap) (`bwrap`) | Core dependency for unprivileged Linux/WSL isolation in Reasoning Lease and PTC sandbox execution. | Foundation for the local sandbox boundary |
 | [`socat`](http://www.dest-unreach.org/socat/) | System tool used to verify Unix socket/stream bridge availability around live provider workers and sandbox boundaries. | Linux/Unix stream relay project |
+
+Korean text boundary: `kiwipiepy` remains the active morphology and sentence
+segmentation dependency. `es-hangul` is acknowledged as an MIT-licensed Hangul
+string utility reference and possible future helper for query expansion or
+surface text polish. It is not a grammar checker, not a semantic quality proof,
+and not a replacement for Kiwi.
 
 ---
 

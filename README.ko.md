@@ -1627,8 +1627,14 @@ openyggdrasil은 기본적으로 순수 로컬/파일시스템 중심으로 작�
 | [`PyYAML`](https://pyyaml.org/) | Vault Markdown의 YAML frontmatter, 설정, 매니페스트를 읽고 정규화하는 파서 기반입니다. | MIT 라이선스 기반의 YAML 파서 프로젝트 |
 | [`rank-bm25`](https://github.com/dorianbrown/rank_bm25) | Pathfinder의 로컬 BM25 검색 기반입니다. 벡터 DB나 임베딩 인프라 없이 Vault 후보를 빠르게 좁히는 데 사용합니다. | Apache 2.0 라이선스 기반의 BM25 구현체 |
 | [`kiwipiepy`](https://github.com/bab2min/kiwipiepy) | 한국어 형태소 분석 및 문장 분리. `runtime/ptc/primitives.py::extract_decisions()`가 한국어 문장을 더 안정적으로 나누기 위해 사용합니다. | LGPL v3, (c) bab2min |
+| [`es-hangul`](https://github.com/toss/es-hangul) | 초성, 자모 조합/분해, 조사/받침 처리, QWERTY/한글 변환, 향후 clean-room 검색어 확장을 위한 한글 문자열 유틸 참조입니다. 현재 Python 런타임 의존성은 아니며 Kiwi 형태소 분석을 대체해서는 안 됩니다. | MIT, (c) Viva Republica, Inc. 현대적인 한글 문자열 유틸리티 표면을 유지해 주는 Toss에 감사드립니다. |
 | [`bubblewrap`](https://github.com/containers/bubblewrap) (`bwrap`) | Reasoning Lease와 PTC sandbox 실행에서 비특권 Linux/WSL 격리를 제공하는 핵심 의존성입니다. | 컨테이너 격리 경계의 기반 프로젝트 |
 | [`socat`](http://www.dest-unreach.org/socat/) | live provider worker와 sandbox 경계에서 Unix socket/stream 브릿지 가용성을 검증하는 시스템 도구입니다. | Linux/Unix stream relay 기반 프로젝트 |
+
+한국어 텍스트 경계: `kiwipiepy`는 현재 형태소 분석과 문장 분리의 활성
+의존성입니다. `es-hangul`은 MIT 라이선스의 한글 문자열 유틸 참조이자
+향후 검색어 확장 또는 표면 문장 다듬기 후보로만 고지합니다. 맞춤법/문법
+교정기, 의미 품질 증거, Kiwi 대체재로 주장하지 않습니다.
 
 ### [rank-bm25](https://github.com/dorianbrown/rank_bm25)
 
