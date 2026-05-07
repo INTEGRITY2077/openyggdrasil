@@ -324,3 +324,27 @@ def _hard_nonclaims() -> dict[str, bool]:
         "semantic_quality_proof": False,
         "es_hangul_code_copied": False,
     }
+
+
+def build_korean_query_expansion_metadata(query: str, *, max_expansions: int = 16) -> dict[str, Any]:
+    """Build provider/OP2-visible metadata for secondary Hangul recall signals."""
+    expanded = expand_korean_query(query, max_expansions=max_expansions)
+    metadata = {
+        "schema_version": "korean_query_expansion.v1",
+        "original_query": str(query or ""),
+        "expansion_status": expanded["status"],
+        "expansion_tokens": expanded.get("tokens", []),
+        "expansions": expanded.get("expansions", []),
+        "used_as_secondary_signal": expanded["status"] == "ready" and bool(expanded.get("tokens")),
+        "primary_language_analyzer": "kiwipiepy_or_existing_tokenizer",
+        "hard_nonclaims": {
+            "not_grammar_checker": True,
+            "not_kiwi_replacement": True,
+            "not_semantic_quality_proof": True,
+            "not_canonical_text_rewriter": True,
+            "not_es_hangul_code_copied": True,
+        },
+    }
+    if expanded.get("typed_unavailable"):
+        metadata["typed_unavailable"] = expanded["typed_unavailable"]
+    return metadata

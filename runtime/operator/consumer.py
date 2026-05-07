@@ -166,6 +166,8 @@ def run_consumer(mailbox: Path, vault: Path):
                     matched_nodes=matches,
                 )
                 if ring_bundle.get("ring_ids") or ring_bundle.get("typed_unavailable"):
+                    if bundle.get("korean_query_expansion"):
+                        ring_bundle["korean_query_expansion"] = bundle["korean_query_expansion"]
                     bundle["support_bundle"] = ring_bundle
             except Exception as exc:
                 log_event("ring_support_bundle_skip", reason=type(exc).__name__)

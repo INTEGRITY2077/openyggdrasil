@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .query_expansion import (
+    build_korean_query_expansion_metadata,
     decompose_to_jamo,
     expand_korean_query,
     get_choseong,
@@ -10,6 +11,7 @@ from .query_expansion import (
 )
 
 __all__ = [
+    "build_korean_query_expansion_metadata",
     "decompose_to_jamo",
     "expand_korean_query",
     "get_choseong",

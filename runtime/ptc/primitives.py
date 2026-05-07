@@ -491,6 +491,38 @@ def format_consumer_result(
         node_id = str(node.get("node_id") or "").strip()
         return f"{node_id}.md" if node_id else "typed_unavailable_node_path"
 
+    try:
+        from korean_text.query_expansion import build_korean_query_expansion_metadata
+        korean_query_expansion = build_korean_query_expansion_metadata(query)
+    except Exception as exc:
+        korean_query_expansion = {
+            "schema_version": "korean_query_expansion.v1",
+            "original_query": query,
+            "expansion_status": "typed_unavailable",
+            "expansion_tokens": [],
+            "expansions": [],
+            "used_as_secondary_signal": False,
+            "typed_unavailable": {
+                "schema_version": "typed_unavailable.v1",
+                "reason_code": "korean_query_expansion_unavailable",
+                "blocked_stage": "consumer_support_bundle_format",
+                "missing_or_rejected_refs": [
+                    {
+                        "ref": type(exc).__name__,
+                        "reason_code": "expansion_adapter_error",
+                        "rejection_kind": "runtime_error",
+                    }
+                ],
+            },
+            "hard_nonclaims": {
+                "not_grammar_checker": True,
+                "not_kiwi_replacement": True,
+                "not_semantic_quality_proof": True,
+                "not_canonical_text_rewriter": True,
+                "not_es_hangul_code_copied": True,
+            },
+        }
+
     return {
         "contract": "support_bundle.v1",
         "query": query,
@@ -511,6 +543,7 @@ def format_consumer_result(
         "lifecycle_status": lifecycle_status or {},
         "edge_context": edge_context or [],
         "context_bundle_ref": context_bundle_ref,
+        "korean_query_expansion": korean_query_expansion,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
