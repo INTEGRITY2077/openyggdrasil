@@ -349,11 +349,20 @@ def search_vault_by_keyword(
     의미적 판단: 오퍼레이터 SKILL이 결과 순위를 재조정
     """
     query_terms = [t for t in query.lower().split() if t]
+    try:
+        from korean_text.query_expansion import query_expansion_tokens
+        query_terms.extend(query_expansion_tokens(query))
+    except Exception:
+        pass
     results = []
 
     for node in vault_nodes:
         spo = node.get("spo", {})
         text = f"{spo.get('subject', '')} {spo.get('predicate', '')} {spo.get('object', '')} {spo.get('source_sentence', '')}".lower()
+        try:
+            text = f"{text} {' '.join(query_expansion_tokens(text))}"
+        except Exception:
+            pass
         matched_terms = [t for t in query_terms if t in text]
         if matched_terms:
             results.append({

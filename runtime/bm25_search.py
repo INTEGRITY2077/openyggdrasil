@@ -110,6 +110,11 @@ def bm25_search(vault: Path, query: str, top_k: int = 20) -> list[dict]:
             korean = ''.join(c for c in text if '\uac00' <= c <= '\ud7a3')
             for i in range(len(korean)-1):
                 tokens.append(korean[i:i+2])
+        try:
+            from korean_text.query_expansion import query_expansion_tokens
+            tokens.extend(query_expansion_tokens(text))
+        except Exception:
+            pass
         return tokens
     tokenized_corpus = [_tokenize(str(text)) for text in corpus]
     bm25 = BM25Okapi(tokenized_corpus)
