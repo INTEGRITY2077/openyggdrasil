@@ -14,37 +14,74 @@
 </p>
 
 <p align="center">
+  <a href="#start-here">처음 읽기</a> •
+  <a href="#setup">설정</a> •
   <a href="#why">왜 필요한가</a> •
-  <a href="#how-it-works">작동 방식</a> •
+  <a href="#how-it-works">시스템 아키텍처</a> •
+  <a href="#ptc">PTC</a> •
   <a href="#modules">모듈</a> •
   <a href="#reasoning-lease">Reasoning Lease</a> •
-  <a href="#setup">설정</a> •
   <a href="#inspirations">영감</a>
 </p>
 
-## 처음 보는 분을 위한 안내: 설치하거나 판단하기 전에 읽어야 할 것
+<a id="start-here"></a>
 
-openyggdrasil은 AI 코딩 에이전트가 세션과 프로바이더를 넘어 오래 남겨야 할 프로젝트 지식을 저장·회상·개정하도록 돕는 로컬 provider-neutral 메모리 계층입니다. 원본 대화 전체를 기억으로 덤프하는 것이 아니라, 출처와 생명주기를 가진 지식 후보를 Vault에 정리하는 방향을 지향합니다.
+## 처음 읽기
 
-이 최상단 문구는 로컬 Hermes 스킬이 아직 설치되지 않은 초회 세션을 위한 레포지토리 자체 안내입니다. 사용자가 이미 전역 `ygg` 명령, Hermes skill, OpenYggdrasil 런타임 상태를 갖고 있다고 가정하지 마십시오.
+openyggdrasil은 AI 코딩 에이전트가 세션과 프로바이더를 넘어 오래 남겨야 할 프로젝트 지식을 저장, 회상, 개정하도록 돕는 로컬 provider-neutral 메모리 계층입니다. 원본 대화 전체를 기억으로 덤프하지 않고, 나중에 다시 찾을 수 있는 주제와 근거를 Vault / LLM Wiki에 정리하는 방향을 지향합니다.
 
-이 README의 표준 용어:
+현재 미션은 좁습니다:
 
 ```text
-Provider Unit N = PRO N + MS N + MF N
-PRO N = Provider Lane N
-MS N  = Memory Saver N  = legacy OP(2N - 1)
-MF N  = Memory Finder N = legacy OP(2N)
-Delivery Monitor = internal Postman
-Status Brief = internal CPR/operator_brief
-Evidence Pack = internal support_bundle
-Result Receipt = internal receipt/query_receipt
-Save Request = internal MemoryTicket/Save Request
-Find Request = internal recall query
-Checkpoint = internal gate/proof/POC
+사용자 / Provider 대화에서 오래 남길 주제를 LLM Wiki에 축적한다.
+나중에 사용자가 자연어로 물으면 관련 주제, 최신성, 근거를 회상한다.
+회상 결과를 현재 Provider 대화에 Evidence Pack과 함께 되돌린다.
 ```
 
-`OP`, `producer`, `consumer`, `operator`, `receipt`, `support_bundle`, `Postman` 이름은 런타임 스키마, 파일 경로, 코드 모듈, 과거 호환 id를 설명할 때만 남습니다. 사용자가 먼저 읽는 역할명은 아닙니다.
+현재 상태도 분명히 낮춰서 읽어야 합니다:
+
+- 이 프로젝트는 아직 production-ready 제품이 아닙니다.
+- Full UX, multi-provider parity, Graphify full topology, Hermes true hot reload는 이 README만으로 주장하지 않습니다.
+- `ygg pro1`, `ygg ms1`, `ygg mf1`은 목표/개발 중인 관찰 명령면입니다. 첫 설치 환경에 이미 존재한다고 가정하지 않습니다.
+- Hermes 기반 POC는 중요한 근거일 수 있지만, 그 자체로 provider-neutral 동작 증명은 아닙니다.
+
+품질은 두 축으로 나눕니다:
+
+| 축 | 질문 |
+|---|---|
+| 생산 품질 | 지식이 의도한 체인으로 저장됐고, 출처와 배치와 Result Receipt가 남았는가? |
+| 소비 품질 | Provider가 나중에 올바른 지식을 찾고, 신뢰하고, 현재 답변에 자연스럽게 썼는가? |
+
+충돌하는 주장이 있을 때는 다음 순서로 판단합니다:
+
+1. 사용자 승인 교정
+2. 명시적 SOT 문서
+3. Vault / LLM Wiki canonical page
+4. Source, provenance, evidence pointer
+5. PTC trace와 평가 결과
+6. Mailbox Result Receipt
+7. Graphify community signal
+8. Worker summary
+
+Worker summary, mailbox receipt, Graphify community signal은 도움이 되는 근거지만 단독 SOT가 아닙니다. POC PASS도 그 POC가 검증한 범위만 승격합니다.
+
+이 README에서 사용자에게 먼저 보여 주는 표준 용어:
+
+| 용어 | 의미 | 내부/호환 이름 |
+|---|---|---|
+| Provider Unit N | 하나의 Provider lane과 그 주변 memory 위성 묶음 | PRO N + MS N + MF N |
+| PRO N | 사용자와 직접 대화하는 Provider lane | Provider Lane N |
+| MS N | 기억 저장 담당 | Memory Saver, legacy OP(2N - 1) |
+| MF N | 기억 회상 담당 | Memory Finder, legacy OP(2N) |
+| Delivery Monitor | 전달과 receipt 조율 | internal Postman |
+| Status Brief | 상태 요약 | internal CPR/operator_brief |
+| Evidence Pack | 근거 묶음 | internal support_bundle |
+| Result Receipt | 처리 결과 영수증 | internal receipt/query_receipt |
+| Save Request | 기억 저장 요청 | internal MemoryTicket/Save Request |
+| Find Request | 기억 회상 요청 | internal recall query |
+| Checkpoint | 검증 관문 | internal gate/proof/POC |
+
+`OP`, `producer`, `consumer`, `operator`, `receipt`, `support_bundle`, `Postman` 이름은 런타임 스키마, 파일 경로, 코드 모듈, 과거 호환 id를 설명할 때만 남깁니다. 사용자가 먼저 읽는 역할명은 Provider, MS, MF입니다.
 
 Use this when:
 - 이 레포지토리를 처음 봅니다.
@@ -63,11 +100,13 @@ If ambiguous:
 - 설치 가능성 요청이면 local prerequisite, 문서화된 설치 표면, dependency resolver, 가장 작은 smoke 또는 healthcheck만 확인합니다.
 - 사용자가 요청하지 않은 broad archaeology, LOC inventory, 전체 아키텍처 리뷰, 완료 상태 승격을 하지 않습니다.
 
-First install path:
-1. 아래 설정 섹션부터 읽습니다.
+읽는 순서:
+1. 설정 섹션에서 지원 환경과 콜드스타트 규칙을 확인합니다.
 2. 설치 전에 로컬 선행 요건을 확인합니다.
 3. 패키지나 시스템 의존성을 설치하기 전에는 사용자 허가를 받습니다.
-4. 설정 후에는 이전 로컬 환경의 가정이 아니라 이 레포지토리의 계약과 런타임 근거를 기준으로 판단합니다.
+4. 왜 필요한가 섹션에서 RAG와 다른 점을 확인합니다.
+5. 시스템 아키텍처, PTC, 모듈, Reasoning Lease를 순서대로 읽습니다.
+6. 설정 후에는 이전 로컬 환경의 가정이 아니라 이 레포지토리의 계약과 런타임 근거를 기준으로 판단합니다.
 
 Typed unavailable when:
 - 레포지토리가 아직 clone되지 않았거나 작업 디렉토리가 불명확합니다.
@@ -293,71 +332,50 @@ Required evidence refs: Mailbox Result Receipt, event log, schema-valid trace, t
 Hard nonclaims: TMUX 화면은 SOT가 아니며, raw stdin/tmux 주입은 Memory Lane Talk의 정본 입력이 아니다.
 ```
 
-현재 수동 TMUX witness 세팅:
-
-```bash
-# WSL / Linux에서 tmux 설치 확인
-tmux -V
-
-# Ubuntu / WSL에 tmux가 없다면 사용자가 직접 설치
-sudo apt-get update
-sudo apt-get install -y tmux
-
-# openyggdrasil 프로젝트와 관찰 대상 operator mailbox 지정
-PROJECT=/mnt/d/0_PROJECT/openyggdrasil
-OP=OP1
-SESSION=openyggdrasil-witness
-MAILBOX="$HOME/.yggdrasil/sessions/$OP"
-VAULT="$PROJECT/vault"
-
-# 관찰용 디렉터리 준비. memory job을 만들지는 않는다.
-mkdir -p "$MAILBOX" "$VAULT"
-
-# witness 세션 생성
-tmux new-session -d -s "$SESSION" -c "$PROJECT"
-tmux rename-window -t "$SESSION:0" witness
-
-# Pane 0: mailbox Result Receipt/status 관찰
-tmux send-keys -t "$SESSION:0.0" \
-  "watch -n 1 'printf \"mailbox: $MAILBOX\\n\\n\"; ls -lah \"$MAILBOX\"; printf \"\\nreceipts\\n\"; tail -n 20 \"$MAILBOX\"/receipts.jsonl 2>/dev/null; printf \"\\nquery_receipts\\n\"; tail -n 20 \"$MAILBOX\"/query_receipts.jsonl 2>/dev/null'" C-m
-
-# Pane 1: intent/query 입력 로그 관찰
-tmux split-window -h -t "$SESSION:0" -c "$PROJECT" \
-  "tail -F \"$MAILBOX\"/intents.jsonl \"$MAILBOX\"/queries.jsonl 2>/dev/null"
-
-# Pane 2: Vault 파일 변화 관찰
-tmux split-window -v -t "$SESSION:0.1" -c "$PROJECT" \
-  "watch -n 2 'find \"$VAULT\" -maxdepth 2 -type f | sort | tail -n 40'"
-
-tmux select-layout -t "$SESSION:0" tiled
-
-# foreground로 붙기
-tmux attach -t "$SESSION"
-```
-
-운영 명령:
-
-```bash
-tmux ls                         # 실행 중인 witness 세션 확인
-tmux attach -t openyggdrasil-witness
-tmux detach-client -s openyggdrasil-witness  # 또는 붙어 있는 화면에서 Ctrl-b d
-tmux kill-session -t openyggdrasil-witness
-```
-
-목표 attach/witness UX는 아직 production-ready가 아닙니다. public repo에서는
-전역 `ygg`, `ygg-*`, 또는 legacy `oy-*` 명령이 이미 설치되어 있다고 가정하지 않습니다.
-의도한 사용자 명령면은 `ygg`이고, `ygg-*`는 첫 설치 요건이 아니라 내부 tmux lane 이름입니다:
+현재 공개 README에서 안전하게 말할 수 있는 명령면:
 
 ```text
-ygg pro1     # target/dev Provider attach/witness 명령. 내부 tmux: ygg-pro1
-ygg ms1      # target/dev MS1 Memory Saver attach/witness 명령. 내부 tmux: ygg-op1
-ygg mf1      # target/dev MF1 Memory Finder attach/witness 명령. 내부 tmux: ygg-op2
-ygg doctor   # target/dev session-group healthcheck. production lifecycle proof는 NOT PASS
-ygg status   # target/dev status surface
-ygg talk MS1 # target, NOT PASS; raw tmux/stdin 입력이 아니라 typed event여야 함
+ygg pro1     목표/개발 중인 Provider 관찰 명령. 내부 tmux 세션명은 ygg-pro1일 수 있음.
+ygg ms1      목표/개발 중인 MS1 Memory Saver 관찰 명령. 내부 tmux 세션명은 ygg-op1일 수 있음.
+ygg mf1      목표/개발 중인 MF1 Memory Finder 관찰 명령. 내부 tmux 세션명은 ygg-op2일 수 있음.
+ygg doctor   목표/개발 중인 세션 그룹 헬스체크. production lifecycle proof는 NOT PASS.
+ygg status   목표/개발 중인 상태 표면.
+ygg talk MS1 목표 기능, NOT PASS. raw tmux/stdin 입력이 아니라 typed event여야 함.
 ```
 
-주의: 위 수동 tmux 명령은 **관찰 pane을 띄우는 방법**입니다. 사용자의 판단 요청이나 Memory Lane Talk payload를 `tmux send-keys`로 주입하는 것은 정본 입력이 아니며 PASS 근거가 될 수 없습니다.
+중요한 구분:
+
+- `ygg pro1`, `ygg ms1`, `ygg mf1`은 사용자가 입력하는 목표/개발 명령면입니다.
+- `ygg-pro1`, `ygg-op1`, `ygg-op2`는 내부 tmux 세션명 또는 증거 id로 남을 수 있습니다.
+- public repo에서는 전역 `ygg`, `ygg-*`, legacy `oy-*` 명령이 이미 설치되어 있다고 가정하지 않습니다.
+- 프로바이더가 먼저 정상 Provider UX로 들어온 뒤, `SKILL.md`와 workspace를 인식하고 나서 attach/witness 명령을 안내해야 합니다.
+
+WSL 일반 셸에서 관찰할 때의 목표 UX:
+
+```bash
+ygg doctor
+ygg status
+ygg pro1
+ygg ms1
+ygg mf1
+```
+
+이미 tmux 내부에 들어와 있을 때:
+
+- 같은 pane 안에서 다시 attach하면 nested tmux가 됩니다.
+- 먼저 detach한 뒤 WSL 일반 셸에서 `ygg pro1`, `ygg ms1`, `ygg mf1`을 실행하는 편이 안전합니다.
+- 정말 nested attach를 의도할 때만 tmux의 경고를 이해한 상태에서 별도 shell로 실행합니다. 이것은 일반 사용자 UX가 아닙니다.
+
+저수준 대체 진단:
+
+```bash
+tmux -V       # tmux 설치 확인
+tmux ls       # 현재 tmux 세션 확인
+```
+
+저수준 tmux 명령은 진단용입니다. memory job 생성, Memory Lane Talk, 사용자 판단 요청의 정본 입력으로 쓰지 않습니다.
+
+주의: 수동 tmux 조작은 **관찰 pane을 확인하는 방법**일 뿐입니다. 사용자의 판단 요청이나 Memory Lane Talk payload를 raw tmux/stdin으로 주입하는 것은 정본 입력이 아니며 PASS 근거가 될 수 없습니다.
 
 상태 용어는 정확히 구분합니다:
 
@@ -838,6 +856,7 @@ SKILL만으로는 프로바이더가 "내 Memory Worker가 살아있나? 뭘 처
 
 결과적으로 에이전트는 요약본과 함께 기원 점검을 위한 제한된 근거 주소를 제공받아, **Delivery Monitor**(internal Postman)를 통해 타입이 지정된 **Mailbox** 계약으로 안전하게 수신합니다.
 
+<a id="ptc"></a>
 
 ## PTC (Programmatic Tool Calling) 개념과 아키텍처
 
@@ -1542,6 +1561,8 @@ RESULT = {"sources": sources}
 필수 승격군은 public README에서 계속 보이는 책임 경계이며, 각 gate가 닫힐 때까지 PASS로 올리지 않는다.
 승격후보군은 중요하지만 아직 독립 module-define으로 승격되지 않은 acceptance/UX gate다.
 ```
+
+<a id="reasoning-lease"></a>
 
 ## Reasoning Lease
 
