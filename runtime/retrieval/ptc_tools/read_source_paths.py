@@ -15,5 +15,5 @@ def register(registry: dict, *, vault_root, anchor_evaluator=None) -> None:
         required_inputs={"topic_id": "string", "claim_ids": "array"},
         read_only=True,
         output_kind="source_path_list",
-        handler=lambda **kwargs: get_raw_sources(vault_root=vault_root, **kwargs),
+        handler=lambda **kwargs: read_source_paths(vault_root=vault_root, **kwargs),
     )

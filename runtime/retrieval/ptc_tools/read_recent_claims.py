@@ -15,5 +15,5 @@ def register(registry: dict, *, vault_root, anchor_evaluator=None) -> None:
         required_inputs={"topic_id": "string", "limit": "integer"},
         read_only=True,
         output_kind="recent_claim_rows",
-        handler=lambda **kwargs: get_recent_episodes(vault_root=vault_root, **kwargs),
+        handler=lambda **kwargs: read_recent_claims(vault_root=vault_root, **kwargs),
     )
