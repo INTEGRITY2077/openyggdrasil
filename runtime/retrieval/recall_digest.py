@@ -123,6 +123,27 @@ def _domain_profile(text: str) -> str:
     return "general_recall"
 
 
+def _domain_profile_from_topic_key(topic_key: str | None) -> str | None:
+    key = str(topic_key or "").lower()
+    if not key:
+        return None
+    if "smoke" in key or "first-run" in key or "quickstart" in key:
+        return "claude_code_smoke"
+    if "hooks" in key or "event-automation" in key:
+        return "claude_code_hooks"
+    if "subagent" in key or "isolated-context" in key or "isolated-worker" in key:
+        return "claude_code_subagents"
+    if "mcp" in key or "external-tool-transport" in key:
+        return "claude_code_mcp"
+    if "memory" in key or "context-window-safe-recall" in key or "safe-recall" in key:
+        return "claude_code_memory"
+    if "skill" in key or "reusable-guidance" in key:
+        return "claude_code_extensions"
+    if "claude-code" in key:
+        return "claude_code_docs"
+    return None
+
+
 def _scope_profile(text: str, query_text: str) -> str:
     hay = f"{text}\n{query_text}".lower()
     if any(token in hay for token in ("hook", "usermpromptsubmit", "userpromptsubmit", "posttooluse", "pretooluse", "sessionstart")):
@@ -232,7 +253,7 @@ def build_recall_digest(
             query_text,
         ]
     )
-    domain = _domain_profile(all_text)
+    domain = _domain_profile_from_topic_key(topic_key) or _domain_profile(all_text)
     scope = _scope_profile(all_text, query_text)
     commands = _command_hits(all_text)
 

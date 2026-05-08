@@ -38,6 +38,13 @@ GENERATOR_ORDER = (
     "source_ref_lookup",
 )
 STRONG_EVIDENCE = {"source_path", "provenance"}
+DOMAIN_ROUTE_FRAGMENTS = {
+    "hooks": ("hooks", "event-automation", "lifecycle-event"),
+    "skills": ("skills", "reusable-guidance", "skill.md"),
+    "subagents": ("subagent", "subagents", "isolated-context", "isolated-worker"),
+    "mcp": ("mcp", "external-tool-transport", "external-capability"),
+    "context_safe_recall": ("context-window-safe-recall", "safe-recall", "recall"),
+}
 
 
 def _sha_token(*parts: Any, length: int = 24) -> str:
@@ -62,6 +69,68 @@ def _query_terms(query_text: str) -> list[str]:
         seen.add(token)
         out.append(token)
     return out
+
+
+def _query_domain_hints(query_text: str) -> set[str]:
+    text = query_text.lower()
+    hints: set[str] = set()
+    if any(marker in text for marker in ("자동", "매번", "이벤트", "event", "lifecycle", "pretooluse", "posttooluse", "도구 호출")):
+        hints.add("hooks")
+    if any(marker in text for marker in ("반복", "체크리스트", "작업 절차", "재사용", "필요할 때", "skill", "skills", "skill.md", "지침")):
+        hints.add("skills")
+    if any(marker in text for marker in ("파일을 많이", "조사", "격리", "side work", "subagent", "subagents", "요약만", "메인 context")):
+        hints.add("subagents")
+    if any(marker in text for marker in ("외부", "데이터베이스", "database", "api", "transport", "mcp", "서비스", "도구 연결")):
+        hints.add("mcp")
+    if any(marker in text for marker in ("raw", "원문", "복붙", "곱씹", "회상", "digest", "alignment", "정렬")):
+        hints.add("context_safe_recall")
+
+    # Negative disambiguation: "not a skill" in an automation question should not
+    # pull the route toward the skill node.
+    if "skills" in hints and "hooks" in hints and any(marker in text for marker in ("말고", "아니라", "not skill", "not the skill")):
+        hints.discard("skills")
+    return hints
+
+
+def _candidate_route_text(candidate: Mapping[str, Any]) -> str:
+    values = [
+        candidate.get("node_id"),
+        candidate.get("source_path"),
+        candidate.get("source_ref"),
+        candidate.get("origin_locator"),
+        candidate.get("community_id"),
+        candidate.get("ring_id"),
+    ]
+    return " ".join(str(value or "").lower() for value in values)
+
+
+def _domain_matches_route(candidate: Mapping[str, Any], domain: str) -> bool:
+    route_text = _candidate_route_text(candidate)
+    return any(fragment in route_text for fragment in DOMAIN_ROUTE_FRAGMENTS.get(domain, ()))
+
+
+def _apply_domain_affinity(candidate: Mapping[str, Any], domains: set[str]) -> dict[str, Any]:
+    boosted = dict(candidate)
+    if not domains:
+        return boosted
+    matched = [domain for domain in domains if _domain_matches_route(candidate, domain)]
+    conflicting = [
+        domain
+        for domain in DOMAIN_ROUTE_FRAGMENTS
+        if domain not in domains and _domain_matches_route(candidate, domain)
+    ]
+    score = float(boosted.get("score") or 0.0)
+    if matched:
+        score += 1.5 * len(matched)
+        supporting = set(boosted.get("supporting_generators") or [])
+        supporting.add("domain_affinity")
+        boosted["supporting_generators"] = sorted(str(item) for item in supporting if item)
+        boosted["domain_affinity"] = {"matched": matched, "conflicting": conflicting}
+    elif conflicting:
+        score *= 0.35
+        boosted["domain_affinity"] = {"matched": [], "conflicting": conflicting}
+    boosted["score"] = max(0.0, score)
+    return boosted
 
 
 def _source_path_for_node(node: Mapping[str, Any]) -> str | None:
@@ -158,6 +227,13 @@ def _candidate_from_node(
 ) -> dict[str, Any]:
     metadata = node.get("metadata") if isinstance(node.get("metadata"), Mapping) else {}
     source_path = _source_path_for_node(node)
+    community_id = (
+        node.get("community_id")
+        or metadata.get("community_id")
+        or node.get("community")
+        or metadata.get("community")
+        or ""
+    )
     return _candidate(
         query_text=query_text,
         generator=generator,
@@ -166,7 +242,7 @@ def _candidate_from_node(
         source_path=source_path,
         source_ref=str(node.get("source_ref") or metadata.get("source_ref") or "") or None,
         origin_locator=str(node.get("origin_locator") or metadata.get("origin_locator") or "") or None,
-        community_id=str(node.get("community_id") or metadata.get("community_id") or "") or None,
+        community_id=str(community_id).strip() or None,
         ring_id=str(node.get("ring_id") or metadata.get("ring_id") or "") or None,
         lifecycle_state=str(metadata.get("status") or metadata.get("lifecycle_state") or "UNKNOWN"),
         evidence_class=evidence_class,
@@ -505,6 +581,8 @@ def _evaluate_candidates(candidates: Sequence[Mapping[str, Any]], *, max_selecte
 def _coverage_state(selected: Sequence[Mapping[str, Any]], rejected: Sequence[Mapping[str, Any]]) -> str:
     if any(candidate.get("evidence_class") in STRONG_EVIDENCE and candidate.get("source_path") for candidate in selected):
         return "present"
+    if any(candidate.get("source_path") and candidate.get("lifecycle_state") == "ACTIVE" for candidate in selected):
+        return "present"
     if selected or rejected:
         return "weak"
     return "absent"
@@ -631,6 +709,7 @@ def build_ptc_retrieval_orchestrator_result(
         raise ValueError("query_text is required")
 
     vault_nodes = load_vault(vault_root)
+    domain_hints = _query_domain_hints(query_text)
     generator_reports: list[dict[str, Any]] = []
     all_candidates: list[dict[str, Any]] = []
 
@@ -722,6 +801,7 @@ def build_ptc_retrieval_orchestrator_result(
         )
     )
 
+    all_candidates = [_apply_domain_affinity(candidate, domain_hints) for candidate in all_candidates]
     merged = _merge_candidates(all_candidates)
     selected, rejected = _evaluate_candidates(merged)
     coverage_state = _coverage_state(selected, rejected)
@@ -740,6 +820,7 @@ def build_ptc_retrieval_orchestrator_result(
     candidate_set = {
         "schema_version": "retrieval_candidate_set.v1",
         "query_text": query_text,
+        "domain_hints": sorted(domain_hints),
         "generated_at": utc_now_iso(),
         "generators_attempted": list(GENERATOR_ORDER),
         "generator_reports": generator_reports,
@@ -756,8 +837,18 @@ def build_ptc_retrieval_orchestrator_result(
         vault_root=vault_root,
     )
     consumer_bundle = format_consumer_result(query_text, matched_nodes)
-    if isinstance(ring_bundle, Mapping):
-        consumer_bundle["support_bundle"] = dict(ring_bundle)
+    final_ring_bundle = ring_bundle
+    if matched_nodes:
+        try:
+            final_ring_bundle = build_ring_support_bundle(
+                query_text=query_text,
+                vault_root=vault_root,
+                matched_nodes=matched_nodes,
+            )
+        except Exception:
+            final_ring_bundle = ring_bundle
+    if isinstance(final_ring_bundle, Mapping):
+        consumer_bundle["support_bundle"] = dict(final_ring_bundle)
     if coverage_state == "absent" and "support_bundle" not in consumer_bundle:
         consumer_bundle["typed_unavailable"] = _typed_unavailable(
             query_text,

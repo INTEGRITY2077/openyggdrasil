@@ -538,10 +538,12 @@ def build_ring_support_bundle(
     POC용 고정 경로다. 기존 Pathfinder bundle을 대체하지 않고 provenance ring node가
     감지될 때 OP2 receipt 안에 추가로 싣는다.
     """
-    selected_topic_key = topic_key or _select_ring_topic_key(query_text=query_text, vault_root=vault_root)
+    selected_topic_key = topic_key
     if not selected_topic_key and matched_nodes:
         candidate_paths = _candidate_paths_from_matched_nodes(matched_nodes=matched_nodes, vault_root=vault_root)
         selected_topic_key = _topic_key_from_candidate_paths(candidate_paths=candidate_paths, vault_root=vault_root)
+    if not selected_topic_key:
+        selected_topic_key = _select_ring_topic_key(query_text=query_text, vault_root=vault_root)
     if not selected_topic_key:
         return _typed_unavailable_bundle(query_text=query_text, missing_refs=["queries/*", "concepts/PRN-*.md"])
 
