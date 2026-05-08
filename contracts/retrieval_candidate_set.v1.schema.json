@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/retrieval_candidate_set.v1.schema.json",
+  "title": "openyggdrasil Retrieval Candidate Set v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "query_text",
+    "generated_at",
+    "generators_attempted",
+    "generator_reports",
+    "merge_strategy",
+    "candidates",
+    "selected_candidate_ids",
+    "rejected_candidate_ids",
+    "coverage_state",
+    "retry_decision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "retrieval_candidate_set.v1"
+    },
+    "query_text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generators_attempted": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "bm25",
+          "keyword",
+          "korean_expansion",
+          "edge",
+          "community",
+          "provenance_ring",
+          "recent_episode",
+          "source_ref_lookup"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "generator_reports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["generator", "status", "candidate_count"],
+        "properties": {
+          "generator": {"type": "string"},
+          "status": {"enum": ["completed", "typed_unavailable", "error"]},
+          "candidate_count": {"type": "integer", "minimum": 0},
+          "reason": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "merge_strategy": {
+      "const": "dedupe_by_ring_node_source_then_rank"
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "$ref": "retrieval_candidate.v1.schema.json"
+      }
+    },
+    "selected_candidate_ids": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "rejected_candidate_ids": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "coverage_state": {
+      "enum": ["present", "weak", "absent"]
+    },
+    "retry_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "attempts_used", "max_attempts", "reason"],
+      "properties": {
+        "status": {"enum": ["not_required", "retry_recommended", "exhausted"]},
+        "attempts_used": {"type": "integer", "minimum": 1},
+        "max_attempts": {"type": "integer", "minimum": 1},
+        "reason": {"type": "string"}
+      }
+    }
+  }
+}

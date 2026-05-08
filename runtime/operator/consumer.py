@@ -31,6 +31,11 @@ try:
 except Exception:
     build_ring_support_bundle = None
 
+try:
+    from runtime.retrieval.ptc_retrieval_orchestrator import build_ptc_retrieval_orchestrator_result
+except Exception:
+    build_ptc_retrieval_orchestrator_result = None
+
 # PTC advisory import (lazy)
 try:
     from runtime.ptc.sandbox_executor import execute_ptc_code as _ptc_exec
@@ -115,6 +120,31 @@ def run_consumer(mailbox: Path, vault: Path):
                 deliver_receipt(mailbox, msg["mail_id"], status="completed",
                                result_bundle={"ptc_stdout": stdout[:500]})
             continue
+
+        # Deterministic read-only PTC retrieval orchestrator. BM25 is one
+        # candidate generator here, not the owner of the retrieval route.
+        if build_ptc_retrieval_orchestrator_result is not None:
+            try:
+                orchestrated = build_ptc_retrieval_orchestrator_result(
+                    query_text=query_text,
+                    vault_root=vault,
+                    top_k=20,
+                )
+                bundle = orchestrated["consumer_bundle"]
+                receipt = {
+                    "receipt_id": str(uuid.uuid4())[:8],
+                    "in_reply_to": msg["mail_id"],
+                    "status": "completed",
+                    "bundle": bundle,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "consumer_pid": os.getpid(),
+                }
+                with open(receipts_file, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+                deliver_receipt(mailbox, msg["mail_id"], status="completed", result_bundle=bundle)
+                continue
+            except Exception as exc:
+                log_event("ptc_retrieval_orchestrator_skip", reason=type(exc).__name__)
 
         # 고정 경로
         bm25_results = _bm25_search_vault(vault, query_text, top_k=20)
