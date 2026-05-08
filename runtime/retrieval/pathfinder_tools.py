@@ -17,6 +17,7 @@ from retrieval.pathfinder import (
     validate_pathfinder_bundle,
 )
 from retrieval.recall_digest import build_recall_digest_from_support_bundle
+from memory.wiki_node_taxonomy import coerce_node_taxonomy
 
 
 def _topic_key_from_topic_id(topic_id: str) -> str:
@@ -359,6 +360,36 @@ def _community_path_for_id(*, community_id: str, vault_root: Path) -> Path | Non
     return candidate if candidate.exists() else None
 
 
+def _extract_node_taxonomy(
+    *,
+    topic_text: str,
+    concept_text: str,
+    all_records: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    for record in all_records:
+        value = record.get("node_taxonomy")
+        if isinstance(value, Mapping):
+            return coerce_node_taxonomy(value)
+    fallback_payload = {
+        "continent": _yaml_scalar(topic_text, "continent") or _yaml_scalar(concept_text, "continent") or "concepts",
+        "node_type": (
+            _yaml_scalar(topic_text, "node_type")
+            or _yaml_scalar(concept_text, "node_type")
+            or _yaml_scalar(topic_text, "type")
+            or _yaml_scalar(concept_text, "type")
+            or "concept"
+        ),
+        "topography_level": _yaml_scalar(topic_text, "topography_level") or _yaml_scalar(concept_text, "topography_level"),
+        "community_role": _yaml_scalar(topic_text, "community_role") or _yaml_scalar(concept_text, "community_role"),
+    }
+    return coerce_node_taxonomy(
+        None,
+        fallback_payload=fallback_payload,
+        physical_continent=str(fallback_payload["continent"] or "concepts"),
+        default_node_type=str(fallback_payload["node_type"] or "concept"),
+    )
+
+
 def _candidate_paths_from_matched_nodes(*, matched_nodes: list[Mapping[str, Any]], vault_root: Path) -> list[Path]:
     paths: list[Path] = []
     for node in matched_nodes:
@@ -543,6 +574,7 @@ def build_ring_support_bundle(
         "why_not_atomic",
     )
     lifecycle_record = _first_record_with(all_records, "state")
+    node_taxonomy = _extract_node_taxonomy(topic_text=topic_text, concept_text=concept_text, all_records=all_records)
     community_path = _community_path_for_id(community_id=community_id, vault_root=vault_root) if community_id else None
 
     origin_claims = [
@@ -630,6 +662,11 @@ def build_ring_support_bundle(
         unavailable["origin_claims"] = origin_claims
         unavailable["recent_rings"] = recent_rings
         unavailable["source_paths"] = _unique_preserve_order(source_paths)
+        unavailable["node_taxonomy"] = node_taxonomy
+        unavailable["continent"] = node_taxonomy["continent"]
+        unavailable["node_type"] = node_taxonomy["node_type"]
+        unavailable["topography_level"] = node_taxonomy["topography_level"]
+        unavailable["community_role"] = node_taxonomy["community_role"]
         return unavailable
 
     bundle = {
@@ -650,6 +687,11 @@ def build_ring_support_bundle(
         "commit_watermark": str(ring_record.get("commit_watermark") or ""),
         "lifecycle_state": lifecycle_state,
         "current_authority": _yaml_scalar(topic_text, "current_authority") or _yaml_scalar(concept_text, "current_authority") or None,
+        "node_taxonomy": node_taxonomy,
+        "continent": node_taxonomy["continent"],
+        "node_type": node_taxonomy["node_type"],
+        "topography_level": node_taxonomy["topography_level"],
+        "community_role": node_taxonomy["community_role"],
         "paragraph_intent_safety_belt": dict(paragraph_intent),
         "origin_claims": origin_claims,
         "recent_rings": recent_rings,

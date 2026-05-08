@@ -197,6 +197,7 @@ def _provider_inbox_summary(*, workspace_root: Path) -> dict[str, Any]:
     handoff = payload.get("provider_inbox_handoff") if isinstance(payload, dict) else None
     op2_support = payload.get("op2_support_metadata") if isinstance(payload, dict) else None
     recall_digest = op2_support.get("recall_digest") if isinstance(op2_support, dict) else None
+    node_taxonomy = op2_support.get("node_taxonomy") if isinstance(op2_support, dict) else None
     return {
         "provider_id": provider_id,
         "provider_profile": provider_profile,
@@ -224,6 +225,11 @@ def _provider_inbox_summary(*, workspace_root: Path) -> dict[str, Any]:
         ),
         "source_paths_count": len(op2_support.get("source_paths", [])) if isinstance(op2_support, dict) else 0,
         "recall_digest_status": recall_digest.get("status") if isinstance(recall_digest, dict) else None,
+        "node_taxonomy_schema": node_taxonomy.get("schema_version") if isinstance(node_taxonomy, dict) else None,
+        "continent": op2_support.get("continent") if isinstance(op2_support, dict) else None,
+        "node_type": op2_support.get("node_type") if isinstance(op2_support, dict) else None,
+        "topography_level": op2_support.get("topography_level") if isinstance(op2_support, dict) else None,
+        "community_role": op2_support.get("community_role") if isinstance(op2_support, dict) else None,
         "typed_unavailable_present": bool(op2_support.get("typed_unavailable_present")) if isinstance(op2_support, dict) else None,
     }
 

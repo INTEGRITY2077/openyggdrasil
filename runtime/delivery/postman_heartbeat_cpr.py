@@ -299,6 +299,24 @@ def _safe_korean_query_expansion(value: Any) -> dict[str, Any] | None:
     return metadata
 
 
+def _safe_node_taxonomy(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    schema_version = _safe_portable_text(value.get("schema_version"))
+    if schema_version != "wiki_node_taxonomy.v1":
+        return None
+    return {
+        "schema_version": schema_version,
+        "continent": _safe_portable_text(value.get("continent")),
+        "physical_continent": _safe_portable_text(value.get("physical_continent")),
+        "node_type": _safe_portable_text(value.get("node_type")),
+        "topography_level": _safe_portable_text(value.get("topography_level")),
+        "community_role": _safe_portable_text(value.get("community_role")),
+        "classification_source": _safe_portable_text(value.get("classification_source")),
+        "taxonomy_status": _safe_portable_text(value.get("taxonomy_status")),
+    }
+
+
 def _safe_recall_digest_value(value: Any) -> Any:
     if isinstance(value, Mapping):
         return {
@@ -428,6 +446,7 @@ def _support_metadata(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, 
     facts = _support_fact_texts(support, receipt)
     source_paths = _safe_source_paths(support.get("source_paths") or receipt.get("source_paths") or ())
     support_status = "available" if source_paths and facts else "typed_unavailable" if typed_unavailable else "missing"
+    node_taxonomy = _safe_node_taxonomy(support.get("node_taxonomy"))
     metadata = {
         "status": support_status,
         "support_schema_version": _first_text(support, ("schema_version",)),
@@ -435,6 +454,11 @@ def _support_metadata(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, 
         "source_paths": source_paths,
         "source_ref": _first_text(support, ("source_ref", "support_bundle_ref", "canonical_note")),
         "community_id": _first_text(support, ("community_id", "ring_id", "topic_id")),
+        "node_taxonomy": node_taxonomy,
+        "continent": _first_text(support, ("continent",)) or (node_taxonomy or {}).get("continent"),
+        "node_type": _first_text(support, ("node_type",)) or (node_taxonomy or {}).get("node_type"),
+        "topography_level": _first_text(support, ("topography_level",)) or (node_taxonomy or {}).get("topography_level"),
+        "community_role": _first_text(support, ("community_role",)) or (node_taxonomy or {}).get("community_role"),
         "currentness": _first_text(support, ("currentness", "current_authority", "lifecycle_state")),
         "topic_key": _first_text(support, ("topic_key",)),
         "ring_id": _first_text(support, ("ring_id",)),

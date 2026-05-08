@@ -45,6 +45,11 @@ from runtime.operator.prune import (
     _run_hygiene_check,
 )
 
+from runtime.memory.wiki_node_taxonomy import (
+    build_community_node_taxonomy,
+    build_node_taxonomy,
+    validate_node_taxonomy,
+)
 from runtime.ptc.sandbox_executor import execute_ptc_code
 
 
@@ -360,6 +365,7 @@ def _render_provenance_ring_page(*, ring_node: dict) -> str:
     ring = ring_node["provenance_rings"][0]
     lifecycle = ring_node["lifecycle"]
     community = ring_node["community"]
+    taxonomy = ring_node.get("node_taxonomy", {})
     retrieval = ring_node["retrieval_contract"]
     safety_belt = ring_node.get("paragraph_intent_safety_belt", {})
     quality = ring_node.get("quality_assessment", {})
@@ -367,6 +373,11 @@ def _render_provenance_ring_page(*, ring_node: dict) -> str:
 id: {ring_node['node_id']}
 title: {topic['title']}
 type: {ring_node.get('category', 'policy')}
+continent: {taxonomy.get('continent', 'concepts')}
+physical_continent: {taxonomy.get('physical_continent', 'concepts')}
+node_type: {taxonomy.get('node_type', ring_node.get('category', 'policy'))}
+topography_level: {taxonomy.get('topography_level', 'tree')}
+community_role: {taxonomy.get('community_role', 'member')}
 status: ACTIVE
 community: {community['community_id']}
 sources: [{ring['source_ref']}]
@@ -402,6 +413,11 @@ lifecycle_state: ACTIVE
 ## 6. Community Placement
 ```json
 {json.dumps(community, ensure_ascii=False, indent=2)}
+```
+
+## 6A. Node Taxonomy
+```json
+{json.dumps(taxonomy, ensure_ascii=False, indent=2)}
 ```
 
 ## 7. Paragraph Intent Safety Belt
@@ -462,6 +478,7 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
         "derived_from": topic["page_path"],
         "source_ref": ring["source_ref"],
         "origin_locator": ring["origin_locator"],
+        "node_taxonomy": ring_node.get("node_taxonomy", {}),
     }
     prov_path.write_text(
         "# Provenance Rings\n"
@@ -477,8 +494,19 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     community_key = community["community_id"].split(":", 1)[-1]
     community_path = vault / "communities" / f"{community_key}.md"
     community_path.parent.mkdir(parents=True, exist_ok=True)
+    community_taxonomy = build_community_node_taxonomy(community["community_id"])
     community_path.write_text(
-        f"# {community_key}\n\n- community_id: {community['community_id']}\n- placement_reason: {community['placement_reason']}\n- related_nodes: {ring_node['node_id']}\n- ring_id: {ring['ring_id']}\n",
+        f"# {community_key}\n\n"
+        f"- community_id: {community['community_id']}\n"
+        f"- placement_reason: {community['placement_reason']}\n"
+        f"- related_nodes: {ring_node['node_id']}\n"
+        f"- ring_id: {ring['ring_id']}\n"
+        f"- node_type: {community_taxonomy['node_type']}\n"
+        f"- topography_level: {community_taxonomy['topography_level']}\n"
+        f"- community_role: {community_taxonomy['community_role']}\n"
+        "\n```json\n"
+        f"{json.dumps({'node_taxonomy': community_taxonomy}, ensure_ascii=False, indent=2)}\n"
+        "```\n",
         encoding="utf-8",
     )
     return {
@@ -569,6 +597,7 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
         "anchor_hash_verified": str(ring.get("anchor_hash") or "") == str(payload.get("anchor_hash") or ""),
         "paragraph_intent_guard_present": ring_node.get("paragraph_intent_safety_belt", {}).get("decomposition_guard") == CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD,
         "community_not_atomic": not _is_atom_tag_hint(str(payload.get("category_community_hint") or community.get("community_id") or "")),
+        "node_taxonomy_valid": validate_node_taxonomy(ring_node.get("node_taxonomy", {}))["valid"],
         "raw_transcript_absent": True,
     }
     failed = [name for name, passed in checks.items() if not passed]
@@ -633,6 +662,12 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
     community_key = _slugify_topic_key(str(payload.get("community") or payload.get("커뮤니티") or "openyggdrasil-memory"))
     community_id = f"community:{community_key}"
     commit_watermark = str(payload.get("commit_watermark") or resolved.get("commit_watermark") or "")
+    legacy_category = str(payload.get("category") or payload.get("移댄뀒怨좊━") or "policy")
+    node_taxonomy = build_node_taxonomy(
+        {**payload, "category": legacy_category},
+        physical_continent="concepts",
+        default_node_type="policy",
+    )
     ring_node = {
         "schema_version": "provenance_ring_node.v1",
         "node_id": node_id,
@@ -687,6 +722,8 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
             "support_lanes": ["origin", "recent", "source_paths", "community_edges", "semantic_edges"],
         },
     }
+    ring_node["category"] = node_taxonomy["node_type"]
+    ring_node["node_taxonomy"] = node_taxonomy
     ring_node["quality_assessment"] = _build_memory_ticket_quality_assessment(
         payload=payload,
         resolved=resolved,
@@ -704,6 +741,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
             "ring_ids": [ring_id],
             "source_paths": list(paths.values()),
             "community_id": community_id,
+            "node_taxonomy": node_taxonomy,
             "quality_assessment": ring_node["quality_assessment"],
         },
     }
