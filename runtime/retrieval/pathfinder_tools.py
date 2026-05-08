@@ -597,6 +597,7 @@ def build_ring_support_bundle(
             "origin_locator": str(row.get("origin_locator") or ""),
             "provider_session_id": str(row.get("provider_session_id") or ""),
             "message_index_range": row.get("message_index_range") or None,
+            "source_line_range": row.get("source_line_range") or None,
             "anchor_hash": str(row.get("anchor_hash") or ""),
             "commit_watermark": str(row.get("commit_watermark") or ""),
             "lane": "recent",
@@ -662,6 +663,7 @@ def build_ring_support_bundle(
         unavailable["origin_claims"] = origin_claims
         unavailable["recent_rings"] = recent_rings
         unavailable["source_paths"] = _unique_preserve_order(source_paths)
+        unavailable["source_line_range"] = ring_record.get("source_line_range") if isinstance(ring_record, Mapping) else None
         unavailable["node_taxonomy"] = node_taxonomy
         unavailable["continent"] = node_taxonomy["continent"]
         unavailable["node_type"] = node_taxonomy["node_type"]
@@ -683,6 +685,7 @@ def build_ring_support_bundle(
         "origin_locator": str(ring_record.get("origin_locator") or ""),
         "provider_session_id": str(ring_record.get("provider_session_id") or ""),
         "message_index_range": ring_record.get("message_index_range") or None,
+        "source_line_range": ring_record.get("source_line_range") or None,
         "anchor_hash": str(ring_record.get("anchor_hash") or ""),
         "commit_watermark": str(ring_record.get("commit_watermark") or ""),
         "lifecycle_state": lifecycle_state,

@@ -106,6 +106,16 @@ def _support_fact_text(values: Any) -> str:
 
 def _domain_profile(text: str) -> str:
     hay = text.lower()
+    if "claude" in hay and any(token in hay for token in ("hook", "usermpromptsubmit", "userpromptsubmit", "posttooluse", "pretooluse", "sessionstart")):
+        return "claude_code_hooks"
+    if "claude" in hay and any(token in hay for token in ("subagent", "sub-agent", "isolated context", "task tool")):
+        return "claude_code_subagents"
+    if "claude" in hay and any(token in hay for token in ("claude.md", "auto memory", ".claude/rules", "memory")):
+        return "claude_code_memory"
+    if "claude" in hay and "mcp" in hay:
+        return "claude_code_mcp"
+    if "claude" in hay and any(token in hay for token in ("skill", "skills", "extension")):
+        return "claude_code_extensions"
     if "claude" in hay and any(token in hay for token in ("smoke", "doctor", "quickstart", "install", "auth status")):
         return "claude_code_smoke"
     if "claude" in hay:
@@ -115,6 +125,16 @@ def _domain_profile(text: str) -> str:
 
 def _scope_profile(text: str, query_text: str) -> str:
     hay = f"{text}\n{query_text}".lower()
+    if any(token in hay for token in ("hook", "usermpromptsubmit", "userpromptsubmit", "posttooluse", "pretooluse", "sessionstart")):
+        return "event_automation"
+    if any(token in hay for token in ("subagent", "sub-agent", "isolated context", "task tool")):
+        return "isolated_worker"
+    if any(token in hay for token in ("claude.md", "auto memory", ".claude/rules")):
+        return "persistent_memory"
+    if "mcp" in hay:
+        return "external_tool_connection"
+    if any(token in hay for token in ("skill", "skills", "extension")):
+        return "extension_choice"
     if "first project" in hay or "new project" in hay:
         return "first_project_smoke"
     if "install" in hay or "doctor" in hay or "auth status" in hay:
@@ -134,6 +154,7 @@ def _unavailable_digest(
     reason_code: str,
     source_ref: str = "",
     message_index_range: dict[str, int] | None = None,
+    source_line_range: Mapping[str, Any] | None = None,
     topic_key: str | None = None,
     ring_id: str | None = None,
 ) -> dict[str, Any]:
@@ -148,6 +169,7 @@ def _unavailable_digest(
             "reason_code": reason_code,
             "source_ref": source_ref,
             "message_index_range": message_index_range,
+            "source_line_range": dict(source_line_range or {}),
             "raw_transcript_included": False,
             "digest_only": True,
         },
@@ -163,6 +185,7 @@ def build_recall_digest(
     source_ref: str,
     message_index_range: Mapping[str, Any] | None,
     anchor_hash: str,
+    source_line_range: Mapping[str, Any] | None = None,
     paragraph_intent_safety_belt: Mapping[str, Any] | None = None,
     support_facts: Any = None,
     source_paths: Any = None,
@@ -177,6 +200,7 @@ def build_recall_digest(
             reason_code="source_ref_pointer_missing",
             source_ref=source_ref,
             message_index_range=bounded_range,
+            source_line_range=source_line_range,
             topic_key=topic_key,
             ring_id=ring_id,
         )
@@ -193,6 +217,7 @@ def build_recall_digest(
             reason_code=f"source_ref_{reason}",
             source_ref=source_ref,
             message_index_range=bounded_range,
+            source_line_range=source_line_range,
             topic_key=topic_key,
             ring_id=ring_id,
         )
@@ -211,7 +236,7 @@ def build_recall_digest(
     scope = _scope_profile(all_text, query_text)
     commands = _command_hits(all_text)
 
-    if domain.startswith("claude_code"):
+    if domain == "claude_code_smoke":
         past_user_intent = (
             "Recover the prior Claude Code operational smoke-test rule: answer the smallest "
             "install or first-run checks before broad documentation mapping."
@@ -235,6 +260,122 @@ def build_recall_digest(
         reasons = [
             "The stored range preserved a reusable user-proxy rule, not a raw dialogue dump.",
             "The current answer should compare the new question against that stored boundary.",
+        ]
+    elif domain == "claude_code_hooks":
+        past_user_intent = (
+            "Recover the prior Claude Code hooks rule: use hooks for deterministic lifecycle "
+            "automation that must fire on matching events, not for reasoning-heavy reference material."
+        )
+        include = [
+            "lifecycle-event automation",
+            "PreToolUse/PostToolUse/UserPromptSubmit/SessionStart style triggers",
+            "hook-vs-skill boundary",
+        ]
+        exclude = [
+            "turning hooks into a reasoning workflow",
+            "claiming hooks validate semantic correctness by themselves",
+            "raw transcript replay",
+        ]
+        decision = [
+            "Use a hook when the behavior must run every time on an event.",
+            "Use a skill when Claude should reason over reference material or a workflow.",
+        ]
+        reasons = [
+            "The stored range distinguished deterministic event triggers from model-interpreted instructions.",
+            "The current answer should recover that boundary before recommending an extension surface.",
+        ]
+    elif domain == "claude_code_subagents":
+        past_user_intent = (
+            "Recover the prior Claude Code subagent rule: use subagents for isolated context, "
+            "specialized workers, and side work whose intermediate context should not pollute the main turn."
+        )
+        include = [
+            "isolated worker context",
+            "summary returned to the main conversation",
+            "parallel or specialized task boundary",
+        ]
+        exclude = [
+            "using subagents as always-on project memory",
+            "confusing subagents with independent agent teams",
+            "raw transcript replay",
+        ]
+        decision = [
+            "Use a subagent when isolation or bounded side work matters.",
+            "Keep main-session context clean by returning only the result summary.",
+        ]
+        reasons = [
+            "The stored range preserved the context-isolation purpose of subagents.",
+            "The current answer should not collapse subagents into hooks, MCP, or skills.",
+        ]
+    elif domain == "claude_code_memory":
+        past_user_intent = (
+            "Recover the prior Claude Code memory rule: CLAUDE.md is always-on instruction context, "
+            "auto memory captures learned notes, and path-scoped rules reduce context noise."
+        )
+        include = [
+            "CLAUDE.md as persistent instruction context",
+            "auto memory as Claude-written learnings",
+            ".claude/rules path scoping and context-cost boundary",
+        ]
+        exclude = [
+            "treating memory files as enforced configuration",
+            "placing large reference material in always-on memory",
+            "raw transcript replay",
+        ]
+        decision = [
+            "Put always-needed conventions in CLAUDE.md.",
+            "Move optional reference material or repeated procedures to skills or scoped rules.",
+        ]
+        reasons = [
+            "The stored range separated persistent context from enforcement and on-demand knowledge.",
+            "The current answer should preserve context-cost and specificity boundaries.",
+        ]
+    elif domain == "claude_code_mcp":
+        past_user_intent = (
+            "Recover the prior Claude Code MCP rule: MCP connects Claude to external tools and data, "
+            "while skills teach Claude how to use that capability well."
+        )
+        include = [
+            "external service or tool connection",
+            "MCP server capability boundary",
+            "skill-plus-MCP pairing",
+        ]
+        exclude = [
+            "treating MCP as a documentation memory surface",
+            "using skills as actual external tool transport",
+            "raw transcript replay",
+        ]
+        decision = [
+            "Use MCP for external data/actions.",
+            "Use skills to document how to use those MCP-backed tools effectively.",
+        ]
+        reasons = [
+            "The stored range preserved the transport-vs-knowledge boundary.",
+            "The current answer should avoid collapsing MCP into skills.",
+        ]
+    elif domain.startswith("claude_code"):
+        past_user_intent = (
+            "Recover the prior Claude Code extension-selection rule: choose CLAUDE.md, skills, MCP, "
+            "subagents, hooks, and plugins by load timing, context cost, and determinism."
+        )
+        include = [
+            "extension choice by job-to-be-done",
+            "context loading and context-cost trade-off",
+            "deterministic automation versus model-interpreted knowledge",
+        ]
+        exclude = [
+            "one-extension-fits-all advice",
+            "collapsing hooks, skills, MCP, and subagents into the same category",
+            "raw transcript replay",
+        ]
+        decision = [
+            "Choose CLAUDE.md for always-on conventions.",
+            "Choose skills for on-demand knowledge/workflows.",
+            "Choose MCP for external services, subagents for isolated workers, and hooks for deterministic event automation.",
+        ]
+        reasons = [
+            "The stored range preserved extension boundaries instead of copying a docs table.",
+            "The current answer should map the user need to the right extension surface.",
         ]
     else:
         past_user_intent = "Recover the prior bounded user intent before answering the current question."
@@ -269,6 +410,7 @@ def build_recall_digest(
             "origin_locator": resolved.get("origin_locator"),
             "provider_session_id": provider_session_id or resolved.get("provider_session_id"),
             "message_index_range": bounded_range,
+            "source_line_range": dict(source_line_range or {}),
             "anchor_hash_verified": True,
             "raw_transcript_included": False,
             "digest_only": True,
@@ -299,6 +441,7 @@ def build_recall_digest(
             "source_ref": source_ref,
             "origin_locator": resolved.get("origin_locator"),
             "message_index_range": bounded_range,
+            "source_line_range": dict(source_line_range or {}),
             "anchor_hash_verified": True,
             "topic_key": topic_key,
             "ring_id": ring_id,
@@ -330,6 +473,7 @@ def build_recall_digest_from_support_bundle(
         query_text=query_text,
         source_ref=str(support_bundle.get("source_ref") or ""),
         message_index_range=support_bundle.get("message_index_range") if isinstance(support_bundle.get("message_index_range"), Mapping) else None,
+        source_line_range=support_bundle.get("source_line_range") if isinstance(support_bundle.get("source_line_range"), Mapping) else None,
         anchor_hash=str(support_bundle.get("anchor_hash") or ""),
         paragraph_intent_safety_belt=support_bundle.get("paragraph_intent_safety_belt")
         if isinstance(support_bundle.get("paragraph_intent_safety_belt"), Mapping)

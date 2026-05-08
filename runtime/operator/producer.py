@@ -443,6 +443,7 @@ lifecycle_state: ACTIVE
 - resolver_status: {ring.get('resolver_status', 'resolved')}
 - redaction_status: {ring.get('redaction_status', 'pointer_only')}
 - message_index_range: {json.dumps(ring.get('message_index_range', {}), ensure_ascii=False)}
+- source_line_range: {json.dumps(ring.get('source_line_range') or {}, ensure_ascii=False)}
 """
 
 
@@ -478,6 +479,7 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
         "derived_from": topic["page_path"],
         "source_ref": ring["source_ref"],
         "origin_locator": ring["origin_locator"],
+        "source_line_range": ring.get("source_line_range"),
         "node_taxonomy": ring_node.get("node_taxonomy", {}),
     }
     prov_path.write_text(
@@ -544,6 +546,16 @@ def _valid_index_range(value) -> bool:
     return isinstance(start, int) and isinstance(end, int) and start >= 0 and end >= start
 
 
+def _valid_source_line_range(value) -> bool:
+    if value is None:
+        return True
+    if not isinstance(value, dict):
+        return False
+    start = value.get("start")
+    end = value.get("end")
+    return isinstance(start, int) and isinstance(end, int) and start >= 1 and end >= start
+
+
 def _valid_id_range(value) -> bool:
     if not isinstance(value, dict):
         return False
@@ -566,6 +578,8 @@ def _admit_memory_ticket_payload(payload: dict) -> tuple[bool, str]:
         return False, "invalid_message_index_range"
     if has_id_range and not _valid_id_range(payload.get("message_id_range")):
         return False, "invalid_message_id_range"
+    if not _valid_source_line_range(payload.get("source_line_range")):
+        return False, "invalid_source_line_range"
     if not _is_nonempty_string(payload.get("anchor_hash")):
         return False, "missing_anchor_hash"
     if not re.fullmatch(r"[0-9a-f]{64}", str(payload.get("anchor_hash"))):
@@ -627,6 +641,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
 
     source_ref = str(payload.get("source_ref") or "")
     range_hint = payload.get("message_index_range") or {}
+    source_line_range = payload.get("source_line_range") if isinstance(payload.get("source_line_range"), dict) else None
     anchor_hash = str(payload.get("anchor_hash") or "")
     resolver_options = dict(payload.get("resolver_options") or {})
     if payload.get("sessions_dir") and "sessions_dir" not in resolver_options:
@@ -691,6 +706,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
             "origin_locator": str(resolved.get("origin_locator") or f"{source_ref}#message_index={range_hint.get('start')}..{range_hint.get('end')}"),
             "provider_session_id": str(payload.get("provider_session_id") or resolved.get("provider_session_id") or ""),
             "message_index_range": resolved.get("message_index_range") or range_hint,
+            "source_line_range": source_line_range,
             "anchor_hash": anchor_hash,
             "commit_watermark": commit_watermark,
             "surface_reason": str(payload.get("surface_reason") or ""),
@@ -741,6 +757,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
             "ring_ids": [ring_id],
             "source_paths": list(paths.values()),
             "community_id": community_id,
+            "source_line_range": source_line_range,
             "node_taxonomy": node_taxonomy,
             "quality_assessment": ring_node["quality_assessment"],
         },

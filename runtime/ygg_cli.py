@@ -225,6 +225,7 @@ def _provider_inbox_summary(*, workspace_root: Path) -> dict[str, Any]:
         ),
         "source_paths_count": len(op2_support.get("source_paths", [])) if isinstance(op2_support, dict) else 0,
         "recall_digest_status": recall_digest.get("status") if isinstance(recall_digest, dict) else None,
+        "source_line_range": op2_support.get("source_line_range") if isinstance(op2_support, dict) else None,
         "node_taxonomy_schema": node_taxonomy.get("schema_version") if isinstance(node_taxonomy, dict) else None,
         "continent": op2_support.get("continent") if isinstance(op2_support, dict) else None,
         "node_type": op2_support.get("node_type") if isinstance(op2_support, dict) else None,
