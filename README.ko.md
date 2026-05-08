@@ -42,7 +42,7 @@ openyggdrasil은 AI 코딩 에이전트가 세션과 프로바이더를 넘어 �
 
 - 이 프로젝트는 아직 production-ready 제품이 아닙니다.
 - Full UX, multi-provider parity, Graphify full topology, Hermes true hot reload는 이 README만으로 주장하지 않습니다.
-- `ygg pro1`, `ygg ms1`, `ygg mf1`은 목표/개발 중인 관찰 명령면입니다. 첫 설치 환경에 이미 존재한다고 가정하지 않습니다.
+- `./scripts/ygg doctor/status/pro1/ms1/mf1`은 public repo 안의 repo-local 관찰 명령면으로 구현되었습니다. 전역 `ygg`가 첫 설치 환경에 이미 있다고 가정하지 않습니다.
 - Hermes 기반 POC는 중요한 근거일 수 있지만, 그 자체로 provider-neutral 동작 증명은 아닙니다.
 
 품질 판단은 두 축으로 나눕니다:
@@ -331,38 +331,38 @@ Required evidence refs: Mailbox Result Receipt, event log, schema-valid trace, t
 Hard nonclaims: TMUX 화면은 SOT가 아니며, raw stdin/tmux 주입은 Memory Lane Talk의 정본 입력이 아니다.
 ```
 
-현재 공개 README에서 안전하게 말할 수 있는 명령면:
+현재 공개 README에서 안전하게 말할 수 있는 repo-local 명령면:
 
 ```text
-ygg pro1     목표/개발 중인 Provider 관찰 명령. 내부 tmux 세션명은 ygg-pro1일 수 있음.
-ygg ms1      목표/개발 중인 MS1 Memory Saver 관찰 명령. 내부 tmux 세션명은 ygg-op1일 수 있음.
-ygg mf1      목표/개발 중인 MF1 Memory Finder 관찰 명령. 내부 tmux 세션명은 ygg-op2일 수 있음.
-ygg doctor   목표/개발 중인 세션 그룹 헬스체크. production lifecycle proof는 NOT PASS.
-ygg status   목표/개발 중인 상태 표면.
-ygg talk MS1 목표 기능, NOT PASS. raw tmux/stdin 입력이 아니라 typed event여야 함.
+./scripts/ygg doctor   repo-local 세션 그룹 헬스체크.
+./scripts/ygg status   repo-local live witness 상태 표면.
+./scripts/ygg pro1     Provider 관찰/attach 명령. 내부 tmux 세션명은 ygg-pro1일 수 있음.
+./scripts/ygg ms1      MS1 Memory Saver 관찰/attach 명령. 내부 tmux 세션명은 ygg-op1일 수 있음.
+./scripts/ygg mf1      MF1 Memory Finder 관찰/attach 명령. 내부 tmux 세션명은 ygg-op2일 수 있음.
+ygg talk MS1           목표 기능, NOT PASS. raw tmux/stdin 입력이 아니라 typed event여야 함.
 ```
 
 중요한 구분:
 
-- `ygg pro1`, `ygg ms1`, `ygg mf1`은 사용자가 입력하는 목표/개발 명령면입니다.
+- `./scripts/ygg pro1`, `./scripts/ygg ms1`, `./scripts/ygg mf1`은 public repo에서 구현된 repo-local 명령면입니다.
 - `ygg-pro1`, `ygg-op1`, `ygg-op2`는 내부 tmux 세션명 또는 증거 id로 남을 수 있습니다.
-- public repo에서는 전역 `ygg`, `ygg-*`, legacy `oy-*` 명령이 이미 설치되어 있다고 가정하지 않습니다.
+- public repo에서는 전역 `ygg`, `ygg-*`, legacy `oy-*` 명령이 이미 설치되어 있다고 가정하지 않습니다. 전역 설치는 별도 install gate가 필요합니다.
 - 프로바이더가 먼저 정상 Provider UX로 들어온 뒤, `SKILL.md`와 workspace를 인식하고 나서 attach/witness 명령을 안내해야 합니다.
 
 WSL 일반 셸에서 관찰할 때의 목표 UX:
 
 ```bash
-ygg doctor
-ygg status
-ygg pro1
-ygg ms1
-ygg mf1
+./scripts/ygg doctor
+./scripts/ygg status
+./scripts/ygg pro1
+./scripts/ygg ms1
+./scripts/ygg mf1
 ```
 
 이미 tmux 내부에 들어와 있을 때:
 
 - 같은 pane 안에서 다시 attach하면 nested tmux가 됩니다.
-- 먼저 detach한 뒤 WSL 일반 셸에서 `ygg pro1`, `ygg ms1`, `ygg mf1`을 실행하는 편이 안전합니다.
+- 먼저 detach한 뒤 WSL 일반 셸에서 `./scripts/ygg pro1`, `./scripts/ygg ms1`, `./scripts/ygg mf1`을 실행하는 편이 안전합니다.
 - 정말 nested attach를 의도할 때만 tmux의 경고를 이해한 상태에서 별도 shell로 실행합니다. 이것은 일반 사용자 UX가 아닙니다.
 
 저수준 대체 진단:
@@ -1542,8 +1542,8 @@ RESULT = {"sources": sources}
 | 25 | **PTC Egress / Sandbox Checkpoint** | NOT PASS | raw stdout은 debug-only, provider-facing 결과는 typed egress. production sandbox unavailable은 fail-closed |
 | 26 | **Provenance Ring Lineage** | PARTIAL | source_ref, anchor_hash, message range를 append-only 나이테로 각인 |
 | 27 | **Graphify Support Verifier** | PARTIAL | Graphify hint를 Vault/provenance로 재검증한 뒤 Evidence Pack 후보로만 사용 |
-| 28 | **TMUX Live Witness** | POLICY ONLY | 사람이 보는 live 관찰 표면. SOT나 execution proof가 아님 |
-| 29 | **Session Attach Gateway** | NOT PASS | 목표 `ygg status/attach/tmux`가 active project/session registry에 붙는 UX |
+| 28 | **TMUX Live Witness** | SCOPED PASS | repo-local `./scripts/ygg status/pro1/ms1/mf1`가 live witness field를 관찰/attach할 수 있음. TMUX는 여전히 SOT가 아님 |
+| 29 | **Session Attach Gateway** | SCOPED PASS | repo-local `./scripts/ygg doctor/status/pro1/ms1/mf1`가 사용자 명령을 active `ygg-pro1/ygg-op1/ygg-op2` witness session에 매핑 |
 | 30 | **Interactive Memory Lane Talk** | NOT PASS | 목표 `ygg talk MS1/MF1`를 raw tmux/stdin이 아닌 typed mailbox/event 입력으로 처리 |
 
 15차 승격후보군:

@@ -343,7 +343,7 @@ def _support_candidates(receipt: Mapping[str, Any]) -> list[dict[str, Any]]:
     return candidates
 
 
-def _support_score(candidate: Mapping[str, Any]) -> tuple[int, int, int, int]:
+def _support_score(candidate: Mapping[str, Any]) -> tuple[int, int, int, int, int]:
     schema = str(candidate.get("schema_version") or "")
     has_ring = int(
         schema == "ring_support_bundle.v1"
@@ -357,7 +357,9 @@ def _support_score(candidate: Mapping[str, Any]) -> tuple[int, int, int, int]:
         or bool(candidate.get("semantic_edges"))
         or bool(candidate.get("origin_locator"))
     )
-    return has_ring, has_sources, has_facts, has_topology
+    is_typed_unavailable = int(bool(candidate.get("typed_unavailable")))
+    is_answer_usable = int(bool(has_sources and has_facts and not is_typed_unavailable))
+    return is_answer_usable, has_sources, has_facts, has_topology, has_ring
 
 
 def _select_support(receipt: Mapping[str, Any]) -> dict[str, Any]:

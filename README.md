@@ -346,10 +346,10 @@ Provider-first cold-start rule:
 
 - The user first opens a normal provider session through that provider's native UX.
 - The provider then receives the openyggdrasil repository path, URL, or skill reference and reads `SKILL.md`.
-- A first-install environment must not assume a global `ygg` command or attach commands such as `ygg pro1`, `ygg ms1`, or `ygg mf1` already exist.
+- A first-install environment must not assume a global `ygg` command already exists. The repository-local CLI is `./scripts/ygg` after checkout.
 - If a `ygg-*` attach wrapper, legacy `oy-*` wrapper, or preinstalled `ygg` command is already globally visible before bootstrap, treat it as local/dev residue unless it is validated against a session-group health record.
-- Repository-local tooling, if present, is a bootstrap asset discovered after the provider recognizes the repository. It is not evidence that a provider session is already attached.
-- `ygg pro1` is not a universal first entrypoint and not a provider identity. It is an optional local Provider Lane attach/witness command after openyggdrasil has been recognized. Its internal tmux session name may be `ygg-pro1`.
+- Repository-local tooling is a bootstrap asset discovered after the provider recognizes the repository. It is not evidence that a provider session is already attached.
+- `ygg pro1` is not a universal first entrypoint and not a provider identity. It is a local Provider Lane attach/witness command after openyggdrasil has been recognized. Its internal tmux session name may be `ygg-pro1`.
 
 Active session health is group-based, not lane-based:
 
@@ -563,18 +563,20 @@ tmux detach-client -s openyggdrasil-witness  # or Ctrl-b d from the attached scr
 tmux kill-session -t openyggdrasil-witness
 ```
 
-Target attach/witness UX is not production-ready yet. In the public repository,
-do not assume global `ygg`, `ygg-*`, or legacy `oy-*` commands are preinstalled. The intended
-user-facing command surface is `ygg`; `ygg-*` names are internal tmux lane names,
-not first-install requirements:
+Repository-local attach/witness UX is now implemented for the Provider Unit 1
+lifecycle surface. In the public repository, run it as `./scripts/ygg` unless a
+separate install gate has validated a global `ygg` shim. Do not assume global
+`ygg`, `ygg-*`, or legacy `oy-*` commands are preinstalled. The user-facing
+command surface is `ygg`; `ygg-*` names are internal tmux lane names, not
+first-install requirements:
 
 ```text
-ygg pro1    # target/dev Provider attach/witness command; internal tmux: ygg-pro1
-ygg ms1     # target/dev Memory Saver MS1 attach/witness command; internal tmux: ygg-op1
-ygg mf1     # target/dev Memory Finder MF1 attach/witness command; internal tmux: ygg-op2
-ygg doctor  # target/dev session-group healthcheck; production lifecycle proof is NOT PASS
-ygg status  # target/dev status surface
-ygg talk MS1 # target, NOT PASS; must become a typed event, not raw tmux/stdin input
+./scripts/ygg doctor  # repo-local session-group healthcheck
+./scripts/ygg status  # repo-local live witness status
+./scripts/ygg pro1    # Provider attach/witness command; internal tmux: ygg-pro1
+./scripts/ygg ms1     # Memory Saver MS1 attach/witness command; internal tmux: ygg-op1
+./scripts/ygg mf1     # Memory Finder MF1 attach/witness command; internal tmux: ygg-op2
+ygg talk MS1          # target, NOT PASS; must become a typed event, not raw tmux/stdin input
 ```
 
 Note: the manual tmux commands above only launch observer panes. Sending user judgment requests or Memory Lane Talk payloads through `tmux send-keys` is not canonical input and cannot be marked PASS evidence.
@@ -1328,8 +1330,8 @@ The original 12 modules are the base knowledge production/consumption chain. As 
 | 25 | **PTC Egress / Sandbox Checkpoint** | NOT PASS | Raw stdout is debug-only; provider-facing results require typed egress and production sandbox fail-closed |
 | 26 | **Provenance Ring Lineage** | PARTIAL | Engrave `source_ref`, `anchor_hash`, and message range into append-only Tree Rings |
 | 27 | **Graphify Support Verifier** | PARTIAL | Reverify Graphify hints against Vault/provenance before using them as Evidence Pack candidates |
-| 28 | **TMUX Live Witness** | POLICY ONLY | Human visual observation surface; not SOT and not execution proof |
-| 29 | **Session Attach Gateway** | NOT PASS | Target `ygg status/attach/tmux` UX that attaches to active project/session registry |
+| 28 | **TMUX Live Witness** | SCOPED PASS | Repo-local `./scripts/ygg status/pro1/ms1/mf1` can observe/attach the live witness field; TMUX is still not SOT |
+| 29 | **Session Attach Gateway** | SCOPED PASS | Repo-local `./scripts/ygg doctor/status/pro1/ms1/mf1` maps user commands to active `ygg-pro1/ygg-op1/ygg-op2` witness sessions |
 | 30 | **Interactive Memory Lane Talk** | NOT PASS | Target `ygg talk MS1/MF1` through typed mailbox/event input, not raw tmux/stdin |
 
 15th promotion candidate group:
