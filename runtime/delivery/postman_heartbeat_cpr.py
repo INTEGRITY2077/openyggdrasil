@@ -299,6 +299,47 @@ def _safe_korean_query_expansion(value: Any) -> dict[str, Any] | None:
     return metadata
 
 
+def _safe_recall_digest_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            str(key): _safe_recall_digest_value(item)
+            for key, item in value.items()
+            if str(key)
+            not in {
+                "messages",
+                "raw_messages",
+                "raw_transcript",
+                "session_path",
+                "local_path",
+                "computed_anchor_hash",
+            }
+        }
+    if isinstance(value, list):
+        return [_safe_recall_digest_value(item) for item in value[:12]]
+    if isinstance(value, tuple):
+        return [_safe_recall_digest_value(item) for item in list(value)[:12]]
+    if isinstance(value, str):
+        return _safe_portable_text(value, max_length=800)
+    if isinstance(value, (bool, int, float)) or value is None:
+        return value
+    return _safe_portable_text(value, max_length=240)
+
+
+def _safe_recall_digest(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    schema_version = _safe_portable_text(value.get("schema_version"))
+    if schema_version != "recall_digest.v1":
+        return None
+    metadata = _safe_recall_digest_value(value)
+    if not isinstance(metadata, dict):
+        return None
+    metadata["schema_version"] = schema_version
+    metadata["raw_transcript_included"] = False
+    metadata["digest_only"] = True
+    return metadata
+
+
 def _korean_query_expansion_from(receipt: Mapping[str, Any], support: Mapping[str, Any]) -> dict[str, Any] | None:
     candidates: list[Any] = [support.get("korean_query_expansion")]
     bundle = receipt.get("bundle")
@@ -411,6 +452,9 @@ def _support_metadata(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, 
     korean_query_expansion = _korean_query_expansion_from(receipt, support)
     if korean_query_expansion:
         metadata["korean_query_expansion"] = korean_query_expansion
+    recall_digest = _safe_recall_digest(support.get("recall_digest"))
+    if recall_digest:
+        metadata["recall_digest"] = recall_digest
     missing: list[str] = []
     if not receipt:
         missing.append("op2_receipt")

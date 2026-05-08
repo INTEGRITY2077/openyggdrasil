@@ -16,6 +16,7 @@ from retrieval.pathfinder import (
     render_pathfinder_anchor_via_hermes,
     validate_pathfinder_bundle,
 )
+from retrieval.recall_digest import build_recall_digest_from_support_bundle
 
 
 def _topic_key_from_topic_id(topic_id: str) -> str:
@@ -631,7 +632,7 @@ def build_ring_support_bundle(
         unavailable["source_paths"] = _unique_preserve_order(source_paths)
         return unavailable
 
-    return {
+    bundle = {
         "schema_version": "ring_support_bundle.v1",
         "bundle_mode": "provenance-ring-mixed",
         "query_text": query_text,
@@ -657,3 +658,5 @@ def build_ring_support_bundle(
         "community_edges": community_edges,
         "semantic_edges": semantic_edges,
     }
+    bundle["recall_digest"] = build_recall_digest_from_support_bundle(query_text=query_text, support_bundle=bundle)
+    return bundle
