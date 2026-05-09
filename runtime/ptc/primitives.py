@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 
 # ─── 생산면 Primitives ───
 
@@ -352,7 +354,7 @@ def search_vault_by_keyword(
     try:
         from korean_text.query_expansion import query_expansion_tokens
         query_terms.extend(query_expansion_tokens(query))
-    except Exception:
+    except ImportError:
         pass
     results = []
 
@@ -361,7 +363,7 @@ def search_vault_by_keyword(
         text = f"{spo.get('subject', '')} {spo.get('predicate', '')} {spo.get('object', '')} {spo.get('source_sentence', '')}".lower()
         try:
             text = f"{text} {' '.join(query_expansion_tokens(text))}"
-        except Exception:
+        except (ValueError, TypeError, RuntimeError):
             pass
         matched_terms = [t for t in query_terms if t in text]
         if matched_terms:
@@ -494,7 +496,7 @@ def format_consumer_result(
     try:
         from korean_text.query_expansion import build_korean_query_expansion_metadata
         korean_query_expansion = build_korean_query_expansion_metadata(query)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, RuntimeError) as exc:
         korean_query_expansion = {
             "schema_version": "korean_query_expansion.v1",
             "original_query": query,
@@ -662,14 +664,11 @@ def load_vault(vault_path: Path) -> list[dict[str, Any]]:
         if end < 0:
             continue
         fm_text = text[3:end].strip()
-        fm = {}
-        for line in fm_text.split("\n"):
-            if ":" in line:
-                k, v = line.split(":", 1)
-                v = v.strip().strip('"').strip("'")
-                if v.startswith("[") and v.endswith("]"):
-                    v = [x.strip() for x in v[1:-1].split(",") if x.strip()]
-                fm[k.strip()] = v
+        try:
+            parsed = yaml.safe_load(fm_text) or {}
+        except yaml.YAMLError:
+            continue
+        fm = parsed if isinstance(parsed, dict) else {}
 
         # Reconstruct node dict for search compatibility
         node = {

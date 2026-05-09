@@ -16,9 +16,9 @@ PTC 도구 (18종):
 """
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import json
 import socket
-import sys
 import threading
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -33,8 +33,7 @@ def _load_primitives():
     global _primitives_cache
     if _primitives_cache is not None:
         return _primitives_cache
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from ptc.primitives import (
+    from runtime.ptc.primitives import (
         load_vault,
         save_to_vault,
         search_vault_by_keyword,
@@ -85,7 +84,7 @@ def _suggest_placement(vault: Path, subject: str, content: str) -> dict:
     load_vault, _, _, _, _, _, _, load_edges, _, _ = p
     nodes = load_vault(vault)
     edges = load_edges(vault)
-    from ptc.primitives import search_vault_by_keyword
+    from runtime.ptc.primitives import search_vault_by_keyword
     similar = search_vault_by_keyword(nodes, subject)
     if not similar:
         similar = search_vault_by_keyword(nodes, content[:100] if content else subject)
@@ -215,7 +214,7 @@ def _get_community(vault: Path, node_id: str, radius: int = 2) -> dict:
 # ─── Chain Completion: 고정 체인 각 단계를 PTC로 호출 가능하게 ───
 
 def _extract_spo(vault: Path, text: str) -> dict:
-    from ptc.primitives import extract_decisions, build_spo_triples
+    from runtime.ptc.primitives import extract_decisions, build_spo_triples
     decisions = extract_decisions(text)
     if not decisions:
         return {"triples": [], "count": 0}
@@ -224,7 +223,7 @@ def _extract_spo(vault: Path, text: str) -> dict:
 
 
 def _create_edge(vault: Path, from_id: str, to_id: str, edge_type: str = "RELATED_TO") -> dict:
-    from ptc.primitives import save_edges
+    from runtime.ptc.primitives import save_edges
     edge = {"from": from_id, "to": to_id, "edge_type": edge_type}
     save_edges(vault, [edge])
     return {"edge": edge, "status": "created"}
@@ -251,7 +250,7 @@ def _prune_node(vault: Path, node_id: str) -> dict:
 def _validate_node(vault: Path, subject: str, predicate: str = "", obj: str = "", category: str = "concept") -> dict:
     p = _load_primitives()
     build_vault_node = p[6]  # index 6 = build_vault_node
-    from ptc.primitives import _validate_admission
+    from runtime.ptc.primitives import _validate_admission
     spo = {"subject": subject, "predicate": predicate, "object": obj, "category": category,
            "source_sentence": f"{predicate} {obj}"}
     node = build_vault_node(spo, metadata={"provider_id": "ptc"})
@@ -266,60 +265,60 @@ def _validate_node(vault: Path, subject: str, predicate: str = "", obj: str = ""
 
 def _ptc_locate_region(vault, query_text):
     try:
-        from retrieval.pathfinder_tools import locate_region
+        from runtime.retrieval.pathfinder_tools import locate_region
         return locate_region(query_text=query_text, vault_root=vault)
-    except Exception as e:
+    except RECOVERABLE_RUNTIME_ERRORS as e:
         return {"error": str(e), "method": "locate_region"}
 
 def _ptc_select_topic_anchor(vault, query_text, region_id):
     try:
-        from retrieval.pathfinder_tools import select_topic_anchor
+        from runtime.retrieval.pathfinder_tools import select_topic_anchor
         return select_topic_anchor(query_text=query_text, region_id=region_id, vault_root=vault)
-    except Exception as e:
+    except RECOVERABLE_RUNTIME_ERRORS as e:
         return {"error": str(e), "method": "select_topic_anchor"}
 
 def _ptc_read_origin_claims(vault, topic_id, limit):
     try:
-        from retrieval.pathfinder_tools import get_origin_claims
+        from runtime.retrieval.pathfinder_tools import get_origin_claims
         return get_origin_claims(topic_id=topic_id, vault_root=vault, limit=limit)
-    except Exception as e:
+    except RECOVERABLE_RUNTIME_ERRORS as e:
         return {"error": str(e), "method": "read_origin_claims"}
 
 def _ptc_read_recent_claims(vault, topic_id, limit):
     try:
-        from retrieval.pathfinder_tools import read_recent_claims
+        from runtime.retrieval.pathfinder_tools import read_recent_claims
         return read_recent_claims(topic_id=topic_id, vault_root=vault, limit=limit)
-    except Exception as e:
+    except RECOVERABLE_RUNTIME_ERRORS as e:
         return {"error": str(e), "method": "read_recent_claims"}
 
 def _ptc_collect_claim_ids(origin_rows, recent_rows):
     try:
-        from retrieval.ptc_tools.collect_claim_ids import collect_claim_ids
+        from runtime.retrieval.ptc_tools.collect_claim_ids import collect_claim_ids
         return collect_claim_ids(origin_rows=origin_rows, recent_rows=recent_rows)
-    except Exception as e:
+    except RECOVERABLE_RUNTIME_ERRORS as e:
         return {"error": str(e), "method": "collect_claim_ids"}
 
 def _ptc_read_source_paths(vault, topic_id, claim_ids):
     try:
-        from retrieval.pathfinder_tools import read_source_paths
+        from runtime.retrieval.pathfinder_tools import read_source_paths
         return read_source_paths(topic_id=topic_id, claim_ids=claim_ids, vault_root=vault)
-    except Exception as e:
+    except RECOVERABLE_RUNTIME_ERRORS as e:
         return {"error": str(e), "method": "read_source_paths"}
 
 def _ptc_assemble_support_bundle(query_text, anchor, origin_rows, recent_rows, source_paths):
     try:
-        from retrieval.pathfinder_tools import build_support_bundle
+        from runtime.retrieval.pathfinder_tools import build_support_bundle
         return build_support_bundle(query_text=query_text, anchor=anchor,
                                     origin_rows=origin_rows, recent_rows=recent_rows,
                                     source_paths=source_paths)
-    except Exception as e:
+    except RECOVERABLE_RUNTIME_ERRORS as e:
         return {"error": str(e), "method": "assemble_support_bundle"}
 
 def _ptc_assemble_unanchored_bundle(query_text):
     try:
-        from retrieval.pathfinder_tools import assemble_unanchored_bundle
+        from runtime.retrieval.pathfinder_tools import assemble_unanchored_bundle
         return assemble_unanchored_bundle(query_text=query_text)
-    except Exception as e:
+    except RECOVERABLE_RUNTIME_ERRORS as e:
         return {"error": str(e), "method": "assemble_unanchored_bundle"}
 
 
@@ -375,7 +374,7 @@ def _dispatch(method: str, kwargs: dict, vault: Path) -> dict:
         nodes = load_vault(vault)
         edges = load_edges(vault)
         topic = kwargs.get("topic", "")
-        from ptc.primitives import search_vault_by_keyword
+        from runtime.ptc.primitives import search_vault_by_keyword
         matches = search_vault_by_keyword(nodes, topic)
         boosted = p[8](matches, edges) if matches else []
         return {"ranked": [{"node_id": n.get("node_id"), "subject": n.get("spo", {}).get("subject", ""),
@@ -443,11 +442,11 @@ class PTCIpcServer:
                     self._handle_client(conn)
                 except socket.timeout:
                     break
-        except Exception as e:
+        except RECOVERABLE_RUNTIME_ERRORS as e:
             import sys; print(f"[ipc_server] serve error: {e}", file=sys.stderr)
         finally:
             try: self._server.close()
-            except Exception as e:
+            except RECOVERABLE_RUNTIME_ERRORS as e:
                 import sys; print(f"[ipc_server] close error: {e}", file=sys.stderr)
             Path(self.socket_path).unlink(missing_ok=True)
 
@@ -466,18 +465,18 @@ class PTCIpcServer:
                         request = json.loads(line.decode("utf-8"))
                         result = _dispatch(request.get("method", ""), request.get("kwargs", {}), self.vault)
                         response = {"id": request.get("id", 0), "result": result}
-                    except Exception as e:
+                    except RECOVERABLE_RUNTIME_ERRORS as e:
                         response = {"id": 0, "error": str(e)}
                     conn.sendall(json.dumps(response, ensure_ascii=False, default=str).encode() + b"\n")
             except socket.timeout:
                 break
-            except Exception:
+            except RECOVERABLE_RUNTIME_ERRORS:
                 break
 
     def stop(self) -> None:
         try:
             if self._server: self._server.close()
-        except Exception as e:
+        except RECOVERABLE_RUNTIME_ERRORS as e:
             import sys; print(f"[ipc_server] stop error: {e}", file=sys.stderr)
         Path(self.socket_path).unlink(missing_ok=True)
 

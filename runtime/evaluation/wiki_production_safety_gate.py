@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import json
 import re
 from hashlib import sha256
@@ -51,7 +52,7 @@ def evaluate_wiki_prewrite_quality(
     checked = checked_at or utc_now_iso()
     try:
         validate_wiki_capture_signal(wiki_capture_signal)
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return _typed_unavailable(["invalid_wiki_capture_signal"], checked_at=checked)
 
     text = str(candidate_markdown or "").strip()
@@ -63,7 +64,7 @@ def evaluate_wiki_prewrite_quality(
 
     try:
         score = float(quality_score)
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         score = 0.0
         reason_codes.append("quality_score_not_numeric")
     if score < QUALITY_SCORE_FLOOR:
@@ -73,7 +74,7 @@ def evaluate_wiki_prewrite_quality(
     for ref in provenance_refs:
         try:
             safe_provenance_refs.append(require_safe_ref(str(ref), field="provenance_ref"))
-        except Exception:
+        except RECOVERABLE_RUNTIME_ERRORS:
             reason_codes.append("unsafe_or_missing_provenance_ref")
             break
     if not safe_provenance_refs:
@@ -134,7 +135,7 @@ def build_wiki_production_safety_runtime_gate(
             topic_hint=topic_hint,
             emitted_at=checked,
         )
-    except Exception as exc:
+    except RECOVERABLE_RUNTIME_ERRORS as exc:
         capture_signal = None
         reason_codes.append(f"capture_signal_unavailable:{exc}")
 
@@ -157,7 +158,7 @@ def build_wiki_production_safety_runtime_gate(
             expected_existing_hash=expected_existing_hash,
             checked_at=checked,
         )
-    except Exception as exc:
+    except RECOVERABLE_RUNTIME_ERRORS as exc:
         write_guard = {
             "schema_version": "wiki_write_guard.v1",
             "status": "typed_unavailable",

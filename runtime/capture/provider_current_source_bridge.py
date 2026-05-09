@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import json
 import re
 from pathlib import Path
@@ -65,7 +66,7 @@ def _load_messages(session_path: Path) -> list[dict[str, Any]]:
         return []
     try:
         payload = json.loads(session_path.read_text(encoding="utf-8"))
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return []
     messages = payload.get("messages")
     if not isinstance(messages, list):

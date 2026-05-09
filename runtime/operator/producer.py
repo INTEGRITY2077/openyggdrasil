@@ -8,15 +8,13 @@ from __future__ import annotations
 import json
 import os
 import re
-import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 from runtime.log_event import log_event
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from ptc.primitives import (
+from runtime.ptc.primitives import (
     extract_decisions,
     build_spo_triples,
     build_vault_node,
@@ -31,6 +29,7 @@ from ptc.primitives import (
 
 from runtime.operator.helpers import (
     deliver_receipt,
+    write_operator_receipt,
     _update_status,
     _update_manifest,
     _ensure_q13_dirs,
@@ -63,7 +62,7 @@ def run_producer(mailbox: Path, vault: Path):
         sandbox_ok = sandbox_run(["python3", "--version"], timeout=10)
         if sandbox_ok is None:
             log_event("sandbox_unavailable", reason="bwrap_not_found", action="continue_direct")
-    except Exception:
+    except (ImportError, OSError, RuntimeError):
         log_event("sandbox_unavailable", reason="import_error", action="continue_direct")
 
     # POC Phase 0+: intents.jsonl 우선, legacy messages.jsonl 폴백
@@ -96,23 +95,20 @@ def run_producer(mailbox: Path, vault: Path):
             nodes = result.get("nodes", [])
             status = result.get("status", "acknowledged")
             ring_ids = result.get("ring_ids", [])
-            receipt = {
-                "receipt_id": str(uuid.uuid4())[:8],
-                "in_reply_to": msg["mail_id"],
-                "status": status,
-                "intent": "memory_ticket",
-                "produced_count": len(nodes),
-                "nodes": nodes,
-                "ring_ids": ring_ids,
-                "canonical_topic_path": result.get("canonical_topic_path"),
-                "support_bundle_seed": result.get("support_bundle_seed"),
-                "source_ref_status": result.get("source_ref_status"),
-                "reason": result.get("reason"),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "producer_pid": os.getpid(),
-            }
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status=status,
+                intent="memory_ticket",
+                produced_count=len(nodes),
+                nodes=nodes,
+                ring_ids=ring_ids,
+                canonical_topic_path=result.get("canonical_topic_path"),
+                support_bundle_seed=result.get("support_bundle_seed"),
+                source_ref_status=result.get("source_ref_status"),
+                reason=result.get("reason"),
+                producer_pid=os.getpid(),
+            )
             deliver_receipt(
                 mailbox,
                 msg["mail_id"],
@@ -134,74 +130,64 @@ def run_producer(mailbox: Path, vault: Path):
         # ★ 14차 Axis 4: sandbox-exec intent 처리 (PTC 코드 실행)
         if msg.get("intent") == "sandbox-exec":
             result = _handle_sandbox_exec(mailbox, vault, msg)
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": result.get("status", "error"),
-                    "intent": "sandbox-exec",
-                    "exit_code": result.get("exit_code"),
-                    "sandbox": result.get("sandbox"),
-                    "stdout": (result.get("stdout", "") or "")[:2000],
-                    "stderr": (result.get("stderr", "") or "")[:2000],
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }, ensure_ascii=False) + "\n")
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status=result.get("status", "error"),
+                intent="sandbox-exec",
+                exit_code=result.get("exit_code"),
+                sandbox=result.get("sandbox"),
+                stdout=(result.get("stdout", "") or "")[:2000],
+                stderr=(result.get("stderr", "") or "")[:2000],
+            )
             continue
 
         # ★ Q13: prune intent 처리
         if msg.get("intent") == "prune":
             _handle_prune(mailbox, vault, msg)
             # Mark as completed
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": "acknowledged",
-                    "intent": "prune",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }, ensure_ascii=False) + "\n")
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status="acknowledged",
+                intent="prune",
+            )
             continue
 
         # ★ Q13: curate intent 처리 (curate→_handle_prune)
         if msg.get("intent") == "curate":
             _handle_prune(mailbox, vault, msg)
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": "acknowledged",
-                    "intent": "curate",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }, ensure_ascii=False) + "\n")
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status="acknowledged",
+                intent="curate",
+            )
             continue
 
         # ★ Q13: restore intent 처리 (restore→_restore_from_archive)
         if msg.get("intent") == "restore":
             node_id = msg.get("payload", {}).get("node_id", "")
             restored = _restore_from_archive(mailbox, vault, node_id)
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": "acknowledged",
-                    "intent": "restore",
-                    "node_id": node_id,
-                    "restored": restored,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }, ensure_ascii=False) + "\n")
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status="acknowledged",
+                intent="restore",
+                node_id=node_id,
+                restored=restored,
+            )
             continue
 
         # ★ Q13: skill_update intent 처리 (skill_update→_handle_skill_update)
         if msg.get("intent") == "skill_update":
             _handle_skill_update(mailbox, msg)
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": "acknowledged",
-                    "intent": "skill_update",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }, ensure_ascii=False) + "\n")
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status="acknowledged",
+                intent="skill_update",
+            )
             continue
 
         # ★ Phase 2: PTC 대체 경로 — LLM 코드가 전체 체인을 자유 조합
@@ -210,20 +196,17 @@ def run_producer(mailbox: Path, vault: Path):
             if ptc_code.strip():
                 result = execute_ptc_code(ptc_code, vault, mode="ipc", timeout=120)
                 nodes_produced = _count_ptc_saves(result)
-                receipt = {
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": "acknowledged",
-                    "produced_count": nodes_produced,
-                    "ptc_mode": True,
-                    "ptc_stdout": (result.get("stdout", "") or "")[:500],
-                    "ptc_stderr": (result.get("stderr", "") or "")[:500],
-                    "ptc_status": result.get("status"),
-                    "ptc_exit": result.get("exit_code"),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }
-                with open(receipts_file, "a", encoding="utf-8") as f:
-                    f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+                write_operator_receipt(
+                    receipts_file,
+                    msg["mail_id"],
+                    status="acknowledged",
+                    produced_count=nodes_produced,
+                    ptc_mode=True,
+                    ptc_stdout=(result.get("stdout", "") or "")[:500],
+                    ptc_stderr=(result.get("stderr", "") or "")[:500],
+                    ptc_status=result.get("status"),
+                    ptc_exit=result.get("exit_code"),
+                )
                 deliver_receipt(mailbox, msg["mail_id"], status="delivered", produced_count=nodes_produced)
             continue
         # ★ Nursery: promote intent 처리 (DRAFT → ACTIVE)
@@ -231,15 +214,13 @@ def run_producer(mailbox: Path, vault: Path):
             node_id = msg.get("payload", {}).get("node_id", "")
             if node_id:
                 _handle_promote(vault, node_id)
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": "acknowledged",
-                    "intent": "promote",
-                    "node_id": node_id,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }, ensure_ascii=False) + "\n")
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status="acknowledged",
+                intent="promote",
+                node_id=node_id,
+            )
             continue
 
 
@@ -261,16 +242,13 @@ def run_producer(mailbox: Path, vault: Path):
                 # P0 Admission Gate: Vault 진입 전 최소 품질 검증
                 passed, reason = _validate_admission(node)
                 if not passed:
-                    rejection_receipt = {
-                        "receipt_id": str(uuid.uuid4())[:8],
-                        "in_reply_to": msg["mail_id"],
-                        "status": "rejected",
-                        "reason": reason,
-                        "gate": "admission_gate.v1",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    }
-                    with open(receipts_file, "a", encoding="utf-8") as f:
-                        f.write(json.dumps(rejection_receipt, ensure_ascii=False) + "\n")
+                    write_operator_receipt(
+                        receipts_file,
+                        msg["mail_id"],
+                        status="rejected",
+                        reason=reason,
+                        gate="admission_gate.v1",
+                    )
                     continue
                 path = save_to_vault(vault, node)
                 nodes.append(node["node_id"])
@@ -297,17 +275,14 @@ def run_producer(mailbox: Path, vault: Path):
                 related = search_vault_by_keyword(load_vault(vault), first_subject)
                 _write_context_bundle(context_dir, related)
 
-        receipt = {
-            "receipt_id": str(uuid.uuid4())[:8],
-            "in_reply_to": msg["mail_id"],
-            "status": "acknowledged",
-            "produced_count": len(nodes),
-            "nodes": nodes,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "producer_pid": os.getpid(),
-        }
-        with open(receipts_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+        write_operator_receipt(
+            receipts_file,
+            msg["mail_id"],
+            status="acknowledged",
+            produced_count=len(nodes),
+            nodes=nodes,
+            producer_pid=os.getpid(),
+        )
 
         # ★ Reverse Push: Operator → Provider 영수증 발행
         deliver_receipt(mailbox, msg["mail_id"],
@@ -336,7 +311,7 @@ def run_producer(mailbox: Path, vault: Path):
         log_event("vault_stats_collected",
                   node_count=meta_stats.get("node_count", 0),
                   total_size=meta_stats.get("total_size_bytes", 0))
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError):
         log_event("vault_stats_skip")
 
     elapsed = (datetime.now(timezone.utc) - t0).total_seconds() * 1000
@@ -658,7 +633,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
             anchor_hash=anchor_hash,
             resolver_options=resolver_options,
         )
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError) as exc:
         return {"status": "deferred", "nodes": [], "source_ref_status": "unavailable", "reason": f"resolver_error:{type(exc).__name__}"}
 
     if resolved.get("status") != "resolved":
@@ -825,9 +800,9 @@ def _ptc_placement_hint(mailbox: Path, vault: Path, snapshot: str) -> None:
                           suggested=hint.get("suggested_category"),
                           confidence=hint.get("category_confidence"),
                           similar=hint.get("similar_count"))
-            except Exception:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 pass
-    except Exception:
+    except (OSError, RuntimeError, ValueError, TypeError):
         pass  # PTC 실패는 고정 체인을 막지 않음
 
 
@@ -850,5 +825,5 @@ def _count_ptc_saves(result: dict) -> int:
             if "final" in res and "initial" in res:
                 return max(0, res["final"] - res["initial"])
         return 0
-    except Exception:
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         return 0

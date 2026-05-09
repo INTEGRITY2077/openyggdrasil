@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import json
 import platform
 import shutil
@@ -204,7 +205,7 @@ def _workspace_writable_check(workspace_root: Path) -> dict[str, Any]:
                 evidence_refs=[_evidence("local_file", str(health_dir))],
             )
         )
-    except Exception as exc:  # noqa: BLE001
+    except RECOVERABLE_RUNTIME_ERRORS as exc:  # noqa: BLE001
         attempts.append(
             _attempt(
                 route_id="create_healthcheck_dir",
@@ -243,7 +244,7 @@ def _workspace_writable_check(workspace_root: Path) -> dict[str, Any]:
                 evidence_refs=[_evidence("local_file", str(probe_path))],
             )
         )
-    except Exception as exc:  # noqa: BLE001
+    except RECOVERABLE_RUNTIME_ERRORS as exc:  # noqa: BLE001
         attempts.append(
             _attempt(
                 route_id="write_probe_file",
@@ -282,7 +283,7 @@ def _workspace_writable_check(workspace_root: Path) -> dict[str, Any]:
                 evidence_refs=[_evidence("runtime_probe", str(probe_path))],
             )
         )
-    except Exception as exc:  # noqa: BLE001
+    except RECOVERABLE_RUNTIME_ERRORS as exc:  # noqa: BLE001
         attempts.append(
             _attempt(
                 route_id="cleanup_probe_file",
@@ -373,7 +374,7 @@ def _provider_deploy_route_check(
     try:
         plan = build_deploy_plan(workspace_root=workspace_root, provider_ids=[provider_id])
         destination = plan[0].destination
-    except Exception as exc:  # noqa: BLE001
+    except RECOVERABLE_RUNTIME_ERRORS as exc:  # noqa: BLE001
         return _check(
             check_id="provider.skill.deploy_route",
             label="Provider-native skill deploy route is supported",
@@ -483,7 +484,7 @@ def _attachment_bootstrap_check(
                 blocking=True,
                 attempts=attempts,
             )
-    except Exception as exc:  # noqa: BLE001
+    except RECOVERABLE_RUNTIME_ERRORS as exc:  # noqa: BLE001
         attempts.append(
             _attempt(
                 route_id="provider_bootstrap_contract",
@@ -527,7 +528,7 @@ def _attachment_bootstrap_check(
                 evidence_refs=[_evidence("runtime_probe", "runtime/attachments/provider_attachment.py")],
             )
         )
-    except Exception as exc:  # noqa: BLE001
+    except RECOVERABLE_RUNTIME_ERRORS as exc:  # noqa: BLE001
         attempts.append(
             _attempt(
                 route_id="fallback_attachment_scaffold",
@@ -564,7 +565,7 @@ def _attachment_validation_check(workspace_root: Path) -> dict[str, Any]:
             if ok
             else f"Attachment validation found {report['error_count']} error(s)."
         )
-    except Exception as exc:  # noqa: BLE001
+    except RECOVERABLE_RUNTIME_ERRORS as exc:  # noqa: BLE001
         ok = False
         comment = f"Attachment validation raised {exc.__class__.__name__}: {exc}"
     return _check(

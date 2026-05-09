@@ -11,13 +11,13 @@ from typing import Any, Callable, Mapping, Sequence
 
 import jsonschema
 
-from harness_common import DEFAULT_VAULT, RUNTIME_STATE_ROOT, utc_now_iso
-from ptc.engine import (
+from runtime.harness_common import DEFAULT_VAULT, RUNTIME_STATE_ROOT, utc_now_iso
+from runtime.ptc.engine import (
     STRUCTURAL_ANCHOR_FALLBACK_REASON_CODE,
     structural_anchor_fallback_evaluator,
 )
-from retrieval.pathfinder import validate_pathfinder_bundle
-from retrieval.ptc_tools.collect_claim_ids import collect_claim_ids as _collect_claim_ids
+from runtime.retrieval.pathfinder import validate_pathfinder_bundle
+from runtime.retrieval.ptc_tools.collect_claim_ids import collect_claim_ids as _collect_claim_ids
 
 
 OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]

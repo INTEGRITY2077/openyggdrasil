@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import json
 import uuid
 from functools import lru_cache
@@ -170,7 +171,7 @@ def build_provider_reasoning_self_assessment(
                     assessment=subagent_model_assessment,
                 )
             )
-    except Exception as exc:
+    except RECOVERABLE_RUNTIME_ERRORS as exc:
         return _typed_unavailable_payload(
             provider_id=normalized_provider_id,
             module_id=normalized_module_id,

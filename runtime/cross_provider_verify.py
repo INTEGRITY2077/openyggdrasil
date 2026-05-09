@@ -16,9 +16,8 @@ import uuid
 from pathlib import Path
 from datetime import datetime, timezone
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from operator_entrypoint import run_producer, run_consumer
-from ptc.primitives import load_vault
+from runtime.operator_entrypoint import run_producer, run_consumer
+from runtime.ptc.primitives import load_vault
 
 
 def verify(vault: Path, mailbox: Path) -> dict:

@@ -3,18 +3,13 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 from typing import Any
 
 
-RUNTIME_ROOT = Path(__file__).resolve().parents[1]
-if str(RUNTIME_ROOT) not in sys.path:
-    sys.path.insert(0, str(RUNTIME_ROOT))
-
-from attachments.provider_attachment import bootstrap_skill_provider_session
-from delivery.postman_heartbeat_cpr import (
+from runtime.attachments.provider_attachment import bootstrap_skill_provider_session
+from runtime.delivery.postman_heartbeat_cpr import (
     inject_postman_heartbeat_cpr_to_provider_inbox,
     read_postman_heartbeat_cpr_packets,
 )

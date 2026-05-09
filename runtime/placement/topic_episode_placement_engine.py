@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import base64
 import json
 import re
@@ -378,7 +379,7 @@ raise SystemExit(cp.returncode)
             if not isinstance(payload, dict):
                 raise ValueError("Hermes placement evaluator did not return an object")
             return payload
-        except Exception as exc:
+        except RECOVERABLE_RUNTIME_ERRORS as exc:
             last_error = exc
             if attempt >= max(1, retries):
                 break

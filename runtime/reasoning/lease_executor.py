@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import hashlib
 import json
 import shutil
@@ -592,7 +593,7 @@ def _run_bubblewrap_probe(
                 process.kill()
             try:
                 stdout, stderr = process.communicate(timeout=1)
-            except Exception:
+            except RECOVERABLE_RUNTIME_ERRORS:
                 stdout, stderr = "", ""
             elapsed = max(0.0, float(clock()) - started)
             return {
@@ -766,7 +767,7 @@ def consume_reasoning_lease_mailbox_jobs(
                     scratch_root=scratch_root,
                     clock=now,
                 )
-            except Exception as exc:
+            except RECOVERABLE_RUNTIME_ERRORS as exc:
                 result = _unavailable_result(
                     request=request,
                     module_id=module_id,
@@ -1014,7 +1015,7 @@ def execute_reasoning_lease(
     started = float(now())
     try:
         worker_output = dict(worker(request))
-    except Exception as exc:
+    except RECOVERABLE_RUNTIME_ERRORS as exc:
         output = _base_output(
             request=request,
             module_id=module_id,

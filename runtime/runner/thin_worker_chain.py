@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import uuid
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
@@ -111,7 +112,7 @@ def compute_rule_based_candidate_confidence(*, decision_surface: Mapping[str, An
         score += 0.08
     try:
         turn_count = int(decision_surface["turn_end"]) - int(decision_surface["turn_start"]) + 1
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         turn_count = 0
     if 1 <= turn_count <= 8:
         score += 0.02
@@ -517,7 +518,7 @@ def run_thin_worker_chain(
 
     try:
         validate_session_signal_runner_result(runner_result)
-    except Exception as exc:
+    except RECOVERABLE_RUNTIME_ERRORS as exc:
         return _stopped_result(
             signal=signal,
             runner_result=runner_result,
@@ -744,7 +745,7 @@ def run_thin_worker_chain(
             artifacts=artifacts,
             postman_handoff=handoff,
         )
-    except Exception as exc:
+    except RECOVERABLE_RUNTIME_ERRORS as exc:
         next_role = next((role for role in ROLE_ORDER if role not in completed_roles), "postman")
         return _stopped_result(
             signal=signal,

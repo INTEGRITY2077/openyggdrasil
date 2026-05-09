@@ -1,31 +1,33 @@
 from __future__ import annotations
 
-import sys
-
-# When this file is executed directly as `python runtime/import_smoke.py`,
-# Python puts `runtime/` at the front of sys.path.  That makes the repo's
-# `runtime/operator/` package shadow the standard-library `operator` module
-# while stdlib modules such as `enum` are importing.  Remove the runtime path
-# before importing any stdlib module that may reach `operator`, then restore it
-# for the runtime surface imports below.
-_RUNTIME_DIR = __file__.replace("\\", "/").rsplit("/", 1)[0].rstrip("/")
-_REMOVED_RUNTIME_PATHS = [
-    entry
-    for entry in sys.path
-    if (entry or ".").replace("\\", "/").rstrip("/") == _RUNTIME_DIR
-]
-sys.path[:] = [
-    entry
-    for entry in sys.path
-    if (entry or ".").replace("\\", "/").rstrip("/") != _RUNTIME_DIR
-]
-
 import importlib
+import importlib.util
 import json
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 import operator as _stdlib_operator  # noqa: F401 - pins stdlib operator in sys.modules
 
-sys.path[:0] = _REMOVED_RUNTIME_PATHS or [_RUNTIME_DIR]
+
+def _ensure_runtime_package_loaded() -> None:
+    if "runtime" in sys.modules:
+        return
+    runtime_root = Path(__file__).resolve().parent
+    spec = importlib.util.spec_from_file_location(
+        "runtime",
+        runtime_root / "__init__.py",
+        submodule_search_locations=[str(runtime_root)],
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load runtime package from {runtime_root}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["runtime"] = module
+    spec.loader.exec_module(module)
+
+
+_ensure_runtime_package_loaded()
+
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 
 
 CANONICAL_RUNTIME_MODULES = [
@@ -219,12 +221,13 @@ def smoke_import_modules(module_names: list[str] | tuple[str, ...]) -> ImportSmo
     imported: list[str] = []
     failed: list[str] = []
     for module_name in module_names:
+        import_name = module_name if module_name.startswith("runtime.") else f"runtime.{module_name}"
         try:
-            importlib.import_module(module_name)
-        except Exception as exc:
-            failed.append(f"{module_name}: {exc.__class__.__name__}: {exc}")
+            importlib.import_module(import_name)
+        except RECOVERABLE_RUNTIME_ERRORS as exc:
+            failed.append(f"{import_name}: {exc.__class__.__name__}: {exc}")
         else:
-            imported.append(module_name)
+            imported.append(import_name)
     return ImportSmokeResult(imported=tuple(imported), failed=tuple(failed))
 
 

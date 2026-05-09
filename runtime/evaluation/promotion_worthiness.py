@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import base64
 import json
 import subprocess
@@ -300,7 +301,7 @@ raise SystemExit(cp.returncode)
             if not isinstance(payload, dict):
                 raise ValueError("Hermes promotion worthiness evaluator did not return an object")
             return payload
-        except Exception as exc:
+        except RECOVERABLE_RUNTIME_ERRORS as exc:
             last_error = exc
             if attempt >= max(1, retries):
                 break
@@ -316,7 +317,7 @@ raise SystemExit(cp.returncode)
 def _normalized_score(value: Any) -> float:
     try:
         score = float(value)
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return 0.0
     return max(0.0, min(1.0, score))
 

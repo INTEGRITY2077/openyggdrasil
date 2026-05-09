@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import uuid
 from pathlib import Path
 from typing import Any, Mapping
@@ -155,7 +156,7 @@ def emit_mailbox_support_result(
 
     try:
         validate_thin_worker_chain_result(chain_result)
-    except Exception as exc:
+    except RECOVERABLE_RUNTIME_ERRORS as exc:
         return _empty_result(
             chain_result=chain_result,
             stop_reason=f"chain_result_invalid:{exc.__class__.__name__}",
@@ -226,7 +227,7 @@ def emit_mailbox_support_result(
             origin_shortcut_result=origin_result,
             inbox_delivery=inbox_delivery,
         )
-    except Exception as exc:
+    except RECOVERABLE_RUNTIME_ERRORS as exc:
         return _empty_result(
             chain_result=chain_result,
             stop_reason=f"mailbox_support_emission_failed:{exc.__class__.__name__}",

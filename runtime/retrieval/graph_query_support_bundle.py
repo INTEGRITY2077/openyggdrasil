@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import uuid
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -64,7 +65,7 @@ def _workspace_relative(path_value: str, *, workspace_root: Path | None) -> str:
     path = Path(path_value)
     try:
         return str(path.resolve().relative_to(workspace_root.resolve())).replace("\\", "/")
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return normalized
 
 
@@ -208,7 +209,7 @@ def _valid_origin_shortcut_result(origin_shortcut: Mapping[str, Any] | None) -> 
         return None
     try:
         validate_origin_shortcut_result(origin_shortcut)
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return None
     return dict(origin_shortcut)
 

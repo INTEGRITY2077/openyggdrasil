@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 from pathlib import Path
 import json
 import re
@@ -436,7 +437,7 @@ def _vault_source_path(path: Path, *, vault_root: Path) -> str:
     try:
         relative = path.resolve().relative_to(vault_root.resolve())
         return f"vault/{relative.as_posix()}"
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return str(path).replace("\\", "/")
 
 
@@ -559,7 +560,7 @@ def build_ring_support_bundle(
         # 기존 parser가 이해하는 페이지면 그 결과도 보조로 사용한다.
         try:
             records = list(parse_provenance_records(prov_text))
-        except Exception:
+        except RECOVERABLE_RUNTIME_ERRORS:
             records = []
     prn_records = _extract_json_objects_from_fenced_blocks(topic_text + "\n" + concept_text)
     all_records = list(records) + list(prn_records)

@@ -15,10 +15,11 @@ from runtime.ptc._preamble import PREAMBLE as IPC_PREAMBLE
 BATCH_PREAMBLE = """import sys, json
 from pathlib import Path
 
-sys.path.insert(0, "/tmp/runtime")
-sys.path.insert(0, "/tmp")
+sys.path = [entry for entry in sys.path if entry != "/tmp/runtime"]
+if "/tmp" not in sys.path:
+    sys.path[:0] = ["/tmp"]
 
-from ptc.primitives import (
+from runtime.ptc.primitives import (
     load_vault, save_to_vault, search_vault_by_keyword,
     search_vault_bm25, build_vault_node, load_edges,
     assign_edges, save_edges, extract_decisions, build_spo_triples,

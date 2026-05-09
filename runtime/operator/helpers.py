@@ -14,6 +14,40 @@ from pathlib import Path
 from runtime.log_event import warn
 
 
+def build_operator_receipt(
+    mail_id: str,
+    *,
+    status: str,
+    **fields,
+) -> dict:
+    receipt = {
+        "receipt_id": str(uuid.uuid4())[:8],
+        "in_reply_to": mail_id,
+        "status": status,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    receipt.update(fields)
+    return receipt
+
+
+def append_jsonl(path: Path, row: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def write_operator_receipt(
+    receipts_file: Path,
+    mail_id: str,
+    *,
+    status: str,
+    **fields,
+) -> dict:
+    receipt = build_operator_receipt(mail_id, status=status, **fields)
+    append_jsonl(receipts_file, receipt)
+    return receipt
+
+
 def _update_status(mailbox: Path, *, intents_processed: int = 0):
     status_file = mailbox / "status.json"
     current = {}
@@ -130,7 +164,7 @@ def _append_provider_inbox(
         }
         with open(provider_inbox, "a", encoding="utf-8") as f:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
-    except Exception:
+    except OSError:
         pass
 
 
@@ -166,7 +200,7 @@ def _postman_notify(mailbox: Path, mail_id: str, produced: int, nodes: list[str]
         }
         with open(mailbox / "postman_observations.jsonl", "a", encoding="utf-8") as f:
             f.write(json.dumps(observation, ensure_ascii=False) + "\n")
-    except Exception:
+    except (OSError, UnicodeDecodeError):
         pass
 
 

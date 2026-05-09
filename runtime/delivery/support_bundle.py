@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import hashlib
 import json
 import uuid
@@ -282,7 +283,7 @@ def _workspace_relative_path(path_value: str, *, workspace_root: Path) -> str:
     path = Path(path_value)
     try:
         return str(path.resolve().relative_to(workspace_root.resolve())).replace("\\", "/")
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return str(path_value).replace("\\", "/")
 
 
@@ -383,7 +384,7 @@ def _find_existing_support_bundle_packet(
             continue
         try:
             validate_support_bundle_inbox_packet(row)
-        except Exception:
+        except RECOVERABLE_RUNTIME_ERRORS:
             continue
         existing_payload = dict(row.get("payload") or {})
         if support_bundle_dedup_fingerprint(existing_payload) == expected_fingerprint:
@@ -409,7 +410,7 @@ def _existing_support_bundle_packets(
             continue
         try:
             validate_support_bundle_inbox_packet(row)
-        except Exception:
+        except RECOVERABLE_RUNTIME_ERRORS:
             continue
         rows.append(dict(row))
     return rows

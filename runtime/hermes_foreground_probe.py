@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import json
 import shlex
 import shutil
@@ -568,7 +569,7 @@ def attachment_probe_summary(*, workspace_root: Path, probe_profile: str) -> Dic
                         "latest_turn_sequence": turn_deltas[-1]["sequence"] if turn_deltas else None,
                     }
                 )
-        except Exception as exc:
+        except RECOVERABLE_RUNTIME_ERRORS as exc:
             invalid_rows.append(
                 {
                     "attachment_root": str(attachment_root),

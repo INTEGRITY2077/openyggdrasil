@@ -11,6 +11,8 @@ Usage:
 """
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
+import atexit
 import json
 import os
 import sys
@@ -38,9 +40,24 @@ def _get_log_fh():
     if _log_fh is None:
         try:
             _log_fh = open(_log_file, "a", encoding="utf-8")
-        except Exception:
+        except RECOVERABLE_RUNTIME_ERRORS:
             _log_fh = None
     return _log_fh
+
+
+def _close_log_fh() -> None:
+    global _log_fh
+    if _log_fh is None:
+        return
+    try:
+        _log_fh.close()
+    except OSError:
+        pass
+    finally:
+        _log_fh = None
+
+
+atexit.register(_close_log_fh)
 
 
 def set_level(level: str) -> None:
@@ -108,7 +125,7 @@ def _write_to_file(line: str) -> None:
         try:
             fh.write(line + "\n")
             fh.flush()
-        except Exception:
+        except RECOVERABLE_RUNTIME_ERRORS:
             pass
 
 

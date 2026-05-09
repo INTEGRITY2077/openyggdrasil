@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import uuid
 from functools import lru_cache
 from pathlib import Path
@@ -10,13 +9,8 @@ from typing import Any, Mapping
 
 import jsonschema
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-RUNTIME_ROOT = PROJECT_ROOT / "runtime"
-if str(RUNTIME_ROOT) not in sys.path:
-    sys.path.insert(0, str(RUNTIME_ROOT))
-
-from harness_common import utc_now_iso  # noqa: E402
-from runner.real_ux_regression import validate_real_ux_regression_result  # noqa: E402
+from runtime.harness_common import utc_now_iso  # noqa: E402
+from runtime.runner.real_ux_regression import validate_real_ux_regression_result  # noqa: E402
 
 
 CONTRACTS_ROOT = PROJECT_ROOT / "contracts"

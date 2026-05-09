@@ -9,12 +9,11 @@ import json
 import os
 import subprocess
 import sys
-import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from ptc.primitives import (
+from runtime.log_event import log_event
+from runtime.ptc.primitives import (
     search_vault_bm25,
     format_consumer_result,
     load_vault,
@@ -22,18 +21,22 @@ from ptc.primitives import (
     _boost_by_edges,
 )
 
-from .helpers import deliver_receipt
-
-from runtime.log_event import log_event
+from .helpers import deliver_receipt, write_operator_receipt
 
 try:
     from runtime.retrieval.pathfinder_tools import build_ring_support_bundle
-except Exception:
+except ImportError as exc:
+    log_event("optional_import_unavailable", module="runtime.retrieval.pathfinder_tools", reason=str(exc))
     build_ring_support_bundle = None
 
 try:
     from runtime.retrieval.ptc_retrieval_orchestrator import build_ptc_retrieval_orchestrator_result
-except Exception:
+except ImportError as exc:
+    log_event(
+        "optional_import_unavailable",
+        module="runtime.retrieval.ptc_retrieval_orchestrator",
+        reason=str(exc),
+    )
     build_ptc_retrieval_orchestrator_result = None
 
 try:
@@ -41,14 +44,16 @@ try:
     from runtime.retrieval.programmatic_tool_runtime import (
         build_pathfinder_bundle_via_programmatic_tool_runtime,
     )
-except Exception:
+except ImportError as exc:
+    log_event("optional_import_unavailable", module="runtime.ptc.engine_pathfinder", reason=str(exc))
     build_query_adaptive_pathfinder_plan = None
     build_pathfinder_bundle_via_programmatic_tool_runtime = None
 
 # PTC advisory import (lazy)
 try:
     from runtime.ptc.sandbox_executor import execute_ptc_code as _ptc_exec
-except Exception:
+except ImportError as exc:
+    log_event("optional_import_unavailable", module="runtime.ptc.sandbox_executor", reason=str(exc))
     _ptc_exec = None
 
 
@@ -65,7 +70,7 @@ def _bm25_search_vault(vault: Path, query: str, top_k: int = 20) -> list[dict] |
         if data.get("status") == "ok":
             return data.get("results", [])
         return None
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError, Exception):
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError, OSError):
         return None
 
 
@@ -81,7 +86,7 @@ def run_consumer(mailbox: Path, vault: Path):
         sandbox_ok = sandbox_run(["python3", "--version"], timeout=10)
         if sandbox_ok is None:
             log_event("sandbox_unavailable", reason="bwrap_not_found", action="continue_direct")
-    except Exception:
+    except (ImportError, OSError, RuntimeError):
         log_event("sandbox_unavailable", reason="import_error", action="continue_direct")
 
     t0 = datetime.now(timezone.utc)
@@ -145,7 +150,7 @@ def run_consumer(mailbox: Path, vault: Path):
                         "final_result": trace.get("final_result") or {},
                         "reason_codes": trace.get("reason_codes") or [],
                     }
-                except Exception as exc:
+                except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                     pathfinder_error = type(exc).__name__
             if build_ptc_retrieval_orchestrator_result is not None:
                 try:
@@ -233,26 +238,23 @@ def run_consumer(mailbox: Path, vault: Path):
                             "not_full_ux_pass",
                         ],
                     }
-                    receipt = {
-                        "receipt_id": str(uuid.uuid4())[:8],
-                        "in_reply_to": msg["mail_id"],
-                        "status": "completed",
-                        "bundle": bundle,
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "consumer_pid": os.getpid(),
-                    }
-                    with open(receipts_file, "a", encoding="utf-8") as f:
-                        f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+                    write_operator_receipt(
+                        receipts_file,
+                        msg["mail_id"],
+                        status="completed",
+                        bundle=bundle,
+                        consumer_pid=os.getpid(),
+                    )
                     deliver_receipt(mailbox, msg["mail_id"], status="completed", result_bundle=bundle)
                     continue
-                except Exception as exc:
+                except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                     log_event("ptc_retrieval_orchestrator_skip", reason=type(exc).__name__)
             stdout = (ptc_result.get("stdout", "") or "")[:3000] if ptc_result else ""
-            receipt = {
-                "receipt_id": str(uuid.uuid4())[:8],
-                "in_reply_to": msg["mail_id"],
-                "status": "completed",
-                "bundle": {
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status="completed",
+                bundle={
                     "ptc_stdout": stdout,
                     "mode": "ptc_degraded_stdout_only",
                     "typed_unavailable": {
@@ -260,11 +262,8 @@ def run_consumer(mailbox: Path, vault: Path):
                         "reason_code": "ptc_support_bundle_derivation_unavailable",
                     },
                 },
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "consumer_pid": os.getpid(),
-            }
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+                consumer_pid=os.getpid(),
+            )
             deliver_receipt(mailbox, msg["mail_id"], status="completed",
                            result_bundle={"ptc_stdout": stdout[:500]})
             continue
@@ -279,19 +278,16 @@ def run_consumer(mailbox: Path, vault: Path):
                     top_k=20,
                 )
                 bundle = orchestrated["consumer_bundle"]
-                receipt = {
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": "completed",
-                    "bundle": bundle,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "consumer_pid": os.getpid(),
-                }
-                with open(receipts_file, "a", encoding="utf-8") as f:
-                    f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+                write_operator_receipt(
+                    receipts_file,
+                    msg["mail_id"],
+                    status="completed",
+                    bundle=bundle,
+                    consumer_pid=os.getpid(),
+                )
                 deliver_receipt(mailbox, msg["mail_id"], status="completed", result_bundle=bundle)
                 continue
-            except Exception as exc:
+            except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                 log_event("ptc_retrieval_orchestrator_skip", reason=type(exc).__name__)
 
         # 고정 경로
@@ -330,9 +326,9 @@ def run_consumer(mailbox: Path, vault: Path):
                             log_event("ptc_deep_search_hint",
                                       visited=parsed["result"].get("visited"),
                                       depth=parsed["result"].get("depth_reached"))
-                    except Exception:
+                    except (json.JSONDecodeError, KeyError, TypeError):
                         pass
-            except Exception:
+            except (OSError, RuntimeError, ValueError, TypeError):
                 pass
 
         bundle = format_consumer_result(query_text, matches)
@@ -347,18 +343,15 @@ def run_consumer(mailbox: Path, vault: Path):
                     if bundle.get("korean_query_expansion"):
                         ring_bundle["korean_query_expansion"] = bundle["korean_query_expansion"]
                     bundle["support_bundle"] = ring_bundle
-            except Exception as exc:
+            except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                 log_event("ring_support_bundle_skip", reason=type(exc).__name__)
-        receipt = {
-            "receipt_id": str(uuid.uuid4())[:8],
-            "in_reply_to": msg["mail_id"],
-            "status": "completed",
-            "bundle": bundle,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "consumer_pid": os.getpid(),
-        }
-        with open(receipts_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+        write_operator_receipt(
+            receipts_file,
+            msg["mail_id"],
+            status="completed",
+            bundle=bundle,
+            consumer_pid=os.getpid(),
+        )
         deliver_receipt(mailbox, msg["mail_id"], status="completed", result_bundle=bundle)
 
     print(json.dumps({"status": "consumer_done", "pid": os.getpid(),

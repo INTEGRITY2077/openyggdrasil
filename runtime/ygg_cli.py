@@ -1,20 +1,48 @@
 from __future__ import annotations
 
+import os
+import sys
+
+
+def _bootstrap_runtime_package_for_direct_script() -> None:
+    if __package__:
+        return
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    runtime_dir = script_dir
+    while os.path.basename(runtime_dir) != "runtime":
+        parent = os.path.dirname(runtime_dir)
+        if parent == runtime_dir:
+            return
+        runtime_dir = parent
+    project_root = os.path.dirname(runtime_dir)
+    normalized_runtime_dir = os.path.normcase(os.path.abspath(runtime_dir))
+    normalized_project_root = os.path.normcase(os.path.abspath(project_root))
+    sys.path[:] = [
+        entry
+        for entry in sys.path
+        if os.path.normcase(os.path.abspath(entry or os.curdir)) != normalized_runtime_dir
+    ]
+    if all(
+        os.path.normcase(os.path.abspath(entry or os.curdir)) != normalized_project_root
+        for entry in sys.path
+    ):
+        sys.path[:0] = [project_root]
+
+
+_bootstrap_runtime_package_for_direct_script()
+
 import argparse
 import json
-import os
 import shutil
 import subprocess
-import sys
 import uuid
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
+
 RUNTIME_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = RUNTIME_ROOT.parent
-
-if str(RUNTIME_ROOT) not in sys.path:
-    sys.path.insert(0, str(RUNTIME_ROOT))
 
 DEFAULT_PROVIDER_ID = "hermes"
 DEFAULT_PROVIDER_PROFILE = "openyggdrasil-provider"
@@ -342,7 +370,7 @@ def build_doctor_report(
             force=not write_marker,
             write_marker=write_marker,
         )
-    except Exception as exc:  # noqa: BLE001
+    except RECOVERABLE_RUNTIME_ERRORS as exc:  # noqa: BLE001
         healthcheck = {
             "schema_version": "provider_cold_start_healthcheck.v1",
             "status": "not_ready",

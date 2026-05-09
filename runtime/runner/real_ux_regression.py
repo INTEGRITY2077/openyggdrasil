@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import uuid
 from functools import lru_cache
 from pathlib import Path
@@ -10,20 +9,15 @@ from typing import Any, Mapping
 
 import jsonschema
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-RUNTIME_ROOT = PROJECT_ROOT / "runtime"
-if str(RUNTIME_ROOT) not in sys.path:
-    sys.path.insert(0, str(RUNTIME_ROOT))
-
-from attachments.provider_attachment import (  # noqa: E402
+from runtime.attachments.provider_attachment import (  # noqa: E402
     append_turn_delta,
     bootstrap_skill_provider_session,
     build_session_uid,
 )
-from attachments.provider_inbox import read_session_inbox  # noqa: E402
-from delivery.support_bundle import validate_support_bundle_inbox_packet  # noqa: E402
-from harness_common import OPENYGGDRASIL_ROOT, utc_now_iso  # noqa: E402
-from runner.session_signal_runner import run_session_signal_mailbox_support  # noqa: E402
+from runtime.attachments.provider_inbox import read_session_inbox  # noqa: E402
+from runtime.delivery.support_bundle import validate_support_bundle_inbox_packet  # noqa: E402
+from runtime.harness_common import OPENYGGDRASIL_ROOT, utc_now_iso  # noqa: E402
+from runtime.runner.session_signal_runner import run_session_signal_mailbox_support  # noqa: E402
 
 
 CONTRACTS_ROOT = PROJECT_ROOT / "contracts"

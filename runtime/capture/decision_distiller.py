@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import json
 import re
 import uuid
@@ -186,7 +187,7 @@ def _normalize_rejected_alternatives(value: Any) -> list[str]:
 def _normalize_confidence_score(value: Any) -> float:
     try:
         score = float(value)
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return 0.0
     return max(0.0, min(1.0, score))
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import json
 import re
 import uuid
@@ -96,7 +97,7 @@ def _resolve_command(
 ) -> str | None:
     try:
         resolved = command_resolver(launcher_name)
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return None
     return str(resolved).strip() if resolved else None
 
@@ -128,7 +129,7 @@ def _capture_version(
 
     try:
         result = dict(version_probe_runner([launcher_name, "--version"]))
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return {
             "version_status": "typed_unavailable",
             "version": None,

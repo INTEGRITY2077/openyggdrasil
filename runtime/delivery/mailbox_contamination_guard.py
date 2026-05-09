@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -238,7 +239,7 @@ def guard_mailbox_message(
 
     try:
         validate_message(dict(message))
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return _result(
             message=message,
             verdict="reject",

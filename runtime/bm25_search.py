@@ -12,10 +12,42 @@ Usage:
 
 from __future__ import annotations
 
+import os
+import sys
+
+
+def _bootstrap_runtime_package_for_direct_script() -> None:
+    if __package__:
+        return
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    runtime_dir = script_dir
+    while os.path.basename(runtime_dir) != "runtime":
+        parent = os.path.dirname(runtime_dir)
+        if parent == runtime_dir:
+            return
+        runtime_dir = parent
+    project_root = os.path.dirname(runtime_dir)
+    normalized_runtime_dir = os.path.normcase(os.path.abspath(runtime_dir))
+    normalized_project_root = os.path.normcase(os.path.abspath(project_root))
+    sys.path[:] = [
+        entry
+        for entry in sys.path
+        if os.path.normcase(os.path.abspath(entry or os.curdir)) != normalized_runtime_dir
+    ]
+    if all(
+        os.path.normcase(os.path.abspath(entry or os.curdir)) != normalized_project_root
+        for entry in sys.path
+    ):
+        sys.path[:0] = [project_root]
+
+
+_bootstrap_runtime_package_for_direct_script()
+
 import argparse
 import json
-import sys
 from pathlib import Path
+
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 
 try:
     from rank_bm25 import BM25Okapi
@@ -63,7 +95,7 @@ def _load_vault_nodes(vault: Path) -> list[dict]:
             body = text[end+3:].strip() if end >= 0 else ""
             node["_search_text"] = f"{fm.get('title','')} {fm.get('content','')} {body}"
             nodes.append(node)
-        except Exception:
+        except RECOVERABLE_RUNTIME_ERRORS:
             continue
     return nodes
 
@@ -95,7 +127,7 @@ def bm25_search(vault: Path, query: str, top_k: int = 20) -> list[dict]:
     def _tokenize(text):
         try:
             tokens = text.lower().split()
-        except Exception:
+        except RECOVERABLE_RUNTIME_ERRORS:
             tokens = []
         # Kiwi 명사 추출 (한국어)
         try:
@@ -113,7 +145,7 @@ def bm25_search(vault: Path, query: str, top_k: int = 20) -> list[dict]:
         try:
             from korean_text.query_expansion import query_expansion_tokens
             tokens.extend(query_expansion_tokens(text))
-        except Exception:
+        except RECOVERABLE_RUNTIME_ERRORS:
             pass
         return tokens
     tokenized_corpus = [_tokenize(str(text)) for text in corpus]
@@ -174,7 +206,7 @@ def main():
             "result_count": len(results),
             "results": results,
         }, ensure_ascii=False))
-    except Exception as e:
+    except RECOVERABLE_RUNTIME_ERRORS as e:
         print(json.dumps({
             "status": "error",
             "error": str(e),

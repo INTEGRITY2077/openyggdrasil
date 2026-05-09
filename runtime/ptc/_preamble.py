@@ -6,6 +6,17 @@ from pathlib import Path
 
 _PTC_SOCK = "/tmp/ptc.sock"
 _call_id = 0
+_PTC_RECOVERABLE_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    RuntimeError,
+    ImportError,
+    TimeoutError,
+    UnicodeError,
+    json.JSONDecodeError,
+)
 
 
 def _ptc_call(method, **kwargs):
@@ -28,7 +39,7 @@ def _ptc_call(method, **kwargs):
         return response.get("result", {})
     except FileNotFoundError:
         return {"error": "socket_unavailable"}
-    except Exception as e:
+    except _PTC_RECOVERABLE_ERRORS as e:
         return {"error": str(e)}
 
 # ═══════════════════════════════════════════════════════════

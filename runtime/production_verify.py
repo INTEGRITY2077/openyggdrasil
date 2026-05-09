@@ -18,12 +18,10 @@ import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
 
 def verify_sot_integration() -> dict:
     """S4: vault_guard가 primitives에 통합되었는지 확인."""
-    from ptc.primitives import save_to_vault, build_vault_node
+    from runtime.ptc.primitives import save_to_vault, build_vault_node
     import inspect
 
     src = inspect.getsource(save_to_vault)
@@ -33,7 +31,7 @@ def verify_sot_integration() -> dict:
 
 def verify_sandbox() -> dict:
     """B4: bubblewrap 샌드박스 동작 검증."""
-    from sandbox import sandbox_run
+    from runtime.sandbox import sandbox_run
 
     result = sandbox_run(["python3", "-c", "print('hello sandbox')"], timeout=10)
     return {
@@ -45,8 +43,8 @@ def verify_sandbox() -> dict:
 
 def verify_provider_roundtrip(vault: Path, mailbox: Path) -> dict:
     """L3+L4: Producer→Consumer 왕복 + 10회 연속 안정성."""
-    from operator_entrypoint import run_producer, run_consumer
-    from ptc.primitives import load_vault
+    from runtime.operator_entrypoint import run_producer, run_consumer
+    from runtime.ptc.primitives import load_vault
     import uuid as _uuid
 
     results = {"rounds": [], "all_ok": True}

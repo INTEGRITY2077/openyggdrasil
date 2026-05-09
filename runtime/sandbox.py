@@ -36,7 +36,7 @@ def sandbox_run(
     read_only_paths: list[str] | None = None,
     tmp_dir: str | None = None,
     timeout: int = 300,
-) -> dict:
+) -> dict | None:
     """
     bubblewrap 샌드박스에서 명령 실행.
 

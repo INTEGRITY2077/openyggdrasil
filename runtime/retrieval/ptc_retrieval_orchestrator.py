@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import OPTIONAL_IMPORT_ERRORS, RECOVERABLE_RUNTIME_ERRORS
 import hashlib
 import json
 import re
@@ -20,10 +21,10 @@ from retrieval.pathfinder_tools import build_ring_support_bundle
 
 try:
     from runtime.bm25_search import bm25_search as _rank_bm25_search
-except Exception:  # pragma: no cover - import shape differs in direct script runs.
+except OPTIONAL_IMPORT_ERRORS:  # pragma: no cover - import shape differs in direct script runs.
     try:
         from bm25_search import bm25_search as _rank_bm25_search
-    except Exception:  # pragma: no cover
+    except OPTIONAL_IMPORT_ERRORS:  # pragma: no cover
         _rank_bm25_search = None
 
 
@@ -58,7 +59,7 @@ def _query_terms(query_text: str) -> list[str]:
         from korean_text.query_expansion import query_expansion_tokens
 
         terms.extend(str(term).lower() for term in query_expansion_tokens(query_text))
-    except Exception:
+    except (ImportError, ValueError):
         pass
     out: list[str] = []
     seen: set[str] = set()
@@ -288,7 +289,7 @@ def _rank_bm25_candidates(
                 )
             if candidates:
                 return candidates
-        except Exception:
+        except RECOVERABLE_RUNTIME_ERRORS:
             pass
 
     return [
@@ -329,7 +330,7 @@ def _korean_expansion_candidates(
         from korean_text.query_expansion import query_expansion_tokens
 
         tokens = [str(token) for token in query_expansion_tokens(query_text) if str(token).strip()]
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         tokens = []
     if not tokens:
         return []
@@ -421,7 +422,7 @@ def _ring_candidates(
             vault_root=vault_root,
             matched_nodes=list(matched_nodes),
         )
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return [], None
 
     if ring_bundle.get("typed_unavailable"):
@@ -725,7 +726,7 @@ def build_ptc_retrieval_orchestrator_result(
                 }
             )
             return candidates
-        except Exception as exc:
+        except RECOVERABLE_RUNTIME_ERRORS as exc:
             generator_reports.append(
                 {
                     "generator": generator,
@@ -845,7 +846,7 @@ def build_ptc_retrieval_orchestrator_result(
                 vault_root=vault_root,
                 matched_nodes=matched_nodes,
             )
-        except Exception:
+        except RECOVERABLE_RUNTIME_ERRORS:
             final_ring_bundle = ring_bundle
     if isinstance(final_ring_bundle, Mapping):
         consumer_bundle["support_bundle"] = dict(final_ring_bundle)

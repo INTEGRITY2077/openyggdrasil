@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import json
 import os
 import shutil
@@ -93,7 +94,7 @@ def _resolve_command(
 ) -> str | None:
     try:
         resolved = command_resolver(command_name)
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return None
     return str(resolved).strip() if resolved else None
 
@@ -109,7 +110,7 @@ def _probe_wsl_tools(wsl_distro: str) -> dict[str, bool]:
             check=False,
             timeout=10,
         )
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return {"bwrap": False, "socat": False}
     available = completed.returncode == 0
     return {"bwrap": available, "socat": available}

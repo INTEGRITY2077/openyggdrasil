@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import json
 import uuid
 from functools import lru_cache
@@ -130,7 +131,7 @@ def _safe_scenario(
 ) -> dict[str, Any]:
     try:
         return fn()
-    except Exception as exc:
+    except RECOVERABLE_RUNTIME_ERRORS as exc:
         return _scenario_error(scenario, expected_outcome, exc)
 
 
