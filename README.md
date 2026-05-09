@@ -581,8 +581,8 @@ first-install requirements:
 ./scripts/ygg doctor  # repo-local session-group healthcheck
 ./scripts/ygg status  # repo-local live witness status
 ./scripts/ygg pro1    # Provider attach/witness command; internal tmux: ygg-pro1
-./scripts/ygg ms1     # Memory Saver MS1 attach/witness command; internal tmux: ygg-op1
-./scripts/ygg mf1     # Memory Finder MF1 attach/witness command; internal tmux: ygg-op2
+./scripts/ygg ms1     # Memory Saver MS1 attach/witness command; internal tmux: ygg-ms1
+./scripts/ygg mf1     # Memory Finder MF1 attach/witness command; internal tmux: ygg-mf1
 ygg talk MS1          # target, NOT PASS; must become a typed event, not raw tmux/stdin input
 ```
 
@@ -731,13 +731,13 @@ The Memory Worker Session runs in **physically separated independent background 
               │                              │
               ▼                              ▼
   ┌───────────────────────────┐  ┌───────────────────────────┐
-  │     VAULT (SOT)           │  │  Result Result Result Receipt → Mailbox        │
-  │  Saved nodes stored    │  │  → Provider Lane receives      │
+  │     VAULT (SOT)           │  │  Result Receipt / Evidence    │
+  │  Saved nodes stored       │  │  → Mailbox → Provider Lane    │
   └───────────────────────────┘  └───────────────────────────┘
 ```
 
-**Key constraint:** Memory Worker Sessions (Memory Saver/Finder; legacy Producer/Consumer) run in physically separate context windows (PIDs) from the Provider Session, with no shared memory.
-The Mailbox (JSONL filesystem) is the only communication channel. Existing Mock/Mailbox POC evidence is bounded proof; it does not prove all-provider same UX or production readiness.
+**Key constraint:** Memory Worker Sessions (Memory Saver/Finder; some runtime file names remain legacy producer/consumer compatibility paths) run in physically separate context windows (PIDs) from the Provider Session, with no shared memory.
+Postman/Mailbox (JSONL filesystem) is the canonical work channel. Postman accepts, wakes, and records work, but it does not own semantic storage or recall quality. Existing Mock/Mailbox POC evidence is bounded proof; it does not prove all-provider same UX or production readiness.
 
 #### Session Definitions
 
@@ -965,7 +965,7 @@ There are two distinct invocation paths — one for **writing** knowledge
   │     with structured signal                   entrypoint with query     │
   │  ④ Signal → 12-module chain               ④ Pathfinder → Vault scan   │
   │  ⑤ Vault updated                          ⑤ Evidence Pack assembled  │
-  │  ⑥ Delivery Monitor → Mailbox Result Receipt     ⑥ Mailbox → Agent receives  │
+  │  ⑥ Postman → Mailbox work_history/Result Receipt ⑥ Mailbox → Agent receives  │
   │                                              bounded retrieval result  │
   └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1270,7 +1270,7 @@ Pathfinder returns an honest `anchor_type: "none"` result. If provenance
 can't be verified, it stops with `origin_shortcut_missing`. The agent
 receives enough evidence to inspect what it is getting and why.
 
-Until the P1 kitchen split is complete, do not claim “LLM free composition PASS” or “Consumer kitchen PASS.”
+Until the P1 kitchen split is complete, do not claim “LLM free composition PASS” or “MF consumption kitchen PASS.”
 
 
 ### PTC Tool Design Principles (Affordance-Based)
@@ -1321,8 +1321,8 @@ The original 12 modules are the base knowledge production/consumption chain. As 
 | ⑦ | **Nursery** | Cultivates accepted candidates | New knowledge needs incubation before promotion |
 | ⑧ | **Map Maker** | Places memory in topic/community structures | Navigable structure, not flat dumps |
 | ⑨ | **Gardener** | Lifecycle transitions: ACTIVE → SUPERSEDED → STALE | Knowledge must be pruned, not just accumulated |
-| ⑩ | **Delivery Monitor** | Routes bounded Evidence Packs (internal Postman transport) | Delivery is a contract, not a side effect |
-| ⑪ | **Mailbox** | Provider session inbox | Type-safe consumption surface |
+| ⑩ | **Postman** | Accepts letters, writes work order/history, wakes MS/MF, mirrors receipts | Delivery is a recordable contract, not a side effect |
+| ⑪ | **Mailbox / Work History** | Work ledger between Provider and MS/MF | Type-safe work admission and result recovery surface |
 | ⑫ | **Pathfinder** | Retrieves explainable support material | Retrieval results should carry provenance and lifecycle proof, or typed unavailable |
 
 15th required promotion group:
@@ -1338,7 +1338,7 @@ The original 12 modules are the base knowledge production/consumption chain. As 
 | 26 | **Provenance Ring Lineage** | PARTIAL | Engrave `source_ref`, `anchor_hash`, and message range into append-only Tree Rings |
 | 27 | **Graphify Support Verifier** | PARTIAL | Reverify Graphify hints against Vault/provenance before using them as Evidence Pack candidates |
 | 28 | **TMUX Live Witness** | SCOPED PASS | Repo-local `./scripts/ygg status/pro1/ms1/mf1` can observe/attach the live witness field; TMUX is still not SOT |
-| 29 | **Session Attach Gateway** | SCOPED PASS | Repo-local `./scripts/ygg doctor/status/pro1/ms1/mf1` maps user commands to active `ygg-pro1/ygg-op1/ygg-op2` witness sessions |
+| 29 | **Session Attach Gateway** | SCOPED PASS | Repo-local `./scripts/ygg doctor/status/pro1/ms1/mf1` maps user commands to active `ygg-pro1/ygg-ms1/ygg-mf1` witness sessions |
 | 30 | **Interactive Memory Lane Talk** | NOT PASS | Target `ygg talk MS1/MF1` through typed mailbox/event input, not raw tmux/stdin |
 
 15th promotion candidate group:
@@ -1401,7 +1401,7 @@ openyggdrasil/
 │   ├── placement/      # Map Maker, topic/episode placement
 │   ├── provenance/     # Source tracking, temporal edges
 │   ├── retrieval/      # Pathfinder, PTC tools, Graphify adapters
-│   ├── delivery/       # Delivery Monitor (internal Postman), Mailbox, Evidence Packs
+│   ├── delivery/       # Postman, mailbox work_order/history, Result Receipts, Evidence Packs
 │   ├── reasoning/      # Reasoning Lease, provider gates
 │   ├── runner/         # Orchestration, regression entrypoints
 │   ├── ptc/            # Programmatic Tool Calling engine
