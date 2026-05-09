@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .postman_work_order import append_postman_work_order
+
 POSTMAN_DIR_NAME = "postman"
 SESSIONS_DIR_NAME = "sessions"
 CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD = "preserve_paragraph_intent_before_decision_atoms"
@@ -338,6 +340,17 @@ def submit_live_delivery(
     _append_jsonl(postman_dir / "outbox.jsonl", packet)
     _append_jsonl(message_file, message_row)
     _append_jsonl(mailbox / "live_inbox.jsonl", live_event)
+    work_order = append_postman_work_order(
+        postman_dir=postman_dir,
+        mailbox=mailbox,
+        delivery_id=delivery_id,
+        mail_id=mail_id,
+        recipient=recipient,
+        message_type=message_type,
+        provider_id=provider_id,
+        message_file_name=message_file_name,
+        payload=payload,
+    )
     _append_jsonl(postman_dir / "delivery_log.jsonl", delivery_log)
 
     return {
@@ -350,6 +363,7 @@ def submit_live_delivery(
         "intent_file": str(message_file) if message_type in ("save", "memory_ticket") else None,
         "query_file": str(message_file) if message_type == "query" else None,
         "live_inbox": str(mailbox / "live_inbox.jsonl"),
+        **work_order,
         "outbox": str(postman_dir / "outbox.jsonl"),
         "delivery_log": str(postman_dir / "delivery_log.jsonl"),
         "status": "delivered",

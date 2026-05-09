@@ -194,6 +194,7 @@ def _mailbox_summary(*, state_dir: Path, mailbox_key: str) -> dict[str, Any]:
         "intent_count": len(intents),
         "receipt_count": len(receipts),
         "pending_approx": pending,
+        "latest_receipt_present": isinstance(latest_receipt, dict),
         "latest_receipt_id": latest_receipt.get("receipt_id") if isinstance(latest_receipt, dict) else None,
         "latest_reply_to": latest_receipt.get("in_reply_to") if isinstance(latest_receipt, dict) else None,
         "latest_produced_count": produced_count,
@@ -467,7 +468,7 @@ def _render_status_text(payload: dict[str, Any]) -> str:
         mailbox = lane.get("mailbox_summary")
         if mailbox:
             lines.append(
-                "mailbox: intents={intent_count} receipts={receipt_count} pending~={pending_approx} latest_receipt={latest_receipt_id}".format(
+                "mailbox: intents={intent_count} receipts={receipt_count} pending~={pending_approx} latest_receipt_present={latest_receipt_present}".format(
                     **mailbox
                 )
             )

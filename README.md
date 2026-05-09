@@ -35,7 +35,10 @@ Provider Unit N = PRO N + MS N + MF N
 PRO N = Provider Lane N
 MS N  = Memory Saver N  = legacy OP(2N - 1)
 MF N  = Memory Finder N = legacy OP(2N)
-Delivery Monitor = internal Postman
+Postman = delivery admission / work order / heartbeat / receipt mirror owner
+Work Order = postman_work_order.v1
+Work History = worker_work_history.v1
+Worker Structured Receipt = worker_structured_receipt.v1
 Status Brief = internal CPR/operator_brief
 Evidence Pack = internal support_bundle
 Result Receipt = internal receipt/query_receipt
@@ -44,7 +47,7 @@ Find Request = internal recall query
 Checkpoint = internal gate/proof/POC
 ```
 
-Legacy `OP`, `producer`, `consumer`, `operator`, `receipt`, `support_bundle`, and `Postman` names can still appear where the README references runtime schemas, file paths, code modules, or historical compatibility ids. They are not the primary user-facing role names.
+Legacy `OP`, `producer`, `consumer`, and `operator` names can still appear where the README references runtime schemas, file paths, code modules, or historical compatibility ids. They are not the primary user-facing role names. Postman is not the semantic quality owner; it owns delivery admission, work orders, heartbeat/CPR, and receipt/history coordination.
 
 Use this when:
 - You are seeing this repository for the first time.
@@ -330,7 +333,7 @@ sources: [source refs or public paths]
 
 ## System Requirements & Setup
 
-openyggdrasil is designed to operate as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). The target operating model does not require an always-on system-level server or separate server management. It may create session-scoped MS/MF workers/watchers around the active Provider Lane; those workers must be lifecycle-bound and cleanup-verifiable. This is not a production-ready guarantee yet.
+openyggdrasil is designed to operate as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). The target operating model does not require an always-on system-level server or separate server management. It may create session-scoped Postman helpers and MS/MF workers around the active Provider Lane. Postman owns delivery admission, work orders, wakeup routing, and receipt/history coordination; debug monitors must not become product owners. This is not a production-ready guarantee yet.
 
 > **⚠️ Reasoning Lease Model (Asynchronous Multiplexing):**
 > openyggdrasil does not have its own API keys, and it must not extract provider credentials.
@@ -356,9 +359,9 @@ Active session health is group-based, not lane-based:
 ```text
 User command   Internal tmux   Runtime evidence
 ygg pro1       ygg-pro1            provider_lane.v1
-ygg ms1        ygg-op1          MS1 Memory Saver registry/mailbox/live watcher (legacy OP1)
-ygg mf1        ygg-op2          MF1 Memory Finder registry/mailbox/live watcher (legacy OP2)
-Canonical evidence            mailbox / Result Receipts / event logs / attachment artifacts
+ygg ms1        ygg-ms1          MS1 Memory Saver registry/mailbox/work_order/native worker (legacy OP1 evidence id may appear)
+ygg mf1        ygg-mf1          MF1 Memory Finder registry/mailbox/work_order/native worker (legacy OP2 evidence id may appear)
+Canonical evidence            mailbox work_order/history / Result Receipts / event logs / attachment artifacts
 ```
 
 If any side of that group is stale, the whole group is degraded. Implementations must not create fallback lanes such as `oy-2`, `oy-3`, or extra MS/MF pairs as an automatic response to uncertainty. A new Provider Unit MS/MF pair must be explicitly created and rebound.
@@ -412,15 +415,16 @@ A clean cold start means:
 
 openyggdrasil uses a **satellite model**, not a server model.
 
-The active Provider Session is the center. The Memory Saver, Memory Finder, mailbox, watcher, and optional TMUX panes are satellites that orbit that session. They exist to support the active Provider Session and must not become independent always-on services.
+The active Provider Session is the center. Postman, Mailbox, Memory Saver, Memory Finder, and optional TMUX/debug panes are satellites that orbit that session. They exist to support the active Provider Session and must not become independent always-on services. Postman is a delivery owner, not a separate semantic judge.
 
 ```text
 Provider Unit
   ├─ PRO Provider Lane            active user-facing provider session
   ├─ MS1 Memory Saver satellite   session-scoped background save worker (legacy OP1)
   ├─ MF1 Memory Finder satellite  session-scoped background find worker (legacy OP2)
-  ├─ Mailbox satellite            local file queue / Result Receipt ledger
-  ├─ Watcher satellite            local polling process for that mailbox
+  ├─ Postman satellite            delivery admission / work_order / CPR / receipt mirror owner
+  ├─ Mailbox satellite            local file queue / work_history / Result Receipt ledger
+  ├─ Postman helper / watcher     poll/wakeup implementation detail under Postman ownership
   └─ TMUX witness satellite       optional human visual surface
 ```
 
@@ -428,8 +432,9 @@ What each satellite is:
 
 | Satellite | What it is | What it is not |
 |---|---|---|
+| Postman | Delivery admission, work orders/history, MS/MF heartbeat/CPR, receipt mirroring | Semantic quality owner, independent reasoning worker |
 | Mailbox | Local file-based queue and Result Receipt ledger | Server, socket API, public service |
-| Watcher | Session-scoped local polling worker | Always-on daemon, global server |
+| Postman helper / watcher | Implementation detail that polls the mailbox or wakes the native pane under Postman ownership | Product owner, canonical input lane, global server |
 | MS1 Memory Saver | Background save worker bound to a Provider Unit (legacy OP1) | Standalone memory server |
 | MF1 Memory Finder | Background find worker bound to a Provider Unit (legacy OP2) | Standalone search server |
 | TMUX witness | Optional human inspection surface | SOT, execution Checkpoint, canonical input lane |
@@ -441,25 +446,27 @@ Satellite lifecycle rules:
 - stale satellites degrade the whole group;
 - cleanup must be explicit and backup-first;
 - uncertainty must not create fallback satellites such as `oy-2`, `oy-3`, or extra MS/MF pairs;
-- canonical evidence remains mailbox Result Receipts, event logs, schema traces, and attachment artifacts.
+- canonical evidence remains mailbox work_order/history, Result Receipts, event logs, schema traces, and attachment artifacts.
 
 ```mermaid
 flowchart LR
   P["Active Provider Lane<br/>(PRO)"]
   MS1["MS1 Memory Saver<br/>legacy OP1"]
   MF1["MF1 Memory Finder<br/>legacy OP2"]
-  MB["Mailbox<br/>local file queue + Result Receipts"]
-  W["Watcher<br/>session-scoped polling"]
+  PM["Postman<br/>admission + work order + CPR"]
+  MB["Mailbox<br/>work_order + work_history + Result Receipts"]
+  H["Postman helper<br/>poll/wakeup implementation detail"]
   T["TMUX Witness<br/>optional visual satellite"]
   V["Vault / Evidence Pack"]
   E["Canonical evidence<br/>Result Receipts / logs / schemas"]
 
-  P --> MB
+  P --> PM --> MB
   MB --> MS1 --> V
   MB --> MF1 --> V
-  W -. "polls active mailbox" .-> MB
-  T -. "observes only" .-> W
+  H -. "polls/wakes under Postman ownership" .-> MB
+  T -. "observes only" .-> H
   MB --> E
+  PM --> E
   MS1 --> E
   MF1 --> E
 ```
@@ -522,7 +529,7 @@ sudo apt-get update
 sudo apt-get install -y tmux
 
 # Point tmux at the openyggdrasil project and one Memory Saver mailbox
-PROJECT=/mnt/d/0_PROJECT/openyggdrasil
+PROJECT=/path/to/openyggdrasil
 LANE=MS1
 OP=OP1  # internal legacy mailbox id for MS1
 SESSION=openyggdrasil-witness
@@ -776,7 +783,7 @@ Rather than just raw text summaries, these bundles (governed by the `support_bun
 2. **Topology IDs (`episode_ids`, `claim_ids`)**: The contextual topological coordinates within Vault/Graphify where this knowledge was generated.
 3. **Evidence Refs (`safe_ref`)**: Safe pointers to supporting logs or terminal execution evidence when available, allowing the agent to inspect the less-compressed source context if needed.
 
-Consequently, the agent receives both the distilled summary and bounded evidence addresses for origin inspection, securely delivered via the typed **Mailbox** contract by **Delivery Monitor** (internal Postman).
+Consequently, the agent receives both the distilled summary and bounded evidence addresses for origin inspection through **Postman-managed Mailbox / work_history / Result Receipt** contracts.
 
 
 ## PTC (Programmatic Tool Calling) Concept & Architecture

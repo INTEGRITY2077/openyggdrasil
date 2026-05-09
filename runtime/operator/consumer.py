@@ -1,7 +1,9 @@
 """
-Operator Consumer — 14차 Axis 3: operator_entrypoint.py에서 분리.
+Memory Finder consumer runtime.
 
-run_consumer + _bm25_search_vault + PTC 대체 경로 (Phase 2)
+The primary recall route is the deterministic read-only PTC retrieval
+orchestrator. Legacy BM25/lifecycle/edge search remains only as a degraded
+fallback when the orchestrator is unavailable.
 """
 from __future__ import annotations
 
@@ -75,10 +77,11 @@ def _bm25_search_vault(vault: Path, query: str, top_k: int = 20) -> list[dict] |
 
 
 def run_consumer(mailbox: Path, vault: Path):
-    """Mailbox에서 query-intent를 폴링하여 Vault 검색 결과 반환.
+    """Read query intents from the mailbox and return Evidence Pack results.
 
-    payload.ptc=true → PTC 경로 (LLM 코드가 Pathfinder 직접 구성)
-    payload.ptc=false/없음 → 고정 경로 (기존 BM25→Lifecycle→Edge Boost)
+    `build_ptc_retrieval_orchestrator_result` is the normal deterministic
+    read-only path. The older BM25/lifecycle/edge path below is a compatibility
+    fallback, not the recall route owner.
     """
     # ★ 14차 Axis 4: sandbox guard (보안 계층, 기능 블로커 아님)
     try:
@@ -309,7 +312,8 @@ def run_consumer(mailbox: Path, vault: Path):
         edges = load_edges(vault)
         matches = _boost_by_edges(matches, edges)
 
-        # PTC Advisory
+        # Legacy advisory hint only; provider-facing support must still come
+        # from a typed bundle or typed_unavailable result.
         if _ptc_exec and query_text:
             try:
                 ptc_result = _ptc_exec(
