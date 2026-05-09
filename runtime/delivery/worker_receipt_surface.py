@@ -75,6 +75,68 @@ def _matching_receipt(receipts: list[dict[str, Any]], *, mail_id: str | None, wo
     return None
 
 
+def _dedupe_strings(values: list[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
+
+
+def _semantic_success_gate(
+    *,
+    worker_role: str,
+    status: str | None,
+    support_facts: list[str],
+    source_paths: list[str],
+    node_ids: list[str],
+    produced_count: int,
+    observed_missing_evidence: list[str],
+) -> tuple[bool, list[str]]:
+    missing: list[str] = []
+    if status != "completed":
+        missing.append("receipt_status_completed")
+    if worker_role == "memory_finder":
+        if not support_facts:
+            missing.append("support_facts")
+        if not source_paths:
+            missing.append("source_paths")
+    elif worker_role == "memory_saver":
+        if produced_count <= 0:
+            missing.append("produced_count")
+        if not node_ids:
+            missing.append("node_ids")
+    else:
+        missing.append("supported_worker_role")
+    missing.extend(observed_missing_evidence)
+    missing = _dedupe_strings(missing)
+    return not missing, missing
+
+
+def _existing_semantic_success(existing: Mapping[str, Any], *, worker_role: str) -> tuple[bool, list[str]]:
+    support_facts = list(existing.get("support_facts") or [])
+    source_paths = list(existing.get("source_paths") or [])
+    node_ids = list(existing.get("node_ids") or existing.get("nodes") or [])
+    observed_missing_evidence = list(existing.get("observed_missing_evidence") or [])
+    try:
+        produced_count = int(existing.get("produced_count") or 0)
+    except (TypeError, ValueError):
+        produced_count = 0
+    return _semantic_success_gate(
+        worker_role=worker_role,
+        status=str(existing.get("status") or ""),
+        support_facts=support_facts,
+        source_paths=source_paths,
+        node_ids=node_ids,
+        produced_count=produced_count,
+        observed_missing_evidence=observed_missing_evidence,
+    )
+
+
 def _find_work_order(
     mailbox: Path,
     *,
@@ -163,6 +225,7 @@ def close_worker_work_order(
     receipts = _read_jsonl(receipt_file)
     existing = _matching_receipt(receipts, mail_id=mail_id, work_order_id=work_order_id)
     if existing:
+        existing_semantic_success, existing_missing = _existing_semantic_success(existing, worker_role=worker_role)
         mirror_worker_receipt_to_history(
             mailbox=mailbox_path,
             mail_id=mail_id,
@@ -181,7 +244,8 @@ def close_worker_work_order(
             "receipt_status": existing.get("status"),
             "receipt_file_name": receipt_file.name,
             "history_written": True,
-            "semantic_success_claimed": existing.get("status") == "completed",
+            "semantic_success_claimed": existing_semantic_success,
+            "missing_evidence": existing_missing,
         }
 
     support_facts = list(support_facts or [])
@@ -190,7 +254,16 @@ def close_worker_work_order(
     observed_missing_evidence = list(observed_missing_evidence or [])
     created_at = _now_iso()
     receipt_id = str(uuid.uuid4())[:8]
-    semantic_success = status == "completed"
+    semantic_success, missing_evidence = _semantic_success_gate(
+        worker_role=worker_role,
+        status=status,
+        support_facts=support_facts,
+        source_paths=source_paths,
+        node_ids=node_ids,
+        produced_count=int(produced_count),
+        observed_missing_evidence=observed_missing_evidence,
+    )
+    effective_reason_code = reason_code or ("evidence_gate_failed" if not semantic_success else status)
 
     receipt: dict[str, Any] = {
         "schema_version": "worker_structured_receipt.v1",
@@ -202,7 +275,7 @@ def close_worker_work_order(
         "work_order_id": work_order_id,
         "worker_role": worker_role,
         "status": status,
-        "reason_code": reason_code or status,
+        "reason_code": effective_reason_code,
         "public_summary": public_summary or "",
         "produced_count": int(produced_count),
         "nodes": node_ids,
@@ -210,6 +283,11 @@ def close_worker_work_order(
         "support_facts": support_facts,
         "source_paths": source_paths,
         "observed_missing_evidence": observed_missing_evidence,
+        "evidence_gate": {
+            "schema_version": "worker_semantic_success_gate.v1",
+            "satisfied": semantic_success,
+            "missing_evidence": missing_evidence,
+        },
         "retry_count": int(retry_count),
         "acceptance_gate": work_order.get("acceptance_gate"),
         "hard_nonclaims": [
@@ -228,8 +306,9 @@ def close_worker_work_order(
             if semantic_success
             else {
                 "schema_version": "typed_unavailable.v1",
-                "reason_code": reason_code or status,
+                "reason_code": effective_reason_code,
                 "detail": public_summary or "",
+                "missing_evidence": missing_evidence,
             },
         }
     else:
@@ -241,8 +320,9 @@ def close_worker_work_order(
             if semantic_success
             else {
                 "schema_version": "typed_unavailable.v1",
-                "reason_code": reason_code or status,
+                "reason_code": effective_reason_code,
                 "detail": public_summary or "",
+                "missing_evidence": missing_evidence,
             },
         }
 
@@ -256,11 +336,11 @@ def close_worker_work_order(
         summary=public_summary or "",
         evidence={
             "schema_version": "worker_judgment_evidence.v1",
-            "reason_code": reason_code or status,
+            "reason_code": effective_reason_code,
             "support_fact_count": len(support_facts),
             "source_path_count": len(source_paths),
             "produced_count": int(produced_count),
-            "missing_evidence": observed_missing_evidence,
+            "missing_evidence": missing_evidence,
             "retry_count": int(retry_count),
         },
     )
@@ -282,10 +362,11 @@ def close_worker_work_order(
         "mail_id": mail_id,
         "work_order_id": work_order_id,
         "receipt_status": status,
-        "reason_code": reason_code or status,
+        "reason_code": effective_reason_code,
         "receipt_file_name": receipt_file.name,
         "history_written": True,
         "semantic_success_claimed": semantic_success,
+        "missing_evidence": missing_evidence,
         "support_fact_count": len(support_facts),
         "source_path_count": len(source_paths),
         "produced_count": int(produced_count),

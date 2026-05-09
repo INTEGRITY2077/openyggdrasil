@@ -51,6 +51,11 @@ DEFAULT_HEALTHCHECK_SESSION_ID = "ygg-doctor-smoke"
 
 CommandRunner = Callable[[Sequence[str], int], subprocess.CompletedProcess[str]]
 
+
+def _debug_local_paths_enabled() -> bool:
+    return os.environ.get("YGG_DEBUG_LOCAL_PATHS") == "1"
+
+
 ROLE_SPECS: dict[str, dict[str, str | None]] = {
     "pro1": {
         "display_name": "Provider Lane 1",
@@ -62,15 +67,15 @@ ROLE_SPECS: dict[str, dict[str, str | None]] = {
     "ms1": {
         "display_name": "MS1 (Memory Saver)",
         "user_command": "ygg ms1",
-        "tmux_session": "ygg-op1",
-        "internal_id": "OP1",
+        "tmux_session": "ygg-ms1",
+        "internal_id": "MS1",
         "mailbox_key": "OP1",
     },
     "mf1": {
         "display_name": "MF1 (Memory Finder)",
         "user_command": "ygg mf1",
-        "tmux_session": "ygg-op2",
-        "internal_id": "OP2",
+        "tmux_session": "ygg-mf1",
+        "internal_id": "MF1",
         "mailbox_key": "OP2",
     },
 }
@@ -189,20 +194,23 @@ def _mailbox_summary(*, state_dir: Path, mailbox_key: str) -> dict[str, Any]:
         if isinstance(bundle, dict):
             support_bundle = bundle.get("support_bundle")
     support_paths = support_bundle.get("source_paths") if isinstance(support_bundle, dict) else []
-    return {
-        "mailbox": str(mailbox),
+    summary = {
+        "mailbox_key": mailbox_key,
         "intent_count": len(intents),
         "receipt_count": len(receipts),
         "pending_approx": pending,
         "latest_receipt_present": isinstance(latest_receipt, dict),
-        "latest_receipt_id": latest_receipt.get("receipt_id") if isinstance(latest_receipt, dict) else None,
-        "latest_reply_to": latest_receipt.get("in_reply_to") if isinstance(latest_receipt, dict) else None,
         "latest_produced_count": produced_count,
         "support_bundle_schema": support_bundle.get("schema_version") if isinstance(support_bundle, dict) else None,
         "support_facts_count": len(support_bundle.get("support_facts", [])) if isinstance(support_bundle, dict) else 0,
         "source_paths_count": len(support_paths) if isinstance(support_paths, list) else 0,
         "typed_unavailable_present": bool(support_bundle.get("typed_unavailable")) if isinstance(support_bundle, dict) else False,
     }
+    if _debug_local_paths_enabled():
+        summary["debug_paths"] = {"mailbox": str(mailbox)}
+        summary["latest_receipt_id"] = latest_receipt.get("receipt_id") if isinstance(latest_receipt, dict) else None
+        summary["latest_reply_to"] = latest_receipt.get("in_reply_to") if isinstance(latest_receipt, dict) else None
+    return summary
 
 
 def _provider_inbox_summary(*, workspace_root: Path) -> dict[str, Any]:
@@ -220,20 +228,22 @@ def _provider_inbox_summary(*, workspace_root: Path) -> dict[str, Any]:
     )
     packets = _read_jsonl(inbox_path)
     latest_packet = packets[-1] if packets else {}
-    operator_briefs = [row for row in packets if row.get("packet_type") == "operator_brief"]
-    latest = operator_briefs[-1] if operator_briefs else latest_packet
+    worker_briefs = [row for row in packets if row.get("packet_type") in {"worker_brief", "operator_brief"}]
+    latest = worker_briefs[-1] if worker_briefs else latest_packet
     payload = latest.get("payload") if isinstance(latest.get("payload"), dict) else latest
     handoff = payload.get("provider_inbox_handoff") if isinstance(payload, dict) else None
-    op2_support = payload.get("op2_support_metadata") if isinstance(payload, dict) else None
-    recall_digest = op2_support.get("recall_digest") if isinstance(op2_support, dict) else None
-    node_taxonomy = op2_support.get("node_taxonomy") if isinstance(op2_support, dict) else None
-    return {
+    mf1_support = None
+    if isinstance(payload, dict):
+        mf1_support = payload.get("mf1_support_metadata") or payload.get("op2_support_metadata")
+    recall_digest = mf1_support.get("recall_digest") if isinstance(mf1_support, dict) else None
+    node_taxonomy = mf1_support.get("node_taxonomy") if isinstance(mf1_support, dict) else None
+    summary = {
         "provider_id": provider_id,
         "provider_profile": provider_profile,
         "provider_session_id": provider_session_id,
-        "inbox_path": str(inbox_path),
+        "inbox_file_name": inbox_path.name,
         "packet_count": len(packets),
-        "operator_brief_count": len(operator_briefs),
+        "worker_brief_count": len(worker_briefs),
         "latest_packet_type": latest.get("packet_type") if isinstance(latest, dict) else None,
         "heartbeat_cpr_status": payload.get("heartbeat_cpr_status") if isinstance(payload, dict) else None,
         "handoff_status": handoff.get("handoff_status") if isinstance(handoff, dict) else payload.get("handoff_status") if isinstance(payload, dict) else None,
@@ -244,24 +254,27 @@ def _provider_inbox_summary(*, workspace_root: Path) -> dict[str, Any]:
             if isinstance(payload, dict)
             else None
         ),
-        "support_bundle_schema": op2_support.get("support_schema_version") if isinstance(op2_support, dict) else None,
+        "support_bundle_schema": mf1_support.get("support_schema_version") if isinstance(mf1_support, dict) else None,
         "support_facts_count": (
-            op2_support.get("support_facts_count")
-            if isinstance(op2_support, dict) and op2_support.get("support_facts_count") is not None
-            else len(op2_support.get("support_facts", []))
-            if isinstance(op2_support, dict)
+            mf1_support.get("support_facts_count")
+            if isinstance(mf1_support, dict) and mf1_support.get("support_facts_count") is not None
+            else len(mf1_support.get("support_facts", []))
+            if isinstance(mf1_support, dict)
             else None
         ),
-        "source_paths_count": len(op2_support.get("source_paths", [])) if isinstance(op2_support, dict) else 0,
+        "source_paths_count": len(mf1_support.get("source_paths", [])) if isinstance(mf1_support, dict) else 0,
         "recall_digest_status": recall_digest.get("status") if isinstance(recall_digest, dict) else None,
-        "source_line_range": op2_support.get("source_line_range") if isinstance(op2_support, dict) else None,
+        "source_line_range": mf1_support.get("source_line_range") if isinstance(mf1_support, dict) else None,
         "node_taxonomy_schema": node_taxonomy.get("schema_version") if isinstance(node_taxonomy, dict) else None,
-        "continent": op2_support.get("continent") if isinstance(op2_support, dict) else None,
-        "node_type": op2_support.get("node_type") if isinstance(op2_support, dict) else None,
-        "topography_level": op2_support.get("topography_level") if isinstance(op2_support, dict) else None,
-        "community_role": op2_support.get("community_role") if isinstance(op2_support, dict) else None,
-        "typed_unavailable_present": bool(op2_support.get("typed_unavailable_present")) if isinstance(op2_support, dict) else None,
+        "continent": mf1_support.get("continent") if isinstance(mf1_support, dict) else None,
+        "node_type": mf1_support.get("node_type") if isinstance(mf1_support, dict) else None,
+        "topography_level": mf1_support.get("topography_level") if isinstance(mf1_support, dict) else None,
+        "community_role": mf1_support.get("community_role") if isinstance(mf1_support, dict) else None,
+        "typed_unavailable_present": bool(mf1_support.get("typed_unavailable_present")) if isinstance(mf1_support, dict) else None,
     }
+    if _debug_local_paths_enabled():
+        summary["debug_paths"] = {"inbox_path": str(inbox_path)}
+    return summary
 
 
 def build_status_report(
@@ -304,8 +317,8 @@ def build_status_report(
         "schema_version": "ygg_lifecycle_status.v1",
         "status": "ready" if live_ready else "not_ready",
         "target": selected or "provider_unit_1",
-        "workspace_root": str(workspace),
-        "state_dir": str(state),
+        "workspace_name": workspace.name,
+        "state_dir_name": state.name,
         "tmux_binary_present": tmux_present,
         "live_witness_status": "ready" if live_ready else "not_ready",
         "missing_witness_roles": missing,
@@ -323,6 +336,11 @@ def build_status_report(
             "readme_scorecard_promotion_allowed": False,
         },
     }
+    if _debug_local_paths_enabled():
+        report["debug_paths"] = {
+            "workspace_root": str(workspace),
+            "state_dir": str(state),
+        }
     if not live_ready:
         report["typed_unavailable"] = {
             "schema_version": "typed_unavailable.v1",
@@ -452,7 +470,7 @@ def _render_status_text(payload: dict[str, Any]) -> str:
     lines = [
         "[YGG SESSION GROUP HEALTH WORKFLOW]",
         "now: inspect Provider Unit 1 live witness field",
-        f"watching: workspace={payload['workspace_root']}; state={payload['state_dir']}",
+        f"watching: workspace={payload.get('workspace_name', 'unknown')}; state={payload.get('state_dir_name', 'unknown')}",
         f"created: live_witness_status={payload['live_witness_status']}",
     ]
     for lane in payload["lanes"]:

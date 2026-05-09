@@ -95,7 +95,7 @@ Worker summary, mailbox receipt, Graphify community signal은 도움이 되는 �
 | Work Order | MS/MF가 실제로 읽어야 하는 작업 명세서 | `postman_work_order.v1` |
 | Work History | 작업 진행과 결과의 append-only 히스토리 | `worker_work_history.v1` |
 | Worker Structured Receipt | MS/MF가 작업을 닫을 때 남기는 구조화 결과 | `worker_structured_receipt.v1` |
-| Status Brief | 상태 요약 | internal CPR/operator_brief |
+| Status Brief | 상태 요약 | internal CPR/worker_brief |
 | Evidence Pack | 근거 묶음 | internal support_bundle |
 | Result Receipt | 처리 결과 영수증 | internal receipt/query_receipt |
 | Save Request | 기억 저장 요청 | internal MemoryTicket/Save Request |
@@ -271,7 +271,7 @@ Provider Unit
 |---|---|---|
 | Postman | 메일 접수, work order/history, MS/MF CPR, receipt mirror owner | 의미 품질 평가자, 독립 reasoning worker |
 | Mailbox | 로컬 파일 기반 큐와 Result Receipt 원장 | 서버, socket API, public service |
-| Postman helper / watcher | Postman 아래에서 mailbox를 폴링하거나 pane wakeup을 돕는 구현 세부 | 독립 책임자, always-on daemon, global server |
+| Postman helper | Postman 아래에서 mailbox를 폴링하거나 pane wakeup을 돕는 구현 세부 | 독립 책임자, always-on daemon, global server |
 | MS1 Memory Saver | Provider Unit에 묶인 background save worker (legacy OP1) | 독립 memory server |
 | MF1 Memory Finder | Provider Unit에 묶인 background find worker (legacy OP2) | 독립 search server |
 | TMUX witness | 사람이 보는 선택적 관찰 표면 | SOT, 실행 Checkpoint, 정본 입력 lane |

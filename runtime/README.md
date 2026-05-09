@@ -18,7 +18,7 @@ provider session without passing typed boundaries.
 | `placement/` | Topic, episode, community, and Map Maker placement helpers. |
 | `provenance/` | Provenance records and temporal semantic edge helpers. |
 | `retrieval/` | Memory Finder route selection, Graphify snapshot support, graph freshness guards, and source shortcut retrieval. Legacy Pathfinder ids remain internal compatibility names. |
-| `delivery/` | Delivery Monitor, mailbox, Evidence Pack delivery, packet scoring, and contamination guards. Legacy Postman/support_bundle ids remain internal compatibility names. |
+| `delivery/` | Postman-owned mailbox delivery, work orders, worker receipt/history coordination, Evidence Pack delivery, packet scoring, and contamination guards. Legacy support_bundle ids remain internal compatibility names. |
 | `reasoning/` | Optional Reasoning Lease contracts, provider reasoning gates, effort plans, sandbox/resource boundaries, and typed unavailable results. |
 | `runner/` | Thin orchestration and regression/proof entrypoints across role boundaries. |
 | `common/` | Small shared utilities such as identity, JSONL, and WSL runner helpers. |

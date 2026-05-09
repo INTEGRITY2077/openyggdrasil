@@ -227,7 +227,7 @@ def submit_live_delivery(
     provider_id: str,
     mail_id: str | None = None,
 ) -> dict[str, Any]:
-    """Provider 요청을 Postman live-delivery packet으로 위탁하고 수신인 OP mailbox/live_inbox에 전달한다.
+    """Provider 요청을 Postman live-delivery packet으로 위탁하고 수신인 MS/MF mailbox/live_inbox에 전달한다.
 
     Postman이 OP mailbox append 책임을 가진다. Provider/ygg는 이 함수를 호출해
     Postman에게 위탁할 뿐, OP mailbox 파일 형식을 직접 소유하지 않는다.
@@ -353,21 +353,32 @@ def submit_live_delivery(
     )
     _append_jsonl(postman_dir / "delivery_log.jsonl", delivery_log)
 
-    return {
+    result = {
         "delivery_id": delivery_id,
         "mail_id": mail_id,
         "recipient": recipient,
         "message_type": message_type,
-        "mailbox": str(mailbox),
-        "message_file": str(message_file),
-        "intent_file": str(message_file) if message_type in ("save", "memory_ticket") else None,
-        "query_file": str(message_file) if message_type == "query" else None,
-        "live_inbox": str(mailbox / "live_inbox.jsonl"),
+        "mailbox_key": recipient,
+        "message_file_name": message_file.name,
+        "intent_file_name": message_file.name if message_type in ("save", "memory_ticket") else None,
+        "query_file_name": message_file.name if message_type == "query" else None,
+        "live_inbox_file_name": "live_inbox.jsonl",
         **work_order,
-        "outbox": str(postman_dir / "outbox.jsonl"),
-        "delivery_log": str(postman_dir / "delivery_log.jsonl"),
+        "outbox_file_name": "outbox.jsonl",
+        "delivery_log_file_name": "delivery_log.jsonl",
         "status": "delivered",
     }
+    if os.environ.get("YGG_DEBUG_LOCAL_PATHS") == "1":
+        result["debug_paths"] = {
+            "mailbox": str(mailbox),
+            "message_file": str(message_file),
+            "intent_file": str(message_file) if message_type in ("save", "memory_ticket") else None,
+            "query_file": str(message_file) if message_type == "query" else None,
+            "live_inbox": str(mailbox / "live_inbox.jsonl"),
+            "outbox": str(postman_dir / "outbox.jsonl"),
+            "delivery_log": str(postman_dir / "delivery_log.jsonl"),
+        }
+    return result
 
 
 __all__ = ["PostmanIntegrityError", "submit_live_delivery"]

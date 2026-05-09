@@ -16,11 +16,11 @@ def append_jsonl(path: Path, row: dict[str, Any]) -> None:
         stream.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
-def _provider_inbox_path() -> Path:
+def _provider_inbox_path(mailbox: Path) -> Path:
     configured = os.environ.get("YGG_PROVIDER_INBOX")
     if configured:
         return Path(configured)
-    return Path.home() / ".yggdrasil" / "provider_inbox.jsonl"
+    return mailbox.parent / "provider_inbox.jsonl"
 
 
 def _append_provider_inbox(
@@ -46,7 +46,7 @@ def _append_provider_inbox(
         "delivery_mode": "provider_inbox_file",
         "delivery_owner": "postman",
     }
-    append_jsonl(_provider_inbox_path(), row)
+    append_jsonl(_provider_inbox_path(mailbox), row)
 
 
 def _append_postman_observation(
@@ -80,10 +80,10 @@ def deliver_operator_result(
     produced_count: int = 0,
     node_ids: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Record a bounded operator result and Postman-owned provider notification.
+    """Record a bounded worker result and Postman-owned provider notification.
 
     This is the delivery-layer owner for provider inbox and observation records.
-    Operator modules keep semantic work ownership; this module owns result
+    Memory Worker modules keep semantic work ownership; this module owns result
     delivery side effects.
     """
     mailbox.mkdir(parents=True, exist_ok=True)

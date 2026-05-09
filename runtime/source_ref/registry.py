@@ -55,8 +55,9 @@ def resolve_source_ref(
 ) -> dict[str, Any]:
     """Provider-neutral source_ref registry.
 
-    OP1/OP2 core는 provider별 저장소 구조를 알지 않는다. Provider별 원본 접근은
-    이 registry 뒤에 명시 등록된 adapter만 수행한다.
+    MS/MF core는 provider별 저장소 구조를 알지 않는다. Provider별 원본 접근은
+    이 registry 뒤에 명시 등록된 adapter만 수행한다. OP1/OP2 표기는 legacy
+    evidence id로만 호환된다.
     """
     range_hint = range_hint or {}
     resolver_options = resolver_options or {}

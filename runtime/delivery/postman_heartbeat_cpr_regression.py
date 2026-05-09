@@ -24,15 +24,15 @@ PROVIDER_SESSION_ID = "postman-cpr-regression-provider"
 def _live_group() -> dict[str, Any]:
     return {
         "provider": {"status": "present", "session_name": "ygg-pro1"},
-        "op1": {"status": "present", "session_name": "ygg-op1"},
-        "op2": {"status": "present", "session_name": "ygg-op2"},
+        "ms1": {"status": "present", "session_name": "ygg-ms1"},
+        "mf1": {"status": "present", "session_name": "ygg-mf1"},
     }
 
 
 def _engine_status() -> dict[str, Any]:
     return {
         "tmux": {"status": "running", "evidence_ref": "tmux-ref://openyggdrasil/regression"},
-        "watcher": {"status": "healthy", "consumer": "engine_heartbeat_coordinator"},
+        "postman_helper": {"status": "healthy", "consumer": "engine_heartbeat_coordinator"},
         "mailbox": {"status": "healthy", "namespace": "regression"},
         "receipt_registry": {"status": "ready", "receipt_id": "op2-regression-receipt"},
     }
@@ -163,7 +163,7 @@ def _run_in_workspace(workspace_root: Path, *, cleanup_requested: bool) -> dict[
         provider_session_id=PROVIDER_SESSION_ID,
     )
     payload = delivery["payload"]
-    metadata = payload.get("op2_support_metadata") or {}
+    metadata = payload.get("mf1_support_metadata") or {}
     korean = metadata.get("korean_query_expansion") or {}
     hard_nonclaims = payload.get("hard_nonclaims") or {}
     korean_nonclaims = korean.get("hard_nonclaims") or {}
@@ -171,7 +171,7 @@ def _run_in_workspace(workspace_root: Path, *, cleanup_requested: bool) -> dict[
 
     checks = {
         "delivery_created": delivery.get("delivery_status") == "created",
-        "operator_brief_packet": (delivery.get("packet") or {}).get("packet_type") == "operator_brief",
+        "worker_brief_packet": (delivery.get("packet") or {}).get("packet_type") == "worker_brief",
         "readback_single_packet": len(packets) == 1,
         "readback_message_id_matches": bool(packets) and packets[0].get("message_id") == delivery.get("message_id"),
         "payload_ready": payload.get("heartbeat_cpr_status") == "ready",

@@ -1,7 +1,7 @@
 """
-Operator compatibility helpers.
+Memory Worker compatibility helpers.
 
-Semantic producer/consumer modules may call these helpers, but delivery side
+Legacy producer/consumer compatibility modules may call these helpers, but delivery side
 effects such as provider inbox and Postman observation records are owned by
 `runtime.delivery`.
 """

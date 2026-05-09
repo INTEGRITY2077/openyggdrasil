@@ -29,6 +29,7 @@ SUPPORT_BUNDLE_SOURCE_PACKET_TYPES = (
     "cultivated_decision",
     "map_topography",
     "community_topography",
+    "worker_brief",
     "operator_brief",
 )
 SUPPORT_BUNDLE_DEDUP_IGNORE_KEYS = {"source_packet_id"}

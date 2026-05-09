@@ -39,7 +39,7 @@ Postman = delivery admission / work order / heartbeat / receipt mirror owner
 Work Order = postman_work_order.v1
 Work History = worker_work_history.v1
 Worker Structured Receipt = worker_structured_receipt.v1
-Status Brief = internal CPR/operator_brief
+Status Brief = internal CPR/worker_brief
 Evidence Pack = internal support_bundle
 Result Receipt = internal receipt/query_receipt
 Save Request = internal MemoryTicket/save intent
@@ -424,7 +424,7 @@ Provider Unit
   ├─ MF1 Memory Finder satellite  session-scoped background find worker (legacy OP2)
   ├─ Postman satellite            delivery admission / work_order / CPR / receipt mirror owner
   ├─ Mailbox satellite            local file queue / work_history / Result Receipt ledger
-  ├─ Postman helper / watcher     poll/wakeup implementation detail under Postman ownership
+  ├─ Postman helper               poll/wakeup implementation detail under Postman ownership
   └─ TMUX witness satellite       optional human visual surface
 ```
 
@@ -434,7 +434,7 @@ What each satellite is:
 |---|---|---|
 | Postman | Delivery admission, work orders/history, MS/MF heartbeat/CPR, receipt mirroring | Semantic quality owner, independent reasoning worker |
 | Mailbox | Local file-based queue and Result Receipt ledger | Server, socket API, public service |
-| Postman helper / watcher | Implementation detail that polls the mailbox or wakes the native pane under Postman ownership | Product owner, canonical input lane, global server |
+| Postman helper | Implementation detail that polls the mailbox or wakes the native pane under Postman ownership | Product owner, canonical input lane, global server |
 | MS1 Memory Saver | Background save worker bound to a Provider Unit (legacy OP1) | Standalone memory server |
 | MF1 Memory Finder | Background find worker bound to a Provider Unit (legacy OP2) | Standalone search server |
 | TMUX witness | Optional human inspection surface | SOT, execution Checkpoint, canonical input lane |
@@ -927,7 +927,7 @@ there only inside the user's active, authorized provider session.
        │
        ▼
   Agent runs Python entrypoints via its own shell/tool-use
-  → producer/consumer runs fixed chain (no reasoning needed) through pipeline
+  → Memory Saver/Finder runs the fixed chain through the worker pipeline
   → or PTC chain (`--ptc`) executes code from the 26-tool palette
 ```
 

@@ -11,24 +11,24 @@ from harness_common import utc_now_iso
 
 POSTMAN_HEARTBEAT_CPR_SCHEMA_VERSION = "postman_heartbeat_cpr.v1"
 POSTMAN_HEARTBEAT_CPR_DELIVERY_SCHEMA_VERSION = "postman_heartbeat_cpr_inbox_delivery.v1"
-POSTMAN_CPR_PACKET_TYPE = "operator_brief"
-REQUIRED_LIVE_GROUP_ROLES = ("provider", "op1", "op2")
-REQUIRED_ENGINE_COMPONENTS = ("tmux", "watcher", "mailbox", "receipt_registry")
+POSTMAN_CPR_PACKET_TYPE = "worker_brief"
+REQUIRED_LIVE_GROUP_ROLES = ("provider", "ms1", "mf1")
+REQUIRED_ENGINE_COMPONENTS = ("tmux", "postman_helper", "mailbox", "receipt_registry")
 READY_STATES = {"active", "available", "healthy", "ok", "present", "ready", "running"}
 ROLE_ALIASES = {
     "provider": ("provider", "pro1", "ygg-pro1", "hermes"),
-    "op1": ("op1", "ms1", "memory_saver_1", "producer", "ygg-op1", "ygg-ms1"),
-    "op2": ("op2", "mf1", "memory_finder_1", "consumer", "ygg-op2", "ygg-mf1"),
+    "ms1": ("ms1", "op1", "memory_saver_1", "producer", "ygg-ms1", "ygg-op1"),
+    "mf1": ("mf1", "op2", "memory_finder_1", "consumer", "ygg-mf1", "ygg-op2"),
 }
 ROLE_DISPLAY_NAMES = {
     "provider": "Provider Lane",
-    "op1": "MS1 Memory Saver",
-    "op2": "MF1 Memory Finder",
+    "ms1": "MS1 Memory Saver",
+    "mf1": "MF1 Memory Finder",
 }
 ROLE_COMMAND_TARGETS = {
     "provider": "ygg pro1",
-    "op1": "ygg ms1",
-    "op2": "ygg mf1",
+    "ms1": "ygg ms1",
+    "mf1": "ygg mf1",
 }
 FORBIDDEN_TEXT_TOKENS = (
     "---\nname:",
@@ -42,12 +42,12 @@ LOCAL_PATH_RE = re.compile(r"^(?:[A-Za-z]:[\\/]|file://|/[A-Za-z0-9_.-])")
 
 
 POSTMAN_ROLE = {
-    "display_name": "Engine Heartbeat Coordinator",
+    "display_name": "Postman Heartbeat Coordinator",
     "legacy_internal_role_id": "postman",
     "owns": [
         "heartbeat_cpr",
         "engine_bootstrap_presence_check",
-        "watcher_mailbox_receipt_health_surface",
+        "postman_helper_mailbox_receipt_health_surface",
         "delivery_receipt_correlation",
         "provider_inbox_handoff",
     ],
@@ -178,12 +178,12 @@ def _component_record(
     component: str,
     *,
     engine_status: Mapping[str, Any],
-    watcher_status: Mapping[str, Any] | None,
+    postman_helper_status: Mapping[str, Any] | None,
     mailbox_status: Mapping[str, Any] | None,
     receipt_registry: Mapping[str, Any] | None,
 ) -> Any:
-    if component == "watcher" and watcher_status is not None:
-        return watcher_status
+    if component == "postman_helper" and postman_helper_status is not None:
+        return postman_helper_status
     if component == "mailbox" and mailbox_status is not None:
         return mailbox_status
     if component == "receipt_registry" and receipt_registry is not None:
@@ -194,7 +194,7 @@ def _component_record(
 def _engine_bootstrap_report(
     *,
     engine_status: Mapping[str, Any] | None,
-    watcher_status: Mapping[str, Any] | None,
+    postman_helper_status: Mapping[str, Any] | None,
     mailbox_status: Mapping[str, Any] | None,
     receipt_registry: Mapping[str, Any] | None,
 ) -> tuple[dict[str, Any], list[str]]:
@@ -205,7 +205,7 @@ def _engine_bootstrap_report(
         record = _component_record(
             component,
             engine_status=status_source,
-            watcher_status=watcher_status,
+            postman_helper_status=postman_helper_status,
             mailbox_status=mailbox_status,
             receipt_registry=receipt_registry,
         )
@@ -482,9 +482,9 @@ def _support_metadata(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, 
         metadata["recall_digest"] = recall_digest
     missing: list[str] = []
     if not receipt:
-        missing.append("op2_receipt")
+        missing.append("mf1_receipt")
     elif support_status == "missing":
-        missing.append("op2_support_metadata")
+        missing.append("mf1_support_metadata")
     return metadata, missing
 
 
@@ -524,6 +524,7 @@ def build_postman_heartbeat_cpr_payload(
     live_group: Mapping[str, Any],
     op2_receipt: Mapping[str, Any] | None,
     engine_status: Mapping[str, Any] | None = None,
+    postman_helper_status: Mapping[str, Any] | None = None,
     watcher_status: Mapping[str, Any] | None = None,
     mailbox_status: Mapping[str, Any] | None = None,
     receipt_registry: Mapping[str, Any] | None = None,
@@ -531,16 +532,17 @@ def build_postman_heartbeat_cpr_payload(
 ) -> dict[str, Any]:
     """Build the Engine Heartbeat CPR handoff for provider current-dialogue use.
 
-    The Engine Heartbeat Coordinator owns liveness, delivery, Result Receipt,
+    The Postman Heartbeat Coordinator owns liveness, delivery, Result Receipt,
     and inbox handoff surfaces. It does not validate the semantic quality of
     MS1/MF1 memory content.
     """
 
     generated_at = created_at or utc_now_iso()
+    helper_status = postman_helper_status if postman_helper_status is not None else watcher_status
     live_report, live_missing = _live_group_report(dict(live_group))
     engine_report, engine_missing = _engine_bootstrap_report(
         engine_status=engine_status,
-        watcher_status=watcher_status,
+        postman_helper_status=helper_status,
         mailbox_status=mailbox_status,
         receipt_registry=receipt_registry,
     )
@@ -562,22 +564,22 @@ def build_postman_heartbeat_cpr_payload(
         "provider_role": "current_dialogue_judgment_owner",
         "display_roles": {
             "provider": ROLE_DISPLAY_NAMES["provider"],
-            "ms1": ROLE_DISPLAY_NAMES["op1"],
-            "mf1": ROLE_DISPLAY_NAMES["op2"],
+            "ms1": ROLE_DISPLAY_NAMES["ms1"],
+            "mf1": ROLE_DISPLAY_NAMES["mf1"],
             "delivery": POSTMAN_ROLE["display_name"],
         },
         "memory_worker_roles": {
             "ms1": "structured_long_term_memory_saver",
             "mf1": "evidence_backed_memory_finder",
         },
-        "operator_roles": {
+        "legacy_operator_role_ids": {
             "op1": "structured_long_term_memory_supplier",
             "op2": "evidence_backed_evidence_pack_supplier",
         },
         "live_group": live_report,
         "engine_bootstrap": engine_report,
         "mailbox_correlation": correlation,
-        "op2_support_metadata": support_metadata,
+        "mf1_support_metadata": support_metadata,
         "provider_inbox_handoff": {
             "handoff_status": handoff_status,
             "packet_type": POSTMAN_CPR_PACKET_TYPE,
@@ -599,6 +601,7 @@ def inject_postman_heartbeat_cpr_to_provider_inbox(
     live_group: Mapping[str, Any],
     op2_receipt: Mapping[str, Any] | None,
     engine_status: Mapping[str, Any] | None = None,
+    postman_helper_status: Mapping[str, Any] | None = None,
     watcher_status: Mapping[str, Any] | None = None,
     mailbox_status: Mapping[str, Any] | None = None,
     receipt_registry: Mapping[str, Any] | None = None,
@@ -608,6 +611,7 @@ def inject_postman_heartbeat_cpr_to_provider_inbox(
         live_group=live_group,
         op2_receipt=op2_receipt,
         engine_status=engine_status,
+        postman_helper_status=postman_helper_status,
         watcher_status=watcher_status,
         mailbox_status=mailbox_status,
         receipt_registry=receipt_registry,

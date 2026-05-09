@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -129,13 +130,19 @@ def append_postman_work_order(
     append_jsonl(work_history_file, history)
     append_jsonl(postman_dir / "work_orders.jsonl", work_order)
 
-    return {
+    result = {
         "work_order_id": work_order_id,
-        "work_orders_file": str(work_orders_file),
-        "work_history_file": str(work_history_file),
+        "work_orders_file_name": work_orders_file.name,
+        "work_history_file_name": work_history_file.name,
         "acceptance_gate": work_order["acceptance_gate"],
         "worker_role": work_order["worker_role"],
     }
+    if os.environ.get("YGG_DEBUG_LOCAL_PATHS") == "1":
+        result["debug_paths"] = {
+            "work_orders_file": str(work_orders_file),
+            "work_history_file": str(work_history_file),
+        }
+    return result
 
 
 def append_worker_history_event(
