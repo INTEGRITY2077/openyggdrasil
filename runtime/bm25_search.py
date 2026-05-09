@@ -45,6 +45,7 @@ _bootstrap_runtime_package_for_direct_script()
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
@@ -148,11 +149,24 @@ def bm25_search(vault: Path, query: str, top_k: int = 20) -> list[dict]:
         except RECOVERABLE_RUNTIME_ERRORS:
             pass
         return tokens
-    tokenized_corpus = [_tokenize(str(text)) for text in corpus]
-    bm25 = BM25Okapi(tokenized_corpus)
-
     query_tokens = _tokenize(query)
-    scores = bm25.get_scores(query_tokens)
+    tokenized_corpus = [_tokenize(str(text)) for text in corpus]
+    if HAS_BM25:
+        bm25 = BM25Okapi(tokenized_corpus)
+        scores = bm25.get_scores(query_tokens)
+    else:
+        query_set = {token for token in query_tokens if token}
+        scores = []
+        for tokens in tokenized_corpus:
+            if not tokens or not query_set:
+                scores.append(0.0)
+                continue
+            token_counts = {}
+            for token in tokens:
+                if token in query_set:
+                    token_counts[token] = token_counts.get(token, 0) + 1
+            overlap = sum(1.0 + math.log(count) for count in token_counts.values())
+            scores.append(overlap / math.sqrt(len(tokens)))
 
     # 점수 기준 정렬
     ranked = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
@@ -167,6 +181,7 @@ def bm25_search(vault: Path, query: str, top_k: int = 20) -> list[dict]:
             "text": _node_to_text(node)[:500],
             "score": float(score),
             "bm25_score": float(score),
+            "score_source": "rank_bm25" if HAS_BM25 else "token_overlap_fallback",
             "metadata": {
                 "node_id": node.get("_filename", node.get("node_id", "")),
                 "title": node.get("title", ""),
@@ -183,13 +198,6 @@ def main():
     parser.add_argument("--query", required=True, type=str, help="검색 질의어")
     parser.add_argument("--top-k", type=int, default=20, help="반환할 최대 결과 수")
     args = parser.parse_args()
-
-    if not HAS_BM25:
-        print(json.dumps({
-            "status": "bm25_unavailable",
-            "error": "rank-bm25 not installed. Run: pip install rank-bm25",
-        }))
-        sys.exit(1)
 
     if not args.vault.exists():
         print(json.dumps({
