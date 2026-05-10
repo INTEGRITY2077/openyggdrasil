@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import hashlib
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -25,6 +26,9 @@ from runtime.ptc.primitives import (
 )
 
 from .helpers import deliver_receipt, write_operator_receipt
+
+
+_WORD_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{2,}")
 
 try:
     from runtime.retrieval.pathfinder_tools import build_ring_support_bundle
@@ -73,10 +77,145 @@ def _support_facts_and_paths(bundle: dict) -> tuple[list, list]:
     return list(facts or []), list(paths or [])
 
 
+def _tokens(text: str) -> set[str]:
+    return {match.group(0).lower() for match in _WORD_RE.finditer(text or "")}
+
+
+def _high_specificity_tokens(text: str) -> set[str]:
+    return {
+        token
+        for token in _tokens(text)
+        if any(ch.isdigit() for ch in token) or "_" in token or len(token) >= 24
+    }
+
+
+def _support_text(value) -> str:
+    if isinstance(value, dict):
+        parts = []
+        for key in [
+            "subject",
+            "predicate",
+            "object",
+            "summary",
+            "text",
+            "source_ref",
+            "source_path",
+            "topic_key",
+            "topic_id",
+            "community_id",
+            "origin_locator",
+        ]:
+            if value.get(key):
+                parts.append(str(value.get(key)))
+        for key in ["support_facts", "source_paths", "selected", "candidate_reranker"]:
+            if key in value:
+                parts.append(_support_text(value.get(key)))
+        return "\n".join(part for part in parts if part)
+    if isinstance(value, list):
+        return "\n".join(_support_text(item) for item in value)
+    return str(value or "")
+
+
+def _memory_finder_alignment(*, query_text: str, bundle: dict) -> dict:
+    facts, paths = _support_facts_and_paths(bundle if isinstance(bundle, dict) else {})
+    support_text = "\n".join(
+        [
+            _support_text(facts),
+            _support_text(paths),
+            _support_text((bundle or {}).get("candidate_reranker") if isinstance(bundle, dict) else {}),
+            _support_text((bundle or {}).get("support_bundle") if isinstance(bundle, dict) else {}),
+        ]
+    )
+    query_tokens = _tokens(query_text)
+    support_tokens = _tokens(support_text)
+    high_specificity = _high_specificity_tokens(query_text)
+    missing_specific = sorted(token for token in high_specificity if token not in support_tokens)
+    overlap = sorted(query_tokens & support_tokens)
+    overlap_score = 0.0 if not query_tokens else len(overlap) / max(len(query_tokens), 1)
+    if missing_specific:
+        status = "misaligned"
+        reason = "high_specificity_marker_missing_from_support"
+    elif facts and paths and high_specificity:
+        status = "aligned"
+        reason = "high_specificity_marker_present_in_support"
+    elif facts and paths:
+        status = "aligned_with_limits"
+        reason = "source_backed_support_present_without_specific_marker_gate"
+    else:
+        status = "insufficient_support"
+        reason = "support_facts_or_source_paths_missing"
+    return {
+        "schema_version": "memory_finder_query_alignment.v1",
+        "status": status,
+        "reason_code": reason,
+        "query_token_count": len(query_tokens),
+        "support_token_count": len(support_tokens),
+        "overlap_score": round(overlap_score, 4),
+        "matched_specific_tokens": sorted(token for token in high_specificity if token in support_tokens)[:20],
+        "missing_specific_tokens": missing_specific[:20],
+        "hard_gate_applied": bool(high_specificity),
+    }
+
+
+def _misaligned_support_bundle(*, query_text: str, bundle: dict, alignment: dict) -> dict:
+    original_facts, original_paths = _support_facts_and_paths(bundle if isinstance(bundle, dict) else {})
+    typed_unavailable = {
+        "schema_version": "typed_unavailable.v1",
+        "reason_code": "typed_unavailable_misaligned_support",
+        "query_hash": hashlib.sha256(str(query_text or "").encode("utf-8")).hexdigest()[:12],
+        "missing_specific_tokens": alignment.get("missing_specific_tokens") or [],
+        "observed_support_fact_count": len(original_facts),
+        "observed_source_path_count": len(original_paths),
+        "hard_nonclaims": [
+            "support_count_is_not_alignment",
+            "near_miss_support_is_not_answer_material",
+            "provider_rejudgment_still_required",
+        ],
+    }
+    guarded = dict(bundle if isinstance(bundle, dict) else {})
+    guarded["original_support_summary"] = {
+        "support_fact_count": len(original_facts),
+        "source_path_count": len(original_paths),
+        "withheld_reason": "misaligned_support",
+    }
+    guarded["support_facts"] = []
+    guarded["source_paths"] = []
+    guarded["typed_unavailable"] = typed_unavailable
+    guarded["support_bundle"] = {
+        "schema_version": "support_bundle.v1",
+        "support_facts": [],
+        "source_paths": [],
+        "typed_unavailable": typed_unavailable,
+    }
+    guarded["worker_query_alignment"] = alignment
+    return guarded
+
+
+def _prepare_memory_finder_bundle(*, query_text: str, bundle: dict, status: str) -> tuple[dict, str]:
+    prepared = dict(bundle if isinstance(bundle, dict) else {})
+    alignment = _memory_finder_alignment(query_text=query_text, bundle=prepared)
+    prepared["worker_query_alignment"] = alignment
+    if status == "completed" and alignment.get("status") == "misaligned":
+        return _misaligned_support_bundle(query_text=query_text, bundle=prepared, alignment=alignment), (
+            "typed_unavailable_misaligned_support"
+        )
+    return prepared, status
+
+
 def _memory_finder_judgment(*, query_text: str, bundle: dict, status: str) -> dict:
     """Provider-safe worker judgment summary for MF receipts."""
     facts, paths = _support_facts_and_paths(bundle if isinstance(bundle, dict) else {})
-    success = status == "completed" and bool(facts) and bool(paths)
+    alignment = (
+        bundle.get("worker_query_alignment")
+        if isinstance(bundle, dict) and isinstance(bundle.get("worker_query_alignment"), dict)
+        else _memory_finder_alignment(query_text=query_text, bundle=bundle if isinstance(bundle, dict) else {})
+    )
+    success = (
+        status == "completed"
+        and bool(facts)
+        and bool(paths)
+        and alignment.get("status") in {"aligned", "aligned_with_limits"}
+    )
     return {
         "schema_version": "worker_judgment.v1",
         "worker_role": "memory_finder",
@@ -103,9 +242,11 @@ def _memory_finder_judgment(*, query_text: str, bundle: dict, status: str) -> di
             "status": status,
             "support_fact_count": len(facts),
             "source_path_count": len(paths),
+            "alignment_status": alignment.get("status"),
+            "alignment_reason": alignment.get("reason_code"),
         },
         "judgment": "success" if success else "typed_unavailable",
-        "close_decision": "support_bundle" if success else "typed_unavailable_no_support",
+        "close_decision": "support_bundle" if success else alignment.get("reason_code", "typed_unavailable_no_support"),
         "hard_nonclaims": [
             "candidate_match_is_not_support",
             "pane_text_is_not_recall_success",
@@ -355,22 +496,27 @@ def run_consumer(mailbox: Path, vault: Path):
                             "not_full_ux_pass",
                         ],
                     }
-                    worker_judgment = _memory_finder_judgment(
+                    bundle, receipt_status = _prepare_memory_finder_bundle(
                         query_text=query_text,
                         bundle=bundle,
                         status="completed",
+                    )
+                    worker_judgment = _memory_finder_judgment(
+                        query_text=query_text,
+                        bundle=bundle,
+                        status=receipt_status,
                     )
                     bundle["worker_judgment"] = worker_judgment
                     write_operator_receipt(
                         receipts_file,
                         msg["mail_id"],
-                        status="completed",
+                        status=receipt_status,
                         bundle=bundle,
                         worker_judgment=worker_judgment,
                         consumer_pid=os.getpid(),
                         delivery_id=receipt_delivery_id,
                     )
-                    deliver_receipt(mailbox, msg["mail_id"], status="completed", result_bundle=bundle)
+                    deliver_receipt(mailbox, msg["mail_id"], status=receipt_status, result_bundle=bundle)
                     continue
                 except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                     log_event("ptc_retrieval_orchestrator_skip", reason=type(exc).__name__)
@@ -383,21 +529,27 @@ def run_consumer(mailbox: Path, vault: Path):
                     "reason_code": "ptc_support_bundle_derivation_unavailable",
                 },
             }
+            degraded_bundle, degraded_status = _prepare_memory_finder_bundle(
+                query_text=query_text,
+                bundle=degraded_bundle,
+                status="typed_unavailable_support_bundle_derivation_unavailable",
+            )
+            degraded_judgment = _memory_finder_judgment(
+                query_text=query_text,
+                bundle=degraded_bundle,
+                status=degraded_status,
+            )
+            degraded_bundle["worker_judgment"] = degraded_judgment
             write_operator_receipt(
                 receipts_file,
                 msg["mail_id"],
-                status="completed",
+                status=degraded_status,
                 bundle=degraded_bundle,
-                worker_judgment=_memory_finder_judgment(
-                    query_text=query_text,
-                    bundle=degraded_bundle,
-                    status="completed",
-                ),
+                worker_judgment=degraded_judgment,
                 consumer_pid=os.getpid(),
                 delivery_id=receipt_delivery_id,
             )
-            deliver_receipt(mailbox, msg["mail_id"], status="completed",
-                           result_bundle={"ptc_stdout": stdout[:500]})
+            deliver_receipt(mailbox, msg["mail_id"], status=degraded_status, result_bundle=degraded_bundle)
             continue
 
         # Deterministic read-only PTC retrieval orchestrator. BM25 is one
@@ -428,22 +580,27 @@ def run_consumer(mailbox: Path, vault: Path):
                             "status": "typed_unavailable",
                             "reason_code": type(exc).__name__,
                         }
-                worker_judgment = _memory_finder_judgment(
+                bundle, receipt_status = _prepare_memory_finder_bundle(
                     query_text=query_text,
                     bundle=bundle,
                     status="completed",
+                )
+                worker_judgment = _memory_finder_judgment(
+                    query_text=query_text,
+                    bundle=bundle,
+                    status=receipt_status,
                 )
                 bundle["worker_judgment"] = worker_judgment
                 write_operator_receipt(
                     receipts_file,
                     msg["mail_id"],
-                    status="completed",
+                    status=receipt_status,
                     bundle=bundle,
                     worker_judgment=worker_judgment,
                     consumer_pid=os.getpid(),
                     delivery_id=receipt_delivery_id,
                 )
-                deliver_receipt(mailbox, msg["mail_id"], status="completed", result_bundle=bundle)
+                deliver_receipt(mailbox, msg["mail_id"], status=receipt_status, result_bundle=bundle)
                 continue
             except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                 log_event("ptc_retrieval_orchestrator_skip", reason=type(exc).__name__)
@@ -504,22 +661,27 @@ def run_consumer(mailbox: Path, vault: Path):
                     bundle["support_bundle"] = ring_bundle
             except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                 log_event("ring_support_bundle_skip", reason=type(exc).__name__)
-        worker_judgment = _memory_finder_judgment(
+        bundle, receipt_status = _prepare_memory_finder_bundle(
             query_text=query_text,
             bundle=bundle,
             status="completed",
+        )
+        worker_judgment = _memory_finder_judgment(
+            query_text=query_text,
+            bundle=bundle,
+            status=receipt_status,
         )
         bundle["worker_judgment"] = worker_judgment
         write_operator_receipt(
             receipts_file,
             msg["mail_id"],
-            status="completed",
+            status=receipt_status,
             bundle=bundle,
             worker_judgment=worker_judgment,
             consumer_pid=os.getpid(),
             delivery_id=receipt_delivery_id,
         )
-        deliver_receipt(mailbox, msg["mail_id"], status="completed", result_bundle=bundle)
+        deliver_receipt(mailbox, msg["mail_id"], status=receipt_status, result_bundle=bundle)
 
     print(json.dumps({"status": "consumer_done", "pid": os.getpid(),
                        "elapsed_ms": round((datetime.now(timezone.utc) - t0).total_seconds() * 1000)}))

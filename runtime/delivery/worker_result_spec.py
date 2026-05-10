@@ -46,7 +46,7 @@ def _high_specificity_tokens(text: str) -> set[str]:
     return {
         token
         for token in _tokens(text)
-        if any(ch.isdigit() for ch in token) or "-" in token or "_" in token or len(token) >= 12
+        if any(ch.isdigit() for ch in token) or "_" in token or len(token) >= 24
     }
 
 
