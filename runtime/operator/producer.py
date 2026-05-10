@@ -113,6 +113,12 @@ def run_producer(mailbox: Path, vault: Path):
                 if build_memory_ticket_tst_supervisor is not None
                 else None
             )
+            worker_judgment = _memory_saver_judgment(
+                intent="memory_ticket",
+                status=status,
+                nodes=nodes,
+                reason=result.get("reason"),
+            )
             write_operator_receipt(
                 receipts_file,
                 msg["mail_id"],
@@ -126,12 +132,7 @@ def run_producer(mailbox: Path, vault: Path):
                 source_ref_status=result.get("source_ref_status"),
                 reason=result.get("reason"),
                 tst_capability_supervisor=tst_capability_supervisor,
-                worker_judgment=_memory_saver_judgment(
-                    intent="memory_ticket",
-                    status=status,
-                    nodes=nodes,
-                    reason=result.get("reason"),
-                ),
+                worker_judgment=worker_judgment,
                 producer_pid=os.getpid(),
             )
             deliver_receipt(
@@ -149,6 +150,7 @@ def run_producer(mailbox: Path, vault: Path):
                     "canonical_topic_path": result.get("canonical_topic_path"),
                     "support_bundle_seed": result.get("support_bundle_seed"),
                     "tst_capability_supervisor": tst_capability_supervisor,
+                    "worker_judgment": worker_judgment,
                 },
             )
             continue

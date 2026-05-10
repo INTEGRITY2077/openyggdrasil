@@ -355,16 +355,18 @@ def run_consumer(mailbox: Path, vault: Path):
                             "not_full_ux_pass",
                         ],
                     }
+                    worker_judgment = _memory_finder_judgment(
+                        query_text=query_text,
+                        bundle=bundle,
+                        status="completed",
+                    )
+                    bundle["worker_judgment"] = worker_judgment
                     write_operator_receipt(
                         receipts_file,
                         msg["mail_id"],
                         status="completed",
                         bundle=bundle,
-                        worker_judgment=_memory_finder_judgment(
-                            query_text=query_text,
-                            bundle=bundle,
-                            status="completed",
-                        ),
+                        worker_judgment=worker_judgment,
                         consumer_pid=os.getpid(),
                         delivery_id=receipt_delivery_id,
                     )
@@ -408,16 +410,18 @@ def run_consumer(mailbox: Path, vault: Path):
                     top_k=20,
                 )
                 bundle = orchestrated["consumer_bundle"]
+                worker_judgment = _memory_finder_judgment(
+                    query_text=query_text,
+                    bundle=bundle,
+                    status="completed",
+                )
+                bundle["worker_judgment"] = worker_judgment
                 write_operator_receipt(
                     receipts_file,
                     msg["mail_id"],
                     status="completed",
                     bundle=bundle,
-                    worker_judgment=_memory_finder_judgment(
-                        query_text=query_text,
-                        bundle=bundle,
-                        status="completed",
-                    ),
+                    worker_judgment=worker_judgment,
                     consumer_pid=os.getpid(),
                     delivery_id=receipt_delivery_id,
                 )
@@ -482,16 +486,18 @@ def run_consumer(mailbox: Path, vault: Path):
                     bundle["support_bundle"] = ring_bundle
             except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                 log_event("ring_support_bundle_skip", reason=type(exc).__name__)
+        worker_judgment = _memory_finder_judgment(
+            query_text=query_text,
+            bundle=bundle,
+            status="completed",
+        )
+        bundle["worker_judgment"] = worker_judgment
         write_operator_receipt(
             receipts_file,
             msg["mail_id"],
             status="completed",
             bundle=bundle,
-            worker_judgment=_memory_finder_judgment(
-                query_text=query_text,
-                bundle=bundle,
-                status="completed",
-            ),
+            worker_judgment=worker_judgment,
             consumer_pid=os.getpid(),
             delivery_id=receipt_delivery_id,
         )

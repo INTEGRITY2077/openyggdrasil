@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from runtime.delivery.postman_work_order import append_worker_history_event
+from runtime.delivery.worker_result_spec import build_worker_result_spec
 
 
 def append_jsonl(path: Path, row: dict[str, Any]) -> None:
@@ -33,6 +34,7 @@ def _append_provider_inbox(
     produced_count: int,
     node_ids: list[str],
     result_bundle: dict[str, Any] | None,
+    worker_result_spec: dict[str, Any] | None = None,
 ) -> None:
     row = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -44,6 +46,7 @@ def _append_provider_inbox(
         "nodes": node_ids,
         "bundle": result_bundle,
         "result_bundle": result_bundle,
+        "worker_result_spec": worker_result_spec,
         "message": f"{mailbox.name} -> Provider: {mail_id} status={status} produced={produced_count}",
         "delivery_mode": "provider_inbox_file",
         "delivery_owner": "postman",
@@ -57,6 +60,7 @@ def _append_postman_observation(
     mail_id: str,
     produced_count: int,
     node_ids: list[str],
+    worker_result_spec: dict[str, Any] | None = None,
 ) -> None:
     row = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -65,6 +69,7 @@ def _append_postman_observation(
         "mail_id": mail_id,
         "produced_count": produced_count,
         "nodes": node_ids,
+        "worker_result_spec": worker_result_spec,
         "message": f"{mailbox.name} -> Provider: {mail_id} produced={produced_count}",
         "delivery_mode": "mailbox_log_only",
         "delivery_owner": "postman",
@@ -139,6 +144,7 @@ def _native_result_projection_text(
     produced_count: int,
     node_count: int,
     result_bundle: dict[str, Any] | None,
+    worker_result_spec: dict[str, Any] | None = None,
 ) -> str:
     role = "MS1 Memory Saver" if mailbox.name.upper() == "OP1" else "MF1 Memory Finder"
     facts_count, paths_count = _support_counts(result_bundle)
@@ -159,6 +165,13 @@ def _native_result_projection_text(
         receipt_kind = "limited receipt"
         observation = "durable evidence weak or unavailable"
         judgment = "typed_unavailable unless another receipt supplies source-backed evidence"
+    postman_acceptance = None
+    provider_action = None
+    if isinstance(worker_result_spec, dict):
+        postman_acceptance = worker_result_spec.get("postman_acceptance_status")
+        rejudgment = worker_result_spec.get("provider_rejudgment")
+        if isinstance(rejudgment, dict):
+            provider_action = rejudgment.get("provider_action")
     return " | ".join(
         item
         for item in [
@@ -168,6 +181,8 @@ def _native_result_projection_text(
             f"observation: {observation}",
             f"support summary: {support_summary}" if support_summary else None,
             f"judgment: {judgment}",
+            f"postman acceptance: {postman_acceptance}" if postman_acceptance else None,
+            f"provider rejudgment action: {provider_action}" if provider_action else None,
             "SOT: Result Receipt / Evidence Pack; this pane is only the public projection.",
         ]
         if item
@@ -181,6 +196,7 @@ def _project_native_result_note(
     produced_count: int,
     node_count: int,
     result_bundle: dict[str, Any] | None,
+    worker_result_spec: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if os.environ.get("OY_POSTMAN_NATIVE_RESULT_PROJECTION", "0") != "1":
         return {"enabled": False, "written": False, "status": "disabled"}
@@ -194,6 +210,7 @@ def _project_native_result_note(
         produced_count=produced_count,
         node_count=node_count,
         result_bundle=result_bundle,
+        worker_result_spec=worker_result_spec,
     )
     try:
         has_session = subprocess.run(
@@ -267,6 +284,14 @@ def deliver_operator_result(
     """
     mailbox.mkdir(parents=True, exist_ok=True)
     nodes = node_ids or []
+    worker_result_spec = build_worker_result_spec(
+        mailbox,
+        mail_id,
+        status=status,
+        result_bundle=result_bundle,
+        produced_count=produced_count,
+        node_ids=nodes,
+    )
     receipt = {
         "receipt_id": str(uuid.uuid4())[:8],
         "in_reply_to": mail_id,
@@ -274,6 +299,9 @@ def deliver_operator_result(
         "produced_count": produced_count,
         "nodes": nodes,
         "bundle": result_bundle,
+        "worker_result_spec": worker_result_spec,
+        "postman_acceptance_status": worker_result_spec["postman_acceptance_status"],
+        "provider_rejudgment": worker_result_spec["provider_rejudgment"],
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "operator_pid": os.getpid(),
         "delivery_owner": "postman",
@@ -301,6 +329,7 @@ def deliver_operator_result(
             produced_count=produced_count,
             node_ids=nodes,
             result_bundle=result_bundle,
+            worker_result_spec=worker_result_spec,
         )
     except OSError:
         pass
@@ -311,6 +340,7 @@ def deliver_operator_result(
             mail_id=mail_id,
             produced_count=produced_count,
             node_ids=nodes,
+            worker_result_spec=worker_result_spec,
         )
     except OSError:
         pass
@@ -322,6 +352,7 @@ def deliver_operator_result(
             produced_count=produced_count,
             node_count=len(nodes),
             result_bundle=result_bundle,
+            worker_result_spec=worker_result_spec,
         )
         if projection.get("enabled"):
             append_jsonl(
