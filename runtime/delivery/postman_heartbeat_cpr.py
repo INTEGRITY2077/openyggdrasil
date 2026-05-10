@@ -145,6 +145,23 @@ def _safe_detail(record: Any, allowed_keys: Sequence[str]) -> dict[str, Any]:
     return detail
 
 
+def _surface_safe_detail(role: str, record: Any, allowed_keys: Sequence[str]) -> dict[str, Any]:
+    detail = _safe_detail(record, allowed_keys)
+    replacements = {
+        "ms1": (("ygg-op1", "ygg-ms1"), ("op1", "ms1")),
+        "mf1": (("ygg-op2", "ygg-mf1"), ("op2", "mf1")),
+    }
+    for key in ("session_name", "target"):
+        value = detail.get(key)
+        if not isinstance(value, str):
+            continue
+        safe_value = value
+        for old, new in replacements.get(role, ()):
+            safe_value = re.sub(re.escape(old), new, safe_value, flags=re.IGNORECASE)
+        detail[key] = safe_value
+    return detail
+
+
 def _live_role_record(live_group: Mapping[str, Any], role: str) -> Any:
     for alias in ROLE_ALIASES[role]:
         if alias in live_group:
@@ -163,7 +180,7 @@ def _live_group_report(live_group: Mapping[str, Any]) -> tuple[dict[str, Any], l
             "command_target": ROLE_COMMAND_TARGETS[role],
             "ready": ready,
             "status": status,
-            "detail": _safe_detail(record, ("session_name", "pane_id", "target", "evidence_ref")),
+            "detail": _surface_safe_detail(role, record, ("session_name", "pane_id", "target", "evidence_ref")),
         }
         if not ready:
             missing.append(f"live_group_{role}")

@@ -8,10 +8,11 @@ _RESOLVERS: dict[str, Resolver] = {}
 
 
 def register_source_ref_resolver(scheme: str, resolver: Resolver) -> None:
-    """source_ref scheme resolver를 명시 등록한다.
+    """Register a provider-specific source_ref resolver by scheme.
 
-    Common registry는 provider-specific adapter를 import하지 않는다. Hermes, Codex,
-    fake provider 등은 각 adapter/bootstrap 경계에서 자기 scheme을 등록해야 한다.
+    The common registry does not import provider adapters directly. Hermes,
+    Codex, fake-provider, or another adapter/bootstrap layer must explicitly
+    register the schemes it owns.
     """
     normalized = scheme.strip().removesuffix("://")
     if not normalized:
@@ -20,13 +21,13 @@ def register_source_ref_resolver(scheme: str, resolver: Resolver) -> None:
 
 
 def unregister_source_ref_resolver(scheme: str) -> None:
-    """테스트/fixture 정리를 위해 등록된 resolver를 제거한다."""
+    """Unregister a resolver for test fixture cleanup."""
     normalized = scheme.strip().removesuffix("://")
     _RESOLVERS.pop(normalized, None)
 
 
 def list_source_ref_resolvers() -> list[str]:
-    """현재 명시 등록된 source_ref scheme 목록을 반환한다."""
+    """Return the currently registered source_ref schemes."""
     return sorted(_RESOLVERS)
 
 
@@ -53,11 +54,10 @@ def resolve_source_ref(
     anchor_hash: str = "",
     resolver_options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Provider-neutral source_ref registry.
+    """Resolve a provider-neutral source_ref through an explicit adapter.
 
-    MS/MF core는 provider별 저장소 구조를 알지 않는다. Provider별 원본 접근은
-    이 registry 뒤에 명시 등록된 adapter만 수행한다. OP1/OP2 표기는 legacy
-    evidence id로만 호환된다.
+    MS/MF core does not know provider-specific storage internals. Only
+    explicitly registered adapters may resolve provider-native references.
     """
     range_hint = range_hint or {}
     resolver_options = resolver_options or {}

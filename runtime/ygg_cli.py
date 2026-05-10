@@ -213,7 +213,7 @@ def _mailbox_summary(*, state_dir: Path, mailbox_key: str) -> dict[str, Any]:
     }
     if _debug_local_paths_enabled():
         summary["debug_paths"] = {"mailbox": str(mailbox)}
-        summary["compat_mailbox_key"] = mailbox_key
+        summary["debug_worker_surface"] = ROLE_SPECS[worker_key]["display_name"]
         summary["latest_receipt_id"] = latest_receipt.get("receipt_id") if isinstance(latest_receipt, dict) else None
         summary["latest_reply_to"] = latest_receipt.get("in_reply_to") if isinstance(latest_receipt, dict) else None
     return summary

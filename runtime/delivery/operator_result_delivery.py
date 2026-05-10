@@ -26,6 +26,36 @@ def _provider_inbox_path(mailbox: Path) -> Path:
     return mailbox.parent / "provider_inbox.jsonl"
 
 
+def _worker_unit_index(mailbox: Path) -> int:
+    name = mailbox.name.upper()
+    if name.startswith("OP") and name[2:].isdigit():
+        return max(1, (int(name[2:]) + 1) // 2)
+    for token in ("MS", "MF"):
+        if token in name:
+            suffix = name.rsplit(token, 1)[-1]
+            digits = "".join(char for char in suffix if char.isdigit())
+            if digits:
+                return max(1, int(digits))
+    return 1
+
+
+def _worker_role_kind(mailbox: Path) -> str:
+    name = mailbox.name.upper()
+    lowered = mailbox.name.lower().replace("-", "_")
+    if name.startswith("OP") and name[2:].isdigit():
+        return "memory_saver" if int(name[2:]) % 2 == 1 else "memory_finder"
+    if "memory_finder" in lowered or "finder" in lowered or "mf" in lowered:
+        return "memory_finder"
+    return "memory_saver"
+
+
+def _worker_surface_label(mailbox: Path) -> str:
+    unit = _worker_unit_index(mailbox)
+    if _worker_role_kind(mailbox) == "memory_finder":
+        return f"MF{unit} Memory Finder"
+    return f"MS{unit} Memory Saver"
+
+
 def _append_provider_inbox(
     mailbox: Path,
     *,
@@ -36,10 +66,13 @@ def _append_provider_inbox(
     result_bundle: dict[str, Any] | None,
     worker_result_spec: dict[str, Any] | None = None,
 ) -> None:
+    worker_surface = _worker_surface_label(mailbox)
     row = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "sender": mailbox.name,
+        "sender": worker_surface,
         "receiver": "Provider",
+        "worker_surface": worker_surface,
+        "worker_role": _worker_role_kind(mailbox),
         "mail_id": mail_id,
         "status": status,
         "produced_count": produced_count,
@@ -47,7 +80,7 @@ def _append_provider_inbox(
         "bundle": result_bundle,
         "result_bundle": result_bundle,
         "worker_result_spec": worker_result_spec,
-        "message": f"{mailbox.name} -> Provider: {mail_id} status={status} produced={produced_count}",
+        "message": f"{worker_surface} -> Provider: {mail_id} status={status} produced={produced_count}",
         "delivery_mode": "provider_inbox_file",
         "delivery_owner": "postman",
     }
@@ -62,15 +95,18 @@ def _append_postman_observation(
     node_ids: list[str],
     worker_result_spec: dict[str, Any] | None = None,
 ) -> None:
+    worker_surface = _worker_surface_label(mailbox)
     row = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "sender": mailbox.name,
+        "sender": worker_surface,
         "receiver": "Provider",
+        "worker_surface": worker_surface,
+        "worker_role": _worker_role_kind(mailbox),
         "mail_id": mail_id,
         "produced_count": produced_count,
         "nodes": node_ids,
         "worker_result_spec": worker_result_spec,
-        "message": f"{mailbox.name} -> Provider: {mail_id} produced={produced_count}",
+        "message": f"{worker_surface} -> Provider: {mail_id} produced={produced_count}",
         "delivery_mode": "mailbox_log_only",
         "delivery_owner": "postman",
         "hard_nonclaim": "not_injected_into_hermes_chat",
@@ -116,12 +152,8 @@ def _native_result_projection_text(
     result_bundle: dict[str, Any] | None,
     worker_result_spec: dict[str, Any] | None = None,
 ) -> str:
-    role = "MS1 Memory Saver" if mailbox.name.upper() == "OP1" else "MF1 Memory Finder"
+    role = _worker_surface_label(mailbox)
     facts_count, paths_count = _support_counts(result_bundle)
-    if mailbox.name.upper().startswith("OP") and mailbox.name[2:].isdigit():
-        role_index = int(mailbox.name[2:])
-        unit = (role_index + 1) // 2
-        role = f"MS{unit} Memory Saver" if role_index % 2 == 1 else f"MF{unit} Memory Finder"
     if produced_count > 0 or node_count > 0:
         receipt_kind = "save receipt"
         observation = f"produced_count={produced_count}, node_count={node_count}"
@@ -272,6 +304,8 @@ def deliver_operator_result(
         "provider_rejudgment": worker_result_spec["provider_rejudgment"],
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "operator_pid": os.getpid(),
+        "worker_surface": _worker_surface_label(mailbox),
+        "worker_role": _worker_role_kind(mailbox),
         "delivery_owner": "postman",
     }
     append_jsonl(mailbox / "delivery_receipts.jsonl", receipt)
@@ -279,7 +313,7 @@ def deliver_operator_result(
         mailbox=mailbox,
         mail_id=mail_id,
         phase="receipt_recorded",
-        actor=mailbox.name,
+        actor=_worker_surface_label(mailbox),
         summary="Worker result receipt was recorded for the mailbox work order.",
         status=status,
         evidence={
@@ -328,7 +362,9 @@ def deliver_operator_result(
                 {
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "sender": "Postman",
-                    "receiver": mailbox.name,
+                    "receiver": _worker_surface_label(mailbox),
+                    "worker_surface": _worker_surface_label(mailbox),
+                    "worker_role": _worker_role_kind(mailbox),
                     "mail_id": mail_id,
                     "delivery_mode": "native_worker_result_projection",
                     "delivery_owner": "postman",

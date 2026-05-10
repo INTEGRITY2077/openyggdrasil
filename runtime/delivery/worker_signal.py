@@ -15,6 +15,14 @@ from typing import Any, Mapping
 
 SCHEMA_VERSION = "worker_signal.v1"
 THREAD_SCHEMA_VERSION = "worker_signal_thread.v1"
+ROLE_MAILBOX_NAMES = {
+    "memory_saver": "OP1",
+    "memory_finder": "OP2",
+}
+ROLE_SURFACE_LABELS = {
+    "memory_saver": "MS1 Memory Saver",
+    "memory_finder": "MF1 Memory Finder",
+}
 
 
 def _now_iso() -> str:
@@ -55,11 +63,13 @@ def _normalize_role(value: str) -> str:
 
 def _role_mailbox_name(role: str) -> str:
     normalized = _normalize_role(role)
-    if normalized == "memory_saver":
-        return "OP1"
-    if normalized == "memory_finder":
-        return "OP2"
+    if normalized in ROLE_MAILBOX_NAMES:
+        return ROLE_MAILBOX_NAMES[normalized]
     raise ValueError("unsupported_worker_role")
+
+
+def _role_surface_label(role: str) -> str:
+    return ROLE_SURFACE_LABELS.get(_normalize_role(role), "Unknown Worker")
 
 
 def _mailbox(root: Path, role: str) -> Path:
@@ -97,6 +107,8 @@ def append_worker_signal(
         "created_at": created_at,
         "sender_role": sender,
         "target_role": target,
+        "sender_surface": _role_surface_label(sender),
+        "target_surface": _role_surface_label(target),
         "signal_type": str(signal_type or "worker_question"),
         "work_order_id": str(work_order_id or ""),
         "mail_id": str(mail_id or ""),
@@ -147,6 +159,7 @@ def read_worker_signals(
     return {
         "schema_version": "worker_signal_read_result.v1",
         "target_role": target,
+        "target_surface": _role_surface_label(target),
         "signal_count": len(signals),
         "unread_count": len(unread),
         "signals": unread if mark_read else signals,
@@ -182,6 +195,10 @@ def summarize_signal_thread(
         "thread_id": thread_id,
         "signal_count": len(unique),
         "roles": sorted({str(row.get("sender_role")) for row in unique} | {str(row.get("target_role")) for row in unique}),
+        "role_surfaces": sorted(
+            {str(row.get("sender_surface")) for row in unique}
+            | {str(row.get("target_surface")) for row in unique}
+        ),
         "signals": unique,
     }
 
