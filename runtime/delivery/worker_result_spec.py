@@ -163,14 +163,45 @@ def _worker_role_from_mailbox(mailbox: Path) -> str:
     return "unknown"
 
 
-def _work_order_question(work_order: Mapping[str, Any]) -> str:
+def _work_order_anchor(work_order: Mapping[str, Any]) -> dict[str, Any]:
+    anchor = work_order.get("work_anchor")
+    if isinstance(anchor, Mapping) and anchor.get("schema_version") == "provider_work_anchor.v1":
+        return dict(anchor)
     summary = work_order.get("work_summary")
     if isinstance(summary, str):
-        return summary
+        return {
+            "schema_version": "provider_work_anchor.v1",
+            "anchor_kind": "user_question" if summary else "missing_anchor",
+            "anchor_text": summary,
+            "user_question_present": bool(summary),
+            "provider_initiated_need_present": False,
+            "hard_nonclaims": [
+                "legacy_work_summary_anchor_needs_upgrade",
+            ],
+        }
     payload_ref = work_order.get("payload_ref")
     if isinstance(payload_ref, Mapping):
-        return " ".join(str(payload_ref.get(key) or "") for key in ["mail_id", "kind"])
-    return ""
+        text = " ".join(str(payload_ref.get(key) or "") for key in ["mail_id", "kind"])
+        return {
+            "schema_version": "provider_work_anchor.v1",
+            "anchor_kind": "missing_anchor",
+            "anchor_text": text,
+            "user_question_present": False,
+            "provider_initiated_need_present": False,
+            "hard_nonclaims": [
+                "payload_ref_identifier_is_not_semantic_question_anchor",
+            ],
+        }
+    return {
+        "schema_version": "provider_work_anchor.v1",
+        "anchor_kind": "missing_anchor",
+        "anchor_text": "",
+        "user_question_present": False,
+        "provider_initiated_need_present": False,
+        "hard_nonclaims": [
+            "no_user_question_or_provider_need_anchor_present",
+        ],
+    }
 
 
 def _alignment_state(*, user_question: str, result_bundle: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -212,7 +243,17 @@ def build_provider_rejudgment(
     """
 
     worker_role = str(worker_result_spec.get("worker_role") or "")
-    question = user_question or str(worker_result_spec.get("provider_question") or "")
+    anchor = worker_result_spec.get("provider_work_anchor")
+    if not isinstance(anchor, Mapping):
+        anchor = {
+            "schema_version": "provider_work_anchor.v1",
+            "anchor_kind": "user_question" if worker_result_spec.get("provider_question") else "missing_anchor",
+            "anchor_text": str(worker_result_spec.get("provider_question") or ""),
+            "user_question_present": bool(worker_result_spec.get("provider_question")),
+            "provider_initiated_need_present": False,
+        }
+    anchor_kind = str(anchor.get("anchor_kind") or "missing_anchor")
+    question = user_question or str(anchor.get("anchor_text") or worker_result_spec.get("provider_question") or "")
     result_bundle = worker_result_spec.get("support_bundle")
     if not isinstance(result_bundle, Mapping):
         result_bundle = {}
@@ -221,22 +262,32 @@ def build_provider_rejudgment(
     if worker_role != "memory_finder":
         action = "acknowledge_storage_receipt"
         reason_code = "storage_result_not_answer_authority"
-    elif typed_unavailable:
+    elif anchor_kind == "missing_anchor":
+        action = "ask_user_clarification"
+        reason_code = "missing_user_question_or_provider_need_anchor"
+    elif typed_unavailable and anchor_kind == "user_question":
         action = "ask_user_clarification"
         reason_code = "worker_returned_typed_unavailable"
+    elif typed_unavailable:
+        action = "reply_to_worker_reject"
+        reason_code = "provider_initiated_need_not_satisfied"
     elif alignment["state"] == "aligned":
         action = "use_with_limits"
-        reason_code = "support_aligned_with_user_question"
-    elif alignment["state"] == "insufficient_context":
+        reason_code = "support_aligned_with_work_anchor"
+    elif alignment["state"] == "insufficient_context" and anchor_kind == "user_question":
         action = "ask_user_clarification"
         reason_code = "support_context_insufficient_for_user_question"
+    elif alignment["state"] == "insufficient_context":
+        action = "reply_to_worker_reject"
+        reason_code = "support_context_insufficient_for_provider_initiated_need"
     else:
         action = "reply_to_worker_reject"
-        reason_code = "support_misaligned_with_user_question"
+        reason_code = "support_misaligned_with_work_anchor"
     return {
         "schema_version": "provider_result_rejudgment.v1",
         "created_at": _now_iso(),
         "provider_trust_policy": "do_not_trust_worker_result_without_question_alignment",
+        "provider_work_anchor": dict(anchor),
         "provider_action": action,
         "reason_code": reason_code,
         "question_alignment": alignment,
@@ -255,8 +306,9 @@ def build_provider_rejudgment(
         },
         "hard_nonclaims": [
             "mf_result_is_not_provider_answer_authority",
-            "provider_must_compare_support_to_user_question",
+            "provider_must_compare_support_to_user_question_or_provider_need",
             "similar_support_is_not_aligned_support",
+            "missing_user_question_can_be_valid_provider_initiated_memory_work",
         ],
     }
 
@@ -312,7 +364,8 @@ def build_worker_result_spec(
         evidence_refs.append({"kind": "source_paths", "count": len(paths), "digest": _digest(paths)})
     if facts:
         evidence_refs.append({"kind": "support_facts", "count": len(facts), "digest": _digest([_fact_text(f) for f in facts])})
-    provider_question = _work_order_question(work_order)
+    provider_work_anchor = _work_order_anchor(work_order)
+    provider_question = str(provider_work_anchor.get("anchor_text") or "")
     spec: dict[str, Any] = {
         "schema_version": "worker_result_spec.v1",
         "created_at": _now_iso(),
@@ -327,6 +380,7 @@ def build_worker_result_spec(
             "acceptance_gate": work_order.get("acceptance_gate"),
         },
         "provider_question": provider_question,
+        "provider_work_anchor": provider_work_anchor,
         "selected_capabilities": _selected_capabilities(bundle),
         "action_summary": _action_summary(worker_role=worker_role, result_kind=result_kind),
         "evidence_refs": evidence_refs,

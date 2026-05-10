@@ -44,6 +44,51 @@ def _payload_summary(message_type: str, payload: dict[str, Any]) -> str:
     return " ".join(str(text).split())[:360]
 
 
+def _work_anchor(message_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+    explicit_kind = str(payload.get("anchor_kind") or payload.get("work_anchor_kind") or "").strip()
+    user_question = str(
+        payload.get("user_question")
+        or payload.get("original_user_question")
+        or payload.get("current_user_question")
+        or ""
+    ).strip()
+    provider_need = str(
+        payload.get("provider_initiated_need")
+        or payload.get("surface_reason")
+        or payload.get("topic_hint")
+        or payload.get("intent_field")
+        or ""
+    ).strip()
+    query_text = str(payload.get("query_text") or payload.get("query") or "").strip()
+    if explicit_kind in {"user_question", "provider_initiated_need"}:
+        anchor_kind = explicit_kind
+    elif user_question:
+        anchor_kind = "user_question"
+    elif message_type == "memory_ticket" or provider_need:
+        anchor_kind = "provider_initiated_need"
+    elif query_text:
+        anchor_kind = "user_question"
+    else:
+        anchor_kind = "missing_anchor"
+    if anchor_kind == "user_question":
+        anchor_text = user_question or query_text
+    elif anchor_kind == "provider_initiated_need":
+        anchor_text = provider_need or query_text
+    else:
+        anchor_text = ""
+    return {
+        "schema_version": "provider_work_anchor.v1",
+        "anchor_kind": anchor_kind,
+        "anchor_text": " ".join(anchor_text.split())[:720],
+        "user_question_present": bool(user_question or (anchor_kind == "user_question" and query_text)),
+        "provider_initiated_need_present": bool(provider_need or anchor_kind == "provider_initiated_need"),
+        "hard_nonclaims": [
+            "missing_user_question_does_not_mean_missing_provider_need",
+            "provider_initiated_need_can_anchor_memory_work",
+        ],
+    }
+
+
 def _worker_role(message_type: str) -> str:
     if message_type == "query":
         return "memory_finder"
@@ -95,6 +140,7 @@ def append_postman_work_order(
             "mail_id": mail_id,
         },
         "work_summary": _payload_summary(message_type, payload),
+        "work_anchor": _work_anchor(message_type, payload),
         "acceptance_gate": _acceptance_gate(message_type),
         "required_history": [
             "received",
