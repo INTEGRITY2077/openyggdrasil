@@ -97,8 +97,8 @@ SKILL/MCP 관리 경계:
 |---|---|---|
 | Provider Unit N | 하나의 Provider lane과 그 주변 memory 위성 묶음 | PRO N + MS N + MF N |
 | PRO N | 사용자와 직접 대화하는 Provider lane | Provider Lane N |
-| MS N | 기억 저장 담당 | Memory Saver, legacy OP(2N - 1) |
-| MF N | 기억 회상 담당 | Memory Finder, legacy OP(2N) |
+| MS N | 기억 저장 담당 | Memory Saver |
+| MF N | 기억 회상 담당 | Memory Finder |
 | Postman | 편지 접수, work order/history 작성, MS/MF CPR, receipt mirror 조율 | delivery/admission/heartbeat owner |
 | Work Order | MS/MF가 실제로 읽어야 하는 작업 명세서 | `postman_work_order.v1` |
 | Work History | 작업 진행과 결과의 append-only 히스토리 | `worker_work_history.v1` |
@@ -110,7 +110,7 @@ SKILL/MCP 관리 경계:
 | Find Request | 기억 회상 요청 | internal recall query |
 | Checkpoint | 검증 관문 | internal gate/proof/POC |
 
-`OP`, `producer`, `consumer`, `operator` 이름은 런타임 스키마, 파일 경로, 코드 모듈, 과거 호환 id를 설명할 때만 남깁니다. 사용자가 먼저 읽는 역할명은 Provider, Postman, MS, MF입니다. Postman은 의미 품질 소유자가 아니라 메일 접수, work order, CPR, receipt/history 조율 소유자입니다.
+과거 런타임 호환 이름은 스키마, 파일 경로, 코드 모듈을 설명할 때만 남깁니다. 사용자가 먼저 읽는 역할명은 Provider, Postman, MS, MF입니다. Postman은 의미 품질 소유자가 아니라 메일 접수, work order, CPR, receipt/history 조율 소유자입니다.
 
 Use this when:
 - 이 레포지토리를 처음 봅니다.
@@ -154,7 +154,7 @@ Hard nonclaims:
 - README 최상단은 PASS 인증서가 아닙니다.
 - 완료도 표, plan, test count, Result Receipt만으로 Full UX PASS를 증명하지 않습니다.
 - Hermes 전용 근거는 provider-neutral 동작 증명이 아닙니다.
-- `ygg`, MS1/MF1(legacy OP1/OP2), attach, talk 명령은 setup 검증 전 존재한다고 가정하지 않습니다.
+- `ygg`, MS1/MF1, attach, talk 명령은 setup 검증 전 존재한다고 가정하지 않습니다.
 
 ---
 
@@ -199,8 +199,8 @@ Provider-first 콜드스타트 규칙:
 ```text
 사용자 명령   내부 tmux   Runtime evidence
 ygg pro1      ygg-pro1        provider_lane.v1
-ygg ms1       ygg-ms1      MS1 Memory Saver registry/mailbox/work_order/live worker (legacy OP1 evidence id 가능)
-ygg mf1       ygg-mf1      MF1 Memory Finder registry/mailbox/work_order/live worker (legacy OP2 evidence id 가능)
+ygg ms1       ygg-ms1      MS1 Memory Saver registry/mailbox/work_order/live worker
+ygg mf1       ygg-mf1      MF1 Memory Finder registry/mailbox/work_order/live worker
 정본 근거                  mailbox work_order/history / Result Receipts / event logs / attachment artifacts
 ```
 
@@ -271,8 +271,8 @@ wakeup helper가 있더라도 제품 책임은 Postman 아래에 묶어 읽습�
 ```text
 Provider Unit
   ├─ PRO Provider Lane       사용자가 대화하는 provider session
-  ├─ MS1 Memory Saver 위성   세션 스코프 background save worker (legacy OP1)
-  ├─ MF1 Memory Finder 위성  세션 스코프 background find worker (legacy OP2)
+  ├─ MS1 Memory Saver 위성   세션 스코프 background save worker
+  ├─ MF1 Memory Finder 위성  세션 스코프 background find worker
   ├─ Postman 위성            편지 접수 / work_order / CPR / receipt mirror owner
   ├─ Mailbox 위성            로컬 파일 큐 / work_history / Result Receipt 원장
   └─ TMUX witness 위성       사람이 보는 선택적 시각 표면
@@ -285,8 +285,8 @@ Provider Unit
 | Postman | 메일 접수, work order/history, MS/MF CPR, receipt mirror owner | 의미 품질 평가자, 독립 reasoning worker |
 | Mailbox | 로컬 파일 기반 큐와 Result Receipt 원장 | 서버, socket API, public service |
 | Postman helper | Postman 아래에서 mailbox를 폴링하거나 pane wakeup을 돕는 구현 세부 | 독립 책임자, always-on daemon, global server |
-| MS1 Memory Saver | Provider Unit에 묶인 background save worker (legacy OP1) | 독립 memory server |
-| MF1 Memory Finder | Provider Unit에 묶인 background find worker (legacy OP2) | 독립 search server |
+| MS1 Memory Saver | Provider Unit에 묶인 background save worker | 독립 memory server |
+| MF1 Memory Finder | Provider Unit에 묶인 background find worker | 독립 search server |
 | TMUX witness | 사람이 보는 선택적 관찰 표면 | SOT, 실행 Checkpoint, 정본 입력 lane |
 
 위성 수명주기 규칙:
@@ -301,8 +301,8 @@ Provider Unit
 ```mermaid
 flowchart LR
   P["Active Provider Lane<br/>(PRO)"]
-  MS1["MS1 Memory Saver<br/>legacy OP1"]
-  MF1["MF1 Memory Finder<br/>legacy OP2"]
+  MS1["MS1 Memory Saver"]
+  MF1["MF1 Memory Finder"]
   PM["Postman<br/>admission + work order + CPR"]
   MB["Mailbox<br/>work_order + work_history + Result Receipts"]
   H["Postman helper<br/>poll/wakeup implementation detail"]
@@ -386,7 +386,7 @@ ygg talk MS1           목표 기능, NOT PASS. raw tmux/stdin 입력이 아니�
 중요한 구분:
 
 - `./scripts/ygg pro1`, `./scripts/ygg ms1`, `./scripts/ygg mf1`은 public repo에서 구현된 repo-local 명령면입니다.
-- `ygg-pro1`, `ygg-ms1`, `ygg-mf1`은 현재 사용자-facing live witness 세션명입니다. `ygg-op1`, `ygg-op2`, OP id는 과거 증거와 호환 id로만 남을 수 있습니다.
+- `ygg-pro1`, `ygg-ms1`, `ygg-mf1`은 현재 사용자-facing live witness 세션명입니다. 과거 증거의 내부 호환 id는 사용자 명령이나 제품 표면으로 승격하지 않습니다.
 - public repo에서는 전역 `ygg`, `ygg-*`, legacy `oy-*` 명령이 이미 설치되어 있다고 가정하지 않습니다. 전역 설치는 별도 install gate가 필요합니다.
 - 프로바이더가 먼저 정상 Provider UX로 들어온 뒤, `SKILL.md`와 workspace를 인식하고 나서 attach/witness 명령을 안내해야 합니다.
 
@@ -948,7 +948,7 @@ openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool C
   ┌──────────────────────────────────────────────────────────────┐
   │               openyggdrasil (PTC Palette)                    │
   │                                                              │
-  │  1. Provider: ygg가 LLM 코드 템플릿을 생성하여 MS1/MF1(legacy OP1/OP2)에 발행  │
+  │  1. Provider: ygg가 LLM 코드 템플릿을 생성하여 MS1/MF1에 발행                  │
   │  2. Stub Generator: IPC preamble + 26종 도구 함수 주입       │
   │  3. Sandbox Executor: bwrap 샌드박스에서 Python 스크립트 실행  │
   │  4. IPC Server: Unix Domain Socket으로 호스트 primitives 호출 │

@@ -33,8 +33,8 @@ Canonical terminology used by this README:
 ```text
 Provider Unit N = PRO N + MS N + MF N
 PRO N = Provider Lane N
-MS N  = Memory Saver N  = legacy OP(2N - 1)
-MF N  = Memory Finder N = legacy OP(2N)
+MS N  = Memory Saver N
+MF N  = Memory Finder N
 Postman = delivery admission / work order / heartbeat / receipt mirror owner
 Work Order = postman_work_order.v1
 Work History = worker_work_history.v1
@@ -47,7 +47,7 @@ Find Request = internal recall query
 Checkpoint = internal gate/proof/POC
 ```
 
-Legacy `OP`, `producer`, `consumer`, and `operator` names can still appear where the README references runtime schemas, file paths, code modules, or historical compatibility ids. They are not the primary user-facing role names. Postman is not the semantic quality owner; it owns delivery admission, work orders, heartbeat/CPR, and receipt/history coordination.
+Older runtime compatibility names can still appear in schemas, file paths, or code modules. They are not the primary user-facing role names. Postman is not the semantic quality owner; it owns delivery admission, work orders, heartbeat/CPR, and receipt/history coordination.
 
 Use this when:
 - You are seeing this repository for the first time.
@@ -89,7 +89,7 @@ Hard nonclaims:
 - The top README is not a PASS certificate.
 - A completion table, plan, test count, or Result Receipt does not by itself prove Full UX PASS.
 - Hermes-specific evidence does not automatically prove provider-neutral behavior.
-- `ygg`, MS1/MF1 (legacy OP1/OP2), attach, and talk commands must not be assumed to exist before setup verifies them.
+- `ygg`, MS1/MF1, attach, and talk commands must not be assumed to exist before setup verifies them.
 
 Skill/MCP capability management:
 
@@ -349,7 +349,7 @@ sources: [source refs or public paths]
 
 ## System Requirements & Setup
 
-openyggdrasil is designed to operate as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). The target operating model does not require an always-on system-level server or separate server management. It may create session-scoped Postman helpers and MS/MF workers around the active Provider Lane. Postman owns delivery admission, work orders, wakeup routing, and receipt/history coordination; debug monitors must not become product owners. This is not a production-ready guarantee yet.
+openyggdrasil is designed to operate as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). The target operating model does not require an always-on system-level server or separate server management. It may create session-scoped Postman helpers and MS/MF workers around the active Provider Lane. Postman owns delivery admission, work orders, wakeup routing, and receipt/history coordination; optional debug lenses must not become product owners. This is not a production-ready guarantee yet.
 
 > **⚠️ Reasoning Lease Model (Asynchronous Multiplexing):**
 > openyggdrasil does not have its own API keys, and it must not extract provider credentials.
@@ -381,8 +381,8 @@ Active session health is group-based, not lane-based:
 ```text
 User command   Internal tmux   Runtime evidence
 ygg pro1       ygg-pro1            provider_lane.v1
-ygg ms1        ygg-ms1          MS1 Memory Saver registry/mailbox/work_order/native worker (legacy OP1 evidence id may appear)
-ygg mf1        ygg-mf1          MF1 Memory Finder registry/mailbox/work_order/native worker (legacy OP2 evidence id may appear)
+ygg ms1        ygg-ms1          MS1 Memory Saver registry/mailbox/work_order/native worker
+ygg mf1        ygg-mf1          MF1 Memory Finder registry/mailbox/work_order/native worker
 Canonical evidence            mailbox work_order/history / Result Receipts / event logs / attachment artifacts
 ```
 
@@ -442,8 +442,8 @@ The active Provider Session is the center. Postman, Mailbox, Memory Saver, Memor
 ```text
 Provider Unit
   ├─ PRO Provider Lane            active user-facing provider session
-  ├─ MS1 Memory Saver satellite   session-scoped background save worker (legacy OP1)
-  ├─ MF1 Memory Finder satellite  session-scoped background find worker (legacy OP2)
+  ├─ MS1 Memory Saver satellite   session-scoped background save worker
+  ├─ MF1 Memory Finder satellite  session-scoped background find worker
   ├─ Postman satellite            delivery admission / work_order / CPR / receipt mirror owner
   ├─ Mailbox satellite            local file queue / work_history / Result Receipt ledger
   ├─ Postman helper               poll/wakeup implementation detail under Postman ownership
@@ -457,8 +457,8 @@ What each satellite is:
 | Postman | Delivery admission, work orders/history, MS/MF heartbeat/CPR, receipt mirroring | Semantic quality owner, independent reasoning worker |
 | Mailbox | Local file-based queue and Result Receipt ledger | Server, socket API, public service |
 | Postman helper | Implementation detail that polls the mailbox or wakes the native pane under Postman ownership | Product owner, canonical input lane, global server |
-| MS1 Memory Saver | Background save worker bound to a Provider Unit (legacy OP1) | Standalone memory server |
-| MF1 Memory Finder | Background find worker bound to a Provider Unit (legacy OP2) | Standalone search server |
+| MS1 Memory Saver | Background save worker bound to a Provider Unit | Standalone memory server |
+| MF1 Memory Finder | Background find worker bound to a Provider Unit | Standalone search server |
 | TMUX witness | Optional human inspection surface | SOT, execution Checkpoint, canonical input lane |
 
 Satellite lifecycle rules:
@@ -473,8 +473,8 @@ Satellite lifecycle rules:
 ```mermaid
 flowchart LR
   P["Active Provider Lane<br/>(PRO)"]
-  MS1["MS1 Memory Saver<br/>legacy OP1"]
-  MF1["MF1 Memory Finder<br/>legacy OP2"]
+  MS1["MS1 Memory Saver"]
+  MF1["MF1 Memory Finder"]
   PM["Postman<br/>admission + work order + CPR"]
   MB["Mailbox<br/>work_order + work_history + Result Receipts"]
   H["Postman helper<br/>poll/wakeup implementation detail"]
@@ -553,7 +553,7 @@ sudo apt-get install -y tmux
 # Point tmux at the openyggdrasil project and one Memory Saver mailbox
 PROJECT=/path/to/openyggdrasil
 LANE=MS1
-OP=OP1  # internal legacy mailbox id for MS1
+LANE=ms1
 SESSION=openyggdrasil-witness
 MAILBOX="$HOME/.yggdrasil/sessions/$OP"
 VAULT="$PROJECT/vault"
@@ -854,7 +854,7 @@ The standard PTC paradigm allows the agent to freely write Python code within a 
   ┌──────────────────────────────────────────────────────────────┐
   │               openyggdrasil (PTC Palette)                    │
   │                                                              │
-  │  1. Provider: ygg generates LLM code templates for MS1/MF1 (legacy OP1/OP2)   │
+  │  1. Provider: ygg generates LLM code templates for MS1/MF1                    │
   │  2. Stub Generator: injects IPC preamble + 26 tool functions │
   │  3. Sandbox Executor: runs Python script in bwrap sandbox    │
   │  4. IPC Server: calls host primitives via Unix Domain Socket │
