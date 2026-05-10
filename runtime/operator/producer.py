@@ -51,6 +51,16 @@ from runtime.memory.wiki_node_taxonomy import (
 )
 from runtime.ptc.sandbox_executor import execute_ptc_code
 
+try:
+    from runtime.ptc.tool_search_supervisor import (
+        build_memory_ticket_tst_supervisor,
+        run_memory_saver_tst,
+    )
+except ImportError as exc:
+    log_event("optional_import_unavailable", module="runtime.ptc.tool_search_supervisor", reason=str(exc))
+    build_memory_ticket_tst_supervisor = None
+    run_memory_saver_tst = None
+
 
 def run_producer(mailbox: Path, vault: Path):
     """Mailbox에서 save-intent를 폴링하여 Vault에 적재."""
@@ -95,6 +105,14 @@ def run_producer(mailbox: Path, vault: Path):
             nodes = result.get("nodes", [])
             status = result.get("status", "acknowledged")
             ring_ids = result.get("ring_ids", [])
+            tst_capability_supervisor = (
+                build_memory_ticket_tst_supervisor(
+                    payload=msg.get("payload", {}) or {},
+                    result=result,
+                )
+                if build_memory_ticket_tst_supervisor is not None
+                else None
+            )
             write_operator_receipt(
                 receipts_file,
                 msg["mail_id"],
@@ -107,6 +125,7 @@ def run_producer(mailbox: Path, vault: Path):
                 support_bundle_seed=result.get("support_bundle_seed"),
                 source_ref_status=result.get("source_ref_status"),
                 reason=result.get("reason"),
+                tst_capability_supervisor=tst_capability_supervisor,
                 producer_pid=os.getpid(),
             )
             deliver_receipt(
@@ -123,6 +142,7 @@ def run_producer(mailbox: Path, vault: Path):
                     "ring_ids": ring_ids,
                     "canonical_topic_path": result.get("canonical_topic_path"),
                     "support_bundle_seed": result.get("support_bundle_seed"),
+                    "tst_capability_supervisor": tst_capability_supervisor,
                 },
             )
             continue
@@ -190,24 +210,68 @@ def run_producer(mailbox: Path, vault: Path):
             )
             continue
 
-        # ★ Phase 2: PTC 대체 경로 — LLM 코드가 전체 체인을 자유 조합
+        # Phase 2: PTC save path now goes through the role-scoped TST supervisor.
+        # The old free-form code executor remains only as a compatibility fallback.
         if msg.get("payload", {}).get("ptc"):
-            ptc_code = msg["payload"].get("ptc_code", "")
-            if ptc_code.strip():
-                result = execute_ptc_code(ptc_code, vault, mode="ipc", timeout=120)
-                nodes_produced = _count_ptc_saves(result)
+            snapshot = msg.get("payload", {}).get("context_snapshot", "")
+            if run_memory_saver_tst is not None:
+                result = run_memory_saver_tst(
+                    context_snapshot=snapshot,
+                    vault_root=vault,
+                    provider_id=msg.get("provider_id", "unknown"),
+                )
+                nodes = result.get("nodes") or []
+                nodes_produced = int(result.get("produced_count") or 0)
+                status = "acknowledged" if nodes_produced else "typed_unavailable"
                 write_operator_receipt(
                     receipts_file,
                     msg["mail_id"],
-                    status="acknowledged",
+                    status=status,
                     produced_count=nodes_produced,
+                    nodes=nodes,
                     ptc_mode=True,
-                    ptc_stdout=(result.get("stdout", "") or "")[:500],
-                    ptc_stderr=(result.get("stderr", "") or "")[:500],
                     ptc_status=result.get("status"),
-                    ptc_exit=result.get("exit_code"),
+                    tst_supervisor=result.get("tst_supervisor"),
+                    tst_capability_supervisor=(
+                        result.get("tst_capability_supervisor")
+                        or result.get("tst_supervisor")
+                    ),
+                    reason=result.get("status"),
                 )
-                deliver_receipt(mailbox, msg["mail_id"], status="delivered", produced_count=nodes_produced)
+                deliver_receipt(
+                    mailbox,
+                    msg["mail_id"],
+                    status="delivered" if nodes_produced else "deferred",
+                    produced_count=nodes_produced,
+                    node_ids=nodes,
+                    result_bundle={
+                        "intent": "save",
+                        "ptc_mode": True,
+                        "tst_supervisor": result.get("tst_supervisor"),
+                        "tst_capability_supervisor": (
+                            result.get("tst_capability_supervisor")
+                            or result.get("tst_supervisor")
+                        ),
+                        "reason": result.get("status"),
+                    },
+                )
+            else:
+                ptc_code = msg["payload"].get("ptc_code", "")
+                if ptc_code.strip():
+                    result = execute_ptc_code(ptc_code, vault, mode="ipc", timeout=120)
+                    nodes_produced = _count_ptc_saves(result)
+                    write_operator_receipt(
+                        receipts_file,
+                        msg["mail_id"],
+                        status="acknowledged",
+                        produced_count=nodes_produced,
+                        ptc_mode=True,
+                        ptc_stdout=(result.get("stdout", "") or "")[:500],
+                        ptc_stderr=(result.get("stderr", "") or "")[:500],
+                        ptc_status=result.get("status"),
+                        ptc_exit=result.get("exit_code"),
+                    )
+                    deliver_receipt(mailbox, msg["mail_id"], status="delivered", produced_count=nodes_produced)
             continue
         # ★ Nursery: promote intent 처리 (DRAFT → ACTIVE)
         if msg.get("intent") == "promote":

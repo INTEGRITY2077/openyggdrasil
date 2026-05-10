@@ -42,6 +42,12 @@ except ImportError as exc:
     build_ptc_retrieval_orchestrator_result = None
 
 try:
+    from runtime.ptc.tool_search_supervisor import build_memory_finder_tst_result
+except ImportError as exc:
+    log_event("optional_import_unavailable", module="runtime.ptc.tool_search_supervisor", reason=str(exc))
+    build_memory_finder_tst_result = None
+
+try:
     from runtime.ptc.engine import build_query_adaptive_pathfinder_plan
     from runtime.retrieval.programmatic_tool_runtime import (
         build_pathfinder_bundle_via_programmatic_tool_runtime,
@@ -117,6 +123,7 @@ def run_consumer(mailbox: Path, vault: Path):
             continue
 
         query_text = msg["payload"]["query_text"]
+        receipt_delivery_id = msg.get("postman_delivery_id") or msg.get("delivery_id")
 
         # Phase 2: PTC path. The worker-authored program is a visible probe,
         # but the final answer must still be evidence-bound as a support bundle.
@@ -125,10 +132,22 @@ def run_consumer(mailbox: Path, vault: Path):
             ptc_result = {}
             pathfinder_plan = {}
             pathfinder_runtime = {}
+            tst_supervisor_result = {}
             pathfinder_error = None
             if ptc_code.strip() and _ptc_exec:
                 ptc_result = _ptc_exec(ptc_code, vault, mode="ipc", timeout=120)
-            if (
+            if build_memory_finder_tst_result is not None:
+                try:
+                    tst_supervisor_result = build_memory_finder_tst_result(
+                        query_text=query_text,
+                        vault_root=vault,
+                        program_source=ptc_code,
+                    )
+                    pathfinder_plan = tst_supervisor_result.get("pathfinder_plan") or {}
+                    pathfinder_runtime = tst_supervisor_result.get("pathfinder_runtime") or {}
+                except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
+                    pathfinder_error = type(exc).__name__
+            elif (
                 build_query_adaptive_pathfinder_plan is not None
                 and build_pathfinder_bundle_via_programmatic_tool_runtime is not None
             ):
@@ -166,9 +185,45 @@ def run_consumer(mailbox: Path, vault: Path):
                     candidate_set = orchestrated.get("candidate_set") or {}
                     selected = candidate_set.get("selected_candidate_ids") or []
                     rejected = candidate_set.get("rejected_candidate_ids") or []
+                    candidates = list(candidate_set.get("candidates") or [])
                     bundle["structured_recall_answer_frame"] = orchestrated.get(
                         "structured_recall_answer_frame"
                     )
+                    bundle["candidate_reranker"] = {
+                        "schema_version": "candidate_reranker_receipt_summary.v1",
+                        "reranker_policy": candidate_set.get("reranker_policy"),
+                        "selected_candidate_ids": selected,
+                        "rejected_candidate_ids": rejected,
+                        "selected": [
+                            {
+                                "candidate_id": candidate.get("candidate_id"),
+                                "generator": candidate.get("generator"),
+                                "source_path": candidate.get("source_path"),
+                                "source_ref": candidate.get("source_ref"),
+                                "candidate_feature_vector": candidate.get("candidate_feature_vector"),
+                                "candidate_reranker": candidate.get("candidate_reranker"),
+                            }
+                            for candidate in candidates
+                            if candidate.get("candidate_id") in set(selected)
+                        ][:5],
+                        "rejected_hard_gate_reasons": [
+                            {
+                                "candidate_id": candidate.get("candidate_id"),
+                                "reason": candidate.get("rejection_reason"),
+                                "hard_gate_reason_codes": (
+                                    (
+                                        candidate.get("candidate_reranker", {})
+                                        .get("hard_gate_results", {})
+                                        .get("reason_codes")
+                                    )
+                                    if isinstance(candidate.get("candidate_reranker"), dict)
+                                    else []
+                                ),
+                            }
+                            for candidate in candidates
+                            if candidate.get("candidate_id") in set(rejected)
+                        ][:10],
+                    }
                     bundle["ptc_worker_program"] = {
                         "schema_version": "ptc_worker_program.v1",
                         "program_source": ptc_code[:2000],
@@ -199,6 +254,10 @@ def run_consumer(mailbox: Path, vault: Path):
                             ),
                             "selected_tool_ids": pathfinder_plan.get("tool_step_order") or [],
                             "selected_tool_count": len(pathfinder_plan.get("tool_step_order") or []),
+                            "tool_references": (
+                                (tst_supervisor_result.get("tst_supervisor") or {}).get("tool_references")
+                                or []
+                            ),
                             "planner_execution_mode": pathfinder_plan.get("planner_execution_mode"),
                             "strategy": pathfinder_plan.get("strategy"),
                             "reason_codes": pathfinder_plan.get("reason_codes") or [],
@@ -229,6 +288,12 @@ def run_consumer(mailbox: Path, vault: Path):
                             "capability_calls": pathfinder_runtime.get("capability_calls") or [],
                             "reason_codes": pathfinder_runtime.get("reason_codes") or [],
                         },
+                        "tst_supervisor": (tst_supervisor_result.get("tst_supervisor") or None),
+                        "tst_capability_supervisor": (
+                            tst_supervisor_result.get("tst_capability_supervisor")
+                            or tst_supervisor_result.get("tst_supervisor")
+                            or None
+                        ),
                         "candidate_count": len(candidate_set.get("candidates") or []),
                         "selected_candidate_count": len(selected),
                         "rejected_candidate_count": len(rejected),
@@ -247,6 +312,7 @@ def run_consumer(mailbox: Path, vault: Path):
                         status="completed",
                         bundle=bundle,
                         consumer_pid=os.getpid(),
+                        delivery_id=receipt_delivery_id,
                     )
                     deliver_receipt(mailbox, msg["mail_id"], status="completed", result_bundle=bundle)
                     continue
@@ -266,6 +332,7 @@ def run_consumer(mailbox: Path, vault: Path):
                     },
                 },
                 consumer_pid=os.getpid(),
+                delivery_id=receipt_delivery_id,
             )
             deliver_receipt(mailbox, msg["mail_id"], status="completed",
                            result_bundle={"ptc_stdout": stdout[:500]})
@@ -287,6 +354,7 @@ def run_consumer(mailbox: Path, vault: Path):
                     status="completed",
                     bundle=bundle,
                     consumer_pid=os.getpid(),
+                    delivery_id=receipt_delivery_id,
                 )
                 deliver_receipt(mailbox, msg["mail_id"], status="completed", result_bundle=bundle)
                 continue
@@ -355,6 +423,7 @@ def run_consumer(mailbox: Path, vault: Path):
             status="completed",
             bundle=bundle,
             consumer_pid=os.getpid(),
+            delivery_id=receipt_delivery_id,
         )
         deliver_receipt(mailbox, msg["mail_id"], status="completed", result_bundle=bundle)
 

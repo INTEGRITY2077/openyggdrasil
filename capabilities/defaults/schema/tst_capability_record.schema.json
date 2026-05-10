@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/schema/tst_capability_record.schema.json",
+  "title": "OpenYggdrasil TST Capability Record",
+  "type": "object",
+  "required": [
+    "tool_id",
+    "role",
+    "family",
+    "description",
+    "use_this_when",
+    "do_not_use_this_when",
+    "input_contract",
+    "output_kind",
+    "evidence_output",
+    "adapter_status",
+    "read_only",
+    "hard_nonclaims"
+  ],
+  "properties": {
+    "tool_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "type": "string",
+      "enum": ["memory_saver", "memory_finder", "shared"]
+    },
+    "family": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "use_this_when": {
+      "type": "string",
+      "minLength": 1
+    },
+    "do_not_use_this_when": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_contract": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "output_kind": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence_output": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adapter_status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "read_only": {
+      "type": "boolean"
+    },
+    "hard_nonclaims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

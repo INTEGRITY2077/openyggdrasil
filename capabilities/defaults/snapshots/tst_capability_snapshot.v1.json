@@ -1,0 +1,16 @@
+{
+  "schema_version": "openyggdrasil_tst_capability_snapshot.v1",
+  "snapshot_id": "tst-capability-snapshot-2026-05-10-p0",
+  "catalog_ref": "capabilities/defaults/registry/tst_capability_catalog.v1.json",
+  "catalog_sha256": "0b0aedee354d307d1514273c606858efb385a984309e5e4d676442923c09bf30",
+  "record_schema_ref": "capabilities/defaults/schema/tst_capability_record.schema.json",
+  "product_sot": true,
+  "cleanroom_references_are_product_sot": false,
+  "provider_installed_skill_is_projection": true,
+  "hard_nonclaims": [
+    "not_provider_installed_skill_source",
+    "not_anthropic_server_tool_search_tool",
+    "not_full_tool_catalog_loaded_into_worker_context",
+    "not_production_ready"
+  ]
+}

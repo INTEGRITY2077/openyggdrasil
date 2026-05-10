@@ -134,6 +134,152 @@ def _apply_domain_affinity(candidate: Mapping[str, Any], domains: set[str]) -> d
     return boosted
 
 
+def _clamp01(value: float) -> float:
+    return max(0.0, min(1.0, float(value)))
+
+
+def _candidate_search_text(candidate: Mapping[str, Any]) -> str:
+    values = [
+        candidate.get("node_id"),
+        candidate.get("source_path"),
+        candidate.get("source_ref"),
+        candidate.get("origin_locator"),
+        candidate.get("community_id"),
+        candidate.get("ring_id"),
+        candidate.get("evidence_class"),
+    ]
+    values.extend(candidate.get("supporting_generators") or [])
+    return " ".join(str(value or "").lower() for value in values)
+
+
+def _specificity_terms(query_text: str) -> list[str]:
+    terms = _query_terms(query_text)
+    specific: list[str] = []
+    for term in terms:
+        if len(term) >= 12 or "-" in term or "://" in term or any(char.isdigit() for char in term):
+            specific.append(term)
+    return specific
+
+
+def _term_overlap_score(terms: Sequence[str], text: str) -> float:
+    normalized = text.lower()
+    unique = [term for term in dict.fromkeys(str(term).lower() for term in terms) if term]
+    if not unique:
+        return 0.0
+    hits = sum(1 for term in unique if term in normalized)
+    return _clamp01(hits / len(unique))
+
+
+def _candidate_feature_vector(
+    candidate: Mapping[str, Any],
+    *,
+    query_text: str,
+    domains: set[str],
+) -> dict[str, Any]:
+    text = _candidate_search_text(candidate)
+    terms = _query_terms(query_text)
+    specific_terms = _specificity_terms(query_text)
+    supporting = set(str(item) for item in (candidate.get("supporting_generators") or []) if str(item))
+    lifecycle = str(candidate.get("lifecycle_state") or "").upper()
+    source_present = bool(candidate.get("source_path") or candidate.get("source_ref"))
+    source_path_present = bool(candidate.get("source_path"))
+    evidence_class = str(candidate.get("evidence_class") or "")
+    matched_domains = list((candidate.get("domain_affinity") or {}).get("matched") or [])
+    conflicting_domains = list((candidate.get("domain_affinity") or {}).get("conflicting") or [])
+    raw_score_alignment = _clamp01(float(candidate.get("score") or 0.0) / 5.0)
+    specificity_overlap = _term_overlap_score(specific_terms, text) if specific_terms else 1.0
+    if specific_terms and specificity_overlap <= 0.0 and raw_score_alignment > 0.0:
+        specificity_overlap = 0.2
+    return {
+        "schema_version": "candidate_feature_vector.v1",
+        "lexical_score": _clamp01(float(candidate.get("score") or 0.0) / 10.0),
+        "topology_score": _clamp01(
+            (0.35 if candidate.get("community_id") else 0.0)
+            + (0.35 if candidate.get("ring_id") else 0.0)
+            + (0.30 if "edge" in supporting or "community" in supporting else 0.0)
+        ),
+        "provenance_score": _clamp01(
+            (0.45 if candidate.get("source_ref") else 0.0)
+            + (0.35 if source_path_present else 0.0)
+            + (0.20 if evidence_class == "provenance" else 0.0)
+        ),
+        "freshness_score": 1.0 if lifecycle == "ACTIVE" else (0.0 if lifecycle in {"STALE", "SUPERSEDED"} else 0.35),
+        "query_alignment_score": max(
+            _term_overlap_score(terms, text),
+            raw_score_alignment,
+            1.0 if domains and matched_domains else 0.0,
+        ),
+        "source_integrity_score": _clamp01(
+            (0.55 if source_present else 0.0)
+            + (0.25 if candidate.get("line_range") else 0.0)
+            + (0.20 if evidence_class in STRONG_EVIDENCE else 0.0)
+        ),
+        "consensus_score": _clamp01(len(supporting) / max(len(GENERATOR_ORDER), 1)),
+        "specificity_score": specificity_overlap,
+        "contamination_penalty": _clamp01(0.35 * len(conflicting_domains)),
+        "missing_evidence_penalty": 0.0 if source_present else 1.0,
+    }
+
+
+def _candidate_reranker(candidate: Mapping[str, Any], features: Mapping[str, Any]) -> dict[str, Any]:
+    reason_codes: list[str] = []
+    lifecycle = str(candidate.get("lifecycle_state") or "").upper()
+    if not (candidate.get("source_path") or candidate.get("source_ref")):
+        reason_codes.append("missing_source_ref_or_source_path")
+    if lifecycle in {"STALE", "SUPERSEDED"}:
+        reason_codes.append(f"lifecycle_{lifecycle.lower()}")
+    if candidate.get("evidence_class") == "typed_unavailable":
+        reason_codes.append("typed_unavailable_candidate")
+    if float(features.get("specificity_score") or 0.0) <= 0.0:
+        reason_codes.append("near_miss_specificity_marker_mismatch")
+    if float(features.get("query_alignment_score") or 0.0) <= 0.0:
+        reason_codes.append("missing_query_alignment")
+
+    weighted = (
+        0.16 * float(features.get("lexical_score") or 0.0)
+        + 0.14 * float(features.get("topology_score") or 0.0)
+        + 0.20 * float(features.get("provenance_score") or 0.0)
+        + 0.10 * float(features.get("freshness_score") or 0.0)
+        + 0.18 * float(features.get("query_alignment_score") or 0.0)
+        + 0.12 * float(features.get("source_integrity_score") or 0.0)
+        + 0.05 * float(features.get("consensus_score") or 0.0)
+        + 0.05 * float(features.get("specificity_score") or 0.0)
+        - 0.20 * float(features.get("contamination_penalty") or 0.0)
+        - 0.25 * float(features.get("missing_evidence_penalty") or 0.0)
+    )
+    return {
+        "schema_version": "candidate_reranker.v1",
+        "score_model": "deterministic_feature_weighted_v1",
+        "embedding_rerank_status": "optional_not_used",
+        "final_score": _clamp01(weighted),
+        "hard_gate_results": {
+            "answer_support_allowed": not reason_codes,
+            "reason_codes": reason_codes,
+            "hard_gate_precedes_score": True,
+        },
+        "selected_or_rejected": "pending",
+        "rejection_reason": None,
+    }
+
+
+def _rerank_candidates(
+    candidates: Sequence[Mapping[str, Any]],
+    *,
+    query_text: str,
+    domains: set[str],
+) -> list[dict[str, Any]]:
+    reranked: list[dict[str, Any]] = []
+    for raw in candidates:
+        candidate = dict(raw)
+        features = _candidate_feature_vector(candidate, query_text=query_text, domains=domains)
+        reranker = _candidate_reranker(candidate, features)
+        candidate["candidate_feature_vector"] = features
+        candidate["candidate_reranker"] = reranker
+        candidate["score"] = reranker["final_score"]
+        reranked.append(candidate)
+    return sorted(reranked, key=lambda item: float(item.get("score") or 0.0), reverse=True)
+
+
 def _source_path_for_node(node: Mapping[str, Any]) -> str | None:
     metadata = node.get("metadata") if isinstance(node.get("metadata"), Mapping) else {}
     for raw in (
@@ -555,8 +701,13 @@ def _evaluate_candidates(candidates: Sequence[Mapping[str, Any]], *, max_selecte
     for raw in candidates:
         candidate = dict(raw)
         reason = None
+        reranker = candidate.get("candidate_reranker") if isinstance(candidate.get("candidate_reranker"), Mapping) else {}
+        hard_gate = reranker.get("hard_gate_results") if isinstance(reranker.get("hard_gate_results"), Mapping) else {}
+        hard_gate_reasons = list(hard_gate.get("reason_codes") or [])
         strong_route_already = any(item.get("evidence_class") in STRONG_EVIDENCE for item in selected)
-        if candidate.get("evidence_class") == "typed_unavailable":
+        if hard_gate.get("answer_support_allowed") is False:
+            reason = str(hard_gate_reasons[0] if hard_gate_reasons else "hard_gate_rejected")
+        elif candidate.get("evidence_class") == "typed_unavailable":
             reason = "typed_unavailable"
         elif candidate.get("lifecycle_state") in {"SUPERSEDED", "STALE"}:
             reason = f"lifecycle_{str(candidate.get('lifecycle_state')).lower()}"
@@ -570,11 +721,19 @@ def _evaluate_candidates(candidates: Sequence[Mapping[str, Any]], *, max_selecte
 
         if reason is None:
             candidate["rejection_reason"] = None
+            if isinstance(candidate.get("candidate_reranker"), Mapping):
+                candidate["candidate_reranker"] = dict(candidate["candidate_reranker"])
+                candidate["candidate_reranker"]["selected_or_rejected"] = "selected"
+                candidate["candidate_reranker"]["rejection_reason"] = None
             selected.append(candidate)
             if route_key:
                 selected_route_keys.add(route_key)
         else:
             candidate["rejection_reason"] = reason
+            if isinstance(candidate.get("candidate_reranker"), Mapping):
+                candidate["candidate_reranker"] = dict(candidate["candidate_reranker"])
+                candidate["candidate_reranker"]["selected_or_rejected"] = "rejected"
+                candidate["candidate_reranker"]["rejection_reason"] = reason
             rejected.append(candidate)
     return selected, rejected
 
@@ -804,7 +963,8 @@ def build_ptc_retrieval_orchestrator_result(
 
     all_candidates = [_apply_domain_affinity(candidate, domain_hints) for candidate in all_candidates]
     merged = _merge_candidates(all_candidates)
-    selected, rejected = _evaluate_candidates(merged)
+    reranked = _rerank_candidates(merged, query_text=query_text, domains=domain_hints)
+    selected, rejected = _evaluate_candidates(reranked)
     coverage_state = _coverage_state(selected, rejected)
     selected_ids = [str(candidate["candidate_id"]) for candidate in selected]
     rejected_ids = [str(candidate["candidate_id"]) for candidate in rejected]
@@ -825,7 +985,26 @@ def build_ptc_retrieval_orchestrator_result(
         "generated_at": utc_now_iso(),
         "generators_attempted": list(GENERATOR_ORDER),
         "generator_reports": generator_reports,
-        "merge_strategy": "dedupe_by_ring_node_source_then_rank",
+        "merge_strategy": "dedupe_by_ring_node_source_then_feature_rerank",
+        "reranker_policy": {
+            "schema_version": "candidate_reranker_policy.v1",
+            "candidate_feature_vector_schema": "candidate_feature_vector.v1",
+            "candidate_reranker_schema": "candidate_reranker.v1",
+            "score_components": [
+                "lexical_score",
+                "topology_score",
+                "provenance_score",
+                "freshness_score",
+                "query_alignment_score",
+                "source_integrity_score",
+                "consensus_score",
+                "specificity_score",
+                "contamination_penalty",
+                "missing_evidence_penalty",
+            ],
+            "hard_gate_precedes_score": True,
+            "embedding_reranking": "optional_future_feature_cannot_override_provenance_gate",
+        },
         "candidates": selected + rejected,
         "selected_candidate_ids": selected_ids,
         "rejected_candidate_ids": rejected_ids,
