@@ -126,6 +126,12 @@ def run_producer(mailbox: Path, vault: Path):
                 source_ref_status=result.get("source_ref_status"),
                 reason=result.get("reason"),
                 tst_capability_supervisor=tst_capability_supervisor,
+                worker_judgment=_memory_saver_judgment(
+                    intent="memory_ticket",
+                    status=status,
+                    nodes=nodes,
+                    reason=result.get("reason"),
+                ),
                 producer_pid=os.getpid(),
             )
             deliver_receipt(
@@ -237,6 +243,12 @@ def run_producer(mailbox: Path, vault: Path):
                         or result.get("tst_supervisor")
                     ),
                     reason=result.get("status"),
+                    worker_judgment=_memory_saver_judgment(
+                        intent="save_ptc",
+                        status=status,
+                        nodes=nodes,
+                        reason=result.get("status"),
+                    ),
                 )
                 deliver_receipt(
                     mailbox,
@@ -270,6 +282,12 @@ def run_producer(mailbox: Path, vault: Path):
                         ptc_stderr=(result.get("stderr", "") or "")[:500],
                         ptc_status=result.get("status"),
                         ptc_exit=result.get("exit_code"),
+                        worker_judgment=_memory_saver_judgment(
+                            intent="save_ptc_compat",
+                            status="acknowledged",
+                            nodes=["ptc-save"] if nodes_produced else [],
+                            reason=result.get("status"),
+                        ),
                     )
                     deliver_receipt(mailbox, msg["mail_id"], status="delivered", produced_count=nodes_produced)
             continue
@@ -345,6 +363,11 @@ def run_producer(mailbox: Path, vault: Path):
             status="acknowledged",
             produced_count=len(nodes),
             nodes=nodes,
+            worker_judgment=_memory_saver_judgment(
+                intent="save",
+                status="acknowledged",
+                nodes=nodes,
+            ),
             producer_pid=os.getpid(),
         )
 
@@ -362,6 +385,50 @@ def run_producer(mailbox: Path, vault: Path):
     last_curation = _read_last_curation(mailbox)
     if _days_since(last_curation) >= 7:
         _run_hygiene_check(mailbox, vault)
+
+
+def _memory_saver_judgment(*, intent: str, status: str, nodes: list, reason: object = None) -> dict:
+    """Provider-safe worker judgment summary for MS receipts."""
+    produced_count = len(nodes or [])
+    success = status in {"acknowledged", "completed"} and produced_count > 0
+    return {
+        "schema_version": "worker_judgment.v1",
+        "worker_role": "memory_saver",
+        "small_goal": (
+            "decide whether the Save Request has enough durable evidence to become stored memory"
+        ),
+        "todo": [
+            "check source and intent evidence",
+            "run the role-scoped save/provenance path",
+            "inspect produced node and receipt evidence",
+            "close as storage_receipt or typed_unavailable",
+        ],
+        "success_evidence": [
+            "produced_count > 0",
+            "node ids are present",
+            "Result Receipt was written",
+        ],
+        "failure_conditions": [
+            "no durable save candidate",
+            "source/provenance evidence missing",
+            "produced_count is zero",
+            "requested and saved cannot be distinguished",
+        ],
+        "observation": {
+            "intent": intent,
+            "status": status,
+            "produced_count": produced_count,
+            "node_count": len(nodes or []),
+            "reason": str(reason or ""),
+        },
+        "judgment": "success" if success else "typed_unavailable",
+        "close_decision": "storage_receipt" if success else "typed_unavailable_no_storage_evidence",
+        "hard_nonclaims": [
+            "delivery_is_not_storage_success",
+            "pane_text_is_not_storage_success",
+            "storage_receipt_is_not_semantic_truth",
+        ],
+    }
 
     # P1 피드백 루프: Gardener receipts -> prune/curate intent 발행
     feedback_stats = _run_feedback_loop(mailbox)

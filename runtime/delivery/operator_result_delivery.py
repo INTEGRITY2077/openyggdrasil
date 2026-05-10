@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -71,6 +73,183 @@ def _append_postman_observation(
     append_jsonl(mailbox / "postman_observations.jsonl", row)
 
 
+def _worker_lane_session(mailbox: Path) -> str | None:
+    name = mailbox.name.upper()
+    if not name.startswith("OP"):
+        return None
+    try:
+        index = int(name[2:])
+    except ValueError:
+        return None
+    if index < 1:
+        return None
+    unit = (index + 1) // 2
+    return f"ygg-ms{unit}" if index % 2 == 1 else f"ygg-mf{unit}"
+
+
+def _support_counts(bundle: dict[str, Any] | None) -> tuple[int, int]:
+    if not isinstance(bundle, dict):
+        return 0, 0
+    facts = bundle.get("support_facts")
+    paths = bundle.get("source_paths")
+    nested = bundle.get("support_bundle")
+    if isinstance(nested, dict):
+        facts = facts or nested.get("support_facts")
+        paths = paths or nested.get("source_paths")
+    return (
+        len(facts) if isinstance(facts, list) else 0,
+        len(paths) if isinstance(paths, list) else 0,
+    )
+
+
+def _support_fact_text(fact: Any) -> str:
+    if isinstance(fact, dict):
+        subject = fact.get("subject") or fact.get("title") or fact.get("claim") or ""
+        predicate = fact.get("predicate") or ""
+        obj = fact.get("object") or fact.get("summary") or fact.get("text") or ""
+        text = " ".join(str(part).strip() for part in [subject, predicate, obj] if str(part).strip())
+        return " ".join(text.split())
+    return " ".join(str(fact).split())
+
+
+def _support_summary(bundle: dict[str, Any] | None, *, limit: int = 240) -> str | None:
+    if not isinstance(bundle, dict):
+        return None
+    facts = bundle.get("support_facts")
+    nested = bundle.get("support_bundle")
+    if (not isinstance(facts, list) or not facts) and isinstance(nested, dict):
+        facts = nested.get("support_facts")
+    if not isinstance(facts, list):
+        return None
+    candidates = [_support_fact_text(fact) for fact in facts]
+    for text in candidates:
+        lowered = text.lower()
+        if "decision" in lowered or "determined" in lowered:
+            return text[:limit]
+    for text in candidates:
+        if text:
+            return text[:limit]
+    return None
+
+
+def _native_result_projection_text(
+    mailbox: Path,
+    *,
+    status: str,
+    produced_count: int,
+    node_count: int,
+    result_bundle: dict[str, Any] | None,
+) -> str:
+    role = "MS1 Memory Saver" if mailbox.name.upper() == "OP1" else "MF1 Memory Finder"
+    facts_count, paths_count = _support_counts(result_bundle)
+    support_summary = _support_summary(result_bundle)
+    if mailbox.name.upper().startswith("OP") and mailbox.name[2:].isdigit():
+        role_index = int(mailbox.name[2:])
+        unit = (role_index + 1) // 2
+        role = f"MS{unit} Memory Saver" if role_index % 2 == 1 else f"MF{unit} Memory Finder"
+    if produced_count > 0 or node_count > 0:
+        receipt_kind = "save receipt"
+        observation = f"produced_count={produced_count}, node_count={node_count}"
+        judgment = "enough for storage close if the mission was to save this candidate"
+    elif facts_count > 0 and paths_count > 0:
+        receipt_kind = "recall receipt"
+        observation = f"support_facts={facts_count}, source_paths={paths_count}"
+        judgment = "enough for recall close if these facts align with the requested topic"
+    else:
+        receipt_kind = "limited receipt"
+        observation = "durable evidence weak or unavailable"
+        judgment = "typed_unavailable unless another receipt supplies source-backed evidence"
+    return " | ".join(
+        item
+        for item in [
+            f"[{role} RESULT NOTE]",
+            "Postman matched the current mailbox work order to a result receipt.",
+            f"receipt kind: {receipt_kind}",
+            f"observation: {observation}",
+            f"support summary: {support_summary}" if support_summary else None,
+            f"judgment: {judgment}",
+            "SOT: Result Receipt / Evidence Pack; this pane is only the public projection.",
+        ]
+        if item
+    )
+
+
+def _project_native_result_note(
+    mailbox: Path,
+    *,
+    status: str,
+    produced_count: int,
+    node_count: int,
+    result_bundle: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if os.environ.get("OY_POSTMAN_NATIVE_RESULT_PROJECTION", "0") != "1":
+        return {"enabled": False, "written": False, "status": "disabled"}
+    session = _worker_lane_session(mailbox)
+    if not session:
+        return {"enabled": True, "written": False, "status": "no_worker_lane"}
+    target = f"{session}:1"
+    text = _native_result_projection_text(
+        mailbox,
+        status=status,
+        produced_count=produced_count,
+        node_count=node_count,
+        result_bundle=result_bundle,
+    )
+    try:
+        has_session = subprocess.run(
+            ["tmux", "has-session", "-t", session],
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+        if has_session.returncode != 0:
+            return {"enabled": True, "written": False, "status": "tmux_session_missing", "session": session}
+        wait_deadline = time.monotonic() + float(os.environ.get("OY_POSTMAN_NATIVE_RESULT_PROJECTION_IDLE_TIMEOUT", "180"))
+        while time.monotonic() < wait_deadline:
+            captured = subprocess.run(
+                ["tmux", "capture-pane", "-p", "-t", target, "-S", "-16"],
+                capture_output=True,
+                text=True,
+                timeout=3,
+            )
+            if captured.returncode == 0:
+                recent = [line.strip() for line in captured.stdout.splitlines()[-8:] if line.strip()]
+                prompt_mark = "\u276f"
+                separator_mark = "\u2500"
+                tail_is_prompt = bool(
+                    recent
+                    and (
+                        recent[-1] == prompt_mark
+                        or (
+                            len(recent) >= 2
+                            and recent[-1].startswith(separator_mark)
+                            and recent[-2] == prompt_mark
+                        )
+                    )
+                )
+                if tail_is_prompt and not any("msg=interrupt" in line for line in recent):
+                    break
+            time.sleep(1.0)
+        subprocess.run(
+            ["tmux", "send-keys", "-t", target, "-X", "cancel"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+        subprocess.run(["tmux", "set-buffer", text], check=True, capture_output=True, text=True, timeout=3)
+        subprocess.run(["tmux", "paste-buffer", "-t", target], check=True, capture_output=True, text=True, timeout=3)
+        subprocess.run(["tmux", "send-keys", "-t", target, "Enter"], check=True, capture_output=True, text=True, timeout=3)
+    except Exception as exc:  # noqa: BLE001 - result projection must never break receipt recording.
+        return {
+            "enabled": True,
+            "written": False,
+            "status": "projection_failed",
+            "session": session,
+            "reason": type(exc).__name__,
+        }
+    return {"enabled": True, "written": True, "status": "sent_to_native_pane", "session": session}
+
+
 def deliver_operator_result(
     mailbox: Path,
     mail_id: str,
@@ -133,6 +312,31 @@ def deliver_operator_result(
             produced_count=produced_count,
             node_ids=nodes,
         )
+    except OSError:
+        pass
+
+    try:
+        projection = _project_native_result_note(
+            mailbox,
+            status=status,
+            produced_count=produced_count,
+            node_count=len(nodes),
+            result_bundle=result_bundle,
+        )
+        if projection.get("enabled"):
+            append_jsonl(
+                mailbox / "postman_observations.jsonl",
+                {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "sender": "Postman",
+                    "receiver": mailbox.name,
+                    "mail_id": mail_id,
+                    "delivery_mode": "native_worker_result_projection",
+                    "delivery_owner": "postman",
+                    "projection": projection,
+                    "hard_nonclaim": "pane_note_is_not_semantic_truth",
+                },
+            )
     except OSError:
         pass
 

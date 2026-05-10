@@ -8,6 +8,7 @@ fallback when the orchestrator is unavailable.
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import subprocess
 import sys
@@ -63,6 +64,54 @@ try:
 except ImportError as exc:
     log_event("optional_import_unavailable", module="runtime.ptc.sandbox_executor", reason=str(exc))
     _ptc_exec = None
+
+
+def _support_facts_and_paths(bundle: dict) -> tuple[list, list]:
+    nested = bundle.get("support_bundle") if isinstance(bundle.get("support_bundle"), dict) else {}
+    facts = bundle.get("support_facts") or nested.get("support_facts") or []
+    paths = bundle.get("source_paths") or nested.get("source_paths") or []
+    return list(facts or []), list(paths or [])
+
+
+def _memory_finder_judgment(*, query_text: str, bundle: dict, status: str) -> dict:
+    """Provider-safe worker judgment summary for MF receipts."""
+    facts, paths = _support_facts_and_paths(bundle if isinstance(bundle, dict) else {})
+    success = status == "completed" and bool(facts) and bool(paths)
+    return {
+        "schema_version": "worker_judgment.v1",
+        "worker_role": "memory_finder",
+        "small_goal": "decide whether the Find Request has aligned source-backed support",
+        "todo": [
+            "identify the recall target",
+            "run the role-scoped bounded recall path",
+            "inspect support facts and source refs",
+            "close as support_bundle or typed_unavailable",
+        ],
+        "success_evidence": [
+            "support_facts are present",
+            "source refs or source paths are present",
+            "Result Receipt was written",
+        ],
+        "failure_conditions": [
+            "no aligned support",
+            "source refs are missing",
+            "candidate is stale or misaligned",
+            "similarity match exists without evidence",
+        ],
+        "observation": {
+            "query_hash": hashlib.sha256(str(query_text or "").encode("utf-8")).hexdigest()[:12],
+            "status": status,
+            "support_fact_count": len(facts),
+            "source_path_count": len(paths),
+        },
+        "judgment": "success" if success else "typed_unavailable",
+        "close_decision": "support_bundle" if success else "typed_unavailable_no_support",
+        "hard_nonclaims": [
+            "candidate_match_is_not_support",
+            "pane_text_is_not_recall_success",
+            "support_bundle_is_not_full_topology_proof",
+        ],
+    }
 
 
 def _bm25_search_vault(vault: Path, query: str, top_k: int = 20) -> list[dict] | None:
@@ -311,6 +360,11 @@ def run_consumer(mailbox: Path, vault: Path):
                         msg["mail_id"],
                         status="completed",
                         bundle=bundle,
+                        worker_judgment=_memory_finder_judgment(
+                            query_text=query_text,
+                            bundle=bundle,
+                            status="completed",
+                        ),
                         consumer_pid=os.getpid(),
                         delivery_id=receipt_delivery_id,
                     )
@@ -319,18 +373,24 @@ def run_consumer(mailbox: Path, vault: Path):
                 except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                     log_event("ptc_retrieval_orchestrator_skip", reason=type(exc).__name__)
             stdout = (ptc_result.get("stdout", "") or "")[:3000] if ptc_result else ""
+            degraded_bundle = {
+                "ptc_stdout": stdout,
+                "mode": "ptc_degraded_stdout_only",
+                "typed_unavailable": {
+                    "schema_version": "typed_unavailable.v1",
+                    "reason_code": "ptc_support_bundle_derivation_unavailable",
+                },
+            }
             write_operator_receipt(
                 receipts_file,
                 msg["mail_id"],
                 status="completed",
-                bundle={
-                    "ptc_stdout": stdout,
-                    "mode": "ptc_degraded_stdout_only",
-                    "typed_unavailable": {
-                        "schema_version": "typed_unavailable.v1",
-                        "reason_code": "ptc_support_bundle_derivation_unavailable",
-                    },
-                },
+                bundle=degraded_bundle,
+                worker_judgment=_memory_finder_judgment(
+                    query_text=query_text,
+                    bundle=degraded_bundle,
+                    status="completed",
+                ),
                 consumer_pid=os.getpid(),
                 delivery_id=receipt_delivery_id,
             )
@@ -353,6 +413,11 @@ def run_consumer(mailbox: Path, vault: Path):
                     msg["mail_id"],
                     status="completed",
                     bundle=bundle,
+                    worker_judgment=_memory_finder_judgment(
+                        query_text=query_text,
+                        bundle=bundle,
+                        status="completed",
+                    ),
                     consumer_pid=os.getpid(),
                     delivery_id=receipt_delivery_id,
                 )
@@ -422,6 +487,11 @@ def run_consumer(mailbox: Path, vault: Path):
             msg["mail_id"],
             status="completed",
             bundle=bundle,
+            worker_judgment=_memory_finder_judgment(
+                query_text=query_text,
+                bundle=bundle,
+                status="completed",
+            ),
             consumer_pid=os.getpid(),
             delivery_id=receipt_delivery_id,
         )
