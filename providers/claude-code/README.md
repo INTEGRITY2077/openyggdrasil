@@ -3,9 +3,13 @@
 `providers/claude-code/` documents the Claude Code attachment and packaging
 baseline.
 
-The public repository owns the openyggdrasil attachment contract and skill
-deployment target. It does not copy, vendor, translate, or mechanically port
-Claude Code implementation source.
+The public repository owns the openyggdrasil attachment contract and the
+provider projection target. It does not copy, vendor, translate, or
+mechanically port Claude Code implementation source.
+
+The provider-native skill target is an install/projection target, not the
+repo-managed Skill/MCP lifecycle source. Capability source and selection
+metadata belong under `capabilities/` when that lifecycle is implemented.
 
 ## Public Baseline
 
@@ -14,6 +18,9 @@ Claude Code implementation source.
 - deploy/helper surface: `runtime/attachments/deploy_skill.py`
 - machine-readable baseline:
   `contracts/claude_code_provider_packaging_baseline.v1.schema.json`
+
+The skill target above must be tied back to a repo capability snapshot and
+deployment receipt before it is considered managed.
 
 ## Required Contracts
 

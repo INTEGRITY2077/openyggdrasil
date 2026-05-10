@@ -83,6 +83,14 @@ TMUX pane은 이 의사결정 표면을 사람이 보는 live witness일 뿐 SOT
 
 Worker summary, mailbox receipt, Graphify community signal은 도움이 되는 근거지만 단독 SOT가 아닙니다. POC PASS도 그 POC가 검증한 범위만 승격합니다.
 
+SKILL/MCP 관리 경계:
+
+- SKILL, MCP, tool, TST worker manual의 원본 관리는 [`capabilities/`](capabilities/README.md) 아래에 둡니다.
+- Hermes `~/.hermes/skills/openyggdrasil-*` 같은 Provider 로컬 파일은 사용자 환경에 설치된 projection/install artifact입니다. 다른 사용자에게 배포할 원본이 아닙니다.
+- 관리되는 설치는 repo capability source, 검증된 snapshot, provider projection, user-local install, deployment receipt, drift check, rollback target으로 추적되어야 합니다.
+- 기본 설정은 setup skill 또는 installer가 자동으로 구성해야 합니다. 사용자가 원하면 active capability root를 local/external root로 바꿀 수 있지만, 그 root도 검증과 receipt를 통과해야 합니다.
+- 현재 `capabilities/` 문서는 관리 계약입니다. all-user install/update/rollback 명령이 이미 구현되었다는 뜻은 아닙니다.
+
 이 README에서 사용자에게 먼저 노출하는 표준 용어:
 
 | 용어 | 의미 | 내부/호환 이름 |
@@ -171,6 +179,11 @@ cleanup 검증에 묶여야 합니다. 이는 아직 production-ready 보장이 
 - 에이전트의 스킬 설정을 `SKILL.md`의 절대 경로로 지정합니다.
 - 에이전트가 이 계약을 읽으면, 메모리 검색 및 캡처를 위한 정확한 진입점,
   명령 형태, 경계를 파악합니다.
+
+`SKILL.md`는 provider bootstrap/attachment 계약입니다. 모든 SKILL, MCP,
+tool, TST worker manual의 생명주기 원본은 아닙니다. capability 생명주기
+원본은 [`capabilities/`](capabilities/README.md) 아래에 두며, provider에
+설치되는 skill 파일은 해당 원본에서 파생되는 projection이어야 합니다.
 
 Provider-first 콜드스타트 규칙:
 
@@ -864,11 +877,14 @@ Postman/Mailbox(JSONL 파일시스템)만이 정본 작업 채널입니다. Post
 |---|---|---|
 | 성격 | **정적** 리마인더 | **동적** 작업 접수와 상태 원장 |
 | 역할 | Memory Worker의 존재와 경계를 알려줌 | work order, work history, Result Receipt를 통해 현재 상태를 전달 |
-| 한계 | 최신 상태를 알 수 없음 | 의미 품질을 자동 보증하지 않음 |
+| 한계 | 최신 상태를 알 수 없고 capability 생명주기 SOT가 아님 | 의미 품질을 자동 보증하지 않음 |
 
 SKILL만으로는 프로바이더가 "내 Memory Worker가 살아있나? 뭘 처리했나?"를 알 수 없습니다.
 프로바이더가 약결합된 Memory Worker의 상태를 인지하는 정본 채널은 **Postman/Mailbox work_order/history/receipt**이므로,
 **Mailbox와 Postman history의 위생 상태(Hygiene)가 전체 시스템의 건강을 결정합니다.**
+
+capability 선택과 skill 진화는 Provider-facing bootstrap skill을 직접
+부풀리거나 수정하는 방식이 아니라, repo-managed capability record와 snapshot으로 관리해야 합니다.
 
 ### 생산면 — "무엇을 기억할 것인가"
 
@@ -1119,7 +1135,7 @@ Reasoning Lease 경계를 필요로 합니다. 이것은 full PTC kitchen이 pro
 
 캡처 신호가 시스템에 들어오면, 이를 자동화된 블랙박스에 그대로 넘기지 않습니다. 이 과정은 프로바이더 세션과 Memory Worker Session의 역할 분담으로 처리됩니다:
 
-1. **초기 맥락 인지 (프로바이더 어댑터 / 워커):** 프로바이더 어댑터나 워커가 `SKILL.md`를 참고하여 기억해야 할 맥락을 라우팅합니다. 근거가 있을 때에만 `surface_reason`과 `source_ref`가 포함된 초기 신호(Session Structure Signal)를 구성해 OpenYggdrasil 런타임에 주입해야 합니다.
+1. **초기 맥락 인지 (프로바이더 어댑터 / 워커):** 프로바이더 어댑터나 워커가 bootstrap `SKILL.md`를 참고하여 기억해야 할 맥락을 라우팅합니다. 근거가 있을 때에만 `surface_reason`과 `source_ref`가 포함된 초기 신호(Session Structure Signal)를 구성해 OpenYggdrasil 런타임에 주입해야 합니다. 역할별 worker manual과 Tool Search / PTC capability 선택은 Provider bootstrap skill을 부풀리는 방식이 아니라 repo-managed capability record로 관리해야 합니다.
 2. **심층 구조화 (Memory Worker Session):** 목표 흐름에서 런타임은 이 의뢰를 프로바이더 어댑터의 추론 임대(Reasoning Lease) 경계로 받고 Memory Worker Session을 스폰합니다. Memory Worker Session은 고정된 파이프라인이나 단일 모듈이 아니라, **부여된 작업 계약(Task Contract)에 따라 역할을 바꾸는 다면기(Role-Polymorphic Leased Executor)** 개념입니다.
 
 Memory Worker Session은 PTC(Programmatic Tool Calling) 본질에 맞게, Memory Saver/Finder 역할을 수행하기 위해 **ygg가 생성한 템플릿 코드를 bwrap 샌드박스에서 실행**할 수 있습니다. 현재 안전한 목표는 26종 도구를 한 표면에 섞어 두는 것이 아닙니다. production kitchen과 consumption kitchen을 분리하고 역할별 allowlist와 typed egress를 강제해야 합니다.
@@ -1637,6 +1653,7 @@ fail-closed로 닫혀야 합니다.
 
 ```
 openyggdrasil/
+├── capabilities/       # SKILL/MCP/tool/TST 생명주기 원본과 projection 계획
 ├── contracts/          # JSON 스키마 — 모듈 간 API
 ├── runtime/
 │   ├── admission/      # Checkpoint, Seedkeeper, Amundsen 핸드오프

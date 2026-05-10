@@ -91,6 +91,22 @@ Hard nonclaims:
 - Hermes-specific evidence does not automatically prove provider-neutral behavior.
 - `ygg`, MS1/MF1 (legacy OP1/OP2), attach, and talk commands must not be assumed to exist before setup verifies them.
 
+Skill/MCP capability management:
+
+- Repo-managed Skill, MCP, tool, and TST worker-manual source belongs under
+  [`capabilities/`](capabilities/README.md).
+- Provider-local skill files, including Hermes `~/.hermes/skills/openyggdrasil-*`,
+  are user-local projection/install artifacts. They are not the release source
+  for other users.
+- A managed install must be traceable from repo capability source to validated
+  snapshot, provider projection, user-local install, deployment receipt, drift
+  check, and rollback target.
+- Default setup should be automatic through the setup skill or installer. A
+  user may later switch the active capability root to a local or external root,
+  but that root must still validate and produce receipts.
+- Current `capabilities/` documentation is a management contract, not proof
+  that all-user install/update/rollback commands already exist.
+
 <a id="why"></a>
 
 ## Why This Exists
@@ -344,6 +360,12 @@ openyggdrasil is designed to operate as a session-scoped skill attached to your 
 Providers attach to openyggdrasil by reading the **`SKILL.md`** manifest at the repository root. To initiate the connection:
 - Point your agent's skill configuration to the absolute path of `SKILL.md`.
 - The agent reads this contract, which defines the declared entrypoints, command shapes, and boundaries for memory retrieval and capture.
+
+`SKILL.md` is the provider bootstrap/attachment contract. It is not the
+repo-managed lifecycle source for all Skill, MCP, tool, or TST worker-manual
+capabilities. Capability lifecycle source belongs under
+[`capabilities/`](capabilities/README.md); provider-installed skill files are
+projections derived from that source when the deployment path is implemented.
 
 Provider-first cold-start rule:
 
@@ -761,11 +783,16 @@ Postman/Mailbox (JSONL filesystem) is the canonical work channel. Postman accept
 |---|---|---|
 | Nature | **Static** reminder | **Dynamic** state awareness channel |
 | Role | Announces the memory worker's existence | Conveys the operator's current state |
-| Limitation | Cannot tell current state | — |
+| Limitation | Cannot tell current state and is not the capability lifecycle SOT | — |
 
 SKILL alone cannot tell a provider "Is my operator alive? What has it processed?"
 The **only channel** for a provider to be aware of its loosely-coupled memory worker's state is the Mailbox.
 **Therefore, Mailbox Hygiene determines overall system health.**
+
+Capability selection and skill evolution must be governed by repo-managed
+capability records and snapshots, not by editing the Provider-facing bootstrap
+skill in place.
+
 ### Production Side — "What to remember"
 
 The production pipeline doesn't blindly store everything. It **distills**
@@ -1013,7 +1040,7 @@ When this need is explicitly detected or routed, the Provider Lane should avoid 
 
 When a capture signal enters the system, it is not blindly handed off to an automated black box. This process is divided between the Provider Session and a dynamically leased Memory Worker Session:
 
-1. **Initial Context Recognition (Provider Adapter / Worker)**: The provider adapter or worker reads `SKILL.md` to route contexts worth remembering. It should construct an initial signal (`Session Structure Signal` containing `surface_reason` and `source_ref`) and inject it into the OpenYggdrasil runtime only when evidence is available.
+1. **Initial Context Recognition (Provider Adapter / Worker)**: The provider adapter or worker reads the bootstrap `SKILL.md` to route contexts worth remembering. It should construct an initial signal (`Session Structure Signal` containing `surface_reason` and `source_ref`) and inject it into the OpenYggdrasil runtime only when evidence is available. Role-specific worker manuals and Tool Search / PTC capability selection are governed by repo-managed capability records, not by expanding the Provider bootstrap skill in place.
 2. **Deep Structuring (Memory Worker Session)**: In the target flow, the runtime receives this request through the provider adapter's Reasoning Lease boundary and spawns a Memory Worker Session. This Memory Worker Session is **not** meant to be a fixed pipeline sequence. It is a **Role-Polymorphic Leased Executor** concept assigned specifically to knowledge production roles (Distiller, Evaluator, Amundsen, Gardener).
 
 True to the nature of PTC, the Memory Worker Session can **execute template code inside a bwrap sandbox** for its Memory Saver/Finder role. The safe target is not to mix all 26 tools into one surface, but to split production and consumption kitchens and enforce role-specific allowlists plus typed egress.
@@ -1392,6 +1419,7 @@ The Reasoning Lease should run in an unprivileged sandbox via the mandatory depe
 
 ```
 openyggdrasil/
+├── capabilities/       # Planned Skill/MCP/tool/TST lifecycle source and projections
 ├── contracts/          # JSON schemas — the API between modules
 ├── runtime/
 │   ├── admission/      # Checkpoint, Seedkeeper, Amundsen handoff
