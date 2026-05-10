@@ -52,6 +52,13 @@ from .tool_search_supervisor import (
     load_tst_capability_catalog,
     run_memory_saver_tst,
 )
+from .worker_program_contracts import (
+    build_observation_delta_gate,
+    build_ptc_program_observation,
+    build_tst_capability_allowlist,
+    build_worker_authored_ptc_program,
+    review_ptc_program,
+)
 
 __all__ = [
     "CLAIM_SCOPE",
@@ -93,4 +100,9 @@ __all__ = [
     "build_memory_finder_tst_result",
     "load_tst_capability_catalog",
     "run_memory_saver_tst",
+    "build_observation_delta_gate",
+    "build_ptc_program_observation",
+    "build_tst_capability_allowlist",
+    "build_worker_authored_ptc_program",
+    "review_ptc_program",
 ]

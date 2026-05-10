@@ -327,7 +327,7 @@ def _hard_nonclaims() -> dict[str, bool]:
 
 
 def build_korean_query_expansion_metadata(query: str, *, max_expansions: int = 16) -> dict[str, Any]:
-    """Build provider/OP2-visible metadata for secondary Hangul recall signals."""
+    """Build provider/MF-visible metadata for secondary Hangul recall signals."""
     expanded = expand_korean_query(query, max_expansions=max_expansions)
     metadata = {
         "schema_version": "korean_query_expansion.v1",

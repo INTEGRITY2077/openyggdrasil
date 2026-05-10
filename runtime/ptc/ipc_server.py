@@ -23,9 +23,73 @@ import threading
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Iterable
 
 
 _primitives_cache = None
+
+
+PTC_METHOD_ALLOWLIST_SCHEMA_VERSION = "ptc_method_allowlist.v1"
+
+READ_ONLY_METHODS = frozenset(
+    {
+        "load_vault",
+        "search_vault_by_keyword",
+        "search_vault_bm25",
+        "load_edges",
+        "get_node",
+        "find_similar",
+        "suggest_placement",
+        "get_category_tree",
+        "check_conflicts",
+        "deep_search",
+        "trace_evolution",
+        "get_community",
+        "rank_by_relevance",
+        "extract_spo",
+        "validate_node",
+        "locate_region",
+        "select_topic_anchor",
+        "read_origin_claims",
+        "read_recent_claims",
+        "collect_claim_ids",
+        "read_source_paths",
+        "assemble_support_bundle",
+        "assemble_unanchored_bundle",
+    }
+)
+WRITE_METHODS = frozenset({"save_vault_note", "create_edge"})
+DESTRUCTIVE_METHODS = frozenset({"prune_node"})
+
+CALLER_METHOD_ALLOWLISTS = {
+    "memory_finder": READ_ONLY_METHODS
+    - {"extract_spo", "validate_node", "suggest_placement", "check_conflicts"},
+    "memory_saver": READ_ONLY_METHODS | WRITE_METHODS,
+    "postman": frozenset(),
+    "provider": frozenset(),
+    "legacy_compat": READ_ONLY_METHODS | WRITE_METHODS | DESTRUCTIVE_METHODS,
+}
+
+
+def allowed_methods_for_caller(caller: str, allowed_methods: Iterable[str] | None = None) -> frozenset[str]:
+    if allowed_methods is not None:
+        return frozenset(str(method) for method in allowed_methods if str(method).strip())
+    return CALLER_METHOD_ALLOWLISTS.get(str(caller or "legacy_compat"), CALLER_METHOD_ALLOWLISTS["legacy_compat"])
+
+
+def _method_not_allowed(method: str, caller: str, allowed_methods: Iterable[str]) -> dict:
+    return {
+        "schema_version": "typed_unavailable.v1",
+        "status": "typed_unavailable",
+        "reason_code": "ptc_method_not_allowed_for_caller",
+        "blocked_stage": "ptc_ipc_dispatch",
+        "method": method,
+        "caller": caller,
+        "allowlist_schema_version": PTC_METHOD_ALLOWLIST_SCHEMA_VERSION,
+        "allowed_methods": sorted(str(item) for item in allowed_methods),
+        "raw_provider_material_included": False,
+        "fabricated_answer": False,
+    }
 
 
 def _load_primitives():
@@ -322,7 +386,18 @@ def _ptc_assemble_unanchored_bundle(query_text):
         return {"error": str(e), "method": "assemble_unanchored_bundle"}
 
 
-def _dispatch(method: str, kwargs: dict, vault: Path) -> dict:
+def _dispatch(
+    method: str,
+    kwargs: dict,
+    vault: Path,
+    *,
+    caller: str = "legacy_compat",
+    allowed_methods: Iterable[str] | None = None,
+) -> dict:
+    active_allowed = allowed_methods_for_caller(caller, allowed_methods)
+    if method not in active_allowed:
+        return _method_not_allowed(method, caller, active_allowed)
+
     p = _load_primitives()
     load_vault, save_to_vault, _, _, _, search_bm25, build_vault_node, load_edges, _, _ = p
 
@@ -415,10 +490,20 @@ def _dispatch(method: str, kwargs: dict, vault: Path) -> dict:
 # ─── IPC Server ───
 
 class PTCIpcServer:
-    def __init__(self, socket_path: str, vault: Path, timeout: float = 120):
+    def __init__(
+        self,
+        socket_path: str,
+        vault: Path,
+        timeout: float = 120,
+        *,
+        caller: str = "legacy_compat",
+        allowed_methods: Iterable[str] | None = None,
+    ):
         self.socket_path = socket_path
         self.vault = vault
         self.timeout = timeout
+        self.caller = str(caller or "legacy_compat")
+        self.allowed_methods = allowed_methods_for_caller(self.caller, allowed_methods)
         self._server: socket.socket | None = None
         self._thread: threading.Thread | None = None
         self._ready = threading.Event()
@@ -463,7 +548,13 @@ class PTCIpcServer:
                     if not line.strip(): continue
                     try:
                         request = json.loads(line.decode("utf-8"))
-                        result = _dispatch(request.get("method", ""), request.get("kwargs", {}), self.vault)
+                        result = _dispatch(
+                            request.get("method", ""),
+                            request.get("kwargs", {}),
+                            self.vault,
+                            caller=self.caller,
+                            allowed_methods=self.allowed_methods,
+                        )
                         response = {"id": request.get("id", 0), "result": result}
                     except RECOVERABLE_RUNTIME_ERRORS as e:
                         response = {"id": 0, "error": str(e)}
@@ -482,3 +573,14 @@ class PTCIpcServer:
 
     def __enter__(self): self.start(); return self
     def __exit__(self, *args): self.stop()
+
+
+__all__ = [
+    "CALLER_METHOD_ALLOWLISTS",
+    "DESTRUCTIVE_METHODS",
+    "PTCIpcServer",
+    "PTC_METHOD_ALLOWLIST_SCHEMA_VERSION",
+    "READ_ONLY_METHODS",
+    "WRITE_METHODS",
+    "allowed_methods_for_caller",
+]

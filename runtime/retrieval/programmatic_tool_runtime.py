@@ -61,6 +61,7 @@ class Capability:
     read_only: bool
     output_kind: str
     handler: Callable[..., Any]
+    allowed_callers: Sequence[str] = ("programmatic_tool_runtime",)
 
     def validate_input(self, payload: Mapping[str, Any]) -> None:
         missing = [key for key in self.required_inputs if key not in payload]
@@ -81,6 +82,7 @@ class Capability:
             "read_only": self.read_only,
             "input_contract": sorted(self.required_inputs.keys()),
             "output_kind": self.output_kind,
+            "allowed_callers": sorted(str(item) for item in self.allowed_callers),
         }
 
 
@@ -324,6 +326,7 @@ class ProgrammaticToolRuntime:
         final_result_kind: str = "pathfinder_bundle",
         same_run_context: Mapping[str, Any] | None = None,
         extra_reason_codes: Sequence[str] | None = None,
+        caller: str = "programmatic_tool_runtime",
     ) -> dict[str, Any]:
         if program_source is not None:
             raise ProgrammaticToolRuntimeError(
@@ -362,6 +365,10 @@ class ProgrammaticToolRuntime:
             capability = self.capabilities.get(capability_id)
             if capability is None:
                 raise ProgrammaticToolRuntimeError(f"unknown capability: {capability_id}")
+            if caller not in set(str(item) for item in capability.allowed_callers):
+                raise ProgrammaticToolRuntimeError(
+                    f"{capability_id} is not allowed for caller: {caller}"
+                )
             if not capability.read_only:
                 raise ProgrammaticToolRuntimeError(f"write capability forbidden: {capability_id}")
 
@@ -409,6 +416,10 @@ class ProgrammaticToolRuntime:
                 if unanchored_capability is None:
                     raise ProgrammaticToolRuntimeError(
                         "unanchored branch requires assemble_unanchored_bundle"
+                    )
+                if caller not in set(str(item) for item in unanchored_capability.allowed_callers):
+                    raise ProgrammaticToolRuntimeError(
+                        f"{unanchored_capability_id} is not allowed for caller: {caller}"
                     )
                 if not unanchored_capability.read_only:
                     raise ProgrammaticToolRuntimeError(
@@ -485,6 +496,7 @@ class ProgrammaticToolRuntime:
                 "program_source_execution": "disabled",
                 "allow_write_capabilities": False,
                 "sandbox_claim": "not_claimed_read_only_contract",
+                "caller": caller,
                 "max_steps": self.max_steps,
             },
             "capability_registry": [
@@ -554,6 +566,7 @@ def build_pathfinder_bundle_via_programmatic_tool_runtime(
     scratch_root: Path = DEFAULT_SCRATCH_ROOT,
     program_source: str | None = None,
     same_run_context: Mapping[str, Any] | None = None,
+    caller: str = "programmatic_tool_runtime",
 ) -> dict[str, Any]:
     structural_anchor_fallback_used = anchor_evaluator is None
     active_anchor_evaluator = anchor_evaluator or structural_anchor_fallback_evaluator
@@ -571,6 +584,7 @@ def build_pathfinder_bundle_via_programmatic_tool_runtime(
         final_step_id="bundle",
         program_source=program_source,
         same_run_context=same_run_context,
+        caller=caller,
         extra_reason_codes=(
             [STRUCTURAL_ANCHOR_FALLBACK_REASON_CODE]
             if structural_anchor_fallback_used

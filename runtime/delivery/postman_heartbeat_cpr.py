@@ -572,10 +572,6 @@ def build_postman_heartbeat_cpr_payload(
             "ms1": "structured_long_term_memory_saver",
             "mf1": "evidence_backed_memory_finder",
         },
-        "legacy_operator_role_ids": {
-            "op1": "structured_long_term_memory_supplier",
-            "op2": "evidence_backed_evidence_pack_supplier",
-        },
         "live_group": live_report,
         "engine_bootstrap": engine_report,
         "mailbox_correlation": correlation,

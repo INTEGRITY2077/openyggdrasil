@@ -115,10 +115,35 @@ def _typed_unavailable(result_bundle: Mapping[str, Any] | None) -> dict[str, Any
     for value in [result_bundle.get("typed_unavailable")]:
         if isinstance(value, Mapping):
             return dict(value)
+    if result_bundle.get("support_facts") and result_bundle.get("source_paths"):
+        return None
     nested = result_bundle.get("support_bundle")
     if isinstance(nested, Mapping) and isinstance(nested.get("typed_unavailable"), Mapping):
         return dict(nested["typed_unavailable"])
     return None
+
+
+def _worker_ptc_contracts(result_bundle: Mapping[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(result_bundle, Mapping):
+        return {}
+    candidates = [
+        result_bundle.get("tst_capability_supervisor"),
+        (result_bundle.get("ptc_worker_program") or {}).get("tst_capability_supervisor")
+        if isinstance(result_bundle.get("ptc_worker_program"), Mapping)
+        else None,
+    ]
+    for candidate in candidates:
+        if not isinstance(candidate, Mapping):
+            continue
+        return {
+            "schema_version": "worker_ptc_contracts_summary.v1",
+            "worker_authored_ptc_program": candidate.get("worker_authored_ptc_program"),
+            "ptc_program_review": candidate.get("ptc_program_review"),
+            "tst_capability_allowlist": candidate.get("tst_capability_allowlist"),
+            "ptc_program_observation": candidate.get("ptc_program_observation"),
+            "observation_delta_gate": candidate.get("observation_delta_gate"),
+        }
+    return {}
 
 
 def _fallback_worker_judgment(
@@ -366,6 +391,7 @@ def build_worker_result_spec(
         evidence_refs.append({"kind": "support_facts", "count": len(facts), "digest": _digest([_fact_text(f) for f in facts])})
     provider_work_anchor = _work_order_anchor(work_order)
     provider_question = str(provider_work_anchor.get("anchor_text") or "")
+    ptc_contracts = _worker_ptc_contracts(bundle)
     spec: dict[str, Any] = {
         "schema_version": "worker_result_spec.v1",
         "created_at": _now_iso(),
@@ -382,6 +408,7 @@ def build_worker_result_spec(
         "provider_question": provider_question,
         "provider_work_anchor": provider_work_anchor,
         "selected_capabilities": _selected_capabilities(bundle),
+        "worker_ptc_contracts": ptc_contracts,
         "action_summary": _action_summary(worker_role=worker_role, result_kind=result_kind),
         "evidence_refs": evidence_refs,
         "storage_evidence": {
@@ -400,6 +427,8 @@ def build_worker_result_spec(
             "postman_delivery_is_not_worker_success",
             "pane_text_is_not_result_sot",
             "worker_result_requires_provider_rejudgment_before_answer",
+            "ptc_program_review_acceptance_is_not_execution_success",
+            "changed_next_action_self_claim_is_not_enough",
         ],
     }
     spec["provider_rejudgment"] = build_provider_rejudgment(worker_result_spec=spec)

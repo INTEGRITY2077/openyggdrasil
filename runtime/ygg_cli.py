@@ -177,9 +177,13 @@ def _tmux_session_attached(session_name: str, *, runner: CommandRunner = _run_co
 def _mailbox_summary(*, state_dir: Path, mailbox_key: str) -> dict[str, Any]:
     mailbox = state_dir / "sessions" / mailbox_key
     if mailbox_key == "OP1":
+        worker_key = "ms1"
+        worker_role = "memory_saver"
         intent_file = mailbox / "intents.jsonl"
         receipt_file = mailbox / "receipts.jsonl"
     else:
+        worker_key = "mf1"
+        worker_role = "memory_finder"
         intent_file = mailbox / "queries.jsonl"
         receipt_file = mailbox / "query_receipts.jsonl"
 
@@ -195,7 +199,8 @@ def _mailbox_summary(*, state_dir: Path, mailbox_key: str) -> dict[str, Any]:
             support_bundle = bundle.get("support_bundle")
     support_paths = support_bundle.get("source_paths") if isinstance(support_bundle, dict) else []
     summary = {
-        "mailbox_key": mailbox_key,
+        "worker_key": worker_key,
+        "worker_role": worker_role,
         "intent_count": len(intents),
         "receipt_count": len(receipts),
         "pending_approx": pending,
@@ -208,6 +213,7 @@ def _mailbox_summary(*, state_dir: Path, mailbox_key: str) -> dict[str, Any]:
     }
     if _debug_local_paths_enabled():
         summary["debug_paths"] = {"mailbox": str(mailbox)}
+        summary["compat_mailbox_key"] = mailbox_key
         summary["latest_receipt_id"] = latest_receipt.get("receipt_id") if isinstance(latest_receipt, dict) else None
         summary["latest_reply_to"] = latest_receipt.get("in_reply_to") if isinstance(latest_receipt, dict) else None
     return summary

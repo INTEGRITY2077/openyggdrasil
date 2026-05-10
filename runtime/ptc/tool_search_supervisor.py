@@ -19,6 +19,16 @@ import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from runtime.ptc.worker_program_contracts import (
+    MF_CANONICAL_FLOW,
+    MS_CANONICAL_FLOW,
+    build_observation_delta_gate,
+    build_ptc_program_observation,
+    build_tst_capability_allowlist,
+    build_worker_authored_ptc_program,
+    review_ptc_program,
+)
+
 
 SCHEMA_VERSION = "openyggdrasil_tst_supervisor_result.v1"
 TOOL_REFERENCE_SCHEMA_VERSION = "openyggdrasil_tool_reference.v1"
@@ -39,6 +49,7 @@ def _tool_ref(
     capability_id: str,
     role: str,
     read_only: bool,
+    allowed_callers: Sequence[str] | None = None,
     input_contract: Sequence[str] | None = None,
     output_kind: str | None = None,
     reason: str,
@@ -48,6 +59,7 @@ def _tool_ref(
         "capability_id": capability_id,
         "role": role,
         "read_only": bool(read_only),
+        "allowed_callers": sorted(str(item) for item in (allowed_callers or [])),
         "input_contract": sorted(str(item) for item in (input_contract or [])),
         "output_kind": output_kind or "unknown",
         "selection_reason": reason,
@@ -148,9 +160,23 @@ def _provider_safe_capability_record(record: Mapping[str, Any]) -> dict[str, Any
         "evidence_output",
         "adapter_status",
         "read_only",
+        "allowed_callers",
         "hard_nonclaims",
     ]
-    return {key: record.get(key) for key in allowed if key in record}
+    payload = {key: record.get(key) for key in allowed if key in record}
+    if "allowed_callers" not in payload:
+        payload["allowed_callers"] = _default_allowed_callers_for_role(
+            str(record.get("role") or "shared")
+        )
+    return payload
+
+
+def _default_allowed_callers_for_role(role: str) -> list[str]:
+    if role == "memory_finder":
+        return ["programmatic_tool_runtime", "memory_finder"]
+    if role == "memory_saver":
+        return ["memory_saver"]
+    return ["programmatic_tool_runtime", "memory_finder", "memory_saver"]
 
 
 def _tool_ref_from_capability(record: Mapping[str, Any], *, reason: str) -> dict[str, Any]:
@@ -158,6 +184,11 @@ def _tool_ref_from_capability(record: Mapping[str, Any], *, reason: str) -> dict
         capability_id=str(record.get("tool_id") or ""),
         role=str(record.get("role") or "unknown"),
         read_only=bool(record.get("read_only", True)),
+        allowed_callers=(
+            record.get("allowed_callers")
+            if isinstance(record.get("allowed_callers"), Sequence)
+            else []
+        ),
         input_contract=record.get("input_contract") if isinstance(record.get("input_contract"), Sequence) else [],
         output_kind=str(record.get("output_kind") or "unknown"),
         reason=reason,
@@ -309,6 +340,52 @@ def build_memory_finder_tst_result(
         if str(call.get("status") or "completed") == "completed":
             completed_tool_ids.append(capability_id)
 
+    loop_evaluation = _evaluate_loop(
+        selected_tool_ids=selected_tool_ids,
+        completed_tool_ids=completed_tool_ids,
+    )
+    worker_program = build_worker_authored_ptc_program(
+        worker_role="memory_finder",
+        work_order_ref={"query_hash": _sha(query, length=24)},
+        self_defined_goal="find aligned source-backed support for the recall request",
+        requested_capabilities=selected_tool_ids,
+        program_steps=MF_CANONICAL_FLOW,
+        success_condition=[
+            "query_anchor_is_identified",
+            "source_or_provenance_backed_support_is_present",
+            "misaligned_support_is_rejected",
+        ],
+        failure_condition=[
+            "no_source_or_provenance_backed_support",
+            "candidate_is_stale_or_misaligned",
+            "retry_would_repeat_same_query_angle",
+        ],
+        retry_plan={
+            "same_angle_retry_allowed": False,
+            "changed_angle_required_when_weak": True,
+            "allowed_changed_angles": ["query_anchor", "source_ref", "topology"],
+        },
+    )
+    program_review = review_ptc_program(
+        worker_program,
+        selected_capability_ids=[str(row.get("tool_id") or "") for row in selected_capabilities],
+    )
+    allowlist = build_tst_capability_allowlist(
+        worker_role="memory_finder",
+        selected_capabilities=selected_capabilities,
+        requested_capabilities=selected_tool_ids,
+    )
+    program_observation = build_ptc_program_observation(
+        program=worker_program,
+        tool_use_events=events,
+        evaluation=loop_evaluation,
+        result_summary={"final_result_ref": runtime_result.get("final_result_ref")},
+    )
+    delta_gate = build_observation_delta_gate(
+        program=worker_program,
+        observation=program_observation,
+    )
+
     supervisor = {
         "schema_version": SCHEMA_VERSION,
         "role": "memory_finder",
@@ -343,9 +420,23 @@ def build_memory_finder_tst_result(
         },
         "tool_references": tool_references,
         "tool_use_events": events,
+        "worker_authored_ptc_program": worker_program,
+        "ptc_program_review": program_review,
+        "tst_capability_allowlist": allowlist,
+        "ptc_program_observation": program_observation,
+        "observation_delta_gate": delta_gate,
         "worker_task_ledger": {
             "task": "memory_recall",
-            "phases": ["plan", "select_capabilities", "execute_ptc", "evaluate"],
+            "phases": [
+                "define_success_failure",
+                "write_worker_program",
+                "review_program",
+                "select_capabilities",
+                "execute_ptc",
+                "observe",
+                "delta_gate",
+                "evaluate",
+            ],
         },
         "permission_decision": {
             "read_only": True,
@@ -357,10 +448,7 @@ def build_memory_finder_tst_result(
         },
         "retry_diagnosis": None,
         "typed_unavailable": None,
-        "evaluation": _evaluate_loop(
-            selected_tool_ids=selected_tool_ids,
-            completed_tool_ids=completed_tool_ids,
-        ),
+        "evaluation": loop_evaluation,
         "hard_nonclaims": [
             "not_anthropic_server_tool_search_tool",
             "not_full_tool_catalog_in_worker_context",
@@ -397,18 +485,22 @@ def run_memory_saver_tst(
     """Run the MS write-scoped TST supervisor for classic save candidates."""
     from runtime.ptc.primitives import (
         _validate_admission,
+        assign_edges,
         build_spo_triples,
         build_vault_node,
         extract_decisions,
+        load_vault,
         save_to_vault,
     )
 
     snapshot = str(context_snapshot or "").strip()
     catalog = load_tst_capability_catalog()
     selected_tool_ids = [
+        "source_anchor_check",
         "extract_decisions",
         "build_spo_triples",
         "build_vault_node",
+        "check_near_duplicate_or_supersession",
         "validate_admission",
         "save_to_vault",
     ]
@@ -435,6 +527,38 @@ def run_memory_saver_tst(
     completed_tool_ids: list[str] = []
     nodes: list[str] = []
     rejected: list[dict[str, Any]] = []
+    existing_nodes = load_vault(vault_root)
+
+    source_use_id = f"tst-{_sha(['memory_saver', 'source', snapshot], length=12)}"
+    events.append(
+        _tool_use_event(
+            event_type="tool_use",
+            tool_use_id=source_use_id,
+            capability_id="source_anchor_check",
+            status="requested",
+            input_keys=["context_snapshot"],
+            output_kind="source_anchor_decision",
+        )
+    )
+    source_anchor_ok = bool(snapshot)
+    events.append(
+        _tool_use_event(
+            event_type="tool_result",
+            tool_use_id=source_use_id,
+            capability_id="source_anchor_check",
+            status="completed",
+            input_keys=["context_snapshot"],
+            output_kind="source_anchor_decision",
+            result_sha256="sha256:" + hashlib.sha256(
+                json.dumps(
+                    {"source_anchor_present": source_anchor_ok, "context_hash": _sha(snapshot, length=24)},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ).encode("utf-8")
+            ).hexdigest(),
+        )
+    )
+    completed_tool_ids.append("source_anchor_check")
 
     extract_use_id = f"tst-{_sha(['memory_saver', 'extract', snapshot], length=12)}"
     events.append(
@@ -524,6 +648,42 @@ def run_memory_saver_tst(
             )
             completed_tool_ids.append("build_vault_node")
 
+            duplicate_use_id = f"tst-{_sha(['memory_saver', 'duplicate', node], length=12)}"
+            events.append(
+                _tool_use_event(
+                    event_type="tool_use",
+                    tool_use_id=duplicate_use_id,
+                    capability_id="check_near_duplicate_or_supersession",
+                    status="requested",
+                    input_keys=["vault_node_candidate", "existing_vault_nodes"],
+                    output_kind="near_duplicate_or_supersession_check",
+                )
+            )
+            possible_edges = assign_edges(node, existing_nodes)
+            events.append(
+                _tool_use_event(
+                    event_type="tool_result",
+                    tool_use_id=duplicate_use_id,
+                    capability_id="check_near_duplicate_or_supersession",
+                    status="completed",
+                    input_keys=["vault_node_candidate", "existing_vault_nodes"],
+                    output_kind="near_duplicate_or_supersession_check",
+                    result_sha256="sha256:" + hashlib.sha256(
+                        json.dumps(
+                            {
+                                "candidate_node_id": node.get("node_id"),
+                                "possible_edge_count": len(possible_edges),
+                                "destructive_action_taken": False,
+                            },
+                            ensure_ascii=False,
+                            sort_keys=True,
+                            default=str,
+                        ).encode("utf-8")
+                    ).hexdigest(),
+                )
+            )
+            completed_tool_ids.append("check_near_duplicate_or_supersession")
+
             admission_use_id = f"tst-{_sha(['memory_saver', 'admit', node], length=12)}"
             events.append(
                 _tool_use_event(
@@ -582,6 +742,56 @@ def run_memory_saver_tst(
             completed_tool_ids.append("save_to_vault")
 
     status = "completed" if nodes else "typed_unavailable_no_save_candidates"
+    loop_evaluation = _evaluate_loop(
+        selected_tool_ids=selected_tool_ids,
+        completed_tool_ids=completed_tool_ids,
+        allow_empty=False,
+    )
+    worker_program = build_worker_authored_ptc_program(
+        worker_role="memory_saver",
+        work_order_ref={"context_hash": _sha(snapshot, length=24)},
+        self_defined_goal="save only admitted durable memory candidates with source and duplicate checks",
+        requested_capabilities=selected_tool_ids,
+        program_steps=MS_CANONICAL_FLOW,
+        success_condition=[
+            "source_anchor_is_present",
+            "near_duplicate_or_supersession_check_completed_before_write",
+            "admission_passes_before_vault_write",
+        ],
+        failure_condition=[
+            "missing_source_anchor",
+            "candidate_fails_admission",
+            "storage_would_occur_without_duplicate_or_graft_check",
+        ],
+        retry_plan={
+            "same_angle_retry_allowed": False,
+            "changed_angle_required_when_weak": True,
+            "allowed_changed_angles": ["source_anchor", "candidate_shape", "graft_check"],
+        },
+    )
+    program_review = review_ptc_program(
+        worker_program,
+        selected_capability_ids=[str(row.get("tool_id") or "") for row in selected_capabilities],
+    )
+    allowlist = build_tst_capability_allowlist(
+        worker_role="memory_saver",
+        selected_capabilities=selected_capabilities,
+        requested_capabilities=selected_tool_ids,
+    )
+    program_observation = build_ptc_program_observation(
+        program=worker_program,
+        tool_use_events=events,
+        evaluation=loop_evaluation,
+        result_summary={
+            "produced_count": len(nodes),
+            "rejected_count": len(rejected),
+            "source_anchor_present": source_anchor_ok,
+        },
+    )
+    delta_gate = build_observation_delta_gate(
+        program=worker_program,
+        observation=program_observation,
+    )
     supervisor = {
         "schema_version": SCHEMA_VERSION,
         "role": "memory_saver",
@@ -610,9 +820,28 @@ def run_memory_saver_tst(
         },
         "tool_references": tool_references,
         "tool_use_events": events,
+        "worker_authored_ptc_program": worker_program,
+        "ptc_program_review": program_review,
+        "tst_capability_allowlist": allowlist,
+        "ptc_program_observation": program_observation,
+        "observation_delta_gate": delta_gate,
         "worker_task_ledger": {
             "task": "memory_save",
-            "phases": ["select_capabilities", "extract", "shape", "admit", "write", "evaluate"],
+            "phases": [
+                "define_success_failure",
+                "write_worker_program",
+                "review_program",
+                "select_capabilities",
+                "source_anchor_check",
+                "extract",
+                "shape",
+                "near_duplicate_check",
+                "admit",
+                "write",
+                "observe",
+                "delta_gate",
+                "evaluate",
+            ],
         },
         "permission_decision": {
             "write_allowed": bool(nodes),
@@ -630,11 +859,7 @@ def run_memory_saver_tst(
             "schema_version": "typed_unavailable.v1",
             "reason_code": status,
         },
-        "evaluation": _evaluate_loop(
-            selected_tool_ids=selected_tool_ids,
-            completed_tool_ids=completed_tool_ids,
-            allow_empty=False,
-        ),
+        "evaluation": loop_evaluation,
         "hard_nonclaims": [
             "not_anthropic_server_tool_search_tool",
             "not_full_tool_catalog_in_worker_context",
@@ -681,7 +906,56 @@ def build_memory_ticket_tst_supervisor(
     ]
     status = str(result.get("status") or "unknown")
     nodes = list(result.get("nodes") or [])
-    admitted = status in {"acknowledged", "completed"} and bool(nodes)
+    required_payload_fields = [
+        "source_ref",
+        "message_index_range",
+        "source_line_range",
+        "anchor_hash",
+        "intent_field",
+        "decomposition_guard",
+        "min_split_unit",
+        "why_not_atomic",
+        "topic_hint",
+        "category_community_hint",
+        "decision_capsule",
+    ]
+    capsule_fields = ["decision", "context", "conclusion", "evidence", "reuse_condition"]
+    capsule_present = bool(payload.get("decision_capsule")) or all(payload.get(field) for field in capsule_fields)
+    missing_payload_fields = []
+    for field in required_payload_fields:
+        if field == "decision_capsule":
+            if not capsule_present:
+                missing_payload_fields.append(field)
+            continue
+        if not payload.get(field):
+            missing_payload_fields.append(field)
+    source_ref_resolved = str(result.get("source_ref_status") or "") in {"resolved", "verified"}
+    raw_storage_succeeded = status in {"acknowledged", "completed"} and bool(nodes)
+    admitted = raw_storage_succeeded and not missing_payload_fields and source_ref_resolved
+    strict_gate = {
+        "schema_version": "memory_ticket_strict_storage_gate.v1",
+        "required_payload_fields": required_payload_fields,
+        "decision_capsule_fields": capsule_fields,
+        "decision_capsule_present": capsule_present,
+        "missing_payload_fields": missing_payload_fields,
+        "source_ref_resolved": source_ref_resolved,
+        "raw_storage_succeeded": raw_storage_succeeded,
+        "storage_success_allowed": admitted,
+        "failure_reason": None
+        if admitted
+        else (
+            "typed_unavailable_insufficient_memory_ticket"
+            if missing_payload_fields
+            else "source_ref_not_resolved"
+            if not source_ref_resolved
+            else "write_artifacts_absent"
+        ),
+        "hard_nonclaims": [
+            "postman_delivery_is_not_storage_evidence",
+            "pane_projection_is_not_storage_evidence",
+            "node_ids_without_source_ref_resolution_are_not_strict_storage_success",
+        ],
+    }
     completed_tool_ids = [
         "load_memory_ticket_skill",
         "memory_save_permission_decision",
@@ -739,8 +1013,54 @@ def build_memory_ticket_tst_supervisor(
     if not admitted:
         evaluation["quality"] = "weak"
         evaluation["typed_unavailable_reason"] = (
-            result.get("reason") or "typed_unavailable_insufficient_memory_ticket"
+            strict_gate["failure_reason"] or result.get("reason") or "typed_unavailable_insufficient_memory_ticket"
         )
+    worker_program = build_worker_authored_ptc_program(
+        worker_role="memory_saver",
+        work_order_ref={"payload_hash": payload_hash},
+        self_defined_goal="save a strict memory_ticket only when source and provenance evidence is sufficient",
+        requested_capabilities=selected_tool_ids,
+        program_steps=MS_CANONICAL_FLOW,
+        success_condition=[
+            "memory_ticket_source_ref_is_resolved",
+            "admission_and_provenance_write_succeeded",
+            "save_receipt_can_be_normalized",
+        ],
+        failure_condition=[
+            "memory_ticket_missing_required_source_fields",
+            "source_ref_unresolved",
+            "write_artifacts_absent",
+        ],
+        retry_plan={
+            "same_angle_retry_allowed": False,
+            "changed_angle_required_when_weak": True,
+            "allowed_changed_angles": ["source_ref", "ticket_fields", "provider_range"],
+        },
+    )
+    program_review = review_ptc_program(
+        worker_program,
+        selected_capability_ids=selected_tool_ids,
+    )
+    allowlist = build_tst_capability_allowlist(
+        worker_role="memory_saver",
+        selected_capabilities=selected_capabilities,
+        requested_capabilities=selected_tool_ids,
+    )
+    program_observation = build_ptc_program_observation(
+        program=worker_program,
+        tool_use_events=events,
+        evaluation=evaluation,
+        result_summary={
+            "produced_count": len(nodes),
+            "node_count": len(nodes),
+            "source_ref_status": result.get("source_ref_status"),
+            "strict_storage_gate": strict_gate,
+        },
+    )
+    delta_gate = build_observation_delta_gate(
+        program=worker_program,
+        observation=program_observation,
+    )
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -769,26 +1089,43 @@ def build_memory_ticket_tst_supervisor(
         },
         "tool_references": tool_references,
         "tool_use_events": events,
+        "worker_authored_ptc_program": worker_program,
+        "ptc_program_review": program_review,
+        "tst_capability_allowlist": allowlist,
+        "ptc_program_observation": program_observation,
+        "observation_delta_gate": delta_gate,
         "worker_task_ledger": {
             "task": "memory_ticket_save",
-            "phases": ["select_capabilities", "admit_ticket", "resolve_source", "write_artifacts", "evaluate"],
+            "phases": [
+                "define_success_failure",
+                "write_worker_program",
+                "review_program",
+                "select_capabilities",
+                "admit_ticket",
+                "resolve_source",
+                "write_artifacts",
+                "observe",
+                "delta_gate",
+                "evaluate",
+            ],
         },
         "permission_decision": {
             "write_allowed": admitted,
-            "reason": result.get("reason") or status,
+            "reason": strict_gate["failure_reason"] or result.get("reason") or status,
         },
         "result_summary": {
             "produced_count": len(nodes),
             "node_count": len(nodes),
             "source_ref_status": result.get("source_ref_status"),
+            "strict_storage_gate": strict_gate,
         },
         "retry_diagnosis": None if admitted else {
             "status": "not_retried",
-            "reason": result.get("reason") or status,
+            "reason": strict_gate["failure_reason"] or result.get("reason") or status,
         },
         "typed_unavailable": None if admitted else {
             "schema_version": "typed_unavailable.v1",
-            "reason_code": result.get("reason") or "typed_unavailable_insufficient_memory_ticket",
+            "reason_code": strict_gate["failure_reason"] or result.get("reason") or "typed_unavailable_insufficient_memory_ticket",
         },
         "evaluation": evaluation,
         "hard_nonclaims": [

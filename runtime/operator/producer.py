@@ -272,7 +272,13 @@ def run_producer(mailbox: Path, vault: Path):
             else:
                 ptc_code = msg["payload"].get("ptc_code", "")
                 if ptc_code.strip():
-                    result = execute_ptc_code(ptc_code, vault, mode="ipc", timeout=120)
+                    result = execute_ptc_code(
+                        ptc_code,
+                        vault,
+                        mode="ipc",
+                        timeout=120,
+                        caller="memory_saver",
+                    )
                     nodes_produced = _count_ptc_saves(result)
                     write_operator_receipt(
                         receipts_file,
@@ -900,7 +906,7 @@ def _handle_sandbox_exec(mailbox: Path, vault: Path, msg: dict) -> dict:
         return {"status": "error", "stderr": "empty code", "exit_code": -1, "sandbox": "none"}
 
     log_event("sandbox_exec_start", code_len=len(code), timeout=timeout)
-    result = execute_ptc_code(code, vault, timeout=timeout)
+    result = execute_ptc_code(code, vault, timeout=timeout, caller="memory_saver")
     log_event("sandbox_exec_done",
               status=result.get("status"),
               exit_code=result.get("exit_code"),
@@ -923,6 +929,8 @@ def _ptc_placement_hint(mailbox: Path, vault: Path, snapshot: str) -> None:
             vault=vault,
             mode="ipc",
             timeout=15,
+            caller="memory_saver",
+            allowed_methods=("suggest_placement",),
         )
         stdout = result.get("stdout", "")
         if stdout:

@@ -141,6 +141,11 @@ def _clamp01(value: float) -> float:
 def _candidate_search_text(candidate: Mapping[str, Any]) -> str:
     values = [
         candidate.get("node_id"),
+        candidate.get("subject"),
+        candidate.get("predicate"),
+        candidate.get("object"),
+        candidate.get("category"),
+        candidate.get("node_text"),
         candidate.get("source_path"),
         candidate.get("source_ref"),
         candidate.get("origin_locator"),
@@ -153,9 +158,8 @@ def _candidate_search_text(candidate: Mapping[str, Any]) -> str:
 
 
 def _specificity_terms(query_text: str) -> list[str]:
-    terms = _query_terms(query_text)
     specific: list[str] = []
-    for term in terms:
+    for term in [term.lower().strip(".,;:()[]{}\"'") for term in re.split(r"\s+", query_text) if term.strip()]:
         if len(term) >= 12 or "-" in term or "://" in term or any(char.isdigit() for char in term):
             specific.append(term)
     return specific
@@ -188,8 +192,6 @@ def _candidate_feature_vector(
     conflicting_domains = list((candidate.get("domain_affinity") or {}).get("conflicting") or [])
     raw_score_alignment = _clamp01(float(candidate.get("score") or 0.0) / 5.0)
     specificity_overlap = _term_overlap_score(specific_terms, text) if specific_terms else 1.0
-    if specific_terms and specificity_overlap <= 0.0 and raw_score_alignment > 0.0:
-        specificity_overlap = 0.2
     return {
         "schema_version": "candidate_feature_vector.v1",
         "lexical_score": _clamp01(float(candidate.get("score") or 0.0) / 10.0),
@@ -373,6 +375,7 @@ def _candidate_from_node(
     evidence_class: str = "lexical_match",
 ) -> dict[str, Any]:
     metadata = node.get("metadata") if isinstance(node.get("metadata"), Mapping) else {}
+    spo = node.get("spo") if isinstance(node.get("spo"), Mapping) else {}
     source_path = _source_path_for_node(node)
     community_id = (
         node.get("community_id")
@@ -381,7 +384,7 @@ def _candidate_from_node(
         or metadata.get("community")
         or ""
     )
-    return _candidate(
+    candidate = _candidate(
         query_text=query_text,
         generator=generator,
         score=score,
@@ -394,6 +397,21 @@ def _candidate_from_node(
         lifecycle_state=str(metadata.get("status") or metadata.get("lifecycle_state") or "UNKNOWN"),
         evidence_class=evidence_class,
     )
+    candidate["subject"] = str(spo.get("subject") or metadata.get("title") or node.get("title") or "").strip()
+    candidate["predicate"] = str(spo.get("predicate") or "").strip()
+    candidate["object"] = str(spo.get("object") or "").strip()
+    candidate["category"] = str(spo.get("category") or metadata.get("type") or "").strip()
+    candidate["node_text"] = " ".join(
+        part
+        for part in (
+            candidate["subject"],
+            candidate["predicate"],
+            candidate["object"],
+            candidate["category"],
+        )
+        if part
+    )
+    return candidate
 
 
 def _node_index(vault_nodes: Sequence[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:

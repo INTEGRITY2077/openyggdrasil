@@ -114,6 +114,7 @@
         "program_source_execution",
         "allow_write_capabilities",
         "sandbox_claim",
+        "caller",
         "max_steps"
       ],
       "properties": {
@@ -128,6 +129,9 @@
           "enum": [
             "not_claimed_read_only_contract"
           ]
+        },
+        "caller": {
+          "$ref": "#/$defs/identifier"
         },
         "max_steps": {
           "type": "integer",
@@ -147,7 +151,8 @@
           "capability_id",
           "read_only",
           "input_contract",
-          "output_kind"
+          "output_kind",
+          "allowed_callers"
         ],
         "properties": {
           "capability_id": {
@@ -166,6 +171,15 @@
           },
           "output_kind": {
             "$ref": "#/$defs/identifier"
+          },
+          "allowed_callers": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/identifier"
+            }
           }
         }
       }

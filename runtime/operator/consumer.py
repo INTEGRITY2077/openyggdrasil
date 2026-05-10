@@ -409,7 +409,25 @@ def run_consumer(mailbox: Path, vault: Path):
                     vault_root=vault,
                     top_k=20,
                 )
-                bundle = orchestrated["consumer_bundle"]
+                bundle = dict(orchestrated["consumer_bundle"])
+                if build_memory_finder_tst_result is not None:
+                    try:
+                        tst_result = build_memory_finder_tst_result(
+                            query_text=query_text,
+                            vault_root=vault,
+                            program_source="",
+                        )
+                        bundle["tst_capability_supervisor"] = (
+                            tst_result.get("tst_capability_supervisor")
+                            or tst_result.get("tst_supervisor")
+                            or None
+                        )
+                    except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
+                        bundle["tst_capability_supervisor"] = {
+                            "schema_version": "tst_capability_supervisor.v1",
+                            "status": "typed_unavailable",
+                            "reason_code": type(exc).__name__,
+                        }
                 worker_judgment = _memory_finder_judgment(
                     query_text=query_text,
                     bundle=bundle,

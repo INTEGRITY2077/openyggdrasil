@@ -107,36 +107,6 @@ def _support_counts(bundle: dict[str, Any] | None) -> tuple[int, int]:
     )
 
 
-def _support_fact_text(fact: Any) -> str:
-    if isinstance(fact, dict):
-        subject = fact.get("subject") or fact.get("title") or fact.get("claim") or ""
-        predicate = fact.get("predicate") or ""
-        obj = fact.get("object") or fact.get("summary") or fact.get("text") or ""
-        text = " ".join(str(part).strip() for part in [subject, predicate, obj] if str(part).strip())
-        return " ".join(text.split())
-    return " ".join(str(fact).split())
-
-
-def _support_summary(bundle: dict[str, Any] | None, *, limit: int = 240) -> str | None:
-    if not isinstance(bundle, dict):
-        return None
-    facts = bundle.get("support_facts")
-    nested = bundle.get("support_bundle")
-    if (not isinstance(facts, list) or not facts) and isinstance(nested, dict):
-        facts = nested.get("support_facts")
-    if not isinstance(facts, list):
-        return None
-    candidates = [_support_fact_text(fact) for fact in facts]
-    for text in candidates:
-        lowered = text.lower()
-        if "decision" in lowered or "determined" in lowered:
-            return text[:limit]
-    for text in candidates:
-        if text:
-            return text[:limit]
-    return None
-
-
 def _native_result_projection_text(
     mailbox: Path,
     *,
@@ -148,7 +118,6 @@ def _native_result_projection_text(
 ) -> str:
     role = "MS1 Memory Saver" if mailbox.name.upper() == "OP1" else "MF1 Memory Finder"
     facts_count, paths_count = _support_counts(result_bundle)
-    support_summary = _support_summary(result_bundle)
     if mailbox.name.upper().startswith("OP") and mailbox.name[2:].isdigit():
         role_index = int(mailbox.name[2:])
         unit = (role_index + 1) // 2
@@ -160,11 +129,11 @@ def _native_result_projection_text(
     elif facts_count > 0 and paths_count > 0:
         receipt_kind = "recall receipt"
         observation = f"support_facts={facts_count}, source_paths={paths_count}"
-        judgment = "enough for recall close if these facts align with the requested topic"
+        judgment = "receipt available for worker/provider rejudgment"
     else:
         receipt_kind = "limited receipt"
         observation = "durable evidence weak or unavailable"
-        judgment = "typed_unavailable unless another receipt supplies source-backed evidence"
+        judgment = "worker/provider must inspect the result spec before any answer"
     postman_acceptance = None
     provider_action = None
     if isinstance(worker_result_spec, dict):
@@ -175,21 +144,20 @@ def _native_result_projection_text(
     return " | ".join(
         item
         for item in [
-            f"[{role} RESULT NOTE]",
-            "Postman matched the current mailbox work order to a result receipt.",
+            f"[{role} RECEIPT NOTICE]",
+            "Postman recorded a mailbox result receipt for the current work order.",
             f"receipt kind: {receipt_kind}",
             f"observation: {observation}",
-            f"support summary: {support_summary}" if support_summary else None,
-            f"judgment: {judgment}",
+            f"routing judgment: {judgment}",
             f"postman acceptance: {postman_acceptance}" if postman_acceptance else None,
             f"provider rejudgment action: {provider_action}" if provider_action else None,
-            "SOT: Result Receipt / Evidence Pack; this pane is only the public projection.",
+            "SOT: worker_result_spec and receipt ledger; this pane is not answer material.",
         ]
         if item
     )
 
 
-def _project_native_result_note(
+def _project_native_receipt_notice(
     mailbox: Path,
     *,
     status: str,
@@ -346,7 +314,7 @@ def deliver_operator_result(
         pass
 
     try:
-        projection = _project_native_result_note(
+        projection = _project_native_receipt_notice(
             mailbox,
             status=status,
             produced_count=produced_count,

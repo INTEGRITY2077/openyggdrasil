@@ -483,7 +483,7 @@ def _typed_unavailable_bundle(*, query_text: str, missing_refs: list[str]) -> di
         "semantic_edges": [],
         "typed_unavailable": {
             "schema_version": "typed_unavailable.v1",
-            "unavailable_ref": f"oy-vault://op2-support-bundle/{build_page_id(query_text)[:32]}",
+            "unavailable_ref": f"oy-vault://mf-support-bundle/{build_page_id(query_text)[:32]}",
             "created_at": utc_now_iso(),
             "reason_code": "unresolved_evidence_ref",
             "blocked_stage": "recall_support_bundle",
@@ -537,7 +537,7 @@ def build_ring_support_bundle(
     """나이테 기억 노드용 origin/recent/source/community/edge 혼합 support bundle을 구성한다.
 
     POC용 고정 경로다. 기존 Pathfinder bundle을 대체하지 않고 provenance ring node가
-    감지될 때 OP2 receipt 안에 추가로 싣는다.
+    감지될 때 MF receipt 안에 추가로 싣는다.
     """
     selected_topic_key = topic_key
     if not selected_topic_key and matched_nodes:

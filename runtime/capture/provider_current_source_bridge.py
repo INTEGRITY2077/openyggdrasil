@@ -91,7 +91,7 @@ def build_provider_current_source_bridge(
 
     The bridge writes the answer to a Hermes-session-json-compatible local
     source file, then returns only source pointers, range, hash, and watermark.
-    It does not write raw Provider text to Vault and does not claim OP1 storage.
+    It does not write raw Provider text to Vault and does not claim MS storage.
     """
 
     provider_id = _clean_required_text(provider_id)

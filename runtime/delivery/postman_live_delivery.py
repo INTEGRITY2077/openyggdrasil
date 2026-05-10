@@ -235,6 +235,18 @@ def submit_live_delivery(
     recipient = recipient.upper()
     if not recipient.startswith("OP"):
         raise ValueError(f"recipient must be OP#, got {recipient!r}")
+    try:
+        recipient_index = int(recipient[2:])
+    except ValueError:
+        recipient_index = 0
+    worker_key = (
+        f"ms{(recipient_index + 1) // 2}"
+        if recipient_index and recipient_index % 2 == 1
+        else f"mf{recipient_index // 2}"
+        if recipient_index
+        else "unknown"
+    )
+    recipient_role = "memory_saver" if recipient_index % 2 == 1 else "memory_finder"
     delivery_id = f"postman-{uuid.uuid4().hex[:8]}"
     timestamp = _now()
 
@@ -357,8 +369,9 @@ def submit_live_delivery(
         "delivery_id": delivery_id,
         "mail_id": mail_id,
         "recipient": recipient,
+        "recipient_role": recipient_role,
+        "worker_key": worker_key,
         "message_type": message_type,
-        "mailbox_key": recipient,
         "message_file_name": message_file.name,
         "intent_file_name": message_file.name if message_type in ("save", "memory_ticket") else None,
         "query_file_name": message_file.name if message_type == "query" else None,
@@ -369,6 +382,7 @@ def submit_live_delivery(
         "status": "delivered",
     }
     if os.environ.get("YGG_DEBUG_LOCAL_PATHS") == "1":
+        result["compat_mailbox_key"] = recipient
         result["debug_paths"] = {
             "mailbox": str(mailbox),
             "message_file": str(message_file),

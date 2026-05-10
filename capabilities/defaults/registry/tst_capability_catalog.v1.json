@@ -8,6 +8,20 @@
   },
   "capabilities": [
     {
+      "tool_id": "source_anchor_check",
+      "role": "memory_saver",
+      "family": "permission_gate",
+      "description": "Check that a save candidate is tied to a bounded source or context anchor before shaping.",
+      "use_this_when": "MS receives a save work order and must prove the candidate did not come from free-floating pane text.",
+      "do_not_use_this_when": "A strict memory_ticket.v1 has already resolved source_ref and anchor_hash.",
+      "input_contract": ["context_snapshot"],
+      "output_kind": "source_anchor_decision",
+      "evidence_output": "source anchor presence and context hash",
+      "adapter_status": "local_available",
+      "read_only": true,
+      "hard_nonclaims": ["source_anchor_is_not_storage_success"]
+    },
+    {
       "tool_id": "extract_decisions",
       "role": "memory_saver",
       "family": "ptc_primitive",
@@ -48,6 +62,20 @@
       "adapter_status": "local_available",
       "read_only": true,
       "hard_nonclaims": ["not_storage_success"]
+    },
+    {
+      "tool_id": "check_near_duplicate_or_supersession",
+      "role": "memory_saver",
+      "family": "verifier",
+      "description": "Compare a save candidate with existing vault nodes before write.",
+      "use_this_when": "MS has built a node candidate and must decide whether it may be new, grafted, duplicate, or superseding.",
+      "do_not_use_this_when": "No node candidate exists yet.",
+      "input_contract": ["vault_node_candidate", "existing_vault_nodes"],
+      "output_kind": "near_duplicate_or_supersession_check",
+      "evidence_output": "possible edge count and non-destructive decision hash",
+      "adapter_status": "local_available",
+      "read_only": true,
+      "hard_nonclaims": ["not_destructive_auto_forget"]
     },
     {
       "tool_id": "validate_admission",
@@ -118,6 +146,76 @@
       "adapter_status": "catalog_record_only",
       "read_only": false,
       "hard_nonclaims": ["pane_text_is_not_sot"]
+    },
+    {
+      "tool_id": "review_worker_ptc_program",
+      "role": "shared",
+      "family": "program_review",
+      "description": "Review a worker-authored PTC program before execution.",
+      "use_this_when": "MS or MF proposes canonical_flow or reviewed_extension steps for a work order.",
+      "do_not_use_this_when": "The worker has not produced worker_authored_ptc_program.v1.",
+      "input_contract": ["worker_authored_ptc_program"],
+      "output_kind": "ptc_program_review.v1",
+      "evidence_output": "accepted/rejected review and reason codes",
+      "adapter_status": "local_available",
+      "read_only": true,
+      "hard_nonclaims": ["accepted_review_is_not_execution_success"]
+    },
+    {
+      "tool_id": "verify_observation_delta",
+      "role": "shared",
+      "family": "program_review",
+      "description": "Verify that an observation structurally changes the worker's next action.",
+      "use_this_when": "A worker claims an action changed after observing PTC results.",
+      "do_not_use_this_when": "There is no ptc_program_observation.v1.",
+      "input_contract": ["worker_authored_ptc_program", "ptc_program_observation"],
+      "output_kind": "observation_delta_gate.v1",
+      "evidence_output": "delta_verified verdict and failure reasons",
+      "adapter_status": "local_available",
+      "read_only": true,
+      "hard_nonclaims": ["changed_next_action_self_claim_is_not_enough"]
+    },
+    {
+      "tool_id": "prepare_worker_signal",
+      "role": "shared",
+      "family": "mailbox_signal",
+      "description": "Prepare an MS/MF signal payload for Postman-owned delivery.",
+      "use_this_when": "A worker needs peer consistency, graft, save, or recall help after its own evidence check.",
+      "do_not_use_this_when": "The worker is trying to bypass Postman or send answer material.",
+      "input_contract": ["work_order_id", "sender_role", "target_role", "summary", "evidence_refs"],
+      "output_kind": "worker_signal.v1",
+      "evidence_output": "signal payload hash and target role",
+      "adapter_status": "local_available",
+      "read_only": false,
+      "hard_nonclaims": ["worker_signal_is_not_answer_material"]
+    },
+    {
+      "tool_id": "read_assigned_worker_signals",
+      "role": "shared",
+      "family": "mailbox_signal",
+      "description": "Read Postman-delivered signals assigned to the current worker.",
+      "use_this_when": "A worker wakes and needs to inspect peer requests before choosing a PTC action.",
+      "do_not_use_this_when": "The worker has no assigned mailbox lane.",
+      "input_contract": ["target_role"],
+      "output_kind": "worker_signal_read_result.v1",
+      "evidence_output": "signal count and unread count",
+      "adapter_status": "local_available",
+      "read_only": true,
+      "hard_nonclaims": ["signal_read_is_not_task_completion"]
+    },
+    {
+      "tool_id": "summarize_signal_thread",
+      "role": "shared",
+      "family": "mailbox_signal",
+      "description": "Summarize an MS/MF signal thread for receipt context.",
+      "use_this_when": "A worker result depends on a peer signal exchange.",
+      "do_not_use_this_when": "There is no worker_signal.v1 thread id.",
+      "input_contract": ["thread_id"],
+      "output_kind": "worker_signal_thread.v1",
+      "evidence_output": "thread signal count and role list",
+      "adapter_status": "local_available",
+      "read_only": true,
+      "hard_nonclaims": ["signal_thread_is_not_semantic_success"]
     },
     {
       "tool_id": "summarize_save_result",
