@@ -6,6 +6,33 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+INTERNAL_PROOF_DIRECTIVE_MARKERS = (
+    "TST/PTC 행동",
+    "TST/PTC 도구 선택",
+    "TST 체인",
+    "PTC 체인",
+    "능동 워커 증명",
+    "관찰로 판단",
+    "관찰 뒤 판단",
+    "worker-owned proof",
+    "worker owned proof",
+    "WORKER_STEP",
+    "ACTION_RESULT",
+    "FINAL_CLOSE_ALLOWED",
+    "Postman Result Note",
+    "RESULT NOTE",
+    "structured receipt",
+    "answer material",
+    "success evidence",
+    "failure conditions",
+    "role-scoped worker pipeline",
+    "support_facts=",
+    "source_paths=",
+    "ptc_program_review",
+    "worker_authored_ptc_program",
+    "observation_delta_gate",
+)
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -42,6 +69,64 @@ def _payload_summary(message_type: str, payload: dict[str, Any]) -> str:
     else:
         text = payload.get("context_snapshot") or ""
     return " ".join(str(text).split())[:360]
+
+
+def _provider_surface_text(message_type: str, payload: dict[str, Any]) -> str:
+    if message_type == "query":
+        return str(payload.get("query_text") or payload.get("query") or "")
+    if message_type == "memory_ticket":
+        parts = [
+            payload.get("surface_reason"),
+            payload.get("topic_hint"),
+            payload.get("category_community_hint"),
+            payload.get("intent_field"),
+            payload.get("decision_capsule"),
+            payload.get("claim_capsule"),
+        ]
+        return "\n".join(str(part) for part in parts if part)
+    return str(payload.get("context_snapshot") or "")
+
+
+def _detected_internal_directive_markers(text: str) -> list[str]:
+    normalized = " ".join(str(text or "").split())
+    lowered = normalized.lower()
+    hits: list[str] = []
+    for marker in INTERNAL_PROOF_DIRECTIVE_MARKERS:
+        if marker.lower() in lowered:
+            hits.append(marker)
+    return hits
+
+
+def build_provider_mail_surface_contract(message_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Classify whether a Provider letter is production-shaped or proof-contaminated.
+
+    This does not make domain words illegal. It only marks letters that tell a
+    worker how to prove the internal implementation instead of giving a natural
+    save/find request. The marker is recorded so live proof cannot reuse a
+    contaminated prompt as product evidence.
+    """
+    text = _provider_surface_text(message_type, payload)
+    markers = _detected_internal_directive_markers(text)
+    if message_type == "query":
+        expected_kind = "Find Request"
+        required_fields = ["recall target", "why recall is needed", "request", "limit"]
+    else:
+        expected_kind = "Save Request"
+        required_fields = ["source range", "save candidate", "why durable", "topic hint", "request", "limit"]
+    return {
+        "schema_version": "provider_mail_surface_contract.v1",
+        "expected_kind": expected_kind,
+        "surface_status": "contaminated_internal_test_prompt" if markers else "production_shaped",
+        "production_proof_eligible": not markers,
+        "detected_internal_directive_markers": markers,
+        "required_provider_fields": required_fields,
+        "surface_summary": _payload_summary(message_type, payload),
+        "hard_nonclaims": [
+            "provider_letter_must_not_direct_worker_internal_chain",
+            "contaminated_prompt_is_not_worker_owned_proof",
+            "postman_delivery_is_not_semantic_success",
+        ],
+    }
 
 
 def _work_anchor(message_type: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -141,6 +226,7 @@ def append_postman_work_order(
         },
         "work_summary": _payload_summary(message_type, payload),
         "work_anchor": _work_anchor(message_type, payload),
+        "provider_mail_surface": build_provider_mail_surface_contract(message_type, payload),
         "acceptance_gate": _acceptance_gate(message_type),
         "required_history": [
             "received",
@@ -276,5 +362,6 @@ def mirror_worker_receipt_to_history(
 __all__ = [
     "append_postman_work_order",
     "append_worker_history_event",
+    "build_provider_mail_surface_contract",
     "mirror_worker_receipt_to_history",
 ]
