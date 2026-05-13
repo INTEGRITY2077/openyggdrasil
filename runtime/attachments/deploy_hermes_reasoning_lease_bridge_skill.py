@@ -91,7 +91,7 @@ UNSAFE_REF_FRAGMENTS = (
     ".skill.md",
     "auth.json",
     "credential",
-    "openyggdrasil-private-dev",
+    "local-private-workspace",
     "private",
     "profile",
     "prompt",
@@ -208,7 +208,7 @@ def _unsafe_name_reason(field: str, value: str | None) -> str | None:
 
 def _unsafe_workspace_reason(workspace_root: Path) -> str | None:
     normalized = str(workspace_root.resolve(strict=False)).replace("\\", "/").lower()
-    if "openyggdrasil-private-dev" in normalized:
+    if "local-private-workspace" in normalized:
         return "private_workspace_root_not_allowed"
     if not workspace_root.exists():
         return "workspace_root_absent"
@@ -228,7 +228,7 @@ def _unsafe_skill_dir_reason(profile_skill_dir: Path | None) -> str | None:
     if profile_skill_dir is None:
         return "hermes_profile_skill_dir_absent"
     normalized = str(profile_skill_dir.resolve(strict=False)).replace("\\", "/").lower()
-    if "openyggdrasil-private-dev" in normalized:
+    if "local-private-workspace" in normalized:
         return "private_profile_skill_dir_not_allowed"
     if not profile_skill_dir.exists():
         return "hermes_profile_skill_dir_absent"
@@ -241,7 +241,7 @@ def _unsafe_skill_dir_parent_reason(profile_skill_dir: Path | None) -> str | Non
     if profile_skill_dir is None:
         return "hermes_profile_skill_dir_absent"
     normalized = str(profile_skill_dir.resolve(strict=False)).replace("\\", "/").lower()
-    if "openyggdrasil-private-dev" in normalized:
+    if "local-private-workspace" in normalized:
         return "private_profile_skill_dir_not_allowed"
     if profile_skill_dir.exists() and not profile_skill_dir.is_dir():
         return "hermes_profile_skill_dir_not_directory"

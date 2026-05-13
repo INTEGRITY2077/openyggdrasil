@@ -51,7 +51,7 @@ ASYNC_MAILBOX_CONSUMER = "reasoning_lease"
 ASYNC_MAILBOX_CLAIM_TYPE = "reasoning_lease_job_claimed"
 DEFAULT_PTC_WORKER_REF = "ptc-worker-ref://openyggdrasil/reasoning-lease/async-consumer"
 DEFAULT_BWRAP_EVIDENCE_REF = (
-    "private-evidence://Dev_history/phase2/reasoning-lease-async-consumer"
+    "evidence-ref://openyggdrasil/public/proof-history/phase2/reasoning-lease-async-consumer"
 )
 REQUIRED_BWRAP_INTRUSION_ATTEMPTS = (
     "network_escape",

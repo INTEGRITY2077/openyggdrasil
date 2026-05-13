@@ -208,66 +208,49 @@ Saver/Finder refs whenever Memory Saver/Finder usage is claimed.
 Use this when the provider determines knowledge should be durably preserved
 beyond the current session.
 
-Display names and compatibility ids:
+Display names:
 
 ```text
-MS1 = Memory Saver 1 = legacy internal OP1
-MF1 = Memory Finder 1 = legacy internal OP2
+Memory Saver = long-term storage worker
+Memory Finder = source-backed recall worker
 ```
 
-Use `ms1` and `mf1` only as `ygg` command targets after the cold-start health
-check confirms `ygg` is available. Treat `MS1` and `MF1` as prose/display
-labels, not standalone commands. Treat `OP1` and `OP2` as internal
-compatibility ids only.
+Use `ms1` and `mf1` only as repository-local `ygg` command targets after the
+cold-start health check confirms the CLI is available. The Provider should not
+treat lane names, tmux names, or compatibility ids as user-facing product
+concepts.
 
-**Dual routing (equal authority):**
-
-```text
-memory/save request
-  -> Hermes memory for current-session memory (built-in)
-  -> ygg tell ms1 for durable Vault save (openyggdrasil)
-```
-
-Entrypoint:
-
-```bash
-ygg tell ms1 "Decision: <summary> ..."
-ygg tell --ptc ms1 "Decision: <summary> ..."   # PTC composition path
-```
-
-Both paths must be triggered. Hermes memory handles the session scope;
-openyggdrasil handles cross-session, cross-provider durability.
-Neither replaces the other.
+Capture is not a direct "store this now" command. The Provider emits a
+product-shaped boundary evaluation request when the conversation appears
+reusable, sourced, larger than a preference, still evolving, or costly to lose
+after compaction. Memory Saver decides whether the episode stays pending,
+cools, is rejected, is chunked, or is promoted to the Vault.
 
 Verify with:
 
 ```bash
-ygg status ms1   # Result Receipt check
+ygg status ms1
 ```
 
 ## Retrieve (Consumption)
 
 Use this when the provider needs to recall knowledge from the long-term Vault.
 
-Use `MF1` / `Memory Finder 1` as the prose/display name. In command examples,
-always keep the `ygg` prefix. Treat `OP2` as the legacy internal compatibility
-id only.
-
-Entrypoint:
+Use `Memory Finder` as the prose/display name. In command examples, always keep
+the `ygg` prefix.
 
 ```bash
 ygg ask mf1 "query"
-ygg ask --ptc mf1 "query"   # PTC deep_search path
 ```
 
 Verify with:
 
 ```bash
-ygg status mf1   # Result Receipt check
+ygg status mf1
 ```
 
-The Provider should use retrieved knowledge to continue its reasoning chain.
-Memory (session) + Vault (cross-session) together form the complete recall surface.
+The Provider must compare returned support against the current question before
+using it. A recall result is not trusted merely because it came from a worker.
 ## Success Condition
 
 The skill is successful when:

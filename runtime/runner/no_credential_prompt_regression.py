@@ -15,7 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS_ROOT = PROJECT_ROOT / "contracts"
 
 PROVIDER_DECLINED_VISIBILITY_REF = (
-    "private-evidence://core/2026-04-25/"
+    "evidence-ref://openyggdrasil/public/core/2026-04-25/"
     "2026-04-25_phase-4-provider-declined-runner-visibility.md"
 )
 

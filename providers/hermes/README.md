@@ -17,7 +17,7 @@ with Hermes-specific projections and deployment receipts.
 | Path | Role |
 | --- | --- |
 | `skills/` | Sanitized public manifest and boundary for the private provider-native skill bundle. |
-| `projects/harness/` | Legacy Hermes harness compatibility surface currently still tracked in public. |
+| `projects/` | Public boundary notes only. Operator-only harness code is not published here. |
 | `hooks/` | Public pointer for hook boundary documentation. |
 | `memories/` | Public pointer for provider memory boundary documentation. |
 | `policy/` | Public policy pointer, not the full internal policy corpus. |

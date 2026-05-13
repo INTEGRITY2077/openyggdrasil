@@ -17,8 +17,8 @@ REQUIRED_ENGINE_COMPONENTS = ("tmux", "postman_helper", "mailbox", "receipt_regi
 READY_STATES = {"active", "available", "healthy", "ok", "present", "ready", "running"}
 ROLE_ALIASES = {
     "provider": ("provider", "pro1", "ygg-pro1", "hermes"),
-    "ms1": ("ms1", "op1", "memory_saver_1", "producer", "ygg-ms1", "ygg-op1"),
-    "mf1": ("mf1", "op2", "memory_finder_1", "consumer", "ygg-mf1", "ygg-op2"),
+    "ms1": ("ms1", "op1", "memory_saver_1", "producer", "ygg-ms1"),
+    "mf1": ("mf1", "op2", "memory_finder_1", "consumer", "ygg-mf1"),
 }
 ROLE_DISPLAY_NAMES = {
     "provider": "Provider Lane",
@@ -148,8 +148,8 @@ def _safe_detail(record: Any, allowed_keys: Sequence[str]) -> dict[str, Any]:
 def _surface_safe_detail(role: str, record: Any, allowed_keys: Sequence[str]) -> dict[str, Any]:
     detail = _safe_detail(record, allowed_keys)
     replacements = {
-        "ms1": (("ygg-op1", "ygg-ms1"), ("op1", "ms1")),
-        "mf1": (("ygg-op2", "ygg-mf1"), ("op2", "mf1")),
+        "ms1": (("op1", "ms1"),),
+        "mf1": (("op2", "mf1"),),
     }
     for key in ("session_name", "target"):
         value = detail.get(key)

@@ -80,7 +80,7 @@ UNSAFE_TEXT_REASON_FRAGMENTS = (
     ("patched hermes source", "hermes_source_hard_coupling_not_allowed"),
     ("foreground .env injection", "foreground_env_injection_not_allowed"),
     (".env injection", "foreground_env_injection_not_allowed"),
-    ("openyggdrasil-private-dev", "foreground_env_injection_not_allowed"),
+    ("local-private-workspace", "foreground_env_injection_not_allowed"),
     ("stdin injection", "stdin_injection_not_allowed"),
     ("raw transcript", "raw_transcript_not_allowed"),
     ("session transcript", "raw_transcript_not_allowed"),

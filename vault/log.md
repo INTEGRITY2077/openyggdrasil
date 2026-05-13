@@ -22,3 +22,10 @@ Format: `## [YYYY-MM-DD] action | subject`
 - Removed raw transcript/source-id framing from public query examples.
 - Clarified that raw provider sessions stay provider-side unless explicitly
   promoted through source-ref backed public memory.
+
+## [2026-05-13] prune | Public harness examples removed
+
+- Removed public query examples that depended on the old Hermes harness bundle.
+- Kept the provider-neutral vault contract example as the public query sample.
+- Preserved the rule that operator harnesses, live witnesses, and raw provider
+  workflow material belong outside the public vault.

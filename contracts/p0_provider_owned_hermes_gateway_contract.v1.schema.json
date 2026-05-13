@@ -417,7 +417,7 @@
             "pattern": "(?i)\\.env"
           },
           {
-            "pattern": "(?i)openyggdrasil-private-dev"
+            "pattern": "(?i)local-private-workspace"
           }
         ]
       }

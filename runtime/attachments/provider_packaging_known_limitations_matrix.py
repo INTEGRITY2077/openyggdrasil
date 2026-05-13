@@ -122,7 +122,7 @@ def build_provider_packaging_known_limitations_matrix(
             limitation_refs=[
                 "contracts/hermes_provider_packaging_baseline.v1.schema.json",
                 "contracts/hermes_foreground_unavailable_contract.v1.schema.json",
-                "providers/hermes/projects/harness/hermes_foreground_probe.py missing",
+                "openyggdrasil-ref://public/hermes/foreground-probe-not-published",
             ],
         ),
         _base_row(

@@ -7,7 +7,7 @@ from attachments.provider_attachment import validate_provider_descriptor
 
 
 HERMES_BACKGROUND_EVIDENCE_REF = (
-    "private-evidence://core/2026-04-25/"
+    "evidence-ref://openyggdrasil/public/core/2026-04-25/"
     "2026-04-25_hermes-background-reasoning-lease-proposal-evaluation.md"
 )
 

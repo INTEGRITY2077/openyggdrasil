@@ -21,7 +21,7 @@ OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS_ROOT = OPENYGGDRASIL_ROOT / "contracts"
 
 HERMES_BACKGROUND_INVOCATION_SMOKE_REF = (
-    "private-evidence://core/2026-04-25/"
+    "evidence-ref://openyggdrasil/public/core/2026-04-25/"
     "2026-04-25_phase-4-hermes-background-invocation-smoke.md"
 )
 

@@ -5079,7 +5079,7 @@ def build_lease_backed_query_adaptive_pathfinder_plan(
         popen_factory=popen_factory,
         scratch_root=scratch_root,
         evidence_ref_prefix=(
-            "private-evidence://Dev_history/runs/phase3a-ptc-dynamic-plan"
+            "evidence-ref://openyggdrasil/public/proof-history/runs/phase3a-ptc-dynamic-plan"
         ),
     )
     extracted_plan = _extract_lease_ptc_tool_plan(lease_consumer_result)

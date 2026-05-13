@@ -15,16 +15,13 @@ OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS_ROOT = OPENYGGDRASIL_ROOT / "contracts"
 
 P6_H1_EVIDENCE_REF = (
-    "private-evidence://core/2026-04-26/"
-    "2026-04-26_phase-6-hermes-live-foreground-bootstrap-smoke.md"
+    "evidence-ref://openyggdrasil/public/hermes/foreground-bootstrap-unavailable"
 )
 P6_H2_EVIDENCE_REF = (
-    "private-evidence://core/2026-04-26/"
-    "2026-04-26_phase-6-hermes-live-foreground-memory-roundtrip.md"
+    "evidence-ref://openyggdrasil/public/hermes/foreground-memory-roundtrip-unavailable"
 )
 MISSING_PROVIDER_HARNESS_PROBE_REF = (
-    "openyggdrasil:providers/hermes/projects/harness/"
-    "hermes_foreground_probe.py"
+    "openyggdrasil-ref://public/hermes/foreground-probe-not-published"
 )
 P6_P1_ACTION = "P6.P1.hermes-provider-packaging-baseline"
 P9_R1_ACTION = "P9.R1.live-provider-proof-or-typed-unavailable-reproof"

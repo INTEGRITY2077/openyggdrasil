@@ -23,7 +23,7 @@ OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS_ROOT = OPENYGGDRASIL_ROOT / "contracts"
 
 GATEWAY_SURFACE_INVENTORY_REF = (
-    "private-evidence://Dev_history/todo/worker1/2026-04-30/result/"
+    "evidence-ref://openyggdrasil/public/proof-history/todo/worker1/2026-04-30/result/"
     "2026-04-30_1318_worker1_provider_owned_background_gateway_surface_inventory_result.md"
 )
 

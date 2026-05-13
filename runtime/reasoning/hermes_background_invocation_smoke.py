@@ -20,7 +20,7 @@ COMMON_RESULT_EVALUATION_REF = (
     "phase-4-common-result-sot-evaluation.md"
 )
 HERMES_BACKGROUND_DESCRIPTOR_REF = (
-    "private-evidence://core/2026-04-25/"
+    "evidence-ref://openyggdrasil/public/core/2026-04-25/"
     "2026-04-25_phase-4-hermes-background-capability-descriptor.md"
 )
 
