@@ -40,6 +40,28 @@ def detect_provider_memory_salience(paragraph: str) -> dict[str, Any]:
     if not text:
         return {"trigger_decision": "defer", "trigger_kind": "none", "reason": "empty_paragraph"}
 
+    if _contains_any(text, ("기억해둬", "기억해 줘", "기억해줘", "기억해", "나중에 기억", "나중에 물어볼")):
+        return _base_emit(
+            paragraph=text,
+            trigger_kind="explicit_user_save_command",
+            intent_field="사용자가 나중에 다시 쓰기 위해 장기 기억 후보를 명시했다.",
+            topic_hint="명시적 장기 기억 요청",
+            category_community_hint="OpenYggdrasil provider behavior contract / memory authoring bridge",
+            breadcrumb="Provider 자연 대화에서 나온 명시적 저장 요청은 source_ref 기반 MemoryTicket admission으로 이어져야 한다.",
+            why_not_atomic="명시적 저장 문장을 단어 태그로만 쪼개면 기억해야 할 이유, 범위, 재사용 조건이 사라진다.",
+        )
+
+    if _contains_any(text, ("책임 경계", "역할 경계", "복제물이 아니라", "장기 위키", "출처", "근거")) and _contains_any(text, ("OpenYggdrasil", "Hermes", "Provider")):
+        return _base_emit(
+            paragraph=text,
+            trigger_kind="boundary_correction",
+            intent_field="OpenYggdrasil과 Provider/Hermes 기억 표면의 책임 경계를 보존해야 한다.",
+            topic_hint="OpenYggdrasil 장기 위키 계층과 Provider 기억 표면의 책임 경계",
+            category_community_hint="OpenYggdrasil memory architecture community / provider memory boundary",
+            breadcrumb="책임 경계 정정은 여러 Provider가 재사용할 수 있는 장기 지식 후보이므로 source_ref 기반 admission이 필요하다.",
+            why_not_atomic="책임 경계는 단어 하나가 아니라 역할, 금지 claim, 근거, 재사용 조건이 함께 있어야 안전하게 회상된다.",
+        )
+
     if _contains_any(text, ("문제가", "문제는", "아니라")) and _contains_any(text, ("트리깅", "trigger", "필요성", "명령")):
         return _base_emit(
             paragraph=text,

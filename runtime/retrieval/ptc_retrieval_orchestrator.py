@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.error_policy import recoverable_to_degraded_event
 from runtime.common.exceptions import OPTIONAL_IMPORT_ERRORS, RECOVERABLE_RUNTIME_ERRORS
 import hashlib
 import json
@@ -453,8 +454,12 @@ def _rank_bm25_candidates(
                 )
             if candidates:
                 return candidates
-        except RECOVERABLE_RUNTIME_ERRORS:
-            pass
+        except RECOVERABLE_RUNTIME_ERRORS as exc:
+            _ = recoverable_to_degraded_event(
+                exc,
+                component="ptc_retrieval_orchestrator",
+                operation="rank_bm25_bridge",
+            )
 
     return [
         _candidate_from_node(
@@ -1047,6 +1052,13 @@ def build_ptc_retrieval_orchestrator_result(
             final_ring_bundle = ring_bundle
     if isinstance(final_ring_bundle, Mapping):
         consumer_bundle["support_bundle"] = dict(final_ring_bundle)
+        if final_ring_bundle.get("support_facts"):
+            consumer_bundle["support_facts"] = list(final_ring_bundle.get("support_facts") or [])
+        if final_ring_bundle.get("source_paths"):
+            consumer_bundle["source_paths"] = list(final_ring_bundle.get("source_paths") or [])
+        for key in ("source_ref", "source_line_range", "topic_key", "community_id", "ring_id", "origin_locator"):
+            if final_ring_bundle.get(key):
+                consumer_bundle[key] = final_ring_bundle.get(key)
     if coverage_state == "absent" and "support_bundle" not in consumer_bundle:
         consumer_bundle["typed_unavailable"] = _typed_unavailable(
             query_text,

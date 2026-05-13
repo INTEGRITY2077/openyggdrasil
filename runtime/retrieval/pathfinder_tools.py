@@ -48,7 +48,7 @@ def _normalize_provenance_row(row: Mapping[str, Any], *, lane: str) -> dict[str,
         "topic_id": str(row.get("topic_id") or ""),
         "episode_id": str(row.get("episode_id") or ""),
         "claim_id": str(row.get("claim_id") or ""),
-        "support_fact": str(row.get("answer_summary") or row.get("question_summary") or "").strip(),
+        "support_fact": str(row.get("support_fact") or row.get("answer_summary") or row.get("question_summary") or "").strip(),
         "source_rel": str(row.get("promoted_from") or row.get("derived_from") or "").strip(),
         "lane": lane,
     }
@@ -318,6 +318,107 @@ def _unique_preserve_order(values: list[str]) -> list[str]:
     return out
 
 
+_SEARCH_TOKEN_RE = re.compile(r"[0-9A-Za-z_:+.-]+|[\uac00-\ud7a3]+")
+_KOREAN_SUFFIXES = (
+    "으로부터",
+    "로부터",
+    "에게서",
+    "께서",
+    "에서",
+    "으로",
+    "에게",
+    "까지",
+    "부터",
+    "처럼",
+    "보다",
+    "이다",
+    "였다",
+    "였지",
+    "이지",
+    "인가",
+    "하고",
+    "라는",
+    "의",
+    "가",
+    "이",
+    "은",
+    "는",
+    "을",
+    "를",
+    "와",
+    "과",
+    "도",
+    "만",
+    "에",
+    "로",
+)
+
+
+def _strip_korean_suffix(term: str) -> str:
+    for suffix in _KOREAN_SUFFIXES:
+        if term.endswith(suffix) and len(term) > len(suffix) + 1:
+            return term[: -len(suffix)]
+    return term
+
+
+def _search_units(text: str) -> list[str]:
+    units: list[str] = []
+    for raw in _SEARCH_TOKEN_RE.findall((text or "").lower()):
+        token = raw.strip("._:-")
+        if not token:
+            continue
+        units.append(token)
+        stripped = _strip_korean_suffix(token)
+        if stripped != token:
+            units.append(stripped)
+    return _unique_preserve_order(units)
+
+
+def _query_text_score(query_text: str, candidate_text: str) -> int:
+    query_units = _search_units(query_text)
+    if not query_units:
+        return 0
+    candidate_units = set(_search_units(candidate_text))
+    candidate_lower = (candidate_text or "").lower()
+    score = 0
+    for unit in query_units:
+        if unit in candidate_units:
+            score += 3
+        elif len(unit) >= 3 and unit in candidate_lower:
+            score += 2
+        elif len(unit) >= 3 and any(unit in candidate or candidate in unit for candidate in candidate_units if len(candidate) >= 3):
+            score += 1
+    return score
+
+
+def _decision_capsules(records: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    return [
+        record
+        for record in records
+        if str(record.get("decision") or "").strip()
+        or str(record.get("conclusion") or "").strip()
+        or str(record.get("context") or "").strip()
+    ]
+
+
+def _answer_sufficient_support_facts(
+    *,
+    origin_claims: list[Mapping[str, Any]],
+    all_records: list[Mapping[str, Any]],
+) -> list[str]:
+    facts: list[str] = []
+    for capsule in _decision_capsules(all_records):
+        for key in ("decision", "conclusion", "context", "reuse_condition"):
+            value = str(capsule.get(key) or "").strip()
+            if value:
+                facts.append(value)
+    for row in origin_claims:
+        value = str(row.get("support_fact") or "").strip()
+        if value:
+            facts.append(value)
+    return _unique_preserve_order(facts)
+
+
 def _extract_ring_ids(text: str, records: list[Mapping[str, Any]]) -> list[str]:
     ring_ids = [str(row.get("ring_id") or "") for row in records]
     for line in text.splitlines():
@@ -511,14 +612,13 @@ def _typed_unavailable_bundle(*, query_text: str, missing_refs: list[str]) -> di
 
 
 def _select_ring_topic_key(*, query_text: str, vault_root: Path) -> str | None:
-    query_words = {w for w in re.split(r"\s+", query_text.lower()) if w}
     best: tuple[int, str] | None = None
     for path in (vault_root / "queries").glob("*.md"):
         text = path.read_text(encoding="utf-8", errors="ignore")
         if "ring_id" not in text and "Provenance Rings" not in text and "community_id" not in text:
             continue
-        hay = text.lower()
-        score = sum(1 for word in query_words if word and word in hay)
+        title = _topic_page_title(text, fallback=path.stem.replace("-", " "))
+        score = _query_text_score(query_text, f"{path.stem}\n{title}\n{text}")
         if score <= 0:
             continue
         key = path.stem
@@ -592,6 +692,7 @@ def build_ring_support_bundle(
         }
         for row in records
     ]
+    support_facts = _answer_sufficient_support_facts(origin_claims=origin_claims, all_records=all_records)
     recent_rings = [
         {
             "ring_id": str(row.get("ring_id") or ring_id),
@@ -702,7 +803,7 @@ def build_ring_support_bundle(
         "origin_claims": origin_claims,
         "recent_rings": recent_rings,
         "source_paths": _unique_preserve_order(source_paths),
-        "support_facts": _unique_preserve_order([str(row.get("support_fact") or "") for row in origin_claims]),
+        "support_facts": support_facts,
         "community_edges": community_edges,
         "semantic_edges": semantic_edges,
     }

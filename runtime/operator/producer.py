@@ -611,12 +611,17 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     community_path = vault / "communities" / f"{community_key}.md"
     community_path.parent.mkdir(parents=True, exist_ok=True)
     community_taxonomy = build_community_node_taxonomy(community["community_id"])
+    existing_community = community_path.read_text(encoding="utf-8") if community_path.exists() else ""
+    related_nodes = _merge_metadata_values(existing_community, "related_nodes", [ring_node["node_id"]])
+    ring_ids = _merge_metadata_values(existing_community, "ring_ids", [ring["ring_id"]])
+    ring_ids = _merge_metadata_values(existing_community, "ring_id", ring_ids)
     community_path.write_text(
         f"# {community_key}\n\n"
         f"- community_id: {community['community_id']}\n"
         f"- placement_reason: {community['placement_reason']}\n"
-        f"- related_nodes: {ring_node['node_id']}\n"
+        f"- related_nodes: {', '.join(related_nodes)}\n"
         f"- ring_id: {ring['ring_id']}\n"
+        f"- ring_ids: {', '.join(ring_ids)}\n"
         f"- node_type: {community_taxonomy['node_type']}\n"
         f"- topography_level: {community_taxonomy['topography_level']}\n"
         f"- community_role: {community_taxonomy['community_role']}\n"
@@ -635,6 +640,25 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
 
 
 CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD = "preserve_paragraph_intent_before_decision_atoms"
+
+
+def _metadata_values(text: str, key: str) -> list[str]:
+    match = re.search(rf"^\s*-\s*{re.escape(key)}\s*:\s*(.*?)\s*$", text or "", flags=re.MULTILINE)
+    if not match:
+        return []
+    return [item.strip() for item in match.group(1).split(",") if item.strip()]
+
+
+def _merge_metadata_values(text: str, key: str, values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    merged: list[str] = []
+    for value in [*_metadata_values(text, key), *values]:
+        item = str(value or "").strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        merged.append(item)
+    return merged
 
 
 def _is_atom_tag_hint(value: str) -> bool:
