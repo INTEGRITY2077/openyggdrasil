@@ -908,8 +908,7 @@ def build_memory_ticket_tst_supervisor(
     nodes = list(result.get("nodes") or [])
     required_payload_fields = [
         "source_ref",
-        "message_index_range",
-        "source_line_range",
+        "bounded_source_range",
         "anchor_hash",
         "intent_field",
         "decomposition_guard",
@@ -921,10 +920,19 @@ def build_memory_ticket_tst_supervisor(
     ]
     capsule_fields = ["decision", "context", "conclusion", "evidence", "reuse_condition"]
     capsule_present = bool(payload.get("decision_capsule")) or all(payload.get(field) for field in capsule_fields)
+    bounded_source_range_present = bool(
+        payload.get("message_index_range")
+        or payload.get("message_id_range")
+        or payload.get("source_line_range")
+    )
     missing_payload_fields = []
     for field in required_payload_fields:
         if field == "decision_capsule":
             if not capsule_present:
+                missing_payload_fields.append(field)
+            continue
+        if field == "bounded_source_range":
+            if not bounded_source_range_present:
                 missing_payload_fields.append(field)
             continue
         if not payload.get(field):
@@ -937,6 +945,7 @@ def build_memory_ticket_tst_supervisor(
         "required_payload_fields": required_payload_fields,
         "decision_capsule_fields": capsule_fields,
         "decision_capsule_present": capsule_present,
+        "bounded_source_range_present": bounded_source_range_present,
         "missing_payload_fields": missing_payload_fields,
         "source_ref_resolved": source_ref_resolved,
         "raw_storage_succeeded": raw_storage_succeeded,

@@ -118,6 +118,11 @@ def run_producer(mailbox: Path, vault: Path):
                 status=status,
                 nodes=nodes,
                 reason=result.get("reason"),
+                strict_storage_gate=(
+                    (tst_capability_supervisor or {})
+                    .get("result_summary", {})
+                    .get("strict_storage_gate")
+                ),
             )
             write_operator_receipt(
                 receipts_file,
@@ -395,10 +400,24 @@ def run_producer(mailbox: Path, vault: Path):
         _run_hygiene_check(mailbox, vault)
 
 
-def _memory_saver_judgment(*, intent: str, status: str, nodes: list, reason: object = None) -> dict:
+def _memory_saver_judgment(
+    *,
+    intent: str,
+    status: str,
+    nodes: list,
+    reason: object = None,
+    strict_storage_gate: dict | None = None,
+) -> dict:
     """Provider-safe worker judgment summary for MS receipts."""
     produced_count = len(nodes or [])
+    strict_allowed = (
+        strict_storage_gate.get("storage_success_allowed")
+        if isinstance(strict_storage_gate, dict)
+        else None
+    )
     success = status in {"acknowledged", "completed"} and produced_count > 0
+    if strict_allowed is False:
+        success = False
     return {
         "schema_version": "worker_judgment.v1",
         "worker_role": "memory_saver",
@@ -428,6 +447,12 @@ def _memory_saver_judgment(*, intent: str, status: str, nodes: list, reason: obj
             "produced_count": produced_count,
             "node_count": len(nodes or []),
             "reason": str(reason or ""),
+            "strict_storage_gate_allowed": strict_allowed,
+            "strict_storage_gate_failure_reason": (
+                strict_storage_gate.get("failure_reason")
+                if isinstance(strict_storage_gate, dict)
+                else None
+            ),
         },
         "judgment": "success" if success else "typed_unavailable",
         "close_decision": "storage_receipt" if success else "typed_unavailable_no_storage_evidence",
@@ -476,7 +501,13 @@ def _as_list(value) -> list[str]:
 def _render_provenance_ring_page(*, ring_node: dict) -> str:
     topic = ring_node["canonical_topic"]
     capsule = ring_node["decision_capsule"]
-    ring = ring_node["provenance_rings"][0]
+    rings = list(ring_node["provenance_rings"] or [])
+    ring = rings[-1]
+    source_refs = []
+    for item in rings:
+        source_ref = str(item.get("source_ref") or "").strip()
+        if source_ref and source_ref not in source_refs:
+            source_refs.append(source_ref)
     lifecycle = ring_node["lifecycle"]
     community = ring_node["community"]
     taxonomy = ring_node.get("node_taxonomy", {})
@@ -494,7 +525,7 @@ topography_level: {taxonomy.get('topography_level', 'tree')}
 community_role: {taxonomy.get('community_role', 'member')}
 status: ACTIVE
 community: {community['community_id']}
-sources: [{ring['source_ref']}]
+sources: [{', '.join(source_refs)}]
 root_claim: {capsule['decision']}
 current_authority: active
 ring_id: {ring['ring_id']}
@@ -567,6 +598,14 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     community = ring_node["community"]
     topic_path = vault / topic["page_path"]
     topic_path.parent.mkdir(parents=True, exist_ok=True)
+    existing_topic = topic_path.read_text(encoding="utf-8") if topic_path.exists() else ""
+    merged_rings = _merge_provenance_rings(
+        _existing_provenance_rings(existing_topic),
+        list(ring_node["provenance_rings"] or []),
+    )
+    if merged_rings:
+        ring_node = {**ring_node, "provenance_rings": merged_rings}
+    ring = ring_node["provenance_rings"][-1]
     topic_path.write_text(_render_provenance_ring_page(ring_node=ring_node), encoding="utf-8")
 
     # OP2의 기존 BM25 fixed path가 concepts/entities 중심으로 읽으므로 POC mirror를 하나 둔다.
@@ -596,16 +635,18 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
         "source_line_range": ring.get("source_line_range"),
         "node_taxonomy": ring_node.get("node_taxonomy", {}),
     }
-    prov_path.write_text(
-        "# Provenance Rings\n"
+    episode_block = (
         f"<!-- provenance:{record['episode_id']}:start -->\n"
         f"## Episode {ring['ring_id']}\n"
         "```json\n"
         f"{json.dumps(record, ensure_ascii=False)}\n"
         "```\n"
-        f"<!-- provenance:{record['episode_id']}:end -->\n",
-        encoding="utf-8",
+        f"<!-- provenance:{record['episode_id']}:end -->\n"
     )
+    existing_provenance = prov_path.read_text(encoding="utf-8") if prov_path.exists() else "# Provenance Rings\n"
+    if f"provenance:{record['episode_id']}:start" not in existing_provenance:
+        existing_provenance = existing_provenance.rstrip() + "\n" + episode_block
+    prov_path.write_text(existing_provenance, encoding="utf-8")
 
     community_key = community["community_id"].split(":", 1)[-1]
     community_path = vault / "communities" / f"{community_key}.md"
@@ -647,6 +688,32 @@ def _metadata_values(text: str, key: str) -> list[str]:
     if not match:
         return []
     return [item.strip() for item in match.group(1).split(",") if item.strip()]
+
+
+def _existing_provenance_rings(text: str) -> list[dict]:
+    match = re.search(r"## 3\. Provenance Rings\s*```json\s*(.*?)\s*```", text or "", flags=re.DOTALL)
+    if not match:
+        return []
+    try:
+        value = json.loads(match.group(1))
+    except json.JSONDecodeError:
+        return []
+    if isinstance(value, list):
+        return [dict(item) for item in value if isinstance(item, dict) and item.get("ring_id")]
+    return []
+
+
+def _merge_provenance_rings(*ring_lists: list[dict]) -> list[dict]:
+    seen: set[str] = set()
+    merged: list[dict] = []
+    for rings in ring_lists:
+        for ring in rings:
+            ring_id = str(ring.get("ring_id") or "").strip()
+            if not ring_id or ring_id in seen:
+                continue
+            seen.add(ring_id)
+            merged.append(dict(ring))
+    return merged
 
 
 def _merge_metadata_values(text: str, key: str, values: list[str]) -> list[str]:
