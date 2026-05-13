@@ -4,11 +4,11 @@ import re
 import uuid
 from typing import Any, Mapping, Sequence
 
+from runtime.common.portable_ref import looks_like_local_path
 from harness_common import utc_now_iso
 
 
 SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^\s\\]+$")
-LOCAL_PATH_RE = re.compile(r"(^[A-Za-z]:|\\\\|/Users/|/home/|/tmp/|file://)", re.IGNORECASE)
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 RAW_SKILL_BODY_RE = re.compile(r"(?s)^---\s*\n.*\bname\s*:")
 UNSAFE_REF_FRAGMENTS = (
@@ -86,7 +86,7 @@ def _is_safe_ref(value: str) -> bool:
     stripped = str(value).strip()
     if not SAFE_REF_RE.match(stripped):
         return False
-    if LOCAL_PATH_RE.search(stripped):
+    if looks_like_local_path(stripped):
         return False
     lowered = stripped.lower()
     return not any(fragment in lowered for fragment in UNSAFE_REF_FRAGMENTS)
@@ -116,7 +116,7 @@ def _safe_identifier(value: Any, fallback: str) -> str:
 
 
 def _unsafe_text_reason(value: str) -> str | None:
-    if LOCAL_PATH_RE.search(value):
+    if looks_like_local_path(value):
         return "portable_local_path_not_allowed"
     if RAW_SKILL_BODY_RE.search(value) or ".skill.md" in value.lower():
         return "skill_body_not_allowed"

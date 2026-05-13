@@ -10,6 +10,7 @@ from delivery.consumer_receipt_ingress import (
     build_hermes_answer_receipt,
     build_recall_support_bundle_ref,
 )
+from runtime.common.portable_ref import looks_like_local_path
 from harness_common import utc_now_iso
 from pipeline.producer_consumer_smoke import build_producer_consumer_smoke
 from reasoning.hermes_real_session_usage_probe import build_hermes_real_session_usage_probe
@@ -19,7 +20,6 @@ from reasoning.provider_skill_receipt_consumer import build_provider_skill_recei
 SCHEMA_VERSION = "p0_e10_usage_ref_materialization.v1"
 RUNTIME_OWNER = "runtime/pipeline/p0_e10_usage_ref_materializer.py"
 SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^\s\\]+$")
-LOCAL_PATH_RE = re.compile(r"(^[A-Za-z]:|\\\\|/Users/|/home/|/tmp/|file://)", re.IGNORECASE)
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 UNSAFE_REF_FRAGMENTS = (
     ".skill.md",
@@ -62,7 +62,7 @@ def _is_safe_ref(value: Any) -> bool:
     text = str(value or "").strip()
     if not SAFE_REF_RE.match(text):
         return False
-    if LOCAL_PATH_RE.search(text):
+    if looks_like_local_path(text):
         return False
     lowered = text.lower()
     return not any(fragment in lowered for fragment in UNSAFE_REF_FRAGMENTS)

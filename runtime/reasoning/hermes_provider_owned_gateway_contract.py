@@ -9,6 +9,7 @@ from typing import Any, Mapping, Sequence
 
 import jsonschema
 
+from runtime.common.portable_ref import looks_like_local_path
 from harness_common import utc_now_iso
 
 
@@ -16,7 +17,6 @@ OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS_ROOT = OPENYGGDRASIL_ROOT / "contracts"
 
 SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^\s\\]+$")
-LOCAL_PATH_RE = re.compile(r"(^[A-Za-z]:|\\\\|/Users/|/home/|/tmp/|file://)", re.IGNORECASE)
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 UNSAFE_REF_FRAGMENTS = (
     ".env",
@@ -209,14 +209,14 @@ def _is_safe_ref(value: str) -> bool:
     stripped = str(value).strip()
     if not SAFE_REF_RE.match(stripped):
         return False
-    if LOCAL_PATH_RE.search(stripped):
+    if looks_like_local_path(stripped):
         return False
     lowered = stripped.lower()
     return not any(fragment in lowered for fragment in UNSAFE_REF_FRAGMENTS)
 
 
 def _unsafe_text_reason(value: str) -> str | None:
-    if LOCAL_PATH_RE.search(value):
+    if looks_like_local_path(value):
         return "local_provider_path_material_not_allowed"
     lowered = value.lower()
     for fragment, reason_code in UNSAFE_TEXT_REASON_FRAGMENTS:

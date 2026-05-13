@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import time
@@ -9,14 +8,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from runtime.common.jsonl_io import append_jsonl
+from runtime.delivery.tmux_lane_adapter import (
+    cancel_prompt,
+    paste_text_enter,
+    validate_no_worker_judgment_payload,
+)
 from runtime.delivery.postman_work_order import append_worker_history_event
 from runtime.delivery.worker_result_spec import build_worker_result_spec
-
-
-def append_jsonl(path: Path, row: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as stream:
-        stream.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
 def _provider_inbox_path(mailbox: Path) -> Path:
@@ -213,6 +212,16 @@ def _project_native_receipt_notice(
         worker_result_spec=worker_result_spec,
     )
     try:
+        validate_no_worker_judgment_payload(text)
+    except ValueError as exc:
+        return {
+            "enabled": True,
+            "written": False,
+            "status": "blocked_worker_judgment_payload",
+            "session": session,
+            "reason": str(exc),
+        }
+    try:
         has_session = subprocess.run(
             ["tmux", "has-session", "-t", session],
             capture_output=True,
@@ -247,15 +256,10 @@ def _project_native_receipt_notice(
                 if tail_is_prompt and not any("msg=interrupt" in line for line in recent):
                     break
             time.sleep(1.0)
-        subprocess.run(
-            ["tmux", "send-keys", "-t", target, "-X", "cancel"],
-            capture_output=True,
-            text=True,
-            timeout=3,
-        )
-        subprocess.run(["tmux", "set-buffer", text], check=True, capture_output=True, text=True, timeout=3)
-        subprocess.run(["tmux", "paste-buffer", "-t", target], check=True, capture_output=True, text=True, timeout=3)
-        subprocess.run(["tmux", "send-keys", "-t", target, "Enter"], check=True, capture_output=True, text=True, timeout=3)
+        cancel_prompt(target, reason="operator_result_delivery")
+        result = paste_text_enter(target, text, reason="operator_result_delivery", timeout=3)
+        if result.returncode != 0:
+            raise RuntimeError((result.stderr or result.stdout or "tmux_lane_adapter_failed").strip())
     except Exception as exc:  # noqa: BLE001 - result projection must never break receipt recording.
         return {
             "enabled": True,

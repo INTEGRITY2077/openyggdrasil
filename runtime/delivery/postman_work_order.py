@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from runtime.common.jsonl_io import append_jsonl
+
 INTERNAL_PROOF_DIRECTIVE_MARKERS = (
     "TST/PTC 행동",
     "TST/PTC 도구 선택",
@@ -36,12 +38,6 @@ INTERNAL_PROOF_DIRECTIVE_MARKERS = (
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def append_jsonl(path: Path, row: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as stream:
-        stream.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:

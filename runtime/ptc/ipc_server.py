@@ -25,6 +25,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
+from runtime.ptc.preamble_facades import PATHFINDER_PREAMBLE_METHODS
+
 
 _primitives_cache = None
 
@@ -48,15 +50,8 @@ READ_ONLY_METHODS = frozenset(
         "rank_by_relevance",
         "extract_spo",
         "validate_node",
-        "locate_region",
-        "select_topic_anchor",
-        "read_origin_claims",
-        "read_recent_claims",
-        "collect_claim_ids",
-        "read_source_paths",
-        "assemble_support_bundle",
-        "assemble_unanchored_bundle",
     }
+    | PATHFINDER_PREAMBLE_METHODS
 )
 WRITE_METHODS = frozenset({"save_vault_note", "create_edge"})
 DESTRUCTIVE_METHODS = frozenset({"prune_node"})

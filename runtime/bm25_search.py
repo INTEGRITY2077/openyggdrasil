@@ -48,6 +48,7 @@ import json
 import math
 from pathlib import Path
 
+from runtime.common.error_policy import record_recoverable
 from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 
 try:
@@ -96,7 +97,8 @@ def _load_vault_nodes(vault: Path) -> list[dict]:
             body = text[end+3:].strip() if end >= 0 else ""
             node["_search_text"] = f"{fm.get('title','')} {fm.get('content','')} {body}"
             nodes.append(node)
-        except RECOVERABLE_RUNTIME_ERRORS:
+        except RECOVERABLE_RUNTIME_ERRORS as exc:
+            record_recoverable(exc, component="bm25_search", operation="load_vault_node")
             continue
     return nodes
 
@@ -128,7 +130,8 @@ def bm25_search(vault: Path, query: str, top_k: int = 20) -> list[dict]:
     def _tokenize(text):
         try:
             tokens = text.lower().split()
-        except RECOVERABLE_RUNTIME_ERRORS:
+        except RECOVERABLE_RUNTIME_ERRORS as exc:
+            record_recoverable(exc, component="bm25_search", operation="basic_tokenize")
             tokens = []
         # Kiwi 명사 추출 (한국어)
         try:
@@ -146,8 +149,8 @@ def bm25_search(vault: Path, query: str, top_k: int = 20) -> list[dict]:
         try:
             from korean_text.query_expansion import query_expansion_tokens
             tokens.extend(query_expansion_tokens(text))
-        except RECOVERABLE_RUNTIME_ERRORS:
-            pass
+        except RECOVERABLE_RUNTIME_ERRORS as exc:
+            record_recoverable(exc, component="bm25_search", operation="query_expansion")
         return tokens
     query_tokens = _tokenize(query)
     tokenized_corpus = [_tokenize(str(text)) for text in corpus]

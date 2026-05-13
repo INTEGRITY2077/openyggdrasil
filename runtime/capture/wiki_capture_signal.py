@@ -4,13 +4,11 @@ import re
 import uuid
 from typing import Any, Mapping
 
+from runtime.common.portable_ref import looks_like_local_path
 from harness_common import utc_now_iso
 
 
 LANGUAGE_CODE_PATTERN = re.compile(r"^[a-z]{2}$")
-LOCAL_PATH_PATTERN = re.compile(
-    r"(?i)(?:\b[A-Za-z]:[\\/]|\\\\|file://|/(?:Users|home|mnt|tmp|var|etc)/)"
-)
 SAFE_REF_PATTERN = re.compile(r"^[a-z][a-z0-9+.-]*://openyggdrasil/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=-]+$")
 
 
@@ -25,7 +23,7 @@ def require_safe_ref(value: str, *, field: str = "source_ref") -> str:
     ref = str(value or "").strip()
     if not ref:
         raise ValueError(f"{field} is required")
-    if LOCAL_PATH_PATTERN.search(ref):
+    if looks_like_local_path(ref):
         raise ValueError(f"{field} must not contain a local filesystem path")
     if not SAFE_REF_PATTERN.fullmatch(ref):
         raise ValueError(f"{field} must be a safe openyggdrasil typed ref")

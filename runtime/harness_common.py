@@ -12,6 +12,8 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional
 
+from runtime.common.jsonl_io import append_jsonl, read_jsonl
+
 
 OPENYGGDRASIL_ROOT = Path(
     os.getenv("OPENYGGDRASIL_ROOT", str(Path(__file__).resolve().parents[1]))
@@ -108,12 +110,6 @@ def ensure_runtime_dirs() -> None:
     LOCKS_ROOT.mkdir(parents=True, exist_ok=True)
 
 
-def append_jsonl(path: Path, payload: Dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
-
-
 def record_event(event_type: str, payload: Dict[str, Any]) -> None:
     ensure_runtime_dirs()
     append_jsonl(
@@ -124,19 +120,6 @@ def record_event(event_type: str, payload: Dict[str, Any]) -> None:
             **payload,
         },
     )
-
-
-def read_jsonl(path: Path) -> List[Dict[str, Any]]:
-    if not path.exists():
-        return []
-    rows: List[Dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
-            rows.append(json.loads(line))
-    return rows
 
 
 def json_ready(value: Any) -> Any:

@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
+from runtime.common.portable_ref import looks_like_local_path
 from runtime.harness_common import utc_now_iso
 
 
@@ -85,7 +86,6 @@ STATUS_REJECT_UNSAFE = "reject_unsafe_provider_skill_binding"
 
 SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]{1,96}$")
 SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^\s\\]+$")
-LOCAL_PATH_RE = re.compile(r"(^[A-Za-z]:|\\\\|/Users/|/home/|/tmp/|file://)", re.IGNORECASE)
 UNSAFE_REF_FRAGMENTS = (
     ".env",
     ".skill.md",
@@ -152,7 +152,7 @@ def _is_safe_ref(value: str) -> bool:
     stripped = str(value).strip()
     if not SAFE_REF_RE.match(stripped):
         return False
-    if LOCAL_PATH_RE.search(stripped):
+    if looks_like_local_path(stripped):
         return False
     lowered = stripped.lower()
     return not any(fragment in lowered for fragment in UNSAFE_REF_FRAGMENTS)
@@ -1039,7 +1039,7 @@ def warm_start_check_hermes_reasoning_lease_bridge_skill(
         ("binding_artifact", binding_artifact),
     ):
         encoded = json.dumps(artifact, ensure_ascii=False, sort_keys=True)
-        if LOCAL_PATH_RE.search(encoded):
+        if looks_like_local_path(encoded):
             unsafe_reasons.append(f"{artifact_name}_contains_local_path_material")
         if _contains_unsafe_string_value(artifact):
             unsafe_reasons.append(f"{artifact_name}_contains_unsafe_fragment")
@@ -1157,7 +1157,7 @@ def validate_hermes_reasoning_lease_bridge_deploy_result(result: Mapping[str, An
         artifact = result.get(artifact_key)
         if isinstance(artifact, Mapping):
             for value in artifact.values():
-                if isinstance(value, str) and LOCAL_PATH_RE.search(value):
+                if isinstance(value, str) and looks_like_local_path(value):
                     raise ValueError(f"{artifact_key} contains local path material")
             for key in (
                 "provider_skill_ref",

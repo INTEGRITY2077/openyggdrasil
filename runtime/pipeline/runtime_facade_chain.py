@@ -23,6 +23,7 @@ from delivery.postman_finalization import build_postman_delivery_handoff
 from delivery.postman_gateway import submit_packet
 from evaluation.evaluator import evaluate_decision_candidate
 from evaluation.evaluator_amundsen_handoff import build_evaluator_amundsen_handoff
+from runtime.common.portable_ref import looks_like_local_path
 from harness_common import DEFAULT_VAULT, utc_now_iso
 from pipeline.producer_consumer_smoke import build_producer_consumer_smoke
 from placement.map_maker_stub import update_map_topography
@@ -46,10 +47,6 @@ OPTIONAL_SAFE_REF_FIELDS = (
     "provider_receipt_consumer_ref",
 )
 SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^\s\\]+$")
-LOCAL_PATH_RE = re.compile(
-    r"(?:\b[A-Za-z]:[\\/]|\\\\|file://|/(?:Users|home|mnt|tmp|var|etc)/)",
-    re.IGNORECASE,
-)
 RAW_SKILL_BODY_RE = re.compile(r"(?s)^---\s*\n.*\bname\s*:")
 UNSAFE_KEY_REASONS = {
     "api_key": "credential_material_not_allowed",
@@ -108,7 +105,7 @@ def _safe_ref(value: Any) -> str | None:
     if not SAFE_REF_RE.fullmatch(text):
         return None
     lowered = text.lower()
-    if LOCAL_PATH_RE.search(text):
+    if looks_like_local_path(text):
         return None
     if any(fragment in lowered for fragment in ("credential", "transcript", ".skill.md", ".env")):
         return None
@@ -120,7 +117,7 @@ def _normalize_key(key: Any) -> str:
 
 
 def _unsafe_text_reason(value: str) -> str | None:
-    if LOCAL_PATH_RE.search(value):
+    if looks_like_local_path(value):
         return "portable_local_path_not_allowed"
     if RAW_SKILL_BODY_RE.search(value):
         return "raw_skill_body_not_allowed"

@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from runtime.common.jsonl_io import append_jsonl
 from runtime.delivery.operator_result_delivery import deliver_operator_result
 
 from runtime.log_event import warn
@@ -31,12 +32,6 @@ def build_operator_receipt(
     }
     receipt.update(fields)
     return receipt
-
-
-def append_jsonl(path: Path, row: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
 def write_operator_receipt(

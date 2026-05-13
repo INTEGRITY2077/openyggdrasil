@@ -11,7 +11,6 @@ Usage:
 """
 from __future__ import annotations
 
-from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import atexit
 import json
 import os
@@ -19,6 +18,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from runtime.common.error_policy import record_recoverable
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 
 # 로그 레벨 (낮을수록 많이 출력)
 LEVELS = {"ERROR": 40, "WARN": 30, "INFO": 20, "DEBUG": 10}
@@ -40,8 +42,9 @@ def _get_log_fh():
     if _log_fh is None:
         try:
             _log_fh = open(_log_file, "a", encoding="utf-8")
-        except RECOVERABLE_RUNTIME_ERRORS:
+        except RECOVERABLE_RUNTIME_ERRORS as exc:
             _log_fh = None
+            record_recoverable(exc, component="log_event", operation="open_log_file")
     return _log_fh
 
 
@@ -125,8 +128,8 @@ def _write_to_file(line: str) -> None:
         try:
             fh.write(line + "\n")
             fh.flush()
-        except RECOVERABLE_RUNTIME_ERRORS:
-            pass
+        except RECOVERABLE_RUNTIME_ERRORS as exc:
+            record_recoverable(exc, component="log_event", operation="write_to_file")
 
 
 def log_path() -> str:

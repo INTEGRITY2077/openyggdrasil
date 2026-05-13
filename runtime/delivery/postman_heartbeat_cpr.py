@@ -1,11 +1,17 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from attachments.provider_inbox import inject_session_packet, read_session_inbox
 from delivery.consumer_receipt_ingress import build_typed_unavailable, validate_typed_unavailable
+from runtime.common.portable_ref import looks_like_local_path
+from runtime.common.role_aliases import (
+    LIVE_GROUP_ROLE_ALIASES,
+    LIVE_GROUP_ROLE_COMMAND_TARGETS,
+    LIVE_GROUP_ROLE_DISPLAY_NAMES,
+    scrub_live_group_legacy_alias,
+)
 from harness_common import utc_now_iso
 
 
@@ -15,21 +21,9 @@ POSTMAN_CPR_PACKET_TYPE = "worker_brief"
 REQUIRED_LIVE_GROUP_ROLES = ("provider", "ms1", "mf1")
 REQUIRED_ENGINE_COMPONENTS = ("tmux", "postman_helper", "mailbox", "receipt_registry")
 READY_STATES = {"active", "available", "healthy", "ok", "present", "ready", "running"}
-ROLE_ALIASES = {
-    "provider": ("provider", "pro1", "ygg-pro1", "hermes"),
-    "ms1": ("ms1", "op1", "memory_saver_1", "producer", "ygg-ms1"),
-    "mf1": ("mf1", "op2", "memory_finder_1", "consumer", "ygg-mf1"),
-}
-ROLE_DISPLAY_NAMES = {
-    "provider": "Provider Lane",
-    "ms1": "MS1 Memory Saver",
-    "mf1": "MF1 Memory Finder",
-}
-ROLE_COMMAND_TARGETS = {
-    "provider": "ygg pro1",
-    "ms1": "ygg ms1",
-    "mf1": "ygg mf1",
-}
+ROLE_ALIASES = LIVE_GROUP_ROLE_ALIASES
+ROLE_DISPLAY_NAMES = LIVE_GROUP_ROLE_DISPLAY_NAMES
+ROLE_COMMAND_TARGETS = LIVE_GROUP_ROLE_COMMAND_TARGETS
 FORBIDDEN_TEXT_TOKENS = (
     "---\nname:",
     "```",
@@ -38,7 +32,6 @@ FORBIDDEN_TEXT_TOKENS = (
     "raw provider transcript",
     "transcript.txt",
 )
-LOCAL_PATH_RE = re.compile(r"^(?:[A-Za-z]:[\\/]|file://|/[A-Za-z0-9_.-])")
 
 
 POSTMAN_ROLE = {
@@ -147,18 +140,11 @@ def _safe_detail(record: Any, allowed_keys: Sequence[str]) -> dict[str, Any]:
 
 def _surface_safe_detail(role: str, record: Any, allowed_keys: Sequence[str]) -> dict[str, Any]:
     detail = _safe_detail(record, allowed_keys)
-    replacements = {
-        "ms1": (("op1", "ms1"),),
-        "mf1": (("op2", "mf1"),),
-    }
     for key in ("session_name", "target"):
         value = detail.get(key)
         if not isinstance(value, str):
             continue
-        safe_value = value
-        for old, new in replacements.get(role, ()):
-            safe_value = re.sub(re.escape(old), new, safe_value, flags=re.IGNORECASE)
-        detail[key] = safe_value
+        detail[key] = scrub_live_group_legacy_alias(role, value)
     return detail
 
 
@@ -251,7 +237,7 @@ def _safe_source_paths(values: Iterable[Any]) -> list[str]:
         text = _clean_string(value, max_length=512).replace("\\", "/")
         if not text:
             continue
-        if LOCAL_PATH_RE.match(text):
+        if looks_like_local_path(text):
             raise ValueError("Engine Heartbeat CPR source_paths must be portable relative pointers")
         source_paths.append(text)
     return _non_empty_strings(source_paths, limit=16)
@@ -259,7 +245,7 @@ def _safe_source_paths(values: Iterable[Any]) -> list[str]:
 
 def _safe_portable_text(value: Any, *, max_length: int = 240) -> str:
     text = _clean_string(value, max_length=max_length).replace("\\", "/")
-    if not text or LOCAL_PATH_RE.match(text):
+    if not text or looks_like_local_path(text):
         return ""
     return text
 

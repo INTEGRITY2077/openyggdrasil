@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-import re
 from typing import Any, Mapping
 
+from runtime.common.portable_ref import looks_like_local_path
 from source_ref.hermes_session_json import resolve_hermes_session_json_source_ref
 
 
 SCHEMA_VERSION = "recall_digest.v1"
-LOCAL_PATH_RE = re.compile(r"^(?:[A-Za-z]:[\\/]|file://|/)")
 CLAUDE_SMOKE_COMMANDS = (
     "claude --version",
     "claude doctor",
@@ -85,7 +84,7 @@ def _portable_source_paths(values: Any) -> list[str]:
     seen: set[str] = set()
     for value in values or ():
         text = _clean_text(value, max_length=320).replace("\\", "/")
-        if not text or LOCAL_PATH_RE.match(text) or text in seen:
+        if not text or looks_like_local_path(text) or text in seen:
             continue
         paths.append(text)
         seen.add(text)
