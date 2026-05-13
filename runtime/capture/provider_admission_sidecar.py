@@ -11,10 +11,12 @@ from source_ref.hermes_session_json import _canonical_anchor_hash
 from runtime.capture.provider_current_source_bridge import (
     build_memory_ticket_payload_from_existing_provider_exchange,
 )
+from runtime.common.role_aliases import CANONICAL_MEMORY_SAVER_ROLE, legacy_mailbox_name_for_role
 
 
 SCHEMA_VERSION = "provider_admission_sidecar.v1"
 STATE_SCHEMA_VERSION = "provider_admission_sidecar_state.v1"
+DEFAULT_MEMORY_SAVER_RECIPIENT = legacy_mailbox_name_for_role(CANONICAL_MEMORY_SAVER_ROLE)
 
 
 def _now() -> str:
@@ -133,7 +135,7 @@ def process_provider_session_file(
     sessions_dir: str | Path,
     state_path: str | Path,
     submit: bool = False,
-    recipient: str = "OP1",
+    recipient: str = DEFAULT_MEMORY_SAVER_RECIPIENT,
     provider_id: str | None = None,
     provider_profile: str | None = None,
 ) -> dict[str, Any]:
@@ -253,7 +255,7 @@ def process_provider_session_dir(
     sessions_dir: str | Path,
     state_path: str | Path,
     submit: bool = False,
-    recipient: str = "OP1",
+    recipient: str = DEFAULT_MEMORY_SAVER_RECIPIENT,
 ) -> dict[str, Any]:
     sessions_dir = Path(sessions_dir)
     results = [
