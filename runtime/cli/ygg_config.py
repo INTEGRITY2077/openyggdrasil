@@ -64,8 +64,8 @@ SCRIPTS_DIR = PRIVATE_DEV_ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from postman_cpr_wakeup import provider_lane_monitor_summary, wake_provider_with_cpr
-from postman_native_activation import activate_native_lane
+from runtime.delivery.postman_cpr_wakeup import provider_lane_monitor_summary, wake_provider_with_cpr
+from runtime.delivery.postman_native_activation import activate_native_lane
 from runtime.common.role_aliases import (
     LEGACY_ACTIVE_OPERATOR_PAIR,
     LEGACY_OPERATOR_TMUX_SESSION_PATTERN,
