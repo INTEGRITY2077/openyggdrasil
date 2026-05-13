@@ -16,6 +16,7 @@ MEMORY_TICKET_SCHEMA_VERSION = "memory_ticket.v1"
 CANONICAL_DECOMPOSITION_GUARD = "preserve_paragraph_intent_before_decision_atoms"
 BOUNDARY_CANONICAL_TOPIC_TITLE = "OpenYggdrasil과 Hermes 기본 기억의 책임 경계"
 BOUNDARY_CANONICAL_TOPIC_KEY = "openyggdrasil-hermes-memory-boundary"
+ALLOWED_SOURCE_REF_SCHEMES = {"hermes-session-json", "provider-session-json"}
 ALLOWED_MIN_SPLIT_UNITS = {"paragraph_intent", "topic_decision_cluster"}
 ALLOWED_TRIGGER_KINDS = {
     "explicit_user_save_command",
@@ -275,6 +276,7 @@ def build_existing_provider_exchange_current_source_bridge(
     message_index_range: Mapping[str, Any],
     anchor_hash: str,
     sessions_dir: str | Path,
+    source_ref_scheme: str = "hermes-session-json",
     created_at: str | None = None,
 ) -> dict[str, Any]:
     """Return source_ref fields for an already captured Provider session range."""
@@ -283,6 +285,7 @@ def build_existing_provider_exchange_current_source_bridge(
     provider_profile = _clean_required_text(provider_profile)
     provider_session_id = _clean_required_text(provider_session_id)
     anchor_hash = _clean_required_text(anchor_hash)
+    source_ref_scheme = _clean_required_text(source_ref_scheme)
     if not provider_id:
         return _typed_unavailable(reason_code="provider_id_missing", provider_session_id=provider_session_id)
     if not provider_profile:
@@ -291,6 +294,8 @@ def build_existing_provider_exchange_current_source_bridge(
         return _typed_unavailable(reason_code="provider_session_id_missing")
     if not SAFE_SESSION_ID_RE.fullmatch(provider_session_id):
         return _typed_unavailable(reason_code="provider_session_id_unsafe", provider_session_id=provider_session_id)
+    if source_ref_scheme not in ALLOWED_SOURCE_REF_SCHEMES:
+        return _typed_unavailable(reason_code="source_ref_scheme_unsupported", provider_session_id=provider_session_id)
     start = message_index_range.get("start") if isinstance(message_index_range, Mapping) else None
     end = message_index_range.get("end") if isinstance(message_index_range, Mapping) else None
     if not isinstance(start, int) or not isinstance(end, int) or start < 0 or end < start:
@@ -303,7 +308,7 @@ def build_existing_provider_exchange_current_source_bridge(
     if not session_path.exists():
         return _typed_unavailable(reason_code="provider_session_source_missing", provider_session_id=provider_session_id)
     created_at = created_at or utc_now_iso()
-    source_ref = f"hermes-session-json://{provider_session_id}"
+    source_ref = f"{source_ref_scheme}://{provider_session_id}"
     normalized_range = {"start": start, "end": end}
     commit_watermark = f"session:{provider_session_id}:message_index:{end}"
     origin_locator = f"{source_ref}#message_index={start}..{end}"
@@ -424,6 +429,7 @@ def build_memory_ticket_payload_from_existing_provider_exchange(
     message_index_range: Mapping[str, Any],
     anchor_hash: str,
     sessions_dir: str | Path,
+    source_ref_scheme: str = "hermes-session-json",
     category_community_hint: str = "OpenYggdrasil memory architecture community / provider memory boundary",
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -442,6 +448,7 @@ def build_memory_ticket_payload_from_existing_provider_exchange(
         message_index_range=message_index_range,
         anchor_hash=anchor_hash,
         sessions_dir=sessions_dir,
+        source_ref_scheme=source_ref_scheme,
         created_at=created_at,
     )
     if current_source.get("status") != "ready":
@@ -573,6 +580,7 @@ def build_memory_ticket_payload_from_current_source(
 __all__ = [
     "BOUNDARY_CANONICAL_TOPIC_KEY",
     "BOUNDARY_CANONICAL_TOPIC_TITLE",
+    "ALLOWED_SOURCE_REF_SCHEMES",
     "build_existing_provider_exchange_current_source_bridge",
     "build_memory_ticket_payload_from_existing_provider_exchange",
     "build_memory_ticket_payload_from_provider_exchange",

@@ -446,6 +446,13 @@ def _first_record_with(records: list[Mapping[str, Any]], *keys: str) -> Mapping[
     return {}
 
 
+def _last_record_with(records: list[Mapping[str, Any]], *keys: str) -> Mapping[str, Any]:
+    for record in reversed(records):
+        if all(str(record.get(key) or "").strip() for key in keys):
+            return record
+    return {}
+
+
 def _concept_node_path_for_topic(*, topic_text: str, vault_root: Path) -> Path | None:
     node_id = _yaml_scalar(topic_text, "id")
     if not node_id:
@@ -668,7 +675,7 @@ def build_ring_support_bundle(
     ring_ids = _extract_ring_ids(all_text, all_records)
     community_ids = _extract_community_ids(all_text, all_records)
     community_id = community_ids[0] if community_ids else ""
-    ring_record = _first_record_with(all_records, "ring_id", "source_ref", "origin_locator", "provider_session_id") or _first_record_with(all_records, "ring_id", "source_ref", "origin_locator")
+    ring_record = _last_record_with(all_records, "ring_id", "source_ref", "origin_locator", "provider_session_id") or _last_record_with(all_records, "ring_id", "source_ref", "origin_locator")
     paragraph_intent = _first_record_with(
         all_records,
         "intent_field",

@@ -94,6 +94,10 @@ def _dedupe_key(*, source_ref: str, start: int, end: int, anchor_hash: str) -> s
     return f"{source_ref}:{start}:{end}:{anchor_hash}"
 
 
+def _source_ref_scheme(provider_id: str) -> str:
+    return "hermes-session-json" if str(provider_id or "").strip().lower() == "hermes" else "provider-session-json"
+
+
 def _state_row(
     *,
     dedupe_key: str,
@@ -143,7 +147,8 @@ def process_provider_session_file(
     session_id = str(payload.get("provider_session_id") or _session_id_from_path(session_path)).strip()
     active_provider_id = str(provider_id or payload.get("provider_id") or "hermes").strip()
     active_provider_profile = str(provider_profile or payload.get("provider_profile") or "openyggdrasil-provider").strip()
-    source_ref = f"hermes-session-json://{session_id}"
+    source_ref_scheme = _source_ref_scheme(active_provider_id)
+    source_ref = f"{source_ref_scheme}://{session_id}"
     seen = _load_state(state_path)
     prepared: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
@@ -164,6 +169,7 @@ def process_provider_session_file(
             message_index_range={"start": start, "end": end},
             anchor_hash=anchor_hash,
             sessions_dir=sessions_dir,
+            source_ref_scheme=source_ref_scheme,
         )
         if ticket.get("schema_version") != "memory_ticket.v1" or ticket.get("status") == "typed_unavailable":
             reason = str(ticket.get("reason_code") or "typed_unavailable")
