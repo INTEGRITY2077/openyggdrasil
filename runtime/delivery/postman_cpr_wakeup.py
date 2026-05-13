@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+from runtime.common.role_aliases import LEGACY_MEMORY_FINDER_SUPPORT_METADATA_FIELD
 from runtime.common.portable_ref import LOCAL_PATH_RE
 from runtime.delivery.tmux_lane_adapter import paste_text_enter
 
@@ -170,7 +171,7 @@ def _wait_for_provider_lane_ready(
 
 
 def _support_metadata(result: Mapping[str, Any]) -> dict[str, Any]:
-    support = result.get("mf1_support_metadata") or result.get("op2_support_metadata") or {}
+    support = result.get("mf1_support_metadata") or result.get(LEGACY_MEMORY_FINDER_SUPPORT_METADATA_FIELD) or {}
     if not isinstance(support, dict):
         return {}
     normalized = dict(support)
