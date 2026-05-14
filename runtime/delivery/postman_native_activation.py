@@ -68,7 +68,7 @@ def _send_tmux_target_text(target: str, text: str) -> tuple[bool, str]:
         target,
         text,
         reason="postman_native_activation",
-        cancel_existing_prompt=True,
+        cancel_existing_prompt=False,
         validate_worker_payload=True,
     )
     if result.returncode != 0:
