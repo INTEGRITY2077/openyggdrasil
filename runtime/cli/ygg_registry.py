@@ -283,9 +283,13 @@ def _op_pair_health_lines(pair: tuple[str, str], reg: dict) -> list[str]:
         mailbox = SESSIONS_DIR / op
         mode = "produce" if r.get("type") == "producer" else "consume"
         target_cmd = f"ygg_poll.py {mode} {mailbox}"
-        proc = subprocess.run(["pgrep", "-af", target_cmd], capture_output=True, text=True)
+        try:
+            proc = subprocess.run(["pgrep", "-af", target_cmd], capture_output=True, text=True)
+            proc_stdout = proc.stdout
+        except FileNotFoundError:
+            proc_stdout = ""
         running = [
-            row for row in proc.stdout.splitlines()
+            row for row in proc_stdout.splitlines()
             if "pgrep" not in row and "ygg_poll.py" in row
         ]
         lines.append(
@@ -312,9 +316,13 @@ def _provider_lane_zombie_hints(active_session: str, active_pair: tuple[str, str
         op for op in sorted(reg.keys(), key=lambda x: int(x.replace("OP", "")))
         if op not in set(active_pair)
     ]
-    live = subprocess.run(["pgrep", "-af", "ygg_poll.py"], capture_output=True, text=True)
+    try:
+        live = subprocess.run(["pgrep", "-af", "ygg_poll.py"], capture_output=True, text=True)
+        live_stdout = live.stdout
+    except FileNotFoundError:
+        live_stdout = ""
     orphan_live = []
-    for row in live.stdout.splitlines():
+    for row in live_stdout.splitlines():
         if "pgrep" in row or "ygg_poll.py" not in row:
             continue
         match = re.search(r"/sessions/(OP\d+)", row)

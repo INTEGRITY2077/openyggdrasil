@@ -5,7 +5,16 @@ import subprocess
 import sys
 
 def _tmux(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["tmux", *args], capture_output=True, text=True)
+    command = ["tmux", *args]
+    try:
+        return subprocess.run(command, capture_output=True, text=True)
+    except FileNotFoundError:
+        return subprocess.CompletedProcess(
+            command,
+            127,
+            stdout="",
+            stderr="tmux executable not found",
+        )
 
 def _tmux_session_exists(session: str) -> bool:
     return _tmux("has-session", "-t", session).returncode == 0
@@ -21,7 +30,11 @@ def _tmux_attach_or_switch(session: str) -> None:
             print((result.stderr or result.stdout or f"tmux switch-client failed for {session}").strip())
             sys.exit(result.returncode)
         return
-    os.execvp("tmux", ["tmux", "attach", "-t", session])
+    try:
+        os.execvp("tmux", ["tmux", "attach", "-t", session])
+    except FileNotFoundError:
+        print("typed_unavailable: tmux executable not found")
+        sys.exit(127)
 
 
 __all__ = [
