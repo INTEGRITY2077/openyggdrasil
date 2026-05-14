@@ -362,6 +362,54 @@ def _boundary_memory_fields(*, user_text: str, assistant_text: str) -> dict[str,
     return {}
 
 
+def _provider_exchange_memory_fields(*, user_text: str, assistant_text: str) -> dict[str, str]:
+    combined = f"{user_text}\n{assistant_text}"
+    if "OpenYggdrasil" in combined and "Hermes" in combined:
+        return {
+            "decision": (
+                "OpenYggdrasil is not a mirror of Hermes native memory; it is an "
+                "evidence-backed long-term wiki layer. Hermes native memory remains "
+                "the Provider behavior surface for tone, short preferences, and current-session habits."
+            ),
+            "context": "A natural Provider exchange discussed the boundary between Hermes native memory and OpenYggdrasil memory.",
+            "conclusion": "Use Hermes native memory for immediate behavior shaping and OpenYggdrasil for sourced, reusable, long-term knowledge.",
+            "reuse_condition": "Use when a later question asks how Hermes native memory, Provider behavior, and OpenYggdrasil wiki memory differ.",
+            "canonical_topic_title": BOUNDARY_CANONICAL_TOPIC_TITLE,
+            "canonical_topic_key": BOUNDARY_CANONICAL_TOPIC_KEY,
+        }
+    if "README" in combined or "공개 문서" in combined or "공개 README" in combined:
+        return {
+            "decision": (
+                "Public README surfaces should show the current user-facing affordance and keep "
+                "internal lane names, legacy aliases, proof/run/phase labels, mailbox, receipt, "
+                "and tmux details out of the first-contact product surface."
+            ),
+            "context": "The user and Provider refined a public documentation boundary through failure cases.",
+            "conclusion": (
+                "Put current install/use concepts in README; move migration, debug, status, and historical "
+                "compatibility details to separate documents."
+            ),
+            "reuse_condition": "Use when editing or reviewing public-facing README and first-contact documentation.",
+            "canonical_topic_title": "Public README affordance boundary",
+            "canonical_topic_key": "public-readme-affordance-boundary",
+        }
+    if any(marker in combined for marker in ("CLAUDE.md", "auto memory", "Hook", "Skill", "MCP", "Plugin")):
+        return {
+            "decision": (
+                "Claude Code documentation should prefer placement criteria over definitions: "
+                "CLAUDE.md for explicit managed team/project rules, auto memory for learned project context, "
+                "Hook for automatic event actions, Skill for model-read procedures, MCP for external system "
+                "connections, and Plugin for packaged extension sets."
+            ),
+            "context": "The user asked for short placement boundaries across Claude Code documentation concepts.",
+            "conclusion": "Answer with where-to-place criteria first, then give definitions only when needed.",
+            "reuse_condition": "Use when the user asks to distinguish Claude Code concepts for team documentation.",
+            "canonical_topic_title": "Claude Code extension placement criteria",
+            "canonical_topic_key": "claude-code-extension-placement-criteria",
+        }
+    return {}
+
+
 def build_memory_ticket_payload_from_provider_exchange(
     *,
     provider_id: str,
@@ -378,7 +426,7 @@ def build_memory_ticket_payload_from_provider_exchange(
     salience = detect_provider_memory_salience(f"{user_text}\n{assistant_text}")
     if salience.get("trigger_decision") != "emit":
         return _memory_ticket_unavailable("provider_exchange_not_salient")
-    fields = _boundary_memory_fields(user_text=user_text, assistant_text=assistant_text)
+    fields = _provider_exchange_memory_fields(user_text=user_text, assistant_text=assistant_text)
     if not fields:
         return _memory_ticket_unavailable("provider_exchange_requires_bounded_distillation")
     current_source = build_provider_exchange_current_source_bridge(
@@ -398,7 +446,7 @@ def build_memory_ticket_payload_from_provider_exchange(
         intent_field=str(salience.get("intent_field") or "장기 기억 후보"),
         why_not_atomic=str(salience.get("why_not_atomic") or "문단 의도를 보존해야 한다."),
         topic_hint=str(salience.get("topic_hint") or "OpenYggdrasil 기억 책임 경계"),
-        category_community_hint=category_community_hint,
+        category_community_hint=str(salience.get("category_community_hint") or category_community_hint),
         decision=fields["decision"],
         context=fields["context"],
         conclusion=fields["conclusion"],
@@ -406,8 +454,8 @@ def build_memory_ticket_payload_from_provider_exchange(
         min_split_unit="topic_decision_cluster",
         breadcrumb=str(salience.get("breadcrumb") or ""),
         reuse_condition=fields["reuse_condition"],
-        canonical_topic_title=fields.get("canonical_topic_title", ""),
-        canonical_topic_key=fields.get("canonical_topic_key", ""),
+        canonical_topic_title=fields.get("canonical_topic_title") or str(salience.get("canonical_topic_title") or ""),
+        canonical_topic_key=fields.get("canonical_topic_key") or str(salience.get("canonical_topic_key") or ""),
     )
     payload["admission_bridge"] = {
         "schema_version": "provider_exchange_admission_bridge.v1",
@@ -438,7 +486,7 @@ def build_memory_ticket_payload_from_existing_provider_exchange(
     salience = detect_provider_memory_salience(f"{user_text}\n{assistant_text}")
     if salience.get("trigger_decision") != "emit":
         return _memory_ticket_unavailable("provider_exchange_not_salient")
-    fields = _boundary_memory_fields(user_text=user_text, assistant_text=assistant_text)
+    fields = _provider_exchange_memory_fields(user_text=user_text, assistant_text=assistant_text)
     if not fields:
         return _memory_ticket_unavailable("provider_exchange_requires_bounded_distillation")
     current_source = build_existing_provider_exchange_current_source_bridge(
@@ -459,7 +507,7 @@ def build_memory_ticket_payload_from_existing_provider_exchange(
         intent_field=str(salience.get("intent_field") or "장기 기억 후보"),
         why_not_atomic=str(salience.get("why_not_atomic") or "문단 의도를 보존해야 한다."),
         topic_hint=str(salience.get("topic_hint") or "OpenYggdrasil 기억 책임 경계"),
-        category_community_hint=category_community_hint,
+        category_community_hint=str(salience.get("category_community_hint") or category_community_hint),
         decision=fields["decision"],
         context=fields["context"],
         conclusion=fields["conclusion"],
@@ -467,8 +515,8 @@ def build_memory_ticket_payload_from_existing_provider_exchange(
         min_split_unit="topic_decision_cluster",
         breadcrumb=str(salience.get("breadcrumb") or ""),
         reuse_condition=fields["reuse_condition"],
-        canonical_topic_title=fields.get("canonical_topic_title", ""),
-        canonical_topic_key=fields.get("canonical_topic_key", ""),
+        canonical_topic_title=fields.get("canonical_topic_title") or str(salience.get("canonical_topic_title") or ""),
+        canonical_topic_key=fields.get("canonical_topic_key") or str(salience.get("canonical_topic_key") or ""),
     )
     payload["admission_bridge"] = {
         "schema_version": "provider_exchange_admission_bridge.v1",
