@@ -1,8 +1,19 @@
 from __future__ import annotations
 
-from runtime.polling.ygg_poll_context import *  # noqa: F401,F403
-from runtime.polling.mailbox_summary import *  # noqa: F401,F403
-from runtime.polling.receipt_quality import *  # noqa: F401,F403
+import json
+import os
+import subprocess
+import sys
+import time
+
+from runtime.polling.mailbox_summary import _read_jsonl, _receipt_for_mail_id
+from runtime.polling.receipt_quality import (
+    _mission_text,
+    _receipt_public_summary_for_event,
+    _receipt_quality_for_event,
+    _receipt_support_score,
+)
+from runtime.polling.ygg_poll_context import MAILBOX, MODE, REPO_ROOT, VAULT, op_type
 
 def _run_operator_entrypoint_once(cmd: list[str], mail_id: str, attempt: int) -> tuple[subprocess.CompletedProcess, int, dict]:
     started = time.time()

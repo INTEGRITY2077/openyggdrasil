@@ -6,13 +6,24 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from runtime.ptc.engine_contracts import *  # noqa: F401,F403
-from runtime.ptc.engine_contracts import (  # noqa: F401
+from runtime.ptc.base_utils import (
+    _normalize_same_run_ptc_context,
+    _normalize_strict_role_map,
+    _route_token,
+    _string_list,
+    _utc_now_iso,
+)
+from runtime.ptc.engine_contracts import (
+    PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_CLAIM_SCOPE,
+    PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_HARD_NONCLAIMS,
+    PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_NO_OVERCLAIM_FLAGS,
+    PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_PACKET_SCHEMA_VERSION,
+    PROVIDER_SUBAGENT_PTC_EXECUTION_TRACE_PACKET_STATUS,
+    REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES,
     _assert_additive_only_hard_nonclaims,
     _safe_portable_ref,
 )
-from runtime.ptc.base_utils import *  # noqa: F401,F403
-from runtime.ptc.telemetry_trace import *  # noqa: F401,F403
+from runtime.ptc.telemetry_trace import _role_execution_refs_from_ptc_telemetry
 
 def _normalize_execution_trace_hard_nonclaims(
     packet_hard_nonclaims: Sequence[str] | None,

@@ -1,11 +1,58 @@
 from __future__ import annotations
 
-from runtime.polling.ygg_poll_context import *  # noqa: F401,F403
-from runtime.polling.mailbox_summary import *  # noqa: F401,F403
-from runtime.polling.receipt_quality import *  # noqa: F401,F403
-from runtime.polling.worker_owned_loop import *  # noqa: F401,F403
-from runtime.polling.native_goal_flow import *  # noqa: F401,F403
-from runtime.polling.operator_runner import *  # noqa: F401,F403
+import json
+import os
+import sys
+import time
+
+from runtime.delivery.tmux_lane_adapter import paste_text_enter
+from runtime.polling.mailbox_summary import _append_goal_log, _append_live_operator_log, _mark_live_delivered
+from runtime.polling.native_goal_flow import (
+    _send_native_goal_action_result,
+    _send_native_goal_answer_draft,
+    _send_native_goal_final_close,
+    _send_native_goal_for_processed_event,
+    _send_native_goal_retry_or_answer,
+    _send_native_goal_retry_result,
+    _send_native_goal_start,
+)
+from runtime.polling.operator_runner import _run_consumer_bounded_retries, _run_operator_entrypoint_until_goal
+from runtime.polling.receipt_quality import (
+    _answer_material,
+    _context_card_disabled_status,
+    _first_fact_text,
+    _goal_contract,
+    _ptc_facts_paths,
+    _ptc_worker_program,
+    _ralph_contract,
+    _ralph_todo_state,
+    _receipt_outcome,
+    _receipt_public_summary,
+    _receipt_public_summary_for_event,
+    _receipt_quality_for_event,
+    _short,
+)
+from runtime.polling.worker_owned_loop import (
+    _paste_context_prompt,
+    _send_worker_owned_native_loop,
+    _send_worker_owned_receipt_projection,
+    _wait_context_card_lane_ready,
+)
+from runtime.polling.ygg_poll_context import (
+    ENABLE_LEGACY_RALPH_PROMPTS,
+    MAILBOX,
+    MODE,
+    NATIVE_GOAL_ACTION_LOOP,
+    NATIVE_GOAL_MODE,
+    NATIVE_GOAL_MULTI_STEP,
+    REPO_ROOT,
+    VAULT,
+    WORKER_OWNED_NATIVE_LOOP,
+    _shell_quote,
+    _workflow,
+    role,
+    tmux_target,
+)
 
 def _build_ralph_turn(event: dict, phase: str, *, attempt: int = 0,
                       receipt: dict | None = None, attempts: list[dict] | None = None) -> str:

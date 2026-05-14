@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from runtime.polling.ygg_poll_context import *  # noqa: F401,F403
-from runtime.polling.mailbox_summary import *  # noqa: F401,F403
+import json
+import os
+import re
+
+from runtime.polling.ygg_poll_context import MODE, NATIVE_GOAL_MODE
 
 def _context_card_disabled_status() -> dict:
     if NATIVE_GOAL_MODE:

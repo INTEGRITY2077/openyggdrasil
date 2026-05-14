@@ -6,8 +6,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from runtime.ptc.engine_contracts import *  # noqa: F401,F403
-from runtime.ptc.engine_contracts import (  # noqa: F401
+from runtime.ptc.engine_contracts import (
+    PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_FORBIDDEN_REF_TOKENS,
+    REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES,
+    ROLE_POLYMORPHIC_EVIDENCE_CHAIN_STATUS,
+    ROLE_POLYMORPHIC_SAME_RUN_SOURCE_KIND,
     _assert_additive_only_hard_nonclaims,
     _safe_portable_ref,
 )
@@ -118,6 +121,22 @@ def _clamp_int(value: int, *, minimum: int, maximum: int) -> int:
 def _query_terms(query_text: str) -> set[str]:
     return {term.lower() for term in re.findall(r"[A-Za-z0-9_]+", query_text)}
 
+def _reject_fixture_typed_ref_terms(*refs: Any) -> None:
+    flattened: list[str] = []
+    for ref in refs:
+        if isinstance(ref, Mapping):
+            flattened.extend(str(value) for value in ref.values())
+        elif isinstance(ref, Sequence) and not isinstance(ref, (str, bytes)):
+            flattened.extend(str(value) for value in ref)
+        elif ref is not None:
+            flattened.append(str(ref))
+    rendered = "\n".join(flattened).lower()
+    if any(
+        token in rendered
+        for token in PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_FORBIDDEN_REF_TOKENS
+    ):
+        raise ValueError("same-run typed ref source must not use fixture refs")
+
 
 __all__ = [
     "_utc_now_iso",
@@ -130,4 +149,5 @@ __all__ = [
     "_require_safe_ref_prefix",
     "_clamp_int",
     "_query_terms",
+    "_reject_fixture_typed_ref_terms",
 ]

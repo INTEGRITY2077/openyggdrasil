@@ -1,9 +1,15 @@
 from __future__ import annotations
 
-from runtime.polling.ygg_poll_context import *  # noqa: F401,F403
-from runtime.polling.mailbox_summary import *  # noqa: F401,F403
-from runtime.polling.receipt_quality import *  # noqa: F401,F403
-from runtime.polling.worker_owned_loop import *  # noqa: F401,F403
+import os
+import re
+import subprocess
+import time
+
+from runtime.delivery.tmux_lane_adapter import paste_text_enter
+from runtime.polling.mailbox_summary import _append_native_goal_log
+from runtime.polling.receipt_quality import _mission_text, _receipt_public_summary_for_event, _short
+from runtime.polling.worker_owned_loop import _extract_session_id_from_tmux, _wait_context_card_lane_ready
+from runtime.polling.ygg_poll_context import MODE, NATIVE_GOAL_MODE, NATIVE_GOAL_STAGE_GOALS, role, tmux_target
 
 def _native_goal_text(event: dict, receipt: dict | None, attempts: list[dict], status: str) -> str:
     payload = event.get("payload", {}) if isinstance(event, dict) else {}
