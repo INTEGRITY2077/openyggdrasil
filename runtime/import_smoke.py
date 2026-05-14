@@ -48,6 +48,7 @@ CANONICAL_RUNTIME_MODULES = [
     "attachments.provider_packaging_known_limitations_matrix",
     "attachments.provider_tooling_classification",
     "capture.decision_distiller",
+    "capture.context_guard",
     "capture.provider_current_source_bridge",
     "capture.provider_runtime_integrity",
     "capture.session_structure_signal",
