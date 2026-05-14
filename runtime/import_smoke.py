@@ -47,6 +47,7 @@ CANONICAL_RUNTIME_MODULES = [
     "attachments.provider_inbox",
     "attachments.provider_packaging_known_limitations_matrix",
     "attachments.provider_tooling_classification",
+    "capture.boundary_ledger",
     "capture.decision_distiller",
     "capture.context_guard",
     "capture.provider_current_source_bridge",
