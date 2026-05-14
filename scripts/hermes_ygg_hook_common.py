@@ -15,6 +15,7 @@ if str(REPO_ROOT) not in sys.path:
 from runtime.capture.provider_current_source_bridge import (  # noqa: E402
     build_memory_ticket_payload_from_existing_provider_exchange,
 )
+from runtime.delivery.postman_native_activation import activate_native_lane  # noqa: E402
 from runtime.delivery.postman_live_delivery import (  # noqa: E402
     PostmanIntegrityError,
     submit_live_delivery,
@@ -25,7 +26,10 @@ from source_ref.hermes_session_json import _canonical_anchor_hash  # noqa: E402
 POSTMAN_DIR = Path.home() / ".yggdrasil" / "sessions" / "postman"
 STATE_PATH = POSTMAN_DIR / "provider_admission_hook_state.jsonl"
 LOG_PATH = POSTMAN_DIR / "provider_admission_hook_log.jsonl"
+RECALL_STATE_PATH = POSTMAN_DIR / "provider_recall_hook_state.jsonl"
+RECALL_LOG_PATH = POSTMAN_DIR / "provider_recall_hook_log.jsonl"
 DEFAULT_RECIPIENT = "OP1"
+DEFAULT_RECALL_RECIPIENT = "OP2"
 
 
 def _now() -> str:
@@ -106,11 +110,15 @@ def _latest_user_assistant_range(messages: list[dict[str, Any]]) -> tuple[int, i
 
 
 def _seen_keys() -> set[str]:
-    if not STATE_PATH.exists():
+    return _seen_keys_from(STATE_PATH)
+
+
+def _seen_keys_from(path: Path) -> set[str]:
+    if not path.exists():
         return set()
     seen: set[str] = set()
     try:
-        lines = STATE_PATH.read_text(encoding="utf-8").splitlines()
+        lines = path.read_text(encoding="utf-8").splitlines()
     except OSError:
         return seen
     for line in lines:
@@ -123,6 +131,149 @@ def _seen_keys() -> set[str]:
         if isinstance(row, Mapping) and row.get("dedupe_key"):
             seen.add(str(row["dedupe_key"]))
     return seen
+
+
+def _latest_user_message(messages: list[dict[str, Any]]) -> tuple[int, str] | None:
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if message.get("role") != "user":
+            continue
+        text = _message_text(message)
+        if text:
+            return index, text
+    return None
+
+
+def _event_query_text(event: Mapping[str, Any]) -> str:
+    candidates: list[Any] = [
+        event.get("query"),
+        event.get("query_text"),
+        event.get("prompt"),
+        event.get("text"),
+    ]
+    for key in ("tool_input", "input", "arguments", "params"):
+        value = event.get(key)
+        if isinstance(value, Mapping):
+            candidates.extend(
+                [
+                    value.get("query"),
+                    value.get("query_text"),
+                    value.get("prompt"),
+                    value.get("text"),
+                ]
+            )
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate.strip():
+            return " ".join(candidate.split())
+    return ""
+
+
+def _hash_text(value: str) -> str:
+    return _canonical_anchor_hash([{"role": "user", "content": value}])
+
+
+def run_latest_provider_recall_hook(*, event_name: str, require_tool_name: str | None = None) -> dict[str, Any]:
+    """Turn a Provider recall tool attempt into a product-shaped MF query.
+
+    The hook is intentionally narrow: it sends only the current user-facing
+    question text as `query_text`. It does not send source refs, support paths,
+    worker instructions, or validation vocabulary.
+    """
+
+    event = _read_stdin_event()
+    tool_name = str(event.get("tool_name") or "").strip()
+    if require_tool_name and tool_name != require_tool_name:
+        return {"status": "ignored", "reason_code": "tool_name_not_matched", "event_name": event_name}
+
+    session_path = _session_path_from_event(event)
+    if session_path is None:
+        result = {"status": "typed_unavailable", "reason_code": "session_path_not_found", "event_name": event_name}
+        _append_jsonl(RECALL_LOG_PATH, {**result, "created_at": _now(), "tool_name": tool_name})
+        return result
+
+    payload = _load_session(session_path)
+    messages = payload.get("messages")
+    if not isinstance(messages, list):
+        result = {"status": "typed_unavailable", "reason_code": "session_messages_missing", "event_name": event_name}
+        _append_jsonl(RECALL_LOG_PATH, {**result, "created_at": _now(), "tool_name": tool_name, "session_path_name": session_path.name})
+        return result
+
+    normalized_messages = [dict(row) for row in messages if isinstance(row, Mapping)]
+    latest_user = _latest_user_message(normalized_messages)
+    query_text = _event_query_text(event)
+    if not query_text and latest_user:
+        query_text = latest_user[1]
+    if not query_text:
+        result = {"status": "skipped", "reason_code": "query_text_missing", "event_name": event_name}
+        _append_jsonl(RECALL_LOG_PATH, {**result, "created_at": _now(), "tool_name": tool_name, "session_path_name": session_path.name})
+        return result
+
+    session_id = str(payload.get("provider_session_id") or payload.get("session_id") or _session_id_from_name(session_path))
+    user_index = latest_user[0] if latest_user else -1
+    query_hash = _hash_text(query_text)
+    dedupe_key = f"provider-recall:{session_id}:{user_index}:{query_hash}"
+    if dedupe_key in _seen_keys_from(RECALL_STATE_PATH):
+        result = {
+            "status": "skipped",
+            "reason_code": "already_processed",
+            "event_name": event_name,
+            "provider_session_id": session_id,
+            "user_message_index": user_index,
+            "query_hash": query_hash,
+        }
+        _append_jsonl(RECALL_LOG_PATH, {**result, "created_at": _now(), "tool_name": tool_name, "session_path_name": session_path.name})
+        return result
+
+    try:
+        delivery = submit_live_delivery(
+            recipient=DEFAULT_RECALL_RECIPIENT,
+            message_type="query",
+            payload={"query_text": query_text},
+            provider_id="hermes",
+        )
+        try:
+            activation = activate_native_lane(
+                op=DEFAULT_RECALL_RECIPIENT,
+                label="MF1",
+                role_type="consumer",
+                session="ygg-mf1",
+                delivery=delivery,
+                message_type="query",
+                payload={"query_text": query_text},
+                registry_dir=Path.home() / ".yggdrasil",
+                sessions_dir=Path.home() / ".yggdrasil" / "sessions",
+            )
+        except OSError as exc:
+            activation = {"status": "blocked", "reason_code": f"native_activation_unavailable:{exc.__class__.__name__}"}
+        status = "delivered"
+        reason_code = "find_request_delivered"
+    except PostmanIntegrityError as exc:
+        delivery = exc.result
+        activation = {}
+        status = "rejected"
+        reason_code = str(delivery.get("reason") or "postman_integrity_rejected")
+
+    result = {
+        "status": status,
+        "reason_code": reason_code,
+        "event_name": event_name,
+        "provider_session_id": session_id,
+        "user_message_index": user_index,
+        "query_hash": query_hash,
+        "delivery_id": delivery.get("delivery_id"),
+        "mail_id": delivery.get("mail_id"),
+        "work_order_id": delivery.get("work_order_id"),
+        "recipient": delivery.get("recipient"),
+        "postman_activation_status": activation.get("status"),
+        "hard_nonclaims": [
+            "recall_delivery_is_not_support_bundle",
+            "provider_question_text_only_no_source_ref_or_support_paths",
+            "postman_does_not_judge_recall_answer",
+        ],
+    }
+    _append_jsonl(RECALL_STATE_PATH, {**result, "created_at": _now(), "dedupe_key": dedupe_key})
+    _append_jsonl(RECALL_LOG_PATH, {**result, "created_at": _now(), "tool_name": tool_name, "session_path_name": session_path.name})
+    return result
 
 
 def run_latest_provider_admission_hook(*, event_name: str, require_tool_name: str | None = None) -> dict[str, Any]:
