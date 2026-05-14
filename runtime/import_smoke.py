@@ -59,6 +59,7 @@ CANONICAL_RUNTIME_MODULES = [
     "cultivation.gardener_lifecycle_transition_request",
     "cultivation.gardener_routing",
     "cultivation.helper_output_staging",
+    "cultivation.wiki_vault_janitor",
     "cultivation.gardener_stub",
     "cultivation.lifecycle_candidate_lint_loop",
     "cultivation.nursery_stub",
