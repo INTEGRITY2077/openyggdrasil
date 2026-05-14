@@ -2,14 +2,34 @@
 """ygg CLI parser and command dispatcher."""
 from __future__ import annotations
 
-from runtime.cli.ygg_config import *  # noqa: F401,F403
-from runtime.cli.ygg_registry import *  # noqa: F401,F403
-from runtime.cli.ygg_cpr import *  # noqa: F401,F403
-from runtime.cli.ygg_memory_lanes import *  # noqa: F401,F403
-from runtime.cli.ygg_flow import *  # noqa: F401,F403
+import re
+import sys
+
+from runtime.cli.ygg_config import DEFAULT_PRIVATE_VAULT, _decode_b64_text, _provider_id
+from runtime.cli.ygg_cpr import cmd_cpr
+from runtime.cli.ygg_flow import cmd_flow, cmd_live, cmd_receipt, cmd_watch
+from runtime.cli.ygg_memory_lanes import (
+    cmd_ask,
+    cmd_dev,
+    cmd_list,
+    cmd_op,
+    cmd_provider_command,
+    cmd_recall,
+    cmd_release,
+    cmd_spawn,
+    cmd_status,
+    cmd_tell,
+)
+from runtime.cli.ygg_registry import (
+    _load_registry,
+    _op_label,
+    _resolve_op,
+    cmd_provider_lane_doctor,
+    cmd_tmux_doctor,
+)
 
 def main():
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 2 or sys.argv[1] in {"-h", "--help", "help"}:
         print("Usage: ygg <cmd> [args]")
         print("  ygg pro1                  Provider Lane 1 open/recall")
         print("  ygg pro1 --doctor         Provider Unit 1 healthcheck")
@@ -45,7 +65,7 @@ def main():
         print("  memory env: OY_MEMORY_SAVER_COMMAND/OY_MS_COMMAND, OY_MEMORY_FINDER_COMMAND/OY_MF_COMMAND")
         print(f"  vault env: OY_VAULT (default: {DEFAULT_PRIVATE_VAULT})")
         print("  templates may use: {provider_id}, {provider_profile}, {provider_session_id}, {workspace_root}, {op}, {role}, {mailbox}, {vault}")
-        sys.exit(1)
+        sys.exit(0 if len(sys.argv) >= 2 else 1)
 
     cmd = sys.argv[1]
 

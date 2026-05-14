@@ -24,7 +24,7 @@ dev = [
 ]
 
 [project.scripts]
-ygg = "runtime.ygg_cli:main"
+ygg = "runtime.cli.ygg:main"
 
 [tool.setuptools.packages.find]
 include = ["runtime*", "common*"]

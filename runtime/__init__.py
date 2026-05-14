@@ -68,7 +68,13 @@ def _install_legacy_aliases() -> None:
     for name in _LEGACY_TOP_LEVEL_ALIASES:
         if name in sys.modules:
             continue
-        sys.modules[name] = importlib.import_module(f"{__name__}.{name}")
+        try:
+            sys.modules[name] = importlib.import_module(f"{__name__}.{name}")
+        except ModuleNotFoundError:
+            # Legacy top-level aliases are compatibility only. A narrow command
+            # such as `ygg list` must not fail merely because an unrelated legacy
+            # surface imports an optional or undeployed dependency.
+            continue
 
 
 _install_legacy_aliases()
