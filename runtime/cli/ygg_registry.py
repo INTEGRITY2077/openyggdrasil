@@ -384,8 +384,7 @@ def cmd_provider_lane_doctor(*, attach_intent: bool = False) -> str:
         f"record={record_path}; "
         f"provider_id={record.get('provider_id', '?') if record else 'missing'}; "
         f"provider_session_id={record.get('provider_session_id', '?') if record else 'missing'}; "
-        f"display_pair={_canonical_alias_for_op(active_pair[0])}/{_canonical_alias_for_op(active_pair[1])}; "
-        f"internal_pair={active_pair[0]}/{active_pair[1]}"
+        f"worker_pair={_canonical_alias_for_op(active_pair[0])}/{_canonical_alias_for_op(active_pair[1])}"
     )
     evidence = "\n".join(
         row for row in [
@@ -400,8 +399,8 @@ def cmd_provider_lane_doctor(*, attach_intent: bool = False) -> str:
         now="현재 Provider Unit 1 활성 세션 그룹 유효성 확인",
         watching=(
             f"entry=ygg pro1/ygg ms1/ygg mf1; session={session}; "
-            f"display_pair={_canonical_alias_for_op(active_pair[0])}/{_canonical_alias_for_op(active_pair[1])}; "
-            f"internal_pair={active_pair[0]}/{active_pair[1]}; workspace={REPO}; attach_intent={attach_intent}"
+            f"worker_pair={_canonical_alias_for_op(active_pair[0])}/{_canonical_alias_for_op(active_pair[1])}; "
+            f"workspace={REPO}; attach_intent={attach_intent}"
         ),
         creating="active group / stale / zombie chain 판정",
         created=created,
