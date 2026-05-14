@@ -10,6 +10,21 @@ from typing import Any, Mapping
 from runtime.delivery.tmux_lane_adapter import paste_text_enter
 
 
+VISIBLE_NOTICE_FORBIDDEN_TERMS = (
+    "answer",
+    "support",
+    "support_facts",
+    "judgment",
+    "quality_assessment",
+    "provider_rejudgment",
+    "worker_judgment",
+    "답변",
+    "근거",
+    "판단",
+    "결론",
+)
+
+
 def _tmux(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["tmux", *args], capture_output=True, text=True)
 
@@ -64,6 +79,10 @@ def _native_pane_target(session: str) -> str:
 
 
 def _send_tmux_target_text(target: str, text: str) -> tuple[bool, str]:
+    try:
+        validate_visible_notice_route_only(text)
+    except ValueError as exc:
+        return False, str(exc)
     result = paste_text_enter(
         target,
         text,
@@ -76,6 +95,15 @@ def _send_tmux_target_text(target: str, text: str) -> tuple[bool, str]:
     return True, "sent"
 
 
+def validate_visible_notice_route_only(text: str) -> None:
+    lowered = str(text or "").lower()
+    blocked = [term for term in VISIBLE_NOTICE_FORBIDDEN_TERMS if term.lower() in lowered]
+    if blocked:
+        raise ValueError(f"visible_notice_contains_semantic_material:{','.join(blocked)}")
+
+
+
+
 def _activation_prompt(
     *,
     label: str,
@@ -85,23 +113,45 @@ def _activation_prompt(
     delivery: Mapping[str, Any],
 ) -> str:
     role = _worker_role(label, role_type)
-    mission = _mission_summary(message_type, payload)
     if role_type == "producer":
         request_name = "Save Request"
     elif message_type == "query":
         request_name = "Find Request"
     else:
         request_name = "Work Request"
-    return (
-        "메일 도착\n"
+    prompt = (
+        "메일 전달 알림\n"
         f"lane: {label}\n"
         f"role: {role}\n"
         f"kind: {request_name}\n"
         f"mail_id: {delivery.get('mail_id') or 'unknown'}\n"
         f"work_order_id: {delivery.get('work_order_id') or 'unknown'}\n"
-        f"요청 요약: {mission}\n\n"
-        "상세 작업서는 메일박스에 있습니다. 이 알림은 라우팅/깨우기용이며 답변, 근거, 결론을 포함하지 않습니다."
+        "request_hint: mailbox work order ready\n\n"
+        "상세 내용은 mailbox work order에 있습니다. 이 알림은 깨우기 전용이며 mailbox 확인만 요청합니다."
     )
+    validate_visible_notice_route_only(prompt)
+    return prompt
+
+
+def verify_visible_notice_contract() -> dict[str, Any]:
+    prompt = _activation_prompt(
+        label="MS1",
+        role_type="producer",
+        message_type="query",
+        payload={"query_text": "answer support judgment should not leak"},
+        delivery={"mail_id": "mail-test", "work_order_id": "work-test"},
+    )
+    lowered = prompt.lower()
+    leaked = [term for term in VISIBLE_NOTICE_FORBIDDEN_TERMS if term.lower() in lowered]
+    return {
+        "schema_version": "postman_visible_notice_contract_check.v1",
+        "status": "pass" if not leaked else "fail",
+        "hidden_by_default_env": "OY_POSTMAN_VISIBLE_CPR=0",
+        "visible_mode_policy": "dev_fallback_only",
+        "mission_summary_included": False,
+        "semantic_material_terms_present": leaked,
+        "cancel_existing_prompt": False,
+    }
 
 
 def activate_native_lane(
@@ -177,7 +227,9 @@ def activate_native_lane(
         "work_order_id": delivery.get("work_order_id"),
         "work_history_file": delivery.get("work_history_file"),
         "semantic_receipt_included": False,
-        "prompt_contract": "hidden_by_default_worker_loop_owns_pane",
+        "visible_notice_semantic_material_included": False,
+        "cancel_existing_prompt": False,
+        "prompt_contract": "hidden_by_default_route_only_notice_when_visible",
         "visible_cpr": visible_cpr,
     }
     _append_jsonl(registry_dir / "postman" / "activation_log.jsonl", result)
@@ -185,4 +237,4 @@ def activate_native_lane(
     return result
 
 
-__all__ = ["activate_native_lane"]
+__all__ = ["activate_native_lane", "validate_visible_notice_route_only", "verify_visible_notice_contract"]
