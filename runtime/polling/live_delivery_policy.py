@@ -317,42 +317,11 @@ def _write_goal_card(event: dict, phase: str, receipt: dict | None = None, log_r
     )
     return _paste_context_prompt(prompt)
 
-def _run_live_event_quietly(event: dict) -> None:
-    """Process live delivery as a Hermes-visible Ralph job loop."""
-    mail_id = str(event.get("mail_id") or "?")
-    delivery_id = str(event.get("delivery_id") or "?")
-    entry_mode = "produce" if MODE == "produce" else "consume"
-    if WORKER_OWNED_NATIVE_LOOP:
-        dispatch = _send_worker_owned_native_loop(event)
-        _append_live_operator_log({
-            "delivery_id": delivery_id,
-            "mail_id": mail_id,
-            "mode": entry_mode,
-            "status": "sent_to_worker_owned_native_loop" if dispatch.get("written") else "worker_owned_native_loop_blocked",
-            "context_window_written": bool(dispatch.get("written")),
-            "context_card_status": dispatch.get("status"),
-            "tmux_target": tmux_target,
-            "worker_owned_native_loop": True,
-            "timestamp": time.time(),
-        })
-        if os.environ.get("OY_WORKER_TRACE_DEBUG_JSON", "0") == "1":
-            print(
-                json.dumps(
-                    {
-                        "event": "live_delivery_worker_owned_native_loop_dispatched",
-                        "mode": entry_mode,
-                        "mail_id": mail_id,
-                        "delivery_id": delivery_id,
-                        "sent": bool(dispatch.get("written")),
-                        "status": dispatch.get("status"),
-                    },
-                    ensure_ascii=False,
-                ),
-                flush=True,
-            )
-        # Keep going. The worker-owned surface is only the first public note;
-        # the proof is the role-scoped operator action and receipt below.
-    cmd = [
+def _live_entry_mode() -> str:
+    return "produce" if MODE == "produce" else "consume"
+
+def _live_operator_cmd(entry_mode: str) -> list[str]:
+    return [
         sys.executable,
         "-m",
         "runtime.operator_entrypoint",
@@ -362,49 +331,107 @@ def _run_live_event_quietly(event: dict) -> None:
         "--vault",
         str(VAULT),
     ]
+
+def _worker_trace_debug_enabled() -> bool:
+    return os.environ.get("OY_WORKER_TRACE_DEBUG_JSON", "0") == "1"
+
+def _print_live_debug_event(payload: dict) -> None:
+    if _worker_trace_debug_enabled():
+        print(json.dumps(payload, ensure_ascii=False), flush=True)
+
+def _dispatch_worker_owned_surface(event: dict, *, delivery_id: str, mail_id: str, entry_mode: str) -> None:
+    dispatch = _send_worker_owned_native_loop(event)
+    _append_live_operator_log({
+        "delivery_id": delivery_id,
+        "mail_id": mail_id,
+        "mode": entry_mode,
+        "status": "sent_to_worker_owned_native_loop" if dispatch.get("written") else "worker_owned_native_loop_blocked",
+        "context_window_written": bool(dispatch.get("written")),
+        "context_card_status": dispatch.get("status"),
+        "tmux_target": tmux_target,
+        "worker_owned_native_loop": True,
+        "timestamp": time.time(),
+    })
+    _print_live_debug_event({
+        "event": "live_delivery_worker_owned_native_loop_dispatched",
+        "mode": entry_mode,
+        "mail_id": mail_id,
+        "delivery_id": delivery_id,
+        "sent": bool(dispatch.get("written")),
+        "status": dispatch.get("status"),
+    })
+
+def _start_native_goal_surface(event: dict, *, delivery_id: str, mail_id: str, entry_mode: str) -> tuple[dict, dict, dict]:
+    native_goal_start = (
+        _send_native_goal_start(event)
+        if NATIVE_GOAL_ACTION_LOOP
+        else {"sent": False, "status": "disabled"}
+    )
+    _append_goal_log({
+        "delivery_id": delivery_id,
+        "mail_id": mail_id,
+        "mode": entry_mode,
+        "phase": "native_goal_start",
+        "goal_status": "active",
+        "context_window_written": False,
+        "context_card_status": "native_goal_mode",
+        "native_goal_action_loop": NATIVE_GOAL_ACTION_LOOP,
+        "native_goal_start_sent": bool(native_goal_start.get("sent")),
+        "native_goal_start_status": native_goal_start.get("status"),
+        "timestamp": time.time(),
+    })
+    return (
+        {"written": False, "status": "native_goal_mode"},
+        {"written": False, "status": "native_goal_mode"},
+        native_goal_start,
+    )
+
+def _start_ralph_goal_surface(event: dict, *, delivery_id: str, mail_id: str, entry_mode: str) -> tuple[dict, dict, dict]:
+    orient_turn = _write_ralph_turn(event, "orient")
+    _append_goal_log({
+        "delivery_id": delivery_id,
+        "mail_id": mail_id,
+        "mode": entry_mode,
+        "phase": "ralph_orient",
+        "goal_status": "active",
+        "context_window_written": bool(orient_turn.get("written")),
+        "context_card_status": orient_turn.get("status"),
+        "timestamp": time.time(),
+    })
+    act_turn = _write_ralph_turn(event, "act", attempt=1)
+    _append_goal_log({
+        "delivery_id": delivery_id,
+        "mail_id": mail_id,
+        "mode": entry_mode,
+        "phase": "ralph_act",
+        "goal_status": "action_selected",
+        "context_window_written": bool(act_turn.get("written")),
+        "context_card_status": act_turn.get("status"),
+        "timestamp": time.time(),
+    })
+    return orient_turn, act_turn, {"sent": False, "status": "not_native_goal_mode"}
+
+def _start_goal_surface(event: dict, *, delivery_id: str, mail_id: str, entry_mode: str) -> tuple[dict, dict, dict]:
     if NATIVE_GOAL_MODE:
-        orient_turn = {"written": False, "status": "native_goal_mode"}
-        act_turn = {"written": False, "status": "native_goal_mode"}
-        native_goal_start = _send_native_goal_start(event) if NATIVE_GOAL_ACTION_LOOP else {"sent": False, "status": "disabled"}
-        _append_goal_log({
-            "delivery_id": delivery_id,
-            "mail_id": mail_id,
-            "mode": entry_mode,
-            "phase": "native_goal_start",
-            "goal_status": "active",
-            "context_window_written": False,
-            "context_card_status": "native_goal_mode",
-            "native_goal_action_loop": NATIVE_GOAL_ACTION_LOOP,
-            "native_goal_start_sent": bool(native_goal_start.get("sent")),
-            "native_goal_start_status": native_goal_start.get("status"),
-            "timestamp": time.time(),
-        })
-    else:
-        orient_turn = _write_ralph_turn(event, "orient")
-        _append_goal_log({
-            "delivery_id": delivery_id,
-            "mail_id": mail_id,
-            "mode": entry_mode,
-            "phase": "ralph_orient",
-            "goal_status": "active",
-            "context_window_written": bool(orient_turn.get("written")),
-            "context_card_status": orient_turn.get("status"),
-            "timestamp": time.time(),
-        })
-        act_turn = _write_ralph_turn(event, "act", attempt=1)
-        _append_goal_log({
-            "delivery_id": delivery_id,
-            "mail_id": mail_id,
-            "mode": entry_mode,
-            "phase": "ralph_act",
-            "goal_status": "action_selected",
-            "context_window_written": bool(act_turn.get("written")),
-            "context_card_status": act_turn.get("status"),
-            "timestamp": time.time(),
-        })
-    result, elapsed_ms, receipt, attempts = _run_operator_entrypoint_until_goal(cmd, mail_id)
+        return _start_native_goal_surface(
+            event,
+            delivery_id=delivery_id,
+            mail_id=mail_id,
+            entry_mode=entry_mode,
+        )
+    return _start_ralph_goal_surface(event, delivery_id=delivery_id, mail_id=mail_id, entry_mode=entry_mode)
+
+def _run_operator_for_live_event(
+    *,
+    entry_mode: str,
+    delivery_id: str,
+    mail_id: str,
+) -> tuple[object, int, dict, list[dict], str, dict]:
+    result, elapsed_ms, receipt, attempts = _run_operator_entrypoint_until_goal(
+        _live_operator_cmd(entry_mode),
+        mail_id,
+    )
     status = "goal_closed" if result and result.returncode == 0 and receipt else "goal_blocked"
-    _mark_live_delivered(event, status=status)
     log_row = {
         "delivery_id": delivery_id,
         "mail_id": mail_id,
@@ -421,347 +448,443 @@ def _run_live_event_quietly(event: dict) -> None:
         "tmux_target": tmux_target,
         "timestamp": time.time(),
     }
-    if WORKER_OWNED_NATIVE_LOOP:
-        receipt_projection = _send_worker_owned_receipt_projection(event, receipt, status, elapsed_ms, attempts)
-        summary = _receipt_public_summary_for_event(event, receipt)
-        log_row["goal_phase"] = "worker_owned_receipt_projection"
-        log_row["goal_status"] = "closed" if receipt else "blocked"
-        log_row["context_window_written"] = bool(receipt_projection.get("written"))
-        log_row["context_card_status"] = receipt_projection.get("status")
-        log_row["worker_owned_receipt_projection_sent"] = bool(receipt_projection.get("written"))
-        log_row["final_support_quality"] = summary.get("quality")
-        log_row["final_support_result"] = summary.get("result")
-        _append_live_operator_log(log_row)
-        if os.environ.get("OY_WORKER_TRACE_DEBUG_JSON", "0") == "1":
-            print(
-                json.dumps(
-                    {
-                        "event": "live_delivery_worker_owned_processed",
-                        "mode": entry_mode,
-                        "mail_id": mail_id,
-                        "delivery_id": delivery_id,
-                        "status": status,
-                        "receipt_present": bool(receipt),
-                        "elapsed_ms": elapsed_ms,
-                        "attempt_count": len(attempts),
-                        "receipt_projection_sent": bool(receipt_projection.get("written")),
-                        "receipt_projection_status": receipt_projection.get("status"),
-                        "final_support_quality": summary.get("quality"),
-                    },
-                    ensure_ascii=False,
-                ),
-                flush=True,
-            )
-        return
-    if NATIVE_GOAL_MODE:
-        todos = _ralph_todo_state(event, receipt, attempts)
-        final_receipt = receipt
-        retry_rows: list[dict] = []
-        native_goal_stages: list[dict] = []
-        if NATIVE_GOAL_ACTION_LOOP:
-            action_stage = _send_native_goal_action_result(event, receipt, attempts, status, result, elapsed_ms)
-            native_goal_stages.append(action_stage)
-            goal_phase = "native_goal_action_result"
-            native_goal = action_stage
-            if NATIVE_GOAL_MULTI_STEP:
-                retry_or_answer_stage = _send_native_goal_retry_or_answer(event, receipt)
-                native_goal_stages.append(retry_or_answer_stage)
-                if _receipt_quality_for_event(event, receipt) not in {"pass", "pass_with_limit"}:
-                    final_receipt, retry_rows = _run_consumer_bounded_retries(event, receipt)
-                    if retry_rows:
-                        retry_result_stage = _send_native_goal_retry_result(event, retry_rows, final_receipt)
-                        native_goal_stages.append(retry_result_stage)
-                        retry_or_answer_after_retry = _send_native_goal_retry_or_answer(
-                            event,
-                            final_receipt,
-                            retry_rows,
-                        )
-                        native_goal_stages.append(retry_or_answer_after_retry)
-                answer_draft_stage = _send_native_goal_answer_draft(event, final_receipt)
-                native_goal_stages.append(answer_draft_stage)
-                final_close_stage = _send_native_goal_final_close(event, final_receipt)
-                native_goal_stages.append(final_close_stage)
-                native_goal = final_close_stage
-                goal_phase = "native_goal_multi_step_final_close"
-        else:
-            native_goal = _send_native_goal_for_processed_event(event, receipt, attempts, status)
-            goal_phase = "native_goal_dispatch"
-            native_goal_stages.append(native_goal)
-        final_summary = _receipt_public_summary_for_event(event, final_receipt or {})
-        log_row["goal_phase"] = goal_phase
-        log_row["goal_status"] = "closed" if receipt else "blocked"
-        log_row["native_goal_mode"] = True
-        log_row["native_goal_action_loop"] = NATIVE_GOAL_ACTION_LOOP
-        log_row["native_goal_multi_step"] = NATIVE_GOAL_MULTI_STEP
-        log_row["native_goal_start_sent"] = bool(locals().get("native_goal_start", {}).get("sent"))
-        log_row["native_goal_start_status"] = locals().get("native_goal_start", {}).get("status")
-        log_row["native_goal_sent"] = bool(native_goal.get("sent"))
-        log_row["native_goal_status"] = native_goal.get("status")
-        log_row["native_goal_phase"] = native_goal.get("native_goal_phase")
-        log_row["native_goal_stages"] = [
-            {
-                "phase": stage.get("native_goal_phase"),
-                "sent": stage.get("sent"),
-                "status": stage.get("status"),
-                "lane_ready_before_send": stage.get("lane_ready_before_send"),
-            }
-            for stage in native_goal_stages
-        ]
-        log_row["native_goal_session_id_before_send"] = native_goal.get("session_id_before_send")
-        log_row["context_window_written"] = False
-        log_row["context_card_status"] = "native_goal_mode"
-        log_row["context_ralph_todo_count"] = len(todos)
-        log_row["context_ralph_todo_ids"] = [todo.get("todo_id") for todo in todos]
-        log_row["bounded_retry_rows"] = retry_rows
-        log_row["bounded_retry_count"] = len(retry_rows)
-        log_row["final_support_quality"] = final_summary["quality"]
-        log_row["final_support_result"] = final_summary["result"]
-        _append_goal_log({
-            "delivery_id": delivery_id,
-            "mail_id": mail_id,
-            "mode": entry_mode,
-            "phase": goal_phase,
-            "goal_status": log_row["goal_status"],
-            "attempts": attempts,
-            "receipt_id": receipt.get("receipt_id"),
-            "receipt_status": receipt.get("status"),
-            "todo_count": len(todos),
-            "todo_ids": [todo.get("todo_id") for todo in todos],
-            "context_window_written": False,
-            "context_card_status": "native_goal_mode",
-            "native_goal_action_loop": NATIVE_GOAL_ACTION_LOOP,
-            "native_goal_multi_step": NATIVE_GOAL_MULTI_STEP,
-            "native_goal_start_sent": log_row["native_goal_start_sent"],
-            "native_goal_start_status": log_row["native_goal_start_status"],
-            "native_goal_sent": bool(native_goal.get("sent")),
-            "native_goal_status": native_goal.get("status"),
-            "native_goal_phase": native_goal.get("native_goal_phase"),
-            "native_goal_stage_phases": [stage.get("native_goal_phase") for stage in native_goal_stages],
-            "bounded_retry_count": len(retry_rows),
-            "final_support_quality": final_summary["quality"],
-            "final_support_result": final_summary["result"],
-            "timestamp": time.time(),
-        })
-        _append_live_operator_log(log_row)
-        print(
-            json.dumps(
-                {
-                    "event": "live_delivery_native_goal_processed",
-                    "mode": entry_mode,
-                    "mail_id": mail_id,
-                    "delivery_id": delivery_id,
-                    "status": status,
-                    "receipt_id": receipt.get("receipt_id"),
-                    "elapsed_ms": elapsed_ms,
-                    "attempt_count": len(attempts),
-                    "goal_status": log_row["goal_status"],
-                    "goal_phase": goal_phase,
-                    "native_goal_action_loop": NATIVE_GOAL_ACTION_LOOP,
-                    "native_goal_multi_step": NATIVE_GOAL_MULTI_STEP,
-                    "native_goal_start_sent": log_row["native_goal_start_sent"],
-                    "native_goal_sent": log_row["native_goal_sent"],
-                    "native_goal_status": log_row["native_goal_status"],
-                    "native_goal_stage_phases": [stage.get("native_goal_phase") for stage in native_goal_stages],
-                    "bounded_retry_count": len(retry_rows),
-                    "final_support_quality": final_summary["quality"],
-                },
-                ensure_ascii=False,
-            ),
-            flush=True,
-        )
-        return
-    inspect_turn = _write_ralph_turn(event, "inspect", attempt=len(attempts), receipt=receipt, attempts=attempts)
-    _append_goal_log({
-        "delivery_id": delivery_id,
-        "mail_id": mail_id,
-        "mode": entry_mode,
-        "phase": "ralph_inspect",
-        "goal_status": "result_inspected" if receipt else "result_missing",
-        "receipt_id": receipt.get("receipt_id"),
-        "receipt_status": receipt.get("status"),
-        "context_window_written": bool(inspect_turn.get("written")),
-        "context_card_status": inspect_turn.get("status"),
-        "timestamp": time.time(),
+    return result, elapsed_ms, receipt, attempts, status, log_row
+
+def _handle_worker_owned_result(
+    event: dict,
+    *,
+    entry_mode: str,
+    delivery_id: str,
+    mail_id: str,
+    receipt: dict,
+    status: str,
+    elapsed_ms: int,
+    attempts: list[dict],
+    log_row: dict,
+) -> bool:
+    if not WORKER_OWNED_NATIVE_LOOP:
+        return False
+    receipt_projection = _send_worker_owned_receipt_projection(event, receipt, status, elapsed_ms, attempts)
+    summary = _receipt_public_summary_for_event(event, receipt)
+    log_row.update({
+        "goal_phase": "worker_owned_receipt_projection",
+        "goal_status": "closed" if receipt else "blocked",
+        "context_window_written": bool(receipt_projection.get("written")),
+        "context_card_status": receipt_projection.get("status"),
+        "worker_owned_receipt_projection_sent": bool(receipt_projection.get("written")),
+        "final_support_quality": summary.get("quality"),
+        "final_support_result": summary.get("result"),
     })
+    _append_live_operator_log(log_row)
+    _print_live_debug_event({
+        "event": "live_delivery_worker_owned_processed",
+        "mode": entry_mode,
+        "mail_id": mail_id,
+        "delivery_id": delivery_id,
+        "status": status,
+        "receipt_present": bool(receipt),
+        "elapsed_ms": elapsed_ms,
+        "attempt_count": len(attempts),
+        "receipt_projection_sent": bool(receipt_projection.get("written")),
+        "receipt_projection_status": receipt_projection.get("status"),
+        "final_support_quality": summary.get("quality"),
+    })
+    return True
+
+def _run_native_goal_stages(
+    event: dict,
+    *,
+    receipt: dict,
+    attempts: list[dict],
+    status: str,
+    result: object,
+    elapsed_ms: int,
+) -> tuple[str, dict, list[dict], dict, list[dict]]:
+    final_receipt = receipt
+    retry_rows: list[dict] = []
+    native_goal_stages: list[dict] = []
+    if NATIVE_GOAL_ACTION_LOOP:
+        native_goal = _send_native_goal_action_result(event, receipt, attempts, status, result, elapsed_ms)
+        native_goal_stages.append(native_goal)
+        goal_phase = "native_goal_action_result"
+        if NATIVE_GOAL_MULTI_STEP:
+            native_goal_stages.append(_send_native_goal_retry_or_answer(event, receipt))
+            if _receipt_quality_for_event(event, receipt) not in {"pass", "pass_with_limit"}:
+                final_receipt, retry_rows = _run_consumer_bounded_retries(event, receipt)
+                if retry_rows:
+                    native_goal_stages.append(_send_native_goal_retry_result(event, retry_rows, final_receipt))
+                    native_goal_stages.append(_send_native_goal_retry_or_answer(event, final_receipt, retry_rows))
+            native_goal_stages.append(_send_native_goal_answer_draft(event, final_receipt))
+            native_goal = _send_native_goal_final_close(event, final_receipt)
+            native_goal_stages.append(native_goal)
+            goal_phase = "native_goal_multi_step_final_close"
+        return goal_phase, native_goal, native_goal_stages, final_receipt, retry_rows
+    native_goal = _send_native_goal_for_processed_event(event, receipt, attempts, status)
+    native_goal_stages.append(native_goal)
+    return "native_goal_dispatch", native_goal, native_goal_stages, final_receipt, retry_rows
+
+def _native_stage_rows(native_goal_stages: list[dict]) -> list[dict]:
+    return [
+        {
+            "phase": stage.get("native_goal_phase"),
+            "sent": stage.get("sent"),
+            "status": stage.get("status"),
+            "lane_ready_before_send": stage.get("lane_ready_before_send"),
+        }
+        for stage in native_goal_stages
+    ]
+
+def _handle_native_goal_result(
+    event: dict,
+    *,
+    entry_mode: str,
+    delivery_id: str,
+    mail_id: str,
+    receipt: dict,
+    attempts: list[dict],
+    status: str,
+    result: object,
+    elapsed_ms: int,
+    native_goal_start: dict,
+    log_row: dict,
+) -> bool:
+    if not NATIVE_GOAL_MODE:
+        return False
     todos = _ralph_todo_state(event, receipt, attempts)
+    goal_phase, native_goal, stages, final_receipt, retry_rows = _run_native_goal_stages(
+        event,
+        receipt=receipt,
+        attempts=attempts,
+        status=status,
+        result=result,
+        elapsed_ms=elapsed_ms,
+    )
+    final_summary = _receipt_public_summary_for_event(event, final_receipt or {})
+    log_row.update({
+        "goal_phase": goal_phase,
+        "goal_status": "closed" if receipt else "blocked",
+        "native_goal_mode": True,
+        "native_goal_action_loop": NATIVE_GOAL_ACTION_LOOP,
+        "native_goal_multi_step": NATIVE_GOAL_MULTI_STEP,
+        "native_goal_start_sent": bool(native_goal_start.get("sent")),
+        "native_goal_start_status": native_goal_start.get("status"),
+        "native_goal_sent": bool(native_goal.get("sent")),
+        "native_goal_status": native_goal.get("status"),
+        "native_goal_phase": native_goal.get("native_goal_phase"),
+        "native_goal_stages": _native_stage_rows(stages),
+        "native_goal_session_id_before_send": native_goal.get("session_id_before_send"),
+        "context_window_written": False,
+        "context_card_status": "native_goal_mode",
+        "context_ralph_todo_count": len(todos),
+        "context_ralph_todo_ids": [todo.get("todo_id") for todo in todos],
+        "bounded_retry_rows": retry_rows,
+        "bounded_retry_count": len(retry_rows),
+        "final_support_quality": final_summary["quality"],
+        "final_support_result": final_summary["result"],
+    })
     _append_goal_log({
         "delivery_id": delivery_id,
         "mail_id": mail_id,
         "mode": entry_mode,
-        "phase": "ralph_todo_state_built",
-        "goal_status": "ptc_todo_state_ready" if todos else "ptc_todo_state_empty",
+        "phase": goal_phase,
+        "goal_status": log_row["goal_status"],
+        "attempts": attempts,
         "receipt_id": receipt.get("receipt_id"),
         "receipt_status": receipt.get("status"),
         "todo_count": len(todos),
         "todo_ids": [todo.get("todo_id") for todo in todos],
         "context_window_written": False,
-        "context_card_status": "log_only",
+        "context_card_status": "native_goal_mode",
+        "native_goal_action_loop": NATIVE_GOAL_ACTION_LOOP,
+        "native_goal_multi_step": NATIVE_GOAL_MULTI_STEP,
+        "native_goal_start_sent": log_row["native_goal_start_sent"],
+        "native_goal_start_status": log_row["native_goal_start_status"],
+        "native_goal_sent": log_row["native_goal_sent"],
+        "native_goal_status": log_row["native_goal_status"],
+        "native_goal_phase": log_row["native_goal_phase"],
+        "native_goal_stage_phases": [stage.get("native_goal_phase") for stage in stages],
+        "bounded_retry_count": len(retry_rows),
+        "final_support_quality": final_summary["quality"],
+        "final_support_result": final_summary["result"],
         "timestamp": time.time(),
     })
+    _append_live_operator_log(log_row)
+    _print_native_goal_processed(entry_mode, mail_id, delivery_id, status, receipt, elapsed_ms, attempts, log_row, stages)
+    return True
+
+def _print_native_goal_processed(
+    entry_mode: str,
+    mail_id: str,
+    delivery_id: str,
+    status: str,
+    receipt: dict,
+    elapsed_ms: int,
+    attempts: list[dict],
+    log_row: dict,
+    stages: list[dict],
+) -> None:
+    print(
+        json.dumps(
+            {
+                "event": "live_delivery_native_goal_processed",
+                "mode": entry_mode,
+                "mail_id": mail_id,
+                "delivery_id": delivery_id,
+                "status": status,
+                "receipt_id": receipt.get("receipt_id"),
+                "elapsed_ms": elapsed_ms,
+                "attempt_count": len(attempts),
+                "goal_status": log_row["goal_status"],
+                "goal_phase": log_row["goal_phase"],
+                "native_goal_action_loop": NATIVE_GOAL_ACTION_LOOP,
+                "native_goal_multi_step": NATIVE_GOAL_MULTI_STEP,
+                "native_goal_start_sent": log_row["native_goal_start_sent"],
+                "native_goal_sent": log_row["native_goal_sent"],
+                "native_goal_status": log_row["native_goal_status"],
+                "native_goal_stage_phases": [stage.get("native_goal_phase") for stage in stages],
+                "bounded_retry_count": log_row["bounded_retry_count"],
+                "final_support_quality": log_row["final_support_quality"],
+            },
+            ensure_ascii=False,
+        ),
+        flush=True,
+    )
+
+def _append_ralph_goal_log(
+    *,
+    delivery_id: str,
+    mail_id: str,
+    entry_mode: str,
+    phase: str,
+    goal_status: str,
+    receipt: dict,
+    turn: dict | None = None,
+    extra: dict | None = None,
+) -> None:
+    row = {
+        "delivery_id": delivery_id,
+        "mail_id": mail_id,
+        "mode": entry_mode,
+        "phase": phase,
+        "goal_status": goal_status,
+        "receipt_id": receipt.get("receipt_id"),
+        "receipt_status": receipt.get("status"),
+        "context_window_written": bool(turn.get("written")) if turn else False,
+        "context_card_status": turn.get("status") if turn else "log_only",
+        "timestamp": time.time(),
+    }
+    if extra:
+        row.update(extra)
+    _append_goal_log(row)
+
+def _write_ralph_todo_surfaces(
+    event: dict,
+    *,
+    entry_mode: str,
+    delivery_id: str,
+    mail_id: str,
+    receipt: dict,
+    attempts: list[dict],
+) -> tuple[dict, list[dict], list[dict]]:
+    inspect_turn = _write_ralph_turn(event, "inspect", attempt=len(attempts), receipt=receipt, attempts=attempts)
+    _append_ralph_goal_log(
+        delivery_id=delivery_id,
+        mail_id=mail_id,
+        entry_mode=entry_mode,
+        phase="ralph_inspect",
+        goal_status="result_inspected" if receipt else "result_missing",
+        receipt=receipt,
+        turn=inspect_turn,
+    )
+    todos = _ralph_todo_state(event, receipt, attempts)
+    _append_ralph_goal_log(
+        delivery_id=delivery_id,
+        mail_id=mail_id,
+        entry_mode=entry_mode,
+        phase="ralph_todo_state_built",
+        goal_status="ptc_todo_state_ready" if todos else "ptc_todo_state_empty",
+        receipt=receipt,
+        extra={"todo_count": len(todos), "todo_ids": [todo.get("todo_id") for todo in todos]},
+    )
     todo_turns = []
     for index, todo in enumerate(todos, start=1):
-        _append_goal_log({
-            "delivery_id": delivery_id,
-            "mail_id": mail_id,
-            "mode": entry_mode,
-            "phase": "ralph_todo_start",
-            "goal_status": "todo_visible_write_start",
-            "receipt_id": receipt.get("receipt_id"),
-            "receipt_status": receipt.get("status"),
-            "todo_id": todo.get("todo_id"),
-            "todo_index": index,
-            "todo_total": len(todos),
-            "todo_quality": todo.get("quality"),
-            "context_window_written": False,
-            "context_card_status": "pending",
-            "timestamp": time.time(),
-        })
+        base = {"todo_id": todo.get("todo_id"), "todo_index": index, "todo_total": len(todos), "todo_quality": todo.get("quality")}
+        _append_ralph_goal_log(
+            delivery_id=delivery_id,
+            mail_id=mail_id,
+            entry_mode=entry_mode,
+            phase="ralph_todo_start",
+            goal_status="todo_visible_write_start",
+            receipt=receipt,
+            extra={**base, "context_card_status": "pending"},
+        )
         todo_turn = _write_ralph_todo_turn(event, todo, index, len(todos))
         todo_turns.append(todo_turn)
-        _append_goal_log({
-            "delivery_id": delivery_id,
-            "mail_id": mail_id,
-            "mode": entry_mode,
-            "phase": "ralph_todo",
-            "goal_status": "todo_visible_written" if todo_turn.get("written") else "todo_visible_blocked",
-            "receipt_id": receipt.get("receipt_id"),
-            "receipt_status": receipt.get("status"),
-            "todo_id": todo.get("todo_id"),
-            "todo_index": index,
-            "todo_total": len(todos),
-            "todo_quality": todo.get("quality"),
-            "context_window_written": bool(todo_turn.get("written")),
-            "context_card_status": todo_turn.get("status"),
-            "timestamp": time.time(),
-        })
-    answer_turn = _write_ralph_turn(event, "answer", receipt=receipt, attempts=attempts)
-    _append_goal_log({
-        "delivery_id": delivery_id,
-        "mail_id": mail_id,
-        "mode": entry_mode,
-        "phase": "ralph_draft_answer",
-        "goal_status": "answer_drafted" if receipt else "answer_unavailable",
-        "receipt_id": receipt.get("receipt_id"),
-        "receipt_status": receipt.get("status"),
-        "context_window_written": bool(answer_turn.get("written")),
-        "context_card_status": answer_turn.get("status"),
-        "timestamp": time.time(),
-    })
-    review_turn = _write_ralph_turn(event, "review", receipt=receipt, attempts=attempts)
-    _append_goal_log({
-        "delivery_id": delivery_id,
-        "mail_id": mail_id,
-        "mode": entry_mode,
-        "phase": "ralph_review_answer",
-        "goal_status": "answer_reviewed" if receipt else "answer_review_unavailable",
-        "receipt_id": receipt.get("receipt_id"),
-        "receipt_status": receipt.get("status"),
-        "context_window_written": bool(review_turn.get("written")),
-        "context_card_status": review_turn.get("status"),
-        "timestamp": time.time(),
-    })
-    revise_turn = _write_ralph_turn(event, "revise", receipt=receipt, attempts=attempts)
-    _append_goal_log({
-        "delivery_id": delivery_id,
-        "mail_id": mail_id,
-        "mode": entry_mode,
-        "phase": "ralph_revise_answer",
-        "goal_status": "answer_revised" if receipt else "answer_revise_unavailable",
-        "receipt_id": receipt.get("receipt_id"),
-        "receipt_status": receipt.get("status"),
-        "context_window_written": bool(revise_turn.get("written")),
-        "context_card_status": revise_turn.get("status"),
-        "timestamp": time.time(),
-    })
-    quality_turn = _write_ralph_turn(event, "quality_gate", receipt=receipt, attempts=attempts)
-    _append_goal_log({
-        "delivery_id": delivery_id,
-        "mail_id": mail_id,
-        "mode": entry_mode,
-        "phase": "ralph_quality_gate",
-        "goal_status": "answer_quality_gated" if receipt else "answer_quality_gate_unavailable",
-        "receipt_id": receipt.get("receipt_id"),
-        "receipt_status": receipt.get("status"),
-        "context_window_written": bool(quality_turn.get("written")),
-        "context_card_status": quality_turn.get("status"),
-        "timestamp": time.time(),
-    })
-    final_turn = _write_ralph_turn(event, "final", receipt=receipt, attempts=attempts)
-    _append_goal_log({
-        "delivery_id": delivery_id,
-        "mail_id": mail_id,
-        "mode": entry_mode,
-        "phase": "ralph_final_answer",
-        "goal_status": "answer_finalized" if receipt else "answer_final_unavailable",
-        "receipt_id": receipt.get("receipt_id"),
-        "receipt_status": receipt.get("status"),
-        "context_window_written": bool(final_turn.get("written")),
+        _append_ralph_goal_log(
+            delivery_id=delivery_id,
+            mail_id=mail_id,
+            entry_mode=entry_mode,
+            phase="ralph_todo",
+            goal_status="todo_visible_written" if todo_turn.get("written") else "todo_visible_blocked",
+            receipt=receipt,
+            turn=todo_turn,
+            extra=base,
+        )
+    return inspect_turn, todos, todo_turns
+
+def _write_ralph_answer_surfaces(
+    event: dict,
+    *,
+    entry_mode: str,
+    delivery_id: str,
+    mail_id: str,
+    receipt: dict,
+    attempts: list[dict],
+) -> dict[str, dict]:
+    phases = [
+        ("answer", "ralph_draft_answer", "answer_drafted", "answer_unavailable"),
+        ("review", "ralph_review_answer", "answer_reviewed", "answer_review_unavailable"),
+        ("revise", "ralph_revise_answer", "answer_revised", "answer_revise_unavailable"),
+        ("quality_gate", "ralph_quality_gate", "answer_quality_gated", "answer_quality_gate_unavailable"),
+        ("final", "ralph_final_answer", "answer_finalized", "answer_final_unavailable"),
+    ]
+    turns: dict[str, dict] = {}
+    for turn_name, phase, ok_status, missing_status in phases:
+        turn = _write_ralph_turn(event, turn_name, receipt=receipt, attempts=attempts)
+        turns[turn_name] = turn
+        _append_ralph_goal_log(
+            delivery_id=delivery_id,
+            mail_id=mail_id,
+            entry_mode=entry_mode,
+            phase=phase,
+            goal_status=ok_status if receipt else missing_status,
+            receipt=receipt,
+            turn=turn,
+        )
+    return turns
+
+def _populate_ralph_log_row(
+    log_row: dict,
+    *,
+    receipt: dict,
+    orient_turn: dict,
+    act_turn: dict,
+    inspect_turn: dict,
+    todos: list[dict],
+    todo_turns: list[dict],
+    answer_turns: dict[str, dict],
+) -> None:
+    final_turn = answer_turns["final"]
+    log_row.update({
+        "goal_phase": "close",
+        "goal_status": "closed" if receipt else "blocked",
+        "context_goal_start_written": bool(orient_turn.get("written")),
+        "context_goal_start_status": orient_turn.get("status"),
+        "context_ralph_act_written": bool(act_turn.get("written")),
+        "context_ralph_act_status": act_turn.get("status"),
+        "context_ralph_inspect_written": bool(inspect_turn.get("written")),
+        "context_ralph_inspect_status": inspect_turn.get("status"),
+        "context_ralph_todo_count": len(todos),
+        "context_ralph_todo_ids": [todo.get("todo_id") for todo in todos],
+        "context_ralph_todo_written_count": sum(1 for turn in todo_turns if turn.get("written")),
+        "context_ralph_todo_statuses": [turn.get("status") for turn in todo_turns],
+        "context_goal_close_written": False,
+        "context_goal_close_status": "log_only_after_final_answer",
+        "last_visible_phase": "ralph_final_answer",
+        "close_visibility": "log_only",
         "context_card_status": final_turn.get("status"),
-        "timestamp": time.time(),
     })
-    close_turn = {"written": False, "status": "log_only_after_final_answer"}
-    log_row["goal_phase"] = "close"
-    log_row["goal_status"] = "closed" if receipt else "blocked"
-    log_row["context_goal_start_written"] = bool(orient_turn.get("written"))
-    log_row["context_goal_start_status"] = orient_turn.get("status")
-    log_row["context_ralph_act_written"] = bool(act_turn.get("written"))
-    log_row["context_ralph_act_status"] = act_turn.get("status")
-    log_row["context_ralph_inspect_written"] = bool(inspect_turn.get("written"))
-    log_row["context_ralph_inspect_status"] = inspect_turn.get("status")
-    log_row["context_ralph_todo_count"] = len(todos)
-    log_row["context_ralph_todo_ids"] = [todo.get("todo_id") for todo in todos]
-    log_row["context_ralph_todo_written_count"] = sum(1 for turn in todo_turns if turn.get("written"))
-    log_row["context_ralph_todo_statuses"] = [turn.get("status") for turn in todo_turns]
-    log_row["context_ralph_answer_written"] = bool(answer_turn.get("written"))
-    log_row["context_ralph_answer_status"] = answer_turn.get("status")
-    log_row["context_ralph_review_written"] = bool(review_turn.get("written"))
-    log_row["context_ralph_review_status"] = review_turn.get("status")
-    log_row["context_ralph_revise_written"] = bool(revise_turn.get("written"))
-    log_row["context_ralph_revise_status"] = revise_turn.get("status")
-    log_row["context_ralph_quality_gate_written"] = bool(quality_turn.get("written"))
-    log_row["context_ralph_quality_gate_status"] = quality_turn.get("status")
-    log_row["context_ralph_final_written"] = bool(final_turn.get("written"))
-    log_row["context_ralph_final_status"] = final_turn.get("status")
-    log_row["context_goal_close_written"] = False
-    log_row["context_goal_close_status"] = close_turn.get("status")
-    log_row["last_visible_phase"] = "ralph_final_answer"
-    log_row["close_visibility"] = "log_only"
+    for key, prefix in [
+        ("answer", "context_ralph_answer"),
+        ("review", "context_ralph_review"),
+        ("revise", "context_ralph_revise"),
+        ("quality_gate", "context_ralph_quality_gate"),
+        ("final", "context_ralph_final"),
+    ]:
+        log_row[f"{prefix}_written"] = bool(answer_turns[key].get("written"))
+        log_row[f"{prefix}_status"] = answer_turns[key].get("status")
     log_row["context_window_written"] = bool(
         orient_turn.get("written")
         or act_turn.get("written")
         or inspect_turn.get("written")
         or any(turn.get("written") for turn in todo_turns)
-        or answer_turn.get("written")
-        or review_turn.get("written")
-        or revise_turn.get("written")
-        or quality_turn.get("written")
-        or final_turn.get("written")
+        or any(turn.get("written") for turn in answer_turns.values())
     )
-    log_row["context_card_status"] = final_turn.get("status")
+
+def _handle_ralph_result(
+    event: dict,
+    *,
+    entry_mode: str,
+    delivery_id: str,
+    mail_id: str,
+    receipt: dict,
+    attempts: list[dict],
+    status: str,
+    elapsed_ms: int,
+    orient_turn: dict,
+    act_turn: dict,
+    log_row: dict,
+) -> None:
+    inspect_turn, todos, todo_turns = _write_ralph_todo_surfaces(
+        event,
+        entry_mode=entry_mode,
+        delivery_id=delivery_id,
+        mail_id=mail_id,
+        receipt=receipt,
+        attempts=attempts,
+    )
+    answer_turns = _write_ralph_answer_surfaces(
+        event,
+        entry_mode=entry_mode,
+        delivery_id=delivery_id,
+        mail_id=mail_id,
+        receipt=receipt,
+        attempts=attempts,
+    )
+    _populate_ralph_log_row(
+        log_row,
+        receipt=receipt,
+        orient_turn=orient_turn,
+        act_turn=act_turn,
+        inspect_turn=inspect_turn,
+        todos=todos,
+        todo_turns=todo_turns,
+        answer_turns=answer_turns,
+    )
     native_goal = _send_native_goal_for_processed_event(event, receipt, attempts, status)
     log_row["native_goal_mode"] = NATIVE_GOAL_MODE
     log_row["native_goal_sent"] = bool(native_goal.get("sent"))
     log_row["native_goal_status"] = native_goal.get("status")
     log_row["native_goal_session_id_before_send"] = native_goal.get("session_id_before_send")
-    _append_goal_log({
-        "delivery_id": delivery_id,
-        "mail_id": mail_id,
-        "mode": entry_mode,
-        "phase": "ralph_close",
-        "goal_status": log_row["goal_status"],
-        "attempts": attempts,
-        "receipt_id": receipt.get("receipt_id"),
-        "receipt_status": receipt.get("status"),
-        "context_window_written": False,
-        "context_card_status": close_turn.get("status"),
-        "last_visible_phase": "ralph_final_answer",
-        "close_visibility": "log_only",
-        "native_goal_mode": NATIVE_GOAL_MODE,
-        "native_goal_sent": bool(native_goal.get("sent")),
-        "native_goal_status": native_goal.get("status"),
-        "timestamp": time.time(),
-    })
+    _append_ralph_goal_log(
+        delivery_id=delivery_id,
+        mail_id=mail_id,
+        entry_mode=entry_mode,
+        phase="ralph_close",
+        goal_status=log_row["goal_status"],
+        receipt=receipt,
+        extra={
+            "attempts": attempts,
+            "last_visible_phase": "ralph_final_answer",
+            "close_visibility": "log_only",
+            "native_goal_mode": NATIVE_GOAL_MODE,
+            "native_goal_sent": bool(native_goal.get("sent")),
+            "native_goal_status": native_goal.get("status"),
+        },
+    )
     _append_live_operator_log(log_row)
+    _print_quiet_processed(entry_mode, mail_id, delivery_id, status, receipt, elapsed_ms, attempts, log_row)
+
+def _print_quiet_processed(
+    entry_mode: str,
+    mail_id: str,
+    delivery_id: str,
+    status: str,
+    receipt: dict,
+    elapsed_ms: int,
+    attempts: list[dict],
+    log_row: dict,
+) -> None:
     print(
         json.dumps(
             {
@@ -783,6 +906,70 @@ def _run_live_event_quietly(event: dict) -> None:
             ensure_ascii=False,
         ),
         flush=True,
+    )
+
+def _run_live_event_quietly(event: dict) -> None:
+    """Process live delivery without making Postman the semantic owner."""
+    mail_id = str(event.get("mail_id") or "?")
+    delivery_id = str(event.get("delivery_id") or "?")
+    entry_mode = _live_entry_mode()
+    if WORKER_OWNED_NATIVE_LOOP:
+        _dispatch_worker_owned_surface(
+            event,
+            delivery_id=delivery_id,
+            mail_id=mail_id,
+            entry_mode=entry_mode,
+        )
+    orient_turn, act_turn, native_goal_start = _start_goal_surface(
+        event,
+        delivery_id=delivery_id,
+        mail_id=mail_id,
+        entry_mode=entry_mode,
+    )
+    result, elapsed_ms, receipt, attempts, status, log_row = _run_operator_for_live_event(
+        entry_mode=entry_mode,
+        delivery_id=delivery_id,
+        mail_id=mail_id,
+    )
+    _mark_live_delivered(event, status=status)
+    if _handle_worker_owned_result(
+        event,
+        entry_mode=entry_mode,
+        delivery_id=delivery_id,
+        mail_id=mail_id,
+        receipt=receipt,
+        status=status,
+        elapsed_ms=elapsed_ms,
+        attempts=attempts,
+        log_row=log_row,
+    ):
+        return
+    if _handle_native_goal_result(
+        event,
+        entry_mode=entry_mode,
+        delivery_id=delivery_id,
+        mail_id=mail_id,
+        receipt=receipt,
+        attempts=attempts,
+        status=status,
+        result=result,
+        elapsed_ms=elapsed_ms,
+        native_goal_start=native_goal_start,
+        log_row=log_row,
+    ):
+        return
+    _handle_ralph_result(
+        event,
+        entry_mode=entry_mode,
+        delivery_id=delivery_id,
+        mail_id=mail_id,
+        receipt=receipt,
+        attempts=attempts,
+        status=status,
+        elapsed_ms=elapsed_ms,
+        orient_turn=orient_turn,
+        act_turn=act_turn,
+        log_row=log_row,
     )
 
 def _route_live_event_to_hermes(event: dict) -> None:

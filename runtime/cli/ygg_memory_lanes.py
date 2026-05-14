@@ -611,6 +611,136 @@ def _wait_for_query_receipt(op: str, mail_id: str, timeout_seconds: float) -> di
         time.sleep(0.5)
     return {}
 
+def _recall_payload(question: str, *, use_ptc: bool) -> dict:
+    payload = {"query_text": question}
+    if use_ptc:
+        question_literal = json.dumps(question, ensure_ascii=False)
+        payload["ptc"] = True
+        payload["ptc_code"] = f"result(deep_search({question_literal}, max_depth=3, limit=15))"
+    return payload
+
+def _recall_blocked_result(label: str, exc) -> dict:
+    return {
+        "schema_version": "ygg_provider_recall_result.v1",
+        "status": "blocked",
+        "reason_code": exc.result.get("reason"),
+        "recipient": label,
+        "evidence": exc.result.get("evidence"),
+        "hard_nonclaims": {"full_ux_passed": False, "provider_local_recall_only": False},
+    }
+
+def _print_recall_blocked_result(result: dict, *, label: str, question: str, json_mode: bool) -> None:
+    if json_mode:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
+    _workflow(
+        "YGG RECALL",
+        now="Provider bounded recall via Memory Finder",
+        watching=f"recipient={label}; question_chars={len(question)}",
+        creating="Postman Find Request",
+        created=f"blocked: {result['reason_code']}",
+        evidence=str(result.get("evidence")),
+        next_action="Fix query payload before retrying",
+        status="blocked",
+    )
+
+def _submit_recall_delivery(op: str, record: dict, label: str, question: str, payload: dict, *, json_mode: bool) -> dict:
+    sys.path.insert(0, str(REPO / "runtime"))
+    from delivery.postman_live_delivery import PostmanIntegrityError, submit_live_delivery
+
+    try:
+        return submit_live_delivery(
+            recipient=op,
+            message_type="query",
+            payload=payload,
+            provider_id=str(record.get("provider") or _provider_id()),
+        )
+    except PostmanIntegrityError as exc:
+        result = _recall_blocked_result(label, exc)
+        _print_recall_blocked_result(result, label=label, question=question, json_mode=json_mode)
+        sys.exit(2)
+
+def _build_recall_result(
+    *,
+    label: str,
+    delivery: dict,
+    activation: dict,
+    receipt: dict,
+    support: dict,
+    wait_for_receipt: bool,
+    timeout_seconds: float,
+) -> dict:
+    if wait_for_receipt:
+        status = "done" if receipt else "pending"
+        reason_code = "result_receipt_received" if receipt else "memory_finder_receipt_timeout"
+    else:
+        status = "accepted"
+        reason_code = "find_request_delivered_async"
+    return {
+        "schema_version": "ygg_provider_recall_result.v1",
+        "status": status,
+        "reason_code": reason_code,
+        "recipient": label,
+        "mail_id": delivery["mail_id"],
+        "delivery_id": delivery.get("delivery_id"),
+        "delivery_mode": "async_postman",
+        "wait_for_receipt": wait_for_receipt,
+        "timeout_seconds": timeout_seconds if wait_for_receipt else 0,
+        "postman_activation": activation,
+        "support": support,
+        "hard_nonclaims": {
+            "full_ux_passed": False,
+            "provider_local_recall_only": False,
+            "semantic_truth_owned_by_postman": False,
+        },
+    }
+
+def _recall_workflow_evidence(delivery: dict, support: dict, activation: dict, *, wait_for_receipt: bool) -> dict:
+    return {
+        "mail_id": delivery["mail_id"],
+        "delivery_id": delivery.get("delivery_id"),
+        "receipt_id": support.get("receipt_id"),
+        "support_state": support.get("support_state"),
+        "topic_key": support.get("topic_key"),
+        "community_id": support.get("community_id"),
+        "source_ref": _portable_source_ref(support.get("source_ref")),
+        "source_paths": support.get("source_paths"),
+        "support_facts": support.get("support_facts"),
+        "ptc_coverage_state": support.get("ptc_coverage_state"),
+        "typed_unavailable_present": support.get("typed_unavailable_present"),
+        "postman_activation": activation.get("status"),
+        "legacy_debug_monitor": "not_used",
+        "wait_for_receipt": wait_for_receipt,
+    }
+
+def _print_recall_workflow(
+    *,
+    label: str,
+    question: str,
+    delivery: dict,
+    support: dict,
+    activation: dict,
+    wait_for_receipt: bool,
+    timeout_seconds: float,
+    status: str,
+) -> None:
+    evidence = _recall_workflow_evidence(
+        delivery,
+        support,
+        activation,
+        wait_for_receipt=wait_for_receipt,
+    )
+    _workflow(
+        "YGG RECALL",
+        now="Provider async recall via Memory Finder" if not wait_for_receipt else "Provider bounded recall via Memory Finder",
+        watching=f"recipient={label}; question_chars={len(question)}" + (f"; timeout={timeout_seconds}s" if wait_for_receipt else "; no receipt wait"),
+        creating="Postman Find Request" + (" + bounded Result Receipt wait" if wait_for_receipt else " only"),
+        created=f"mail_id={delivery['mail_id']}; receipt_id={support.get('receipt_id') or 'none'}; support_state={support.get('support_state') or 'pending'}",
+        evidence=json.dumps(evidence, ensure_ascii=False)[:1800],
+        next_action="Do not wait in Provider chat; answer may be deferred until CPR/receipt arrives" if not wait_for_receipt else "Use support_facts/source_refs only; no Full UX or production-ready claim",
+        status=status,
+    )
+
 def cmd_recall(
     op: str,
     question: str,
@@ -632,46 +762,8 @@ def cmd_recall(
         print(json.dumps({"status": "blocked", "reason_code": "recipient_not_memory_finder", "recipient": label}, ensure_ascii=False) if json_mode else f"Error: {label} is {r['type']}, use a Memory Finder")
         sys.exit(1)
 
-    payload = {"query_text": question}
-    if use_ptc:
-        question_literal = json.dumps(question, ensure_ascii=False)
-        payload["ptc"] = True
-        payload["ptc_code"] = f"result(deep_search({question_literal}, max_depth=3, limit=15))"
-
-    sys.path.insert(0, str(REPO / "runtime"))
-    from delivery.postman_live_delivery import PostmanIntegrityError, submit_live_delivery
-
-    try:
-        delivery = submit_live_delivery(
-            recipient=op,
-            message_type="query",
-            payload=payload,
-            provider_id=str(r.get("provider") or _provider_id()),
-        )
-    except PostmanIntegrityError as exc:
-        result = {
-            "schema_version": "ygg_provider_recall_result.v1",
-            "status": "blocked",
-            "reason_code": exc.result.get("reason"),
-            "recipient": label,
-            "evidence": exc.result.get("evidence"),
-            "hard_nonclaims": {"full_ux_passed": False, "provider_local_recall_only": False},
-        }
-        if json_mode:
-            print(json.dumps(result, ensure_ascii=False, indent=2))
-        else:
-            _workflow(
-                "YGG RECALL",
-                now="Provider bounded recall via Memory Finder",
-                watching=f"recipient={label}; question_chars={len(question)}",
-                creating="Postman Find Request",
-                created=f"blocked: {result['reason_code']}",
-                evidence=str(result.get("evidence")),
-                next_action="Fix query payload before retrying",
-                status="blocked",
-        )
-        sys.exit(2)
-
+    payload = _recall_payload(question, use_ptc=use_ptc)
+    delivery = _submit_recall_delivery(op, r, label, question, payload, json_mode=json_mode)
     activation = _postman_activate_native_lane(
         op,
         r,
@@ -682,59 +774,28 @@ def cmd_recall(
     mail_id = delivery["mail_id"]
     receipt = _wait_for_query_receipt(op, mail_id, timeout_seconds) if wait_for_receipt else {}
     support = _support_view_from_query_receipt(receipt) if receipt else {}
-    if wait_for_receipt:
-        status = "done" if receipt else "pending"
-        reason_code = "result_receipt_received" if receipt else "memory_finder_receipt_timeout"
-    else:
-        status = "accepted"
-        reason_code = "find_request_delivered_async"
-    result = {
-        "schema_version": "ygg_provider_recall_result.v1",
-        "status": status,
-        "reason_code": reason_code,
-        "recipient": label,
-        "mail_id": mail_id,
-        "delivery_id": delivery.get("delivery_id"),
-        "delivery_mode": "async_postman",
-        "wait_for_receipt": wait_for_receipt,
-        "timeout_seconds": timeout_seconds if wait_for_receipt else 0,
-        "postman_activation": activation,
-        "support": support,
-        "hard_nonclaims": {
-            "full_ux_passed": False,
-            "provider_local_recall_only": False,
-            "semantic_truth_owned_by_postman": False,
-        },
-    }
+    result = _build_recall_result(
+        label=label,
+        delivery=delivery,
+        activation=activation,
+        receipt=receipt,
+        support=support,
+        wait_for_receipt=wait_for_receipt,
+        timeout_seconds=timeout_seconds,
+    )
     if json_mode:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return
 
-    evidence = {
-        "mail_id": mail_id,
-        "delivery_id": delivery.get("delivery_id"),
-        "receipt_id": support.get("receipt_id"),
-        "support_state": support.get("support_state"),
-        "topic_key": support.get("topic_key"),
-        "community_id": support.get("community_id"),
-        "source_ref": _portable_source_ref(support.get("source_ref")),
-        "source_paths": support.get("source_paths"),
-        "support_facts": support.get("support_facts"),
-        "ptc_coverage_state": support.get("ptc_coverage_state"),
-        "typed_unavailable_present": support.get("typed_unavailable_present"),
-        "postman_activation": activation.get("status"),
-        "legacy_debug_monitor": "not_used",
-        "wait_for_receipt": wait_for_receipt,
-    }
-    _workflow(
-        "YGG RECALL",
-        now="Provider async recall via Memory Finder" if not wait_for_receipt else "Provider bounded recall via Memory Finder",
-        watching=f"recipient={label}; question_chars={len(question)}" + (f"; timeout={timeout_seconds}s" if wait_for_receipt else "; no receipt wait"),
-        creating="Postman Find Request" + (" + bounded Result Receipt wait" if wait_for_receipt else " only"),
-        created=f"mail_id={mail_id}; receipt_id={support.get('receipt_id') or 'none'}; support_state={support.get('support_state') or 'pending'}",
-        evidence=json.dumps(evidence, ensure_ascii=False)[:1800],
-        next_action="Do not wait in Provider chat; answer may be deferred until CPR/receipt arrives" if not wait_for_receipt else "Use support_facts/source_refs only; no Full UX or production-ready claim",
-        status=status,
+    _print_recall_workflow(
+        label=label,
+        question=question,
+        delivery=delivery,
+        support=support,
+        activation=activation,
+        wait_for_receipt=wait_for_receipt,
+        timeout_seconds=timeout_seconds,
+        status=result["status"],
     )
 
 def cmd_op(op: str) -> None:
