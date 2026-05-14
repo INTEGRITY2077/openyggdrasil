@@ -19,7 +19,77 @@ from runtime.ptc.engine_contracts import (
     ROLE_POLYMORPHIC_PTC_CLAIM_SCOPE,
     ROLE_POLYMORPHIC_PTC_TELEMETRY_SCHEMA_VERSION,
     ROLE_POLYMORPHIC_PTC_TELEMETRY_STATUS,
+    _safe_portable_ref,
 )
+
+def _default_pathfinder_selected_refs(
+    *,
+    support_bundle_ref: str,
+    ptc_trace_ref: str,
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "ref": support_bundle_ref,
+            "role": "support_bundle_source",
+            "reason_code": "runtime_approved_route",
+        },
+        {
+            "ref": ptc_trace_ref,
+            "role": "ptc_trace",
+            "reason_code": "programmatic_tool_runtime_trace",
+        },
+    ]
+
+def _default_pathfinder_evidence_refs(
+    *,
+    token: str,
+    active_evidence_id: str,
+    support_bundle_ref: str,
+    ptc_trace_ref: str,
+) -> list[dict[str, str]]:
+    return [
+        {
+            "evidence_id": active_evidence_id,
+            "ref": ptc_trace_ref,
+            "evidence_kind": "ptc_trace",
+            "pointer_accounting_key": "ptc_trace_ref",
+        },
+        {
+            "evidence_id": f"support-bundle-{token[:16]}",
+            "ref": support_bundle_ref,
+            "evidence_kind": "support_bundle",
+            "pointer_accounting_key": "support_bundle_ref",
+        },
+    ]
+
+def _pathfinder_override_block(
+    *,
+    advisory: str | None,
+    approved_effort: str,
+    lease_group: str,
+) -> dict[str, Any]:
+    override_applied = bool(advisory and advisory != approved_effort)
+    return {
+        "override_applied": override_applied,
+        "advisory_effort": advisory,
+        "approved_effort": approved_effort,
+        "lease_group": lease_group,
+        "reason_code": (
+            "runtime_authoritative_override_advisory_effort_mismatch"
+            if override_applied
+            else "runtime_authoritative_route"
+        ),
+    }
+
+def _pathfinder_route_reason_codes(override_applied: bool) -> list[str]:
+    reason_codes = [
+        "pathfinder_ptc_trace_linked_to_route",
+        "runtime_authoritative_route",
+        "skill_body_excluded",
+    ]
+    if override_applied:
+        reason_codes.append("runtime_authoritative_override_advisory_effort_mismatch")
+    return reason_codes
 
 def build_pathfinder_ptc_routing_trace(
     *,
@@ -52,14 +122,11 @@ def build_pathfinder_ptc_routing_trace(
     )
     active_evidence_id = evidence_id or f"ptc-trace-{token[:16]}"
     advisory = str(advisory_effort or "").strip() or None
-    override_applied = bool(advisory and advisory != approved_effort)
-    reason_codes = [
-        "pathfinder_ptc_trace_linked_to_route",
-        "runtime_authoritative_route",
-        "skill_body_excluded",
-    ]
-    if override_applied:
-        reason_codes.append("runtime_authoritative_override_advisory_effort_mismatch")
+    override = _pathfinder_override_block(
+        advisory=advisory,
+        approved_effort=approved_effort,
+        lease_group=lease_group,
+    )
 
     return {
         "schema_version": "pathfinder_ptc_routing_trace.v1",
@@ -76,48 +143,22 @@ def build_pathfinder_ptc_routing_trace(
         or "Use the runtime-approved Pathfinder support bundle route with provenance refs.",
         "selected_memory_refs": list(
             selected_memory_refs
-            or [
-                {
-                    "ref": support_bundle_ref,
-                    "role": "support_bundle_source",
-                    "reason_code": "runtime_approved_route",
-                },
-                {
-                    "ref": ptc_trace_ref,
-                    "role": "ptc_trace",
-                    "reason_code": "programmatic_tool_runtime_trace",
-                },
-            ]
+            or _default_pathfinder_selected_refs(
+                support_bundle_ref=support_bundle_ref,
+                ptc_trace_ref=ptc_trace_ref,
+            )
         ),
         "rejected_memory_refs": list(rejected_memory_refs or []),
         "evidence_refs": list(
             evidence_refs
-            or [
-                {
-                    "evidence_id": active_evidence_id,
-                    "ref": ptc_trace_ref,
-                    "evidence_kind": "ptc_trace",
-                    "pointer_accounting_key": "ptc_trace_ref",
-                },
-                {
-                    "evidence_id": f"support-bundle-{token[:16]}",
-                    "ref": support_bundle_ref,
-                    "evidence_kind": "support_bundle",
-                    "pointer_accounting_key": "support_bundle_ref",
-                },
-            ]
-        ),
-        "runtime_authoritative_override": {
-            "override_applied": override_applied,
-            "advisory_effort": advisory,
-            "approved_effort": approved_effort,
-            "lease_group": lease_group,
-            "reason_code": (
-                "runtime_authoritative_override_advisory_effort_mismatch"
-                if override_applied
-                else "runtime_authoritative_route"
+            or _default_pathfinder_evidence_refs(
+                token=token,
+                active_evidence_id=active_evidence_id,
+                support_bundle_ref=support_bundle_ref,
+                ptc_trace_ref=ptc_trace_ref,
             ),
-        },
+        ),
+        "runtime_authoritative_override": override,
         "skill_body_included": False,
         "raw_provider_material_included": False,
         "portable_local_path_included": False,
@@ -125,8 +166,88 @@ def build_pathfinder_ptc_routing_trace(
         "production_readiness_claimed": False,
         "reasoning_lease_solved_claimed": False,
         "target_readiness_claimed": False,
-        "reason_codes": reason_codes,
+        "reason_codes": _pathfinder_route_reason_codes(bool(override["override_applied"])),
         "generated_at": generated_at or _utc_now_iso(),
+    }
+
+def _normalize_role_polymorphic_refs(
+    *,
+    same_run_context: Mapping[str, Any],
+    ptc_trace_ref: str,
+    reasoning_lease_ref: str,
+    typed_task_ref: str,
+    typed_result_ref: str | None,
+    typed_unavailable_ref: str | None,
+) -> dict[str, Any]:
+    refs = {
+        "same_run_context": _normalize_same_run_ptc_context(same_run_context),
+        "ptc_trace_ref": _safe_portable_ref(ptc_trace_ref, field_name="ptc_trace_ref"),
+        "reasoning_lease_ref": _safe_portable_ref(
+            reasoning_lease_ref,
+            field_name="reasoning_lease_ref",
+        ),
+        "typed_task_ref": _safe_portable_ref(typed_task_ref, field_name="typed_task_ref"),
+        "typed_result_ref": (
+            _safe_portable_ref(typed_result_ref, field_name="typed_result_ref")
+            if typed_result_ref is not None
+            else None
+        ),
+        "typed_unavailable_ref": (
+            _safe_portable_ref(typed_unavailable_ref, field_name="typed_unavailable_ref")
+            if typed_unavailable_ref is not None
+            else None
+        ),
+    }
+    if refs["typed_result_ref"] is None and refs["typed_unavailable_ref"] is None:
+        raise ValueError("typed_result_ref or typed_unavailable_ref is required")
+    return refs
+
+def _role_prompt_context_rows(
+    *,
+    manifests: Mapping[str, str],
+    prompt_contexts: Mapping[str, str],
+    execution_refs: Mapping[str, str],
+    reasoning_lease_ref: str,
+    typed_task_ref: str,
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "role": role,
+            "persona_manifest_ref": manifests[role],
+            "prompt_context_ref": prompt_contexts[role],
+            "role_execution_ref": execution_refs[role],
+            "reasoning_lease_ref": reasoning_lease_ref,
+            "typed_task_ref": typed_task_ref,
+            "status": "same_run_role_prompt_context_referenced",
+            "persona_manifest_ref_in_prompt_context": True,
+            "prompt_surface_included": False,
+            "safe_refs_only": True,
+        }
+        for role in REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES
+    ]
+
+def _role_polymorphic_trace_flags() -> dict[str, bool]:
+    return {
+        "role_polymorphic": True,
+        "all_required_roles_covered": True,
+        "persona_manifests_referenced_by_prompt_context": True,
+        "runtime_authoritative": True,
+        "skill_body_included": False,
+        "raw_provider_material_included": False,
+        "portable_local_path_included": False,
+        "thin_worker_chain_relabelled_as_ptc": False,
+        "static_bridge_relabelled_as_execution": False,
+        "reasoning_lease_solved_claimed": False,
+        "r10_complete_claimed": False,
+        "live_readiness_claimed": False,
+        "production_readiness_claimed": False,
+        "production_ptc_implemented_claimed": False,
+        "public_runtime_integration_complete_claimed": False,
+        "background_live_integration_claimed": False,
+        "hermes_answer_quality_claimed": False,
+        "consumer_ux_complete_claimed": False,
+        "wiki_production_safety_complete_claimed": False,
+        "full_product_readiness_claimed": False,
     }
 
 def build_role_polymorphic_ptc_telemetry_trace(
@@ -149,26 +270,14 @@ def build_role_polymorphic_ptc_telemetry_trace(
     production PTC implementation.
     """
 
-    normalized_context = _normalize_same_run_ptc_context(same_run_context)
-    active_ptc_trace_ref = _safe_portable_ref(ptc_trace_ref, field_name="ptc_trace_ref")
-    active_reasoning_lease_ref = _safe_portable_ref(
-        reasoning_lease_ref,
-        field_name="reasoning_lease_ref",
+    refs = _normalize_role_polymorphic_refs(
+        same_run_context=same_run_context,
+        ptc_trace_ref=ptc_trace_ref,
+        reasoning_lease_ref=reasoning_lease_ref,
+        typed_task_ref=typed_task_ref,
+        typed_result_ref=typed_result_ref,
+        typed_unavailable_ref=typed_unavailable_ref,
     )
-    active_typed_task_ref = _safe_portable_ref(typed_task_ref, field_name="typed_task_ref")
-    active_typed_result_ref = (
-        _safe_portable_ref(typed_result_ref, field_name="typed_result_ref")
-        if typed_result_ref is not None
-        else None
-    )
-    active_typed_unavailable_ref = (
-        _safe_portable_ref(typed_unavailable_ref, field_name="typed_unavailable_ref")
-        if typed_unavailable_ref is not None
-        else None
-    )
-    if active_typed_result_ref is None and active_typed_unavailable_ref is None:
-        raise ValueError("typed_result_ref or typed_unavailable_ref is required")
-
     manifests = _normalize_role_map(role_manifest_refs, field_name="role_manifest_refs")
     prompt_contexts = _normalize_role_map(
         role_prompt_context_refs,
@@ -177,28 +286,20 @@ def build_role_polymorphic_ptc_telemetry_trace(
     execution_refs = _normalize_role_map(role_execution_refs, field_name="role_execution_refs")
 
     token = _route_token(
-        normalized_context["same_run_id"],
-        active_ptc_trace_ref,
-        active_reasoning_lease_ref,
+        refs["same_run_context"]["same_run_id"],
+        refs["ptc_trace_ref"],
+        refs["reasoning_lease_ref"],
         tuple(manifests.items()),
         tuple(prompt_contexts.items()),
         tuple(execution_refs.items()),
     )
-    role_rows = [
-        {
-            "role": role,
-            "persona_manifest_ref": manifests[role],
-            "prompt_context_ref": prompt_contexts[role],
-            "role_execution_ref": execution_refs[role],
-            "reasoning_lease_ref": active_reasoning_lease_ref,
-            "typed_task_ref": active_typed_task_ref,
-            "status": "same_run_role_prompt_context_referenced",
-            "persona_manifest_ref_in_prompt_context": True,
-            "prompt_surface_included": False,
-            "safe_refs_only": True,
-        }
-        for role in REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES
-    ]
+    role_rows = _role_prompt_context_rows(
+        manifests=manifests,
+        prompt_contexts=prompt_contexts,
+        execution_refs=execution_refs,
+        reasoning_lease_ref=refs["reasoning_lease_ref"],
+        typed_task_ref=refs["typed_task_ref"],
+    )
     trace = {
         "schema_version": ROLE_POLYMORPHIC_PTC_TELEMETRY_SCHEMA_VERSION,
         "telemetry_id": f"ptc-role-polymorphic-telemetry-{token}",
@@ -206,35 +307,16 @@ def build_role_polymorphic_ptc_telemetry_trace(
         "telemetry_status": ROLE_POLYMORPHIC_PTC_TELEMETRY_STATUS,
         "claim_scope": ROLE_POLYMORPHIC_PTC_CLAIM_SCOPE,
         "same_run_context_status": "accepted",
-        "same_run_context": normalized_context,
-        "ptc_trace_ref": active_ptc_trace_ref,
-        "reasoning_lease_ref": active_reasoning_lease_ref,
-        "typed_task_ref": active_typed_task_ref,
-        "typed_result_ref": active_typed_result_ref,
-        "typed_unavailable_ref": active_typed_unavailable_ref,
+        "same_run_context": refs["same_run_context"],
+        "ptc_trace_ref": refs["ptc_trace_ref"],
+        "reasoning_lease_ref": refs["reasoning_lease_ref"],
+        "typed_task_ref": refs["typed_task_ref"],
+        "typed_result_ref": refs["typed_result_ref"],
+        "typed_unavailable_ref": refs["typed_unavailable_ref"],
         "required_roles": list(REQUIRED_ROLE_POLYMORPHIC_PTC_ROLES),
         "role_prompt_contexts": role_rows,
         "role_count": len(role_rows),
-        "role_polymorphic": True,
-        "all_required_roles_covered": True,
-        "persona_manifests_referenced_by_prompt_context": True,
-        "runtime_authoritative": True,
-        "skill_body_included": False,
-        "raw_provider_material_included": False,
-        "portable_local_path_included": False,
-        "thin_worker_chain_relabelled_as_ptc": False,
-        "static_bridge_relabelled_as_execution": False,
-        "reasoning_lease_solved_claimed": False,
-        "r10_complete_claimed": False,
-        "live_readiness_claimed": False,
-        "production_readiness_claimed": False,
-        "production_ptc_implemented_claimed": False,
-        "public_runtime_integration_complete_claimed": False,
-        "background_live_integration_claimed": False,
-        "hermes_answer_quality_claimed": False,
-        "consumer_ux_complete_claimed": False,
-        "wiki_production_safety_complete_claimed": False,
-        "full_product_readiness_claimed": False,
+        **_role_polymorphic_trace_flags(),
         "reason_codes": [
             "minimal_role_polymorphic_ptc_telemetry_built",
             "same_run_context_refs_accepted",

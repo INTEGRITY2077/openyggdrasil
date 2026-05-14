@@ -160,25 +160,12 @@ def _extract_lease_ptc_tool_plan(lease_consumer_result: Mapping[str, Any] | None
         return None
     return _normalized_json_tool_plan(output.get("ptc_tool_plan") or [])
 
-def build_query_adaptive_pathfinder_plan(
+def _pathfinder_query_strategy(
     *,
-    query_text: str,
-    recent_limit: int = 3,
-    max_recent_limit: int = DEFAULT_MAX_RECENT_LIMIT,
-    max_step_count: int = MAX_PATHFINDER_TOOL_STEP_COUNT,
-    llm_tool_plan: Sequence[Mapping[str, Any]] | None = None,
-    lease_consumer_result: Mapping[str, Any] | None = None,
-    fallback_reason_code: str | None = None,
-) -> dict[str, Any]:
-    """Build a bounded Pathfinder PTC plan from query signals or a lease-backed LLM plan."""
-
-    query = str(query_text or "").strip()
-    if not query:
-        raise ValueError("query_text is required")
-    if max_step_count < MAX_PATHFINDER_TOOL_STEP_COUNT:
-        raise ValueError("max_step_count must allow the bounded Pathfinder plan")
-
-    max_recent = _clamp_int(max_recent_limit, minimum=1, maximum=DEFAULT_MAX_RECENT_LIMIT)
+    query: str,
+    recent_limit: int,
+    max_recent: int,
+) -> tuple[int, str, list[str]]:
     selected_recent = _clamp_int(recent_limit, minimum=1, maximum=max_recent)
     terms = _query_terms(query)
     reason_codes = [
@@ -207,6 +194,79 @@ def build_query_adaptive_pathfinder_plan(
     if len(terms) <= 3 and not (terms & (RECENCY_TERMS | COMPARISON_TERMS)):
         selected_recent = min(selected_recent, 2)
         reason_codes.append("short_query_bounded_recent_limit")
+    return selected_recent, strategy, reason_codes
+
+def _pathfinder_planner_mode(
+    *,
+    extracted_llm_tool_plan: list[dict[str, Any]] | None,
+    lease_consumer_result: Mapping[str, Any] | None,
+    fallback_reason_code: str | None,
+) -> str:
+    if extracted_llm_tool_plan is not None and lease_consumer_result is not None:
+        return LEASE_BACKED_LLM_PLANNER_MODE
+    if extracted_llm_tool_plan is not None:
+        return EXTERNAL_LLM_PLANNER_MODE
+    if fallback_reason_code:
+        return FALLBACK_PLANNER_MODE
+    return DETERMINISTIC_PLANNER_MODE
+
+def _append_llm_plan_metadata(
+    *,
+    plan: dict[str, Any],
+    extracted_llm_tool_plan: list[dict[str, Any]] | None,
+    lease_consumer_result: Mapping[str, Any] | None,
+) -> None:
+    if extracted_llm_tool_plan is None:
+        return
+    plan.update(
+        {
+            "lease_consumer_status": lease_consumer_result.get("consumer_status")
+            if lease_consumer_result
+            else "external_llm_tool_plan",
+            "bubblewrap_trace_ref": (
+                lease_consumer_result.get("job_results", [{}])[0].get(
+                    "bubblewrap_trace_ref"
+                )
+                if lease_consumer_result
+                else None
+            ),
+        }
+    )
+    plan["reason_codes"].extend(
+        [
+            "llm_json_plan_generated_via_phase2_lease_consumer",
+            (
+                "ptc_plan_generation_recorded_in_bwrap_trace"
+                if lease_consumer_result is not None
+                else "external_llm_json_plan_validated"
+            ),
+        ]
+    )
+
+def build_query_adaptive_pathfinder_plan(
+    *,
+    query_text: str,
+    recent_limit: int = 3,
+    max_recent_limit: int = DEFAULT_MAX_RECENT_LIMIT,
+    max_step_count: int = MAX_PATHFINDER_TOOL_STEP_COUNT,
+    llm_tool_plan: Sequence[Mapping[str, Any]] | None = None,
+    lease_consumer_result: Mapping[str, Any] | None = None,
+    fallback_reason_code: str | None = None,
+) -> dict[str, Any]:
+    """Build a bounded Pathfinder PTC plan from query signals or a lease-backed LLM plan."""
+
+    query = str(query_text or "").strip()
+    if not query:
+        raise ValueError("query_text is required")
+    if max_step_count < MAX_PATHFINDER_TOOL_STEP_COUNT:
+        raise ValueError("max_step_count must allow the bounded Pathfinder plan")
+
+    max_recent = _clamp_int(max_recent_limit, minimum=1, maximum=DEFAULT_MAX_RECENT_LIMIT)
+    selected_recent, strategy, reason_codes = _pathfinder_query_strategy(
+        query=query,
+        recent_limit=recent_limit,
+        max_recent=max_recent,
+    )
 
     extracted_llm_tool_plan = (
         _normalized_json_tool_plan(llm_tool_plan)
@@ -216,14 +276,11 @@ def build_query_adaptive_pathfinder_plan(
     json_tool_plan = extracted_llm_tool_plan or render_default_pathfinder_json_plan(
         recent_limit=selected_recent
     )
-    if extracted_llm_tool_plan is not None and lease_consumer_result is not None:
-        planner_mode = LEASE_BACKED_LLM_PLANNER_MODE
-    elif extracted_llm_tool_plan is not None:
-        planner_mode = EXTERNAL_LLM_PLANNER_MODE
-    elif fallback_reason_code:
-        planner_mode = FALLBACK_PLANNER_MODE
-    else:
-        planner_mode = DETERMINISTIC_PLANNER_MODE
+    planner_mode = _pathfinder_planner_mode(
+        extracted_llm_tool_plan=extracted_llm_tool_plan,
+        lease_consumer_result=lease_consumer_result,
+        fallback_reason_code=fallback_reason_code,
+    )
     program_source = render_default_pathfinder_program(recent_limit=selected_recent)
     plan_hash = hashlib.sha256(
         f"{query}\n{selected_recent}\n{max_recent}\n{strategy}\n{planner_mode}\n{json_tool_plan}".encode("utf-8")
@@ -253,29 +310,11 @@ def build_query_adaptive_pathfinder_plan(
         "tool_step_order": [step["capability_id"] for step in json_tool_plan],
         "reason_codes": reason_codes,
     }
-    if extracted_llm_tool_plan is not None:
-        plan.update(
-            {
-                "lease_consumer_status": lease_consumer_result.get("consumer_status")
-                if lease_consumer_result
-                else "external_llm_tool_plan",
-                "bubblewrap_trace_ref": (
-                    lease_consumer_result.get("job_results", [{}])[0].get("bubblewrap_trace_ref")
-                    if lease_consumer_result
-                    else None
-                ),
-            }
-        )
-        plan["reason_codes"].extend(
-            [
-                "llm_json_plan_generated_via_phase2_lease_consumer",
-                (
-                    "ptc_plan_generation_recorded_in_bwrap_trace"
-                    if lease_consumer_result is not None
-                    else "external_llm_json_plan_validated"
-                ),
-            ]
-        )
+    _append_llm_plan_metadata(
+        plan=plan,
+        extracted_llm_tool_plan=extracted_llm_tool_plan,
+        lease_consumer_result=lease_consumer_result,
+    )
     if fallback_reason_code:
         plan["reason_codes"].append(str(fallback_reason_code))
     validate_query_adaptive_pathfinder_plan(plan)

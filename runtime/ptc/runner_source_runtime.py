@@ -59,6 +59,75 @@ from runtime.ptc.provider_invocation_command import (
     validate_provider_subagent_ptc_invocation_command,
 )
 
+def _provider_absence_flags() -> dict[str, bool]:
+    return {
+        "provider_gateway_called": False,
+        "provider_state_read": False,
+        "raw_provider_material_included": False,
+        "raw_transcript_included": False,
+        "raw_prompt_included": False,
+        "credential_material_included": False,
+        "provider_profile_material_included": False,
+        "provider_state_db_material_included": False,
+        "mcp_generic_gateway_or_agent_adapter_used": False,
+        "real_provider_subagent_invocation_claimed": False,
+    }
+
+def _require_expected_values(
+    payload: Mapping[str, Any],
+    expected: Mapping[str, Any],
+    *,
+    label: str,
+) -> None:
+    for field, value in expected.items():
+        if payload.get(field) != value:
+            raise ValueError(f"invalid {label} {field}")
+
+def _require_boolean_values(
+    payload: Mapping[str, Any],
+    fields: Sequence[str],
+    *,
+    expected: bool,
+    label: str,
+) -> None:
+    for field in fields:
+        if payload.get(field) is not expected:
+            raise ValueError(f"{label} requires {field}={expected}")
+
+def _validate_portable_ref_fields(payload: Mapping[str, Any], fields: Sequence[str]) -> None:
+    for field in fields:
+        _safe_portable_ref(payload.get(field), field_name=field)
+
+def _validate_identifier_fields(payload: Mapping[str, Any], fields: Sequence[str]) -> None:
+    for field in fields:
+        _safe_identifier(payload.get(field), field_name=field)
+
+def _validate_required_reason_codes(payload: Mapping[str, Any], *, label: str) -> None:
+    reason_codes = payload.get("reason_codes")
+    if not isinstance(reason_codes, Sequence) or isinstance(reason_codes, (str, bytes)) or not reason_codes:
+        raise ValueError(f"{label} reason_codes are required")
+
+def _normalize_typed_result_or_unavailable_refs(
+    payload: Mapping[str, Any],
+    *,
+    result_field: str = "typed_result_ref",
+    unavailable_field: str = "typed_unavailable_ref",
+    label: str,
+) -> tuple[str | None, str | None]:
+    active_result_ref = (
+        _safe_portable_ref(payload.get(result_field), field_name=result_field)
+        if payload.get(result_field) is not None
+        else None
+    )
+    active_unavailable_ref = (
+        _safe_portable_ref(payload.get(unavailable_field), field_name=unavailable_field)
+        if payload.get(unavailable_field) is not None
+        else None
+    )
+    if (active_result_ref is None) == (active_unavailable_ref is None):
+        raise ValueError(f"{label} requires exactly one typed result or unavailable ref")
+    return active_result_ref, active_unavailable_ref
+
 def _validate_runner_response_payload_fields(runner_response: Mapping[str, Any]) -> None:
     forbidden = [
         field
@@ -330,6 +399,697 @@ def _normalize_runner_response_producer_hard_nonclaims(
     _assert_additive_only_hard_nonclaims(values)
     return values
 
+def _runner_source_packet_refs(
+    *,
+    same_run_witness_ref: str,
+    provider_or_subagent_invocation_ref: str,
+    role_execution_refs: Mapping[str, Any],
+    before_context_ref: str,
+    after_context_ref: str,
+    typed_result_ref: str | None,
+    typed_unavailable_ref: str | None,
+) -> dict[str, Any]:
+    refs = {
+        "same_run_witness_ref": _safe_portable_ref(
+            same_run_witness_ref,
+            field_name="same_run_witness_ref",
+        ),
+        "provider_or_subagent_invocation_ref": _safe_portable_ref(
+            provider_or_subagent_invocation_ref,
+            field_name="provider_or_subagent_invocation_ref",
+        ),
+        "role_execution_refs": _normalize_strict_role_map(
+            role_execution_refs,
+            field_name="role_execution_refs",
+        ),
+        "before_context_ref": _safe_portable_ref(
+            before_context_ref,
+            field_name="before_context_ref",
+        ),
+        "after_context_ref": _safe_portable_ref(
+            after_context_ref,
+            field_name="after_context_ref",
+        ),
+    }
+    result_ref, unavailable_ref = _normalize_typed_result_or_unavailable_refs(
+        {"typed_result_ref": typed_result_ref, "typed_unavailable_ref": typed_unavailable_ref},
+        label="runner source packet producer",
+    )
+    refs["typed_result_ref"] = result_ref
+    refs["typed_unavailable_ref"] = unavailable_ref
+    _reject_fixture_typed_ref_terms(*refs.values())
+    return refs
+
+def _runner_source_packet_token(command: Mapping[str, Any], refs: Mapping[str, Any]) -> str:
+    return _route_token(
+        command.get("command_id"),
+        command.get("typed_task_id"),
+        refs["same_run_witness_ref"],
+        refs["provider_or_subagent_invocation_ref"],
+        refs["typed_result_ref"],
+        refs["typed_unavailable_ref"],
+        refs["before_context_ref"],
+        refs["after_context_ref"],
+        tuple(refs["role_execution_refs"].items()),
+    )
+
+def _validate_runner_source_boundary_header(
+    source: Mapping[str, Any],
+    command: Mapping[str, Any],
+) -> str:
+    _validate_runner_source_boundary_payload_fields(source)
+    _validate_provider_material_absence(source)
+    _require_expected_values(
+        source,
+        {
+            "source_boundary_kind": PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_KIND,
+            "source_boundary_evidence_status": (
+                PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_EVIDENCE_STATUS
+            ),
+            "fixture_refs_used": False,
+            "non_fixture_refs_only": True,
+            "same_run_invocation_command": command.get("same_run_invocation_command"),
+        },
+        label="runner source boundary",
+    )
+    active_typed_task_id = _safe_identifier(
+        source.get("typed_task_id"),
+        field_name="typed_task_id",
+    )
+    if active_typed_task_id != command.get("typed_task_id"):
+        raise ValueError("runner source boundary typed_task_id must match invocation command")
+    return active_typed_task_id
+
+def _runner_source_boundary_refs(source: Mapping[str, Any]) -> dict[str, Any]:
+    refs = {
+        "source_boundary_ref": _safe_portable_ref(
+            source.get("source_boundary_ref"),
+            field_name="source_boundary_ref",
+        ),
+        "source_packet_ref": _safe_portable_ref(
+            source.get("source_packet_ref"),
+            field_name="source_packet_ref",
+        ),
+        "same_run_witness_ref": _safe_portable_ref(
+            source.get("same_run_witness_ref"),
+            field_name="same_run_witness_ref",
+        ),
+        "provider_or_subagent_invocation_ref": _safe_portable_ref(
+            source.get("provider_or_subagent_invocation_ref"),
+            field_name="provider_or_subagent_invocation_ref",
+        ),
+        "role_execution_refs": _normalize_strict_role_map(
+            source.get("role_execution_refs") or {},
+            field_name="role_execution_refs",
+        ),
+        "before_context_ref": _safe_portable_ref(
+            source.get("before_context_ref"),
+            field_name="before_context_ref",
+        ),
+        "after_context_ref": _safe_portable_ref(
+            source.get("after_context_ref"),
+            field_name="after_context_ref",
+        ),
+    }
+    result_ref, unavailable_ref = _normalize_typed_result_or_unavailable_refs(
+        source,
+        label="runner source boundary",
+    )
+    refs["typed_result_ref"] = result_ref
+    refs["typed_unavailable_ref"] = unavailable_ref
+    _reject_fixture_typed_ref_terms(*refs.values())
+    return refs
+
+def _runner_source_boundary_payload(
+    *,
+    command: Mapping[str, Any],
+    refs: Mapping[str, Any],
+    active_typed_task_id: str,
+    active_boundary_ref: str,
+    source_packet: Mapping[str, Any],
+    token: str,
+    active_hard_nonclaims: Sequence[str],
+    active_no_overclaim_flags: Mapping[str, Any],
+    source_reason_codes: Sequence[str],
+    generated_at: str | None,
+) -> dict[str, Any]:
+    r14_producer_input_refs = {
+        "source_packet_ref": refs["source_packet_ref"],
+        "same_run_witness_ref": refs["same_run_witness_ref"],
+        "provider_or_subagent_invocation_ref": refs["provider_or_subagent_invocation_ref"],
+        "role_execution_refs": refs["role_execution_refs"],
+        "typed_result_ref": refs["typed_result_ref"],
+        "typed_unavailable_ref": refs["typed_unavailable_ref"],
+        "before_context_ref": refs["before_context_ref"],
+        "after_context_ref": refs["after_context_ref"],
+    }
+    return {
+        "schema_version": PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_SCHEMA_VERSION,
+        "boundary_id": f"provider-subagent-ptc-runner-source-boundary-{token}",
+        "boundary_ref": active_boundary_ref,
+        "source_boundary_ref": refs["source_boundary_ref"],
+        "runner_source_boundary_status": PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_STATUS,
+        "claim_scope": PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_CLAIM_SCOPE,
+        "source_boundary_kind": PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_KIND,
+        "source_boundary_evidence_status": PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_EVIDENCE_STATUS,
+        "same_run_invocation_command": command["same_run_invocation_command"],
+        "command_id": command["command_id"],
+        "typed_task_id": active_typed_task_id,
+        "typed_task_ref": command["typed_task_ref"],
+        "invocation_request_ref": command["invocation_request_ref"],
+        "execution_trace_ref": command["execution_trace_ref"],
+        "ptc_telemetry_ref": command["ptc_telemetry_ref"],
+        **r14_producer_input_refs,
+        "r14_producer_input_refs": r14_producer_input_refs,
+        "r14_source_packet": dict(source_packet),
+        "r14_producer_used": True,
+        "r12_materializer_accepts_packet": True,
+        "source_boundary_validated": True,
+        "safe_refs_only": True,
+        "non_fixture_refs_only": True,
+        "fixture_refs_used": False,
+        **_provider_absence_flags(),
+        "additive_only_hard_nonclaims": True,
+        "hard_nonclaims": list(active_hard_nonclaims),
+        "no_overclaim_flags": dict(active_no_overclaim_flags),
+        "runtime_owner": "runtime/ptc/engine.py",
+        "reason_codes": [
+            "provider_subagent_ptc_runner_source_boundary_validated",
+            "source_boundary_safe_refs_validated",
+            "r14_producer_input_refs_ready",
+            "r14_producer_used_without_provider_execution",
+            "hard_nonclaims_preserved",
+            *source_reason_codes,
+        ],
+        "generated_at": generated_at or _utc_now_iso(),
+    }
+
+def _validate_runner_source_boundary_refs(
+    boundary: Mapping[str, Any],
+) -> tuple[dict[str, str], str | None, str | None]:
+    _validate_identifier_fields(boundary, ("typed_task_id",))
+    _validate_portable_ref_fields(
+        boundary,
+        (
+            "boundary_ref",
+            "source_boundary_ref",
+            "source_packet_ref",
+            "same_run_witness_ref",
+            "typed_task_ref",
+            "invocation_request_ref",
+            "execution_trace_ref",
+            "ptc_telemetry_ref",
+            "provider_or_subagent_invocation_ref",
+            "before_context_ref",
+            "after_context_ref",
+        ),
+    )
+    role_refs = _normalize_strict_role_map(
+        boundary.get("role_execution_refs") or {},
+        field_name="role_execution_refs",
+    )
+    if boundary.get("role_execution_refs") != role_refs:
+        raise ValueError("role_execution_refs must be normalized required role refs")
+    result_ref, unavailable_ref = _normalize_typed_result_or_unavailable_refs(
+        boundary,
+        label="runner source boundary",
+    )
+    return role_refs, result_ref, unavailable_ref
+
+def _validate_runner_source_boundary_r14_inputs(
+    boundary: Mapping[str, Any],
+    role_refs: Mapping[str, str],
+) -> Mapping[str, Any]:
+    r14_inputs = boundary.get("r14_producer_input_refs")
+    if not isinstance(r14_inputs, Mapping):
+        raise ValueError("r14_producer_input_refs must be an object")
+    for field in (
+        "source_packet_ref",
+        "same_run_witness_ref",
+        "provider_or_subagent_invocation_ref",
+        "typed_result_ref",
+        "typed_unavailable_ref",
+        "before_context_ref",
+        "after_context_ref",
+    ):
+        if r14_inputs.get(field) != boundary.get(field):
+            raise ValueError(f"r14_producer_input_refs.{field} must match boundary field")
+    normalized_r14_role_refs = _normalize_strict_role_map(
+        r14_inputs.get("role_execution_refs") or {},
+        field_name="r14_producer_input_refs.role_execution_refs",
+    )
+    if normalized_r14_role_refs != role_refs:
+        raise ValueError("r14_producer_input_refs.role_execution_refs must match boundary roles")
+    return r14_inputs
+
+def _runner_source_boundary_reconstructed_command(
+    boundary: Mapping[str, Any],
+) -> dict[str, Any]:
+    invocation_hard_nonclaims = _normalize_invocation_hard_nonclaims(None)
+    return {
+        "schema_version": PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_SCHEMA_VERSION,
+        "command_id": boundary.get("command_id"),
+        "same_run_invocation_command": boundary.get("same_run_invocation_command"),
+        "command_status": PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_STATUS,
+        "claim_scope": PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_CLAIM_SCOPE,
+        "typed_task_id": boundary.get("typed_task_id"),
+        "typed_task_id_contract": "safe_identifier_required",
+        "typed_task_ref": boundary.get("typed_task_ref"),
+        "invocation_request_ref": boundary.get("invocation_request_ref"),
+        "execution_trace_ref": boundary.get("execution_trace_ref"),
+        "ptc_telemetry_ref": boundary.get("ptc_telemetry_ref"),
+        "required_request_refs": {
+            "typed_task_ref": boundary.get("typed_task_ref"),
+            "execution_trace_ref": boundary.get("execution_trace_ref"),
+            "ptc_telemetry_ref": boundary.get("ptc_telemetry_ref"),
+        },
+        "required_response_refs": list(PROVIDER_SUBAGENT_PTC_INVOCATION_REQUIRED_RESPONSE_REFS),
+        "execution_trace_packet_validated": True,
+        "command_surface_only": True,
+        "r7_same_run_attempt_enabled": True,
+        "safe_refs_only": True,
+        "additive_only_hard_nonclaims": True,
+        "typed_result_unavailable_contract": "typed result or unavailable ref required",
+        "context_ref_contract": "before and after context refs required",
+        "role_execution_ref_contract": "role execution refs required",
+        "provider_boundary_contract": "provider boundary refs only",
+        "llm_facing_contract": _default_provider_subagent_invocation_llm_contract(
+            invocation_hard_nonclaims
+        ),
+        **_provider_absence_flags(),
+        "hard_nonclaims": invocation_hard_nonclaims,
+        "no_overclaim_flags": {
+            flag: False for flag in PROVIDER_SUBAGENT_PTC_INVOCATION_NO_OVERCLAIM_FLAGS
+        },
+        "reason_codes": [
+            "provider_subagent_ptc_invocation_command_reconstructed_for_boundary_validation"
+        ],
+        "generated_at": boundary.get("generated_at"),
+    }
+
+def _validate_runner_source_boundary_footer(
+    boundary: Mapping[str, Any],
+    role_refs: Mapping[str, str],
+    typed_result_ref: str | None,
+    typed_unavailable_ref: str | None,
+) -> None:
+    _require_boolean_values(
+        boundary,
+        (
+            "r14_producer_used",
+            "r12_materializer_accepts_packet",
+            "source_boundary_validated",
+            "safe_refs_only",
+            "non_fixture_refs_only",
+            "additive_only_hard_nonclaims",
+        ),
+        expected=True,
+        label="runner source boundary",
+    )
+    _require_boolean_values(
+        boundary,
+        ("fixture_refs_used",),
+        expected=False,
+        label="runner source boundary",
+    )
+    _validate_provider_material_absence(boundary)
+    _validate_runner_source_boundary_hard_nonclaims(boundary.get("hard_nonclaims"))
+    _validate_runner_source_boundary_no_overclaim_flags(boundary.get("no_overclaim_flags"))
+    _reject_fixture_typed_ref_terms(
+        boundary.get("boundary_ref"),
+        boundary.get("source_boundary_ref"),
+        boundary.get("source_packet_ref"),
+        boundary.get("same_run_witness_ref"),
+        boundary.get("provider_or_subagent_invocation_ref"),
+        role_refs,
+        typed_result_ref,
+        typed_unavailable_ref,
+        boundary.get("before_context_ref"),
+        boundary.get("after_context_ref"),
+    )
+    _validate_required_reason_codes(boundary, label="runner source boundary")
+
+def _validate_same_run_source_packet_header(
+    packet: Mapping[str, Any],
+    command: Mapping[str, Any],
+) -> str:
+    _validate_same_run_typed_ref_source_payload_fields(packet)
+    _validate_provider_material_absence(packet)
+    _require_expected_values(
+        packet,
+        {
+            "source_kind": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_KIND,
+            "source_evidence_status": (
+                PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_EVIDENCE_STATUS
+            ),
+            "fixture_refs_used": False,
+            "non_fixture_refs_only": True,
+            "same_run_invocation_command": command.get("same_run_invocation_command"),
+        },
+        label="same-run typed ref source packet",
+    )
+    active_typed_task_id = _safe_identifier(
+        packet.get("typed_task_id"),
+        field_name="typed_task_id",
+    )
+    if active_typed_task_id != command.get("typed_task_id"):
+        raise ValueError("same-run typed ref source typed_task_id must match invocation command")
+    return active_typed_task_id
+
+def _same_run_source_packet_refs(packet: Mapping[str, Any]) -> dict[str, Any]:
+    refs = {
+        "source_packet_ref": _safe_portable_ref(
+            packet.get("source_packet_ref"),
+            field_name="source_packet_ref",
+        ),
+        "same_run_witness_ref": _safe_portable_ref(
+            packet.get("same_run_witness_ref"),
+            field_name="same_run_witness_ref",
+        ),
+        "provider_or_subagent_invocation_ref": _safe_portable_ref(
+            packet.get("provider_or_subagent_invocation_ref"),
+            field_name="provider_or_subagent_invocation_ref",
+        ),
+        "role_execution_refs": _normalize_strict_role_map(
+            packet.get("role_execution_refs") or {},
+            field_name="role_execution_refs",
+        ),
+        "before_context_ref": _safe_portable_ref(
+            packet.get("before_context_ref"),
+            field_name="before_context_ref",
+        ),
+        "after_context_ref": _safe_portable_ref(
+            packet.get("after_context_ref"),
+            field_name="after_context_ref",
+        ),
+    }
+    result_ref, unavailable_ref = _normalize_typed_result_or_unavailable_refs(
+        packet,
+        label="same-run typed ref source",
+    )
+    refs["typed_result_ref"] = result_ref
+    refs["typed_unavailable_ref"] = unavailable_ref
+    _reject_fixture_typed_ref_terms(*refs.values())
+    return refs
+
+def _same_run_source_token(
+    command: Mapping[str, Any],
+    active_typed_task_id: str,
+    refs: Mapping[str, Any],
+) -> str:
+    return _route_token(
+        command.get("command_id"),
+        active_typed_task_id,
+        refs["source_packet_ref"],
+        refs["provider_or_subagent_invocation_ref"],
+        refs["typed_result_ref"],
+        refs["typed_unavailable_ref"],
+        refs["before_context_ref"],
+        refs["after_context_ref"],
+        tuple(refs["role_execution_refs"].items()),
+    )
+
+def _same_run_typed_ref_source_payload(
+    *,
+    command: Mapping[str, Any],
+    refs: Mapping[str, Any],
+    active_typed_task_id: str,
+    active_source_ref: str,
+    token: str,
+    active_hard_nonclaims: Sequence[str],
+    active_no_overclaim_flags: Mapping[str, Any],
+    source_reason_codes: Sequence[str],
+    generated_at: str | None,
+) -> dict[str, Any]:
+    r10_producer_input_refs = {
+        "provider_or_subagent_invocation_ref": refs["provider_or_subagent_invocation_ref"],
+        "role_execution_refs": refs["role_execution_refs"],
+        "typed_result_ref": refs["typed_result_ref"],
+        "typed_unavailable_ref": refs["typed_unavailable_ref"],
+        "before_context_ref": refs["before_context_ref"],
+        "after_context_ref": refs["after_context_ref"],
+    }
+    return {
+        "schema_version": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_SCHEMA_VERSION,
+        "source_id": f"provider-subagent-ptc-same-run-typed-ref-source-{token}",
+        "source_ref": active_source_ref,
+        "typed_ref_source_status": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_STATUS,
+        "claim_scope": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_CLAIM_SCOPE,
+        "source_kind": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_KIND,
+        "source_evidence_status": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_EVIDENCE_STATUS,
+        "source_packet_ref": refs["source_packet_ref"],
+        "same_run_witness_ref": refs["same_run_witness_ref"],
+        "same_run_invocation_command": command["same_run_invocation_command"],
+        "command_id": command["command_id"],
+        "typed_task_id": active_typed_task_id,
+        "typed_task_ref": command["typed_task_ref"],
+        "invocation_request_ref": command["invocation_request_ref"],
+        "execution_trace_ref": command["execution_trace_ref"],
+        "ptc_telemetry_ref": command["ptc_telemetry_ref"],
+        **r10_producer_input_refs,
+        "r10_producer_input_refs": r10_producer_input_refs,
+        "required_response_refs": list(PROVIDER_SUBAGENT_PTC_INVOCATION_REQUIRED_RESPONSE_REFS),
+        "typed_result_unavailable_contract": command["typed_result_unavailable_contract"],
+        "context_ref_contract": command["context_ref_contract"],
+        "role_execution_ref_contract": command["role_execution_ref_contract"],
+        "provider_boundary_contract": command["provider_boundary_contract"],
+        "command_validated": True,
+        "source_packet_validated": True,
+        "r10_producer_input_refs_ready": True,
+        "safe_refs_only": True,
+        "non_fixture_refs_only": True,
+        "fixture_refs_used": False,
+        **_provider_absence_flags(),
+        "additive_only_hard_nonclaims": True,
+        "hard_nonclaims": list(active_hard_nonclaims),
+        "no_overclaim_flags": dict(active_no_overclaim_flags),
+        "runtime_owner": "runtime/ptc/engine.py",
+        "reason_codes": [
+            "provider_subagent_ptc_same_run_typed_ref_source_validated",
+            "source_packet_safe_refs_validated",
+            "non_fixture_refs_only",
+            "r10_producer_input_refs_ready",
+            "provider_subagent_invocation_not_claimed",
+            "hard_nonclaims_preserved",
+            *source_reason_codes,
+        ],
+        "generated_at": generated_at or _utc_now_iso(),
+    }
+
+def _validate_same_run_typed_ref_source_refs(
+    source: Mapping[str, Any],
+) -> tuple[dict[str, str], str | None, str | None]:
+    _validate_identifier_fields(source, ("typed_task_id",))
+    _validate_portable_ref_fields(
+        source,
+        (
+            "source_ref",
+            "source_packet_ref",
+            "same_run_witness_ref",
+            "typed_task_ref",
+            "invocation_request_ref",
+            "execution_trace_ref",
+            "ptc_telemetry_ref",
+            "provider_or_subagent_invocation_ref",
+            "before_context_ref",
+            "after_context_ref",
+        ),
+    )
+    role_refs = _normalize_strict_role_map(
+        source.get("role_execution_refs") or {},
+        field_name="role_execution_refs",
+    )
+    if source.get("role_execution_refs") != role_refs:
+        raise ValueError("role_execution_refs must be normalized required role refs")
+    result_ref, unavailable_ref = _normalize_typed_result_or_unavailable_refs(
+        source,
+        label="same-run typed ref source",
+    )
+    return role_refs, result_ref, unavailable_ref
+
+def _validate_same_run_typed_ref_source_r10_inputs(
+    source: Mapping[str, Any],
+    role_refs: Mapping[str, str],
+) -> None:
+    r10_inputs = source.get("r10_producer_input_refs")
+    if not isinstance(r10_inputs, Mapping):
+        raise ValueError("r10_producer_input_refs must be an object")
+    for field in (
+        "provider_or_subagent_invocation_ref",
+        "typed_result_ref",
+        "typed_unavailable_ref",
+        "before_context_ref",
+        "after_context_ref",
+    ):
+        if r10_inputs.get(field) != source.get(field):
+            raise ValueError(f"r10_producer_input_refs.{field} must match source field")
+    normalized_r10_role_refs = _normalize_strict_role_map(
+        r10_inputs.get("role_execution_refs") or {},
+        field_name="r10_producer_input_refs.role_execution_refs",
+    )
+    if normalized_r10_role_refs != role_refs:
+        raise ValueError("r10_producer_input_refs.role_execution_refs must match source roles")
+
+def _validate_same_run_typed_ref_source_footer(
+    source: Mapping[str, Any],
+    role_refs: Mapping[str, str],
+    typed_result_ref: str | None,
+    typed_unavailable_ref: str | None,
+) -> None:
+    for field in (
+        "typed_result_unavailable_contract",
+        "context_ref_contract",
+        "role_execution_ref_contract",
+        "provider_boundary_contract",
+    ):
+        if not str(source.get(field) or "").strip():
+            raise ValueError(f"{field} is required")
+    _require_boolean_values(
+        source,
+        (
+            "command_validated",
+            "source_packet_validated",
+            "r10_producer_input_refs_ready",
+            "safe_refs_only",
+            "non_fixture_refs_only",
+            "additive_only_hard_nonclaims",
+        ),
+        expected=True,
+        label="same-run typed ref source",
+    )
+    _require_boolean_values(
+        source,
+        ("fixture_refs_used",),
+        expected=False,
+        label="same-run typed ref source",
+    )
+    _validate_provider_material_absence(source)
+    _validate_same_run_typed_ref_source_hard_nonclaims(source.get("hard_nonclaims"))
+    _validate_same_run_typed_ref_source_no_overclaim_flags(source.get("no_overclaim_flags"))
+    _reject_fixture_typed_ref_terms(
+        source.get("source_ref"),
+        source.get("source_packet_ref"),
+        source.get("same_run_witness_ref"),
+        source.get("provider_or_subagent_invocation_ref"),
+        role_refs,
+        typed_result_ref,
+        typed_unavailable_ref,
+        source.get("before_context_ref"),
+        source.get("after_context_ref"),
+    )
+    _validate_required_reason_codes(source, label="same-run typed ref source")
+
+def _runner_response_refs(
+    *,
+    provider_or_subagent_invocation_ref: str,
+    role_execution_refs: Mapping[str, Any],
+    before_context_ref: str,
+    after_context_ref: str,
+    typed_result_ref: str | None,
+    typed_unavailable_ref: str | None,
+    label: str,
+) -> dict[str, Any]:
+    refs = {
+        "provider_or_subagent_invocation_ref": _safe_portable_ref(
+            provider_or_subagent_invocation_ref,
+            field_name="provider_or_subagent_invocation_ref",
+        ),
+        "role_execution_refs": _normalize_strict_role_map(
+            role_execution_refs,
+            field_name="role_execution_refs",
+        ),
+        "before_context_ref": _safe_portable_ref(
+            before_context_ref,
+            field_name="before_context_ref",
+        ),
+        "after_context_ref": _safe_portable_ref(
+            after_context_ref,
+            field_name="after_context_ref",
+        ),
+    }
+    result_ref, unavailable_ref = _normalize_typed_result_or_unavailable_refs(
+        {"typed_result_ref": typed_result_ref, "typed_unavailable_ref": typed_unavailable_ref},
+        label=label,
+    )
+    refs["typed_result_ref"] = result_ref
+    refs["typed_unavailable_ref"] = unavailable_ref
+    return refs
+
+def _runner_response_token(
+    command: Mapping[str, Any],
+    active_typed_task_id: str,
+    refs: Mapping[str, Any],
+) -> str:
+    return _route_token(
+        command.get("command_id"),
+        active_typed_task_id,
+        refs["provider_or_subagent_invocation_ref"],
+        refs["typed_result_ref"],
+        refs["typed_unavailable_ref"],
+        refs["before_context_ref"],
+        refs["after_context_ref"],
+        tuple(refs["role_execution_refs"].items()),
+    )
+
+def _runner_response_ingress_payload(
+    *,
+    command: Mapping[str, Any],
+    refs: Mapping[str, Any],
+    active_typed_task_id: str,
+    active_runner_response_ref: str,
+    active_ingress_ref: str,
+    token: str,
+    active_hard_nonclaims: Sequence[str],
+    response_reason_codes: Sequence[str],
+    generated_at: str | None,
+) -> dict[str, Any]:
+    return {
+        "schema_version": PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_SCHEMA_VERSION,
+        "ingress_id": f"provider-subagent-ptc-runner-response-ingress-{token}",
+        "ingress_ref": active_ingress_ref,
+        "ingress_status": PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_STATUS,
+        "claim_scope": PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_CLAIM_SCOPE,
+        "same_run_invocation_command": command["same_run_invocation_command"],
+        "command_id": command["command_id"],
+        "typed_task_id": active_typed_task_id,
+        "typed_task_ref": command["typed_task_ref"],
+        "invocation_request_ref": command["invocation_request_ref"],
+        "execution_trace_ref": command["execution_trace_ref"],
+        "ptc_telemetry_ref": command["ptc_telemetry_ref"],
+        "runner_response_ref": active_runner_response_ref,
+        **refs,
+        "required_response_refs": list(PROVIDER_SUBAGENT_PTC_INVOCATION_REQUIRED_RESPONSE_REFS),
+        "typed_result_unavailable_contract": command["typed_result_unavailable_contract"],
+        "context_ref_contract": command["context_ref_contract"],
+        "role_execution_ref_contract": command["role_execution_ref_contract"],
+        "provider_boundary_contract": command["provider_boundary_contract"],
+        "command_validated": True,
+        "runner_response_validated": True,
+        "runner_response_ingress_only": True,
+        "role_execution_refs_validated": True,
+        "typed_result_contract_validated": True,
+        "context_refs_validated": True,
+        "safe_refs_only": True,
+        **_provider_absence_flags(),
+        "additive_only_hard_nonclaims": True,
+        "hard_nonclaims": list(active_hard_nonclaims),
+        "no_overclaim_flags": {
+            flag: False for flag in PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_NO_OVERCLAIM_FLAGS
+        },
+        "runtime_owner": "runtime/ptc/engine.py",
+        "reason_codes": [
+            "provider_subagent_ptc_runner_response_ingress_validated",
+            "invocation_command_validated",
+            "runner_response_safe_refs_validated",
+            "typed_result_or_unavailable_validated",
+            "before_after_context_refs_validated",
+            "role_execution_refs_validated",
+            "hard_nonclaims_preserved",
+            *response_reason_codes,
+        ],
+        "generated_at": generated_at or _utc_now_iso(),
+    }
+
 def produce_provider_subagent_ptc_runner_source_packet(
     *,
     invocation_command: Mapping[str, Any],
@@ -355,48 +1115,14 @@ def produce_provider_subagent_ptc_runner_source_packet(
 
     validate_provider_subagent_ptc_invocation_command(invocation_command)
     command = dict(invocation_command)
-    active_same_run_witness_ref = _safe_portable_ref(
-        same_run_witness_ref,
-        field_name="same_run_witness_ref",
-    )
-    active_invocation_ref = _safe_portable_ref(
-        provider_or_subagent_invocation_ref,
-        field_name="provider_or_subagent_invocation_ref",
-    )
-    active_role_execution_refs = _normalize_strict_role_map(
-        role_execution_refs,
-        field_name="role_execution_refs",
-    )
-    active_typed_result_ref = (
-        _safe_portable_ref(typed_result_ref, field_name="typed_result_ref")
-        if typed_result_ref is not None
-        else None
-    )
-    active_typed_unavailable_ref = (
-        _safe_portable_ref(typed_unavailable_ref, field_name="typed_unavailable_ref")
-        if typed_unavailable_ref is not None
-        else None
-    )
-    if (active_typed_result_ref is None) == (active_typed_unavailable_ref is None):
-        raise ValueError(
-            "runner source packet producer requires exactly one typed result or unavailable ref"
-        )
-    active_before_context_ref = _safe_portable_ref(
-        before_context_ref,
-        field_name="before_context_ref",
-    )
-    active_after_context_ref = _safe_portable_ref(
-        after_context_ref,
-        field_name="after_context_ref",
-    )
-    _reject_fixture_typed_ref_terms(
-        active_same_run_witness_ref,
-        active_invocation_ref,
-        active_role_execution_refs,
-        active_typed_result_ref,
-        active_typed_unavailable_ref,
-        active_before_context_ref,
-        active_after_context_ref,
+    refs = _runner_source_packet_refs(
+        same_run_witness_ref=same_run_witness_ref,
+        provider_or_subagent_invocation_ref=provider_or_subagent_invocation_ref,
+        role_execution_refs=role_execution_refs,
+        before_context_ref=before_context_ref,
+        after_context_ref=after_context_ref,
+        typed_result_ref=typed_result_ref,
+        typed_unavailable_ref=typed_unavailable_ref,
     )
     active_hard_nonclaims = _normalize_runner_source_packet_producer_hard_nonclaims(
         hard_nonclaims
@@ -417,17 +1143,7 @@ def produce_provider_subagent_ptc_runner_source_packet(
         "hard_nonclaims_preserved",
         *_string_list(reason_codes, field_name="reason_codes"),
     ]
-    token = _route_token(
-        command.get("command_id"),
-        command.get("typed_task_id"),
-        active_same_run_witness_ref,
-        active_invocation_ref,
-        active_typed_result_ref,
-        active_typed_unavailable_ref,
-        active_before_context_ref,
-        active_after_context_ref,
-        tuple(active_role_execution_refs.items()),
-    )
+    token = _runner_source_packet_token(command, refs)
     active_source_packet_ref = _safe_portable_ref(
         source_packet_ref
         or f"same-run-source-packet-ref://openyggdrasil/ptc-source-producer/{token}",
@@ -440,27 +1156,18 @@ def produce_provider_subagent_ptc_runner_source_packet(
         "source_evidence_status": (
             PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_EVIDENCE_STATUS
         ),
-        "same_run_witness_ref": active_same_run_witness_ref,
+        "same_run_witness_ref": refs["same_run_witness_ref"],
         "same_run_invocation_command": command["same_run_invocation_command"],
         "typed_task_id": command["typed_task_id"],
-        "provider_or_subagent_invocation_ref": active_invocation_ref,
-        "role_execution_refs": active_role_execution_refs,
-        "typed_result_ref": active_typed_result_ref,
-        "typed_unavailable_ref": active_typed_unavailable_ref,
-        "before_context_ref": active_before_context_ref,
-        "after_context_ref": active_after_context_ref,
+        "provider_or_subagent_invocation_ref": refs["provider_or_subagent_invocation_ref"],
+        "role_execution_refs": refs["role_execution_refs"],
+        "typed_result_ref": refs["typed_result_ref"],
+        "typed_unavailable_ref": refs["typed_unavailable_ref"],
+        "before_context_ref": refs["before_context_ref"],
+        "after_context_ref": refs["after_context_ref"],
         "fixture_refs_used": False,
         "non_fixture_refs_only": True,
-        "provider_gateway_called": False,
-        "provider_state_read": False,
-        "raw_provider_material_included": False,
-        "raw_transcript_included": False,
-        "raw_prompt_included": False,
-        "credential_material_included": False,
-        "provider_profile_material_included": False,
-        "provider_state_db_material_included": False,
-        "mcp_generic_gateway_or_agent_adapter_used": False,
-        "real_provider_subagent_invocation_claimed": False,
+        **_provider_absence_flags(),
         "hard_nonclaims": active_hard_nonclaims,
         "no_overclaim_flags": active_no_overclaim_flags,
         "reason_codes": active_reason_codes,
@@ -491,84 +1198,8 @@ def materialize_provider_subagent_ptc_runner_source_boundary(
     if not isinstance(source_boundary, Mapping):
         raise ValueError("source_boundary must be an object")
     source = dict(source_boundary)
-    _validate_runner_source_boundary_payload_fields(source)
-    _validate_provider_material_absence(source)
-    if source.get("source_boundary_kind") != PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_KIND:
-        raise ValueError("runner source boundary kind is invalid")
-    if (
-        source.get("source_boundary_evidence_status")
-        != PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_EVIDENCE_STATUS
-    ):
-        raise ValueError("runner source boundary evidence status is invalid")
-    if source.get("fixture_refs_used") is not False:
-        raise ValueError("runner source boundary must not use fixture refs")
-    if source.get("non_fixture_refs_only") is not True:
-        raise ValueError("runner source boundary requires non_fixture_refs_only=True")
-    if source.get("same_run_invocation_command") != command.get("same_run_invocation_command"):
-        raise ValueError("runner source boundary command must match invocation command")
-    active_typed_task_id = _safe_identifier(
-        source.get("typed_task_id"),
-        field_name="typed_task_id",
-    )
-    if active_typed_task_id != command.get("typed_task_id"):
-        raise ValueError("runner source boundary typed_task_id must match invocation command")
-
-    active_source_boundary_ref = _safe_portable_ref(
-        source.get("source_boundary_ref"),
-        field_name="source_boundary_ref",
-    )
-    active_source_packet_ref = _safe_portable_ref(
-        source.get("source_packet_ref"),
-        field_name="source_packet_ref",
-    )
-    active_same_run_witness_ref = _safe_portable_ref(
-        source.get("same_run_witness_ref"),
-        field_name="same_run_witness_ref",
-    )
-    active_invocation_ref = _safe_portable_ref(
-        source.get("provider_or_subagent_invocation_ref"),
-        field_name="provider_or_subagent_invocation_ref",
-    )
-    active_role_execution_refs = _normalize_strict_role_map(
-        source.get("role_execution_refs") or {},
-        field_name="role_execution_refs",
-    )
-    active_typed_result_ref = (
-        _safe_portable_ref(source.get("typed_result_ref"), field_name="typed_result_ref")
-        if source.get("typed_result_ref") is not None
-        else None
-    )
-    active_typed_unavailable_ref = (
-        _safe_portable_ref(
-            source.get("typed_unavailable_ref"),
-            field_name="typed_unavailable_ref",
-        )
-        if source.get("typed_unavailable_ref") is not None
-        else None
-    )
-    if (active_typed_result_ref is None) == (active_typed_unavailable_ref is None):
-        raise ValueError(
-            "runner source boundary requires exactly one typed result or unavailable ref"
-        )
-    active_before_context_ref = _safe_portable_ref(
-        source.get("before_context_ref"),
-        field_name="before_context_ref",
-    )
-    active_after_context_ref = _safe_portable_ref(
-        source.get("after_context_ref"),
-        field_name="after_context_ref",
-    )
-    _reject_fixture_typed_ref_terms(
-        active_source_boundary_ref,
-        active_source_packet_ref,
-        active_same_run_witness_ref,
-        active_invocation_ref,
-        active_role_execution_refs,
-        active_typed_result_ref,
-        active_typed_unavailable_ref,
-        active_before_context_ref,
-        active_after_context_ref,
-    )
+    active_typed_task_id = _validate_runner_source_boundary_header(source, command)
+    refs = _runner_source_boundary_refs(source)
     active_hard_nonclaims = _normalize_runner_source_boundary_hard_nonclaims(
         source.get("hard_nonclaims")
     )
@@ -588,14 +1219,14 @@ def materialize_provider_subagent_ptc_runner_source_boundary(
         raise ValueError("runner source boundary reason_codes are required")
 
     r14_producer_input_refs = {
-        "source_packet_ref": active_source_packet_ref,
-        "same_run_witness_ref": active_same_run_witness_ref,
-        "provider_or_subagent_invocation_ref": active_invocation_ref,
-        "role_execution_refs": active_role_execution_refs,
-        "typed_result_ref": active_typed_result_ref,
-        "typed_unavailable_ref": active_typed_unavailable_ref,
-        "before_context_ref": active_before_context_ref,
-        "after_context_ref": active_after_context_ref,
+        "source_packet_ref": refs["source_packet_ref"],
+        "same_run_witness_ref": refs["same_run_witness_ref"],
+        "provider_or_subagent_invocation_ref": refs["provider_or_subagent_invocation_ref"],
+        "role_execution_refs": refs["role_execution_refs"],
+        "typed_result_ref": refs["typed_result_ref"],
+        "typed_unavailable_ref": refs["typed_unavailable_ref"],
+        "before_context_ref": refs["before_context_ref"],
+        "after_context_ref": refs["after_context_ref"],
     }
     source_packet = produce_provider_subagent_ptc_runner_source_packet(
         invocation_command=command,
@@ -612,79 +1243,33 @@ def materialize_provider_subagent_ptc_runner_source_boundary(
     token = _route_token(
         command.get("command_id"),
         active_typed_task_id,
-        active_source_boundary_ref,
-        active_source_packet_ref,
-        active_same_run_witness_ref,
-        active_invocation_ref,
-        active_typed_result_ref,
-        active_typed_unavailable_ref,
-        active_before_context_ref,
-        active_after_context_ref,
-        tuple(active_role_execution_refs.items()),
+        refs["source_boundary_ref"],
+        refs["source_packet_ref"],
+        refs["same_run_witness_ref"],
+        refs["provider_or_subagent_invocation_ref"],
+        refs["typed_result_ref"],
+        refs["typed_unavailable_ref"],
+        refs["before_context_ref"],
+        refs["after_context_ref"],
+        tuple(refs["role_execution_refs"].items()),
     )
     active_boundary_ref = _safe_portable_ref(
         boundary_ref or f"runner-source-boundary-ref://openyggdrasil/ptc-boundary/{token}",
         field_name="boundary_ref",
     )
     _reject_fixture_typed_ref_terms(active_boundary_ref)
-    boundary = {
-        "schema_version": PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_SCHEMA_VERSION,
-        "boundary_id": f"provider-subagent-ptc-runner-source-boundary-{token}",
-        "boundary_ref": active_boundary_ref,
-        "source_boundary_ref": active_source_boundary_ref,
-        "runner_source_boundary_status": PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_STATUS,
-        "claim_scope": PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_CLAIM_SCOPE,
-        "source_boundary_kind": PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_KIND,
-        "source_boundary_evidence_status": (
-            PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_EVIDENCE_STATUS
-        ),
-        "same_run_invocation_command": command["same_run_invocation_command"],
-        "command_id": command["command_id"],
-        "typed_task_id": active_typed_task_id,
-        "typed_task_ref": command["typed_task_ref"],
-        "invocation_request_ref": command["invocation_request_ref"],
-        "execution_trace_ref": command["execution_trace_ref"],
-        "ptc_telemetry_ref": command["ptc_telemetry_ref"],
-        "source_packet_ref": active_source_packet_ref,
-        "same_run_witness_ref": active_same_run_witness_ref,
-        "provider_or_subagent_invocation_ref": active_invocation_ref,
-        "role_execution_refs": active_role_execution_refs,
-        "typed_result_ref": active_typed_result_ref,
-        "typed_unavailable_ref": active_typed_unavailable_ref,
-        "before_context_ref": active_before_context_ref,
-        "after_context_ref": active_after_context_ref,
-        "r14_producer_input_refs": r14_producer_input_refs,
-        "r14_source_packet": source_packet,
-        "r14_producer_used": True,
-        "r12_materializer_accepts_packet": True,
-        "source_boundary_validated": True,
-        "safe_refs_only": True,
-        "non_fixture_refs_only": True,
-        "fixture_refs_used": False,
-        "provider_gateway_called": False,
-        "provider_state_read": False,
-        "raw_provider_material_included": False,
-        "raw_transcript_included": False,
-        "raw_prompt_included": False,
-        "credential_material_included": False,
-        "provider_profile_material_included": False,
-        "provider_state_db_material_included": False,
-        "mcp_generic_gateway_or_agent_adapter_used": False,
-        "real_provider_subagent_invocation_claimed": False,
-        "additive_only_hard_nonclaims": True,
-        "hard_nonclaims": active_hard_nonclaims,
-        "no_overclaim_flags": active_no_overclaim_flags,
-        "runtime_owner": "runtime/ptc/engine.py",
-        "reason_codes": [
-            "provider_subagent_ptc_runner_source_boundary_validated",
-            "source_boundary_safe_refs_validated",
-            "r14_producer_input_refs_ready",
-            "r14_producer_used_without_provider_execution",
-            "hard_nonclaims_preserved",
-            *source_reason_codes,
-        ],
-        "generated_at": generated_at or _utc_now_iso(),
-    }
+    boundary = _runner_source_boundary_payload(
+        command=command,
+        refs=refs,
+        active_typed_task_id=active_typed_task_id,
+        active_boundary_ref=active_boundary_ref,
+        source_packet=source_packet,
+        token=token,
+        active_hard_nonclaims=active_hard_nonclaims,
+        active_no_overclaim_flags=active_no_overclaim_flags,
+        source_reason_codes=source_reason_codes,
+        generated_at=generated_at,
+    )
     validate_provider_subagent_ptc_runner_source_boundary(boundary)
     return boundary
 
@@ -692,126 +1277,30 @@ def validate_provider_subagent_ptc_runner_source_boundary(
     payload: Mapping[str, Any],
 ) -> None:
     boundary = dict(payload)
-    if boundary.get("schema_version") != PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_SCHEMA_VERSION:
-        raise ValueError("invalid provider/subagent runner source boundary schema_version")
-    if (
-        boundary.get("runner_source_boundary_status")
-        != PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_STATUS
-    ):
-        raise ValueError("invalid provider/subagent runner source boundary status")
-    if boundary.get("claim_scope") != PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_CLAIM_SCOPE:
-        raise ValueError("invalid provider/subagent runner source boundary claim_scope")
-    if boundary.get("source_boundary_kind") != PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_KIND:
-        raise ValueError("invalid provider/subagent runner source boundary kind")
-    if (
-        boundary.get("source_boundary_evidence_status")
-        != PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_EVIDENCE_STATUS
-    ):
-        raise ValueError("invalid provider/subagent runner source boundary evidence status")
-    if boundary.get("same_run_invocation_command") != PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_NAME:
-        raise ValueError("invalid provider/subagent runner source boundary command")
-    _safe_identifier(boundary.get("typed_task_id"), field_name="typed_task_id")
-    for field in (
-        "boundary_ref",
-        "source_boundary_ref",
-        "source_packet_ref",
-        "same_run_witness_ref",
-        "typed_task_ref",
-        "invocation_request_ref",
-        "execution_trace_ref",
-        "ptc_telemetry_ref",
-        "provider_or_subagent_invocation_ref",
-        "before_context_ref",
-        "after_context_ref",
-    ):
-        _safe_portable_ref(boundary.get(field), field_name=field)
-    role_refs = _normalize_strict_role_map(
-        boundary.get("role_execution_refs") or {},
-        field_name="role_execution_refs",
+    _require_expected_values(
+        boundary,
+        {
+            "schema_version": PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_SCHEMA_VERSION,
+            "runner_source_boundary_status": (
+                PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_STATUS
+            ),
+            "claim_scope": PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_CLAIM_SCOPE,
+            "source_boundary_kind": PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_KIND,
+            "source_boundary_evidence_status": (
+                PROVIDER_SUBAGENT_PTC_RUNNER_SOURCE_BOUNDARY_EVIDENCE_STATUS
+            ),
+            "same_run_invocation_command": PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_NAME,
+        },
+        label="provider/subagent runner source boundary",
     )
-    if boundary.get("role_execution_refs") != role_refs:
-        raise ValueError("role_execution_refs must be normalized required role refs")
-    active_typed_result_ref = boundary.get("typed_result_ref")
-    active_typed_unavailable_ref = boundary.get("typed_unavailable_ref")
-    if active_typed_result_ref is not None:
-        _safe_portable_ref(active_typed_result_ref, field_name="typed_result_ref")
-    if active_typed_unavailable_ref is not None:
-        _safe_portable_ref(active_typed_unavailable_ref, field_name="typed_unavailable_ref")
-    if (active_typed_result_ref is None) == (active_typed_unavailable_ref is None):
-        raise ValueError(
-            "runner source boundary requires exactly one typed result or unavailable ref"
-        )
-    r14_inputs = boundary.get("r14_producer_input_refs")
-    if not isinstance(r14_inputs, Mapping):
-        raise ValueError("r14_producer_input_refs must be an object")
-    for field in (
-        "source_packet_ref",
-        "same_run_witness_ref",
-        "provider_or_subagent_invocation_ref",
-        "typed_result_ref",
-        "typed_unavailable_ref",
-        "before_context_ref",
-        "after_context_ref",
-    ):
-        if r14_inputs.get(field) != boundary.get(field):
-            raise ValueError(f"r14_producer_input_refs.{field} must match boundary field")
-    normalized_r14_role_refs = _normalize_strict_role_map(
-        r14_inputs.get("role_execution_refs") or {},
-        field_name="r14_producer_input_refs.role_execution_refs",
+    role_refs, active_typed_result_ref, active_typed_unavailable_ref = (
+        _validate_runner_source_boundary_refs(boundary)
     )
-    if normalized_r14_role_refs != role_refs:
-        raise ValueError("r14_producer_input_refs.role_execution_refs must match boundary roles")
+    _validate_runner_source_boundary_r14_inputs(boundary, role_refs)
     source_packet = boundary.get("r14_source_packet")
     if not isinstance(source_packet, Mapping):
         raise ValueError("r14_source_packet must be an object")
-    invocation_hard_nonclaims = _normalize_invocation_hard_nonclaims(None)
-    command = {
-        "schema_version": PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_SCHEMA_VERSION,
-        "command_id": boundary.get("command_id"),
-        "same_run_invocation_command": boundary.get("same_run_invocation_command"),
-        "command_status": PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_STATUS,
-        "claim_scope": PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_CLAIM_SCOPE,
-        "typed_task_id": boundary.get("typed_task_id"),
-        "typed_task_id_contract": "safe_identifier_required",
-        "typed_task_ref": boundary.get("typed_task_ref"),
-        "invocation_request_ref": boundary.get("invocation_request_ref"),
-        "execution_trace_ref": boundary.get("execution_trace_ref"),
-        "ptc_telemetry_ref": boundary.get("ptc_telemetry_ref"),
-        "required_request_refs": {
-            "typed_task_ref": boundary.get("typed_task_ref"),
-            "execution_trace_ref": boundary.get("execution_trace_ref"),
-            "ptc_telemetry_ref": boundary.get("ptc_telemetry_ref"),
-        },
-        "required_response_refs": list(PROVIDER_SUBAGENT_PTC_INVOCATION_REQUIRED_RESPONSE_REFS),
-        "execution_trace_packet_validated": True,
-        "command_surface_only": True,
-        "r7_same_run_attempt_enabled": True,
-        "safe_refs_only": True,
-        "additive_only_hard_nonclaims": True,
-        "typed_result_unavailable_contract": "typed result or unavailable ref required",
-        "context_ref_contract": "before and after context refs required",
-        "role_execution_ref_contract": "role execution refs required",
-        "provider_boundary_contract": "provider boundary refs only",
-        "llm_facing_contract": _default_provider_subagent_invocation_llm_contract(
-            invocation_hard_nonclaims
-        ),
-        "provider_gateway_called": False,
-        "provider_state_read": False,
-        "raw_provider_material_included": False,
-        "raw_transcript_included": False,
-        "raw_prompt_included": False,
-        "credential_material_included": False,
-        "provider_profile_material_included": False,
-        "provider_state_db_material_included": False,
-        "mcp_generic_gateway_or_agent_adapter_used": False,
-        "real_provider_subagent_invocation_claimed": False,
-        "hard_nonclaims": invocation_hard_nonclaims,
-        "no_overclaim_flags": {
-            flag: False for flag in PROVIDER_SUBAGENT_PTC_INVOCATION_NO_OVERCLAIM_FLAGS
-        },
-        "reason_codes": ["provider_subagent_ptc_invocation_command_reconstructed_for_boundary_validation"],
-        "generated_at": boundary.get("generated_at"),
-    }
+    command = _runner_source_boundary_reconstructed_command(boundary)
     validate_provider_subagent_ptc_invocation_command(command)
     materialize_provider_subagent_ptc_same_run_typed_refs(
         invocation_command=command,
@@ -819,36 +1308,12 @@ def validate_provider_subagent_ptc_runner_source_boundary(
     )
     if source_packet.get("source_packet_ref") != boundary.get("source_packet_ref"):
         raise ValueError("r14_source_packet.source_packet_ref must match boundary field")
-    for field in (
-        "r14_producer_used",
-        "r12_materializer_accepts_packet",
-        "source_boundary_validated",
-        "safe_refs_only",
-        "non_fixture_refs_only",
-        "additive_only_hard_nonclaims",
-    ):
-        if boundary.get(field) is not True:
-            raise ValueError(f"runner source boundary requires {field}=True")
-    if boundary.get("fixture_refs_used") is not False:
-        raise ValueError("runner source boundary must not use fixture refs")
-    _validate_provider_material_absence(boundary)
-    _validate_runner_source_boundary_hard_nonclaims(boundary.get("hard_nonclaims"))
-    _validate_runner_source_boundary_no_overclaim_flags(boundary.get("no_overclaim_flags"))
-    _reject_fixture_typed_ref_terms(
-        boundary.get("boundary_ref"),
-        boundary.get("source_boundary_ref"),
-        boundary.get("source_packet_ref"),
-        boundary.get("same_run_witness_ref"),
-        boundary.get("provider_or_subagent_invocation_ref"),
+    _validate_runner_source_boundary_footer(
+        boundary,
         role_refs,
         active_typed_result_ref,
         active_typed_unavailable_ref,
-        boundary.get("before_context_ref"),
-        boundary.get("after_context_ref"),
     )
-    reason_codes = boundary.get("reason_codes")
-    if not isinstance(reason_codes, Sequence) or isinstance(reason_codes, (str, bytes)) or not reason_codes:
-        raise ValueError("runner source boundary reason_codes are required")
 
 def materialize_provider_subagent_ptc_same_run_typed_refs(
     *,
@@ -869,79 +1334,8 @@ def materialize_provider_subagent_ptc_same_run_typed_refs(
     if not isinstance(source_packet, Mapping):
         raise ValueError("source_packet must be an object")
     packet = dict(source_packet)
-    _validate_same_run_typed_ref_source_payload_fields(packet)
-    _validate_provider_material_absence(packet)
-    if packet.get("source_kind") != PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_KIND:
-        raise ValueError("same-run typed ref source_kind is invalid")
-    if (
-        packet.get("source_evidence_status")
-        != PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_EVIDENCE_STATUS
-    ):
-        raise ValueError("same-run typed ref source_evidence_status is invalid")
-    if packet.get("fixture_refs_used") is not False:
-        raise ValueError("same-run typed ref source must not use fixture refs")
-    if packet.get("non_fixture_refs_only") is not True:
-        raise ValueError("same-run typed ref source requires non_fixture_refs_only=True")
-    if packet.get("same_run_invocation_command") != command.get("same_run_invocation_command"):
-        raise ValueError("same-run typed ref source command must match invocation command")
-    active_typed_task_id = _safe_identifier(
-        packet.get("typed_task_id"),
-        field_name="typed_task_id",
-    )
-    if active_typed_task_id != command.get("typed_task_id"):
-        raise ValueError("same-run typed ref source typed_task_id must match invocation command")
-
-    active_source_packet_ref = _safe_portable_ref(
-        packet.get("source_packet_ref"),
-        field_name="source_packet_ref",
-    )
-    active_same_run_witness_ref = _safe_portable_ref(
-        packet.get("same_run_witness_ref"),
-        field_name="same_run_witness_ref",
-    )
-    active_invocation_ref = _safe_portable_ref(
-        packet.get("provider_or_subagent_invocation_ref"),
-        field_name="provider_or_subagent_invocation_ref",
-    )
-    active_role_execution_refs = _normalize_strict_role_map(
-        packet.get("role_execution_refs") or {},
-        field_name="role_execution_refs",
-    )
-    active_typed_result_ref = (
-        _safe_portable_ref(packet.get("typed_result_ref"), field_name="typed_result_ref")
-        if packet.get("typed_result_ref") is not None
-        else None
-    )
-    active_typed_unavailable_ref = (
-        _safe_portable_ref(
-            packet.get("typed_unavailable_ref"),
-            field_name="typed_unavailable_ref",
-        )
-        if packet.get("typed_unavailable_ref") is not None
-        else None
-    )
-    if (active_typed_result_ref is None) == (active_typed_unavailable_ref is None):
-        raise ValueError(
-            "same-run typed ref source requires exactly one typed result or unavailable ref"
-        )
-    active_before_context_ref = _safe_portable_ref(
-        packet.get("before_context_ref"),
-        field_name="before_context_ref",
-    )
-    active_after_context_ref = _safe_portable_ref(
-        packet.get("after_context_ref"),
-        field_name="after_context_ref",
-    )
-    _reject_fixture_typed_ref_terms(
-        active_source_packet_ref,
-        active_same_run_witness_ref,
-        active_invocation_ref,
-        active_role_execution_refs,
-        active_typed_result_ref,
-        active_typed_unavailable_ref,
-        active_before_context_ref,
-        active_after_context_ref,
-    )
+    active_typed_task_id = _validate_same_run_source_packet_header(packet, command)
+    refs = _same_run_source_packet_refs(packet)
     active_hard_nonclaims = _normalize_same_run_typed_ref_source_hard_nonclaims(
         packet.get("hard_nonclaims")
     )
@@ -960,91 +1354,22 @@ def materialize_provider_subagent_ptc_same_run_typed_refs(
     if not source_reason_codes:
         raise ValueError("same-run typed ref source reason_codes are required")
 
-    token = _route_token(
-        command.get("command_id"),
-        active_typed_task_id,
-        active_source_packet_ref,
-        active_invocation_ref,
-        active_typed_result_ref,
-        active_typed_unavailable_ref,
-        active_before_context_ref,
-        active_after_context_ref,
-        tuple(active_role_execution_refs.items()),
-    )
+    token = _same_run_source_token(command, active_typed_task_id, refs)
     active_source_ref = _safe_portable_ref(
         source_ref or f"same-run-typed-ref-source-ref://openyggdrasil/ptc/{token}",
         field_name="source_ref",
     )
-    r10_producer_input_refs = {
-        "provider_or_subagent_invocation_ref": active_invocation_ref,
-        "role_execution_refs": active_role_execution_refs,
-        "typed_result_ref": active_typed_result_ref,
-        "typed_unavailable_ref": active_typed_unavailable_ref,
-        "before_context_ref": active_before_context_ref,
-        "after_context_ref": active_after_context_ref,
-    }
-    source = {
-        "schema_version": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_SCHEMA_VERSION,
-        "source_id": f"provider-subagent-ptc-same-run-typed-ref-source-{token}",
-        "source_ref": active_source_ref,
-        "typed_ref_source_status": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_STATUS,
-        "claim_scope": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_CLAIM_SCOPE,
-        "source_kind": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_KIND,
-        "source_evidence_status": (
-            PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_EVIDENCE_STATUS
-        ),
-        "source_packet_ref": active_source_packet_ref,
-        "same_run_witness_ref": active_same_run_witness_ref,
-        "same_run_invocation_command": command["same_run_invocation_command"],
-        "command_id": command["command_id"],
-        "typed_task_id": active_typed_task_id,
-        "typed_task_ref": command["typed_task_ref"],
-        "invocation_request_ref": command["invocation_request_ref"],
-        "execution_trace_ref": command["execution_trace_ref"],
-        "ptc_telemetry_ref": command["ptc_telemetry_ref"],
-        "provider_or_subagent_invocation_ref": active_invocation_ref,
-        "role_execution_refs": active_role_execution_refs,
-        "typed_result_ref": active_typed_result_ref,
-        "typed_unavailable_ref": active_typed_unavailable_ref,
-        "before_context_ref": active_before_context_ref,
-        "after_context_ref": active_after_context_ref,
-        "r10_producer_input_refs": r10_producer_input_refs,
-        "required_response_refs": list(PROVIDER_SUBAGENT_PTC_INVOCATION_REQUIRED_RESPONSE_REFS),
-        "typed_result_unavailable_contract": command["typed_result_unavailable_contract"],
-        "context_ref_contract": command["context_ref_contract"],
-        "role_execution_ref_contract": command["role_execution_ref_contract"],
-        "provider_boundary_contract": command["provider_boundary_contract"],
-        "command_validated": True,
-        "source_packet_validated": True,
-        "r10_producer_input_refs_ready": True,
-        "safe_refs_only": True,
-        "non_fixture_refs_only": True,
-        "fixture_refs_used": False,
-        "provider_gateway_called": False,
-        "provider_state_read": False,
-        "raw_provider_material_included": False,
-        "raw_transcript_included": False,
-        "raw_prompt_included": False,
-        "credential_material_included": False,
-        "provider_profile_material_included": False,
-        "provider_state_db_material_included": False,
-        "mcp_generic_gateway_or_agent_adapter_used": False,
-        "real_provider_subagent_invocation_claimed": False,
-        "additive_only_hard_nonclaims": True,
-        "hard_nonclaims": active_hard_nonclaims,
-        "no_overclaim_flags": active_no_overclaim_flags,
-        "runtime_owner": "runtime/ptc/engine.py",
-        "reason_codes": [
-            "provider_subagent_ptc_same_run_typed_ref_source_validated",
-            "source_packet_safe_refs_validated",
-            "non_fixture_refs_only",
-            "r10_producer_input_refs_ready",
-            "provider_subagent_invocation_not_claimed",
-            "hard_nonclaims_preserved",
-            *source_reason_codes,
-        ],
-        "generated_at": generated_at or _utc_now_iso(),
-    }
+    source = _same_run_typed_ref_source_payload(
+        command=command,
+        refs=refs,
+        active_typed_task_id=active_typed_task_id,
+        active_source_ref=active_source_ref,
+        token=token,
+        active_hard_nonclaims=active_hard_nonclaims,
+        active_no_overclaim_flags=active_no_overclaim_flags,
+        source_reason_codes=source_reason_codes,
+        generated_at=generated_at,
+    )
     validate_provider_subagent_ptc_same_run_typed_ref_source(source)
     return source
 
@@ -1052,110 +1377,34 @@ def validate_provider_subagent_ptc_same_run_typed_ref_source(
     payload: Mapping[str, Any],
 ) -> None:
     source = dict(payload)
-    if source.get("schema_version") != PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_SCHEMA_VERSION:
-        raise ValueError("invalid provider/subagent same-run typed ref source schema_version")
-    if source.get("typed_ref_source_status") != PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_STATUS:
-        raise ValueError("invalid provider/subagent same-run typed ref source status")
-    if source.get("claim_scope") != PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_CLAIM_SCOPE:
-        raise ValueError("invalid provider/subagent same-run typed ref source claim_scope")
-    if source.get("source_kind") != PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_KIND:
-        raise ValueError("invalid provider/subagent same-run typed ref source_kind")
-    if (
-        source.get("source_evidence_status")
-        != PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_EVIDENCE_STATUS
-    ):
-        raise ValueError("invalid provider/subagent same-run typed ref source_evidence_status")
-    if source.get("same_run_invocation_command") != PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_NAME:
-        raise ValueError("invalid provider/subagent same-run typed ref source command")
-    _safe_identifier(source.get("typed_task_id"), field_name="typed_task_id")
-    for field in (
-        "source_ref",
-        "source_packet_ref",
-        "same_run_witness_ref",
-        "typed_task_ref",
-        "invocation_request_ref",
-        "execution_trace_ref",
-        "ptc_telemetry_ref",
-        "provider_or_subagent_invocation_ref",
-        "before_context_ref",
-        "after_context_ref",
-    ):
-        _safe_portable_ref(source.get(field), field_name=field)
-    role_refs = _normalize_strict_role_map(
-        source.get("role_execution_refs") or {},
-        field_name="role_execution_refs",
+    _require_expected_values(
+        source,
+        {
+            "schema_version": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_SCHEMA_VERSION,
+            "typed_ref_source_status": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_STATUS,
+            "claim_scope": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_CLAIM_SCOPE,
+            "source_kind": PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_KIND,
+            "source_evidence_status": (
+                PROVIDER_SUBAGENT_PTC_SAME_RUN_TYPED_REF_SOURCE_EVIDENCE_STATUS
+            ),
+            "same_run_invocation_command": PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_NAME,
+        },
+        label="provider/subagent same-run typed ref source",
     )
-    if source.get("role_execution_refs") != role_refs:
-        raise ValueError("role_execution_refs must be normalized required role refs")
-    active_typed_result_ref = source.get("typed_result_ref")
-    active_typed_unavailable_ref = source.get("typed_unavailable_ref")
-    if active_typed_result_ref is not None:
-        _safe_portable_ref(active_typed_result_ref, field_name="typed_result_ref")
-    if active_typed_unavailable_ref is not None:
-        _safe_portable_ref(active_typed_unavailable_ref, field_name="typed_unavailable_ref")
-    if (active_typed_result_ref is None) == (active_typed_unavailable_ref is None):
-        raise ValueError(
-            "same-run typed ref source requires exactly one typed result or unavailable ref"
-        )
-    r10_inputs = source.get("r10_producer_input_refs")
-    if not isinstance(r10_inputs, Mapping):
-        raise ValueError("r10_producer_input_refs must be an object")
-    for field in (
-        "provider_or_subagent_invocation_ref",
-        "typed_result_ref",
-        "typed_unavailable_ref",
-        "before_context_ref",
-        "after_context_ref",
-    ):
-        if r10_inputs.get(field) != source.get(field):
-            raise ValueError(f"r10_producer_input_refs.{field} must match source field")
-    normalized_r10_role_refs = _normalize_strict_role_map(
-        r10_inputs.get("role_execution_refs") or {},
-        field_name="r10_producer_input_refs.role_execution_refs",
+    role_refs, active_typed_result_ref, active_typed_unavailable_ref = (
+        _validate_same_run_typed_ref_source_refs(source)
     )
-    if normalized_r10_role_refs != role_refs:
-        raise ValueError("r10_producer_input_refs.role_execution_refs must match source roles")
+    _validate_same_run_typed_ref_source_r10_inputs(source, role_refs)
     if source.get("required_response_refs") != list(
         PROVIDER_SUBAGENT_PTC_INVOCATION_REQUIRED_RESPONSE_REFS
     ):
         raise ValueError("required_response_refs must match provider/subagent invocation contract")
-    for field in (
-        "typed_result_unavailable_contract",
-        "context_ref_contract",
-        "role_execution_ref_contract",
-        "provider_boundary_contract",
-    ):
-        if not str(source.get(field) or "").strip():
-            raise ValueError(f"{field} is required")
-    for field in (
-        "command_validated",
-        "source_packet_validated",
-        "r10_producer_input_refs_ready",
-        "safe_refs_only",
-        "non_fixture_refs_only",
-        "additive_only_hard_nonclaims",
-    ):
-        if source.get(field) is not True:
-            raise ValueError(f"same-run typed ref source requires {field}=True")
-    if source.get("fixture_refs_used") is not False:
-        raise ValueError("same-run typed ref source must not use fixture refs")
-    _validate_provider_material_absence(source)
-    _validate_same_run_typed_ref_source_hard_nonclaims(source.get("hard_nonclaims"))
-    _validate_same_run_typed_ref_source_no_overclaim_flags(source.get("no_overclaim_flags"))
-    _reject_fixture_typed_ref_terms(
-        source.get("source_ref"),
-        source.get("source_packet_ref"),
-        source.get("same_run_witness_ref"),
-        source.get("provider_or_subagent_invocation_ref"),
+    _validate_same_run_typed_ref_source_footer(
+        source,
         role_refs,
         active_typed_result_ref,
         active_typed_unavailable_ref,
-        source.get("before_context_ref"),
-        source.get("after_context_ref"),
     )
-    reason_codes = source.get("reason_codes")
-    if not isinstance(reason_codes, Sequence) or isinstance(reason_codes, (str, bytes)) or not reason_codes:
-        raise ValueError("same-run typed ref source reason_codes are required")
 
 def produce_provider_subagent_ptc_runner_response(
     *,
@@ -1181,40 +1430,24 @@ def produce_provider_subagent_ptc_runner_response(
 
     validate_provider_subagent_ptc_invocation_command(invocation_command)
     command = dict(invocation_command)
-    active_invocation_ref = _safe_portable_ref(
-        provider_or_subagent_invocation_ref,
-        field_name="provider_or_subagent_invocation_ref",
-    )
-    active_role_execution_refs = _normalize_strict_role_map(
-        role_execution_refs,
-        field_name="role_execution_refs",
-    )
-    active_typed_result_ref = (
-        _safe_portable_ref(typed_result_ref, field_name="typed_result_ref")
-        if typed_result_ref is not None
-        else None
-    )
-    active_typed_unavailable_ref = (
-        _safe_portable_ref(typed_unavailable_ref, field_name="typed_unavailable_ref")
-        if typed_unavailable_ref is not None
-        else None
-    )
-    if (active_typed_result_ref is None) == (active_typed_unavailable_ref is None):
-        raise ValueError("runner response producer requires exactly one typed result or unavailable ref")
-    active_before_context_ref = _safe_portable_ref(
-        before_context_ref,
-        field_name="before_context_ref",
-    )
-    active_after_context_ref = _safe_portable_ref(
-        after_context_ref,
-        field_name="after_context_ref",
+    refs = _runner_response_refs(
+        provider_or_subagent_invocation_ref=provider_or_subagent_invocation_ref,
+        role_execution_refs=role_execution_refs,
+        before_context_ref=before_context_ref,
+        after_context_ref=after_context_ref,
+        typed_result_ref=typed_result_ref,
+        typed_unavailable_ref=typed_unavailable_ref,
+        label="runner response producer",
     )
     active_hard_nonclaims = _normalize_runner_response_producer_hard_nonclaims(
         hard_nonclaims
     )
     active_no_overclaim_flags = dict(
         no_overclaim_flags
-        or {flag: False for flag in PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_NO_OVERCLAIM_FLAGS}
+        or {
+            flag: False
+            for flag in PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_NO_OVERCLAIM_FLAGS
+        }
     )
     _validate_runner_response_no_overclaim_flags(active_no_overclaim_flags)
     active_reason_codes = [
@@ -1225,16 +1458,7 @@ def produce_provider_subagent_ptc_runner_response(
         "r8_ingress_validation_required",
         *_string_list(reason_codes, field_name="reason_codes"),
     ]
-    token = _route_token(
-        command.get("command_id"),
-        command.get("typed_task_id"),
-        active_invocation_ref,
-        active_typed_result_ref,
-        active_typed_unavailable_ref,
-        active_before_context_ref,
-        active_after_context_ref,
-        tuple(active_role_execution_refs.items()),
-    )
+    token = _runner_response_token(command, command.get("typed_task_id"), refs)
     active_runner_response_ref = _safe_portable_ref(
         runner_response_ref
         or f"provider-subagent-runner-response-ref://openyggdrasil/ptc-producer/{token}",
@@ -1243,12 +1467,7 @@ def produce_provider_subagent_ptc_runner_response(
     response = {
         "same_run_invocation_command": command["same_run_invocation_command"],
         "typed_task_id": command["typed_task_id"],
-        "provider_or_subagent_invocation_ref": active_invocation_ref,
-        "role_execution_refs": active_role_execution_refs,
-        "typed_result_ref": active_typed_result_ref,
-        "typed_unavailable_ref": active_typed_unavailable_ref,
-        "before_context_ref": active_before_context_ref,
-        "after_context_ref": active_after_context_ref,
+        **refs,
         "hard_nonclaims": active_hard_nonclaims,
         "no_overclaim_flags": active_no_overclaim_flags,
         "runner_response_ref": active_runner_response_ref,
@@ -1281,8 +1500,13 @@ def ingest_provider_subagent_ptc_runner_response(
         raise ValueError("runner_response must be an object")
     response = dict(runner_response)
     _validate_runner_response_payload_fields(response)
-    if response.get("same_run_invocation_command") != command.get("same_run_invocation_command"):
-        raise ValueError("runner response command must match invocation command")
+    _require_expected_values(
+        response,
+        {
+            "same_run_invocation_command": command.get("same_run_invocation_command"),
+        },
+        label="runner response",
+    )
     if response.get("same_run_invocation_command") != PROVIDER_SUBAGENT_PTC_INVOCATION_COMMAND_NAME:
         raise ValueError("invalid provider/subagent runner response command")
     active_typed_task_id = _safe_identifier(
@@ -1291,36 +1515,16 @@ def ingest_provider_subagent_ptc_runner_response(
     )
     if active_typed_task_id != command.get("typed_task_id"):
         raise ValueError("runner response typed_task_id must match invocation command")
-    active_invocation_ref = _safe_portable_ref(
-        response.get("provider_or_subagent_invocation_ref"),
-        field_name="provider_or_subagent_invocation_ref",
-    )
-    active_role_execution_refs = _normalize_strict_role_map(
-        response.get("role_execution_refs") or {},
-        field_name="role_execution_refs",
-    )
-    active_typed_result_ref = (
-        _safe_portable_ref(response.get("typed_result_ref"), field_name="typed_result_ref")
-        if response.get("typed_result_ref") is not None
-        else None
-    )
-    active_typed_unavailable_ref = (
-        _safe_portable_ref(
-            response.get("typed_unavailable_ref"),
-            field_name="typed_unavailable_ref",
-        )
-        if response.get("typed_unavailable_ref") is not None
-        else None
-    )
-    if (active_typed_result_ref is None) == (active_typed_unavailable_ref is None):
-        raise ValueError("runner response requires exactly one typed result or typed unavailable ref")
-    active_before_context_ref = _safe_portable_ref(
-        response.get("before_context_ref"),
-        field_name="before_context_ref",
-    )
-    active_after_context_ref = _safe_portable_ref(
-        response.get("after_context_ref"),
-        field_name="after_context_ref",
+    refs = _runner_response_refs(
+        provider_or_subagent_invocation_ref=response.get(
+            "provider_or_subagent_invocation_ref"
+        ),
+        role_execution_refs=response.get("role_execution_refs") or {},
+        before_context_ref=response.get("before_context_ref"),
+        after_context_ref=response.get("after_context_ref"),
+        typed_result_ref=response.get("typed_result_ref"),
+        typed_unavailable_ref=response.get("typed_unavailable_ref"),
+        label="runner response",
     )
     active_hard_nonclaims = _normalize_runner_response_hard_nonclaims(
         response.get("hard_nonclaims")
@@ -1330,16 +1534,7 @@ def ingest_provider_subagent_ptc_runner_response(
         response.get("reason_codes"),
         field_name="runner_response.reason_codes",
     )
-    token = _route_token(
-        command.get("command_id"),
-        active_typed_task_id,
-        active_invocation_ref,
-        active_typed_result_ref,
-        active_typed_unavailable_ref,
-        active_before_context_ref,
-        active_after_context_ref,
-        tuple(active_role_execution_refs.items()),
-    )
+    token = _runner_response_token(command, active_typed_task_id, refs)
     active_runner_response_ref = _safe_portable_ref(
         runner_response_ref
         or response.get("runner_response_ref")
@@ -1350,66 +1545,17 @@ def ingest_provider_subagent_ptc_runner_response(
         ingress_ref or f"runner-response-ingress-ref://openyggdrasil/ptc/{token}",
         field_name="ingress_ref",
     )
-    ingress = {
-        "schema_version": PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_SCHEMA_VERSION,
-        "ingress_id": f"provider-subagent-ptc-runner-response-ingress-{token}",
-        "ingress_ref": active_ingress_ref,
-        "ingress_status": PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_STATUS,
-        "claim_scope": PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_INGRESS_CLAIM_SCOPE,
-        "same_run_invocation_command": command["same_run_invocation_command"],
-        "command_id": command["command_id"],
-        "typed_task_id": active_typed_task_id,
-        "typed_task_ref": command["typed_task_ref"],
-        "invocation_request_ref": command["invocation_request_ref"],
-        "execution_trace_ref": command["execution_trace_ref"],
-        "ptc_telemetry_ref": command["ptc_telemetry_ref"],
-        "runner_response_ref": active_runner_response_ref,
-        "provider_or_subagent_invocation_ref": active_invocation_ref,
-        "role_execution_refs": active_role_execution_refs,
-        "typed_result_ref": active_typed_result_ref,
-        "typed_unavailable_ref": active_typed_unavailable_ref,
-        "before_context_ref": active_before_context_ref,
-        "after_context_ref": active_after_context_ref,
-        "required_response_refs": list(PROVIDER_SUBAGENT_PTC_INVOCATION_REQUIRED_RESPONSE_REFS),
-        "typed_result_unavailable_contract": command["typed_result_unavailable_contract"],
-        "context_ref_contract": command["context_ref_contract"],
-        "role_execution_ref_contract": command["role_execution_ref_contract"],
-        "provider_boundary_contract": command["provider_boundary_contract"],
-        "command_validated": True,
-        "runner_response_validated": True,
-        "runner_response_ingress_only": True,
-        "role_execution_refs_validated": True,
-        "typed_result_contract_validated": True,
-        "context_refs_validated": True,
-        "safe_refs_only": True,
-        "provider_gateway_called": False,
-        "provider_state_read": False,
-        "raw_provider_material_included": False,
-        "raw_transcript_included": False,
-        "raw_prompt_included": False,
-        "credential_material_included": False,
-        "provider_profile_material_included": False,
-        "provider_state_db_material_included": False,
-        "mcp_generic_gateway_or_agent_adapter_used": False,
-        "real_provider_subagent_invocation_claimed": False,
-        "additive_only_hard_nonclaims": True,
-        "hard_nonclaims": active_hard_nonclaims,
-        "no_overclaim_flags": {
-            flag: False for flag in PROVIDER_SUBAGENT_PTC_RUNNER_RESPONSE_NO_OVERCLAIM_FLAGS
-        },
-        "runtime_owner": "runtime/ptc/engine.py",
-        "reason_codes": [
-            "provider_subagent_ptc_runner_response_ingress_validated",
-            "invocation_command_validated",
-            "runner_response_safe_refs_validated",
-            "typed_result_or_unavailable_validated",
-            "before_after_context_refs_validated",
-            "role_execution_refs_validated",
-            "hard_nonclaims_preserved",
-            *response_reason_codes,
-        ],
-        "generated_at": generated_at or _utc_now_iso(),
-    }
+    ingress = _runner_response_ingress_payload(
+        command=command,
+        refs=refs,
+        active_typed_task_id=active_typed_task_id,
+        active_runner_response_ref=active_runner_response_ref,
+        active_ingress_ref=active_ingress_ref,
+        token=token,
+        active_hard_nonclaims=active_hard_nonclaims,
+        response_reason_codes=response_reason_codes,
+        generated_at=generated_at,
+    )
     validate_provider_subagent_ptc_runner_response_ingress(ingress)
     return ingress
 
