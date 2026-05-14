@@ -18,6 +18,7 @@ from retrieval.pathfinder import (
     validate_pathfinder_bundle,
 )
 from retrieval.recall_digest import build_recall_digest_from_support_bundle
+from retrieval.safe_index_cursor import evaluate_safe_index_cursor
 from memory.wiki_node_taxonomy import coerce_node_taxonomy
 
 
@@ -382,11 +383,16 @@ def _query_text_score(query_text: str, candidate_text: str) -> int:
     candidate_lower = (candidate_text or "").lower()
     score = 0
     for unit in query_units:
+        exact_or_substring_safe = "_" not in unit and not any(ch.isdigit() for ch in unit)
         if unit in candidate_units:
             score += 3
         elif len(unit) >= 3 and unit in candidate_lower:
             score += 2
-        elif len(unit) >= 3 and any(unit in candidate or candidate in unit for candidate in candidate_units if len(candidate) >= 3):
+        elif (
+            exact_or_substring_safe
+            and len(unit) >= 3
+            and any(unit in candidate or candidate in unit for candidate in candidate_units if len(candidate) >= 3)
+        ):
             score += 1
     return score
 
@@ -730,6 +736,11 @@ def build_ring_support_bundle(
         rel = str(row.get("derived_from") or row.get("promoted_from") or "").strip()
         if rel:
             source_paths.append(_vault_source_path(vault_root / rel, vault_root=vault_root))
+    unique_source_paths = _unique_preserve_order(source_paths)
+    safe_index_cursor = evaluate_safe_index_cursor(
+        vault_root=vault_root,
+        source_paths=unique_source_paths,
+    )
     community_edges = [
         {
             "community_id": cid,
@@ -763,6 +774,8 @@ def build_ring_support_bundle(
         missing_refs.append("lifecycle_state")
     if not source_paths:
         missing_refs.append("source_paths")
+    if safe_index_cursor.get("status") == "outside":
+        missing_refs.append("safe_index_cursor")
     if missing_refs:
         unavailable = _typed_unavailable_bundle(query_text=query_text, missing_refs=missing_refs)
         unavailable["topic_key"] = selected_topic_key
@@ -773,7 +786,8 @@ def build_ring_support_bundle(
         unavailable["semantic_edges"] = semantic_edges
         unavailable["origin_claims"] = origin_claims
         unavailable["recent_rings"] = recent_rings
-        unavailable["source_paths"] = _unique_preserve_order(source_paths)
+        unavailable["source_paths"] = unique_source_paths
+        unavailable["safe_index_cursor"] = safe_index_cursor
         unavailable["source_line_range"] = ring_record.get("source_line_range") if isinstance(ring_record, Mapping) else None
         unavailable["node_taxonomy"] = node_taxonomy
         unavailable["continent"] = node_taxonomy["continent"]
@@ -809,7 +823,8 @@ def build_ring_support_bundle(
         "paragraph_intent_safety_belt": dict(paragraph_intent),
         "origin_claims": origin_claims,
         "recent_rings": recent_rings,
-        "source_paths": _unique_preserve_order(source_paths),
+        "source_paths": unique_source_paths,
+        "safe_index_cursor": safe_index_cursor,
         "support_facts": support_facts,
         "community_edges": community_edges,
         "semantic_edges": semantic_edges,

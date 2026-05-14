@@ -216,6 +216,18 @@ def _memory_finder_judgment(*, query_text: str, bundle: dict, status: str) -> di
         and bool(paths)
         and alignment.get("status") in {"aligned", "aligned_with_limits"}
     )
+    safe_index_cursor = {}
+    if isinstance(bundle, dict):
+        nested_bundle = bundle.get("support_bundle") if isinstance(bundle.get("support_bundle"), dict) else {}
+        safe_index_cursor = (
+            bundle.get("safe_index_cursor")
+            if isinstance(bundle.get("safe_index_cursor"), dict)
+            else nested_bundle.get("safe_index_cursor")
+            if isinstance(nested_bundle.get("safe_index_cursor"), dict)
+            else {}
+        )
+    if safe_index_cursor.get("status") == "outside":
+        success = False
     return {
         "schema_version": "worker_judgment.v1",
         "worker_role": "memory_finder",
@@ -244,9 +256,15 @@ def _memory_finder_judgment(*, query_text: str, bundle: dict, status: str) -> di
             "source_path_count": len(paths),
             "alignment_status": alignment.get("status"),
             "alignment_reason": alignment.get("reason_code"),
+            "safe_index_cursor_status": safe_index_cursor.get("status"),
+            "safe_index_cursor_allowed": safe_index_cursor.get("final_support_allowed"),
         },
         "judgment": "success" if success else "typed_unavailable",
-        "close_decision": "support_bundle" if success else alignment.get("reason_code", "typed_unavailable_no_support"),
+        "close_decision": "support_bundle"
+        if success
+        else "typed_unavailable_unsafe_index_cursor"
+        if safe_index_cursor.get("status") == "outside"
+        else alignment.get("reason_code", "typed_unavailable_no_support"),
         "hard_nonclaims": [
             "candidate_match_is_not_support",
             "pane_text_is_not_recall_success",

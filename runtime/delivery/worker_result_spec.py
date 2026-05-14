@@ -357,8 +357,11 @@ def build_worker_result_spec(
     mailbox = Path(mailbox)
     nodes = list(node_ids or [])
     work_order = _latest_work_order(mailbox, mail_id)
-    worker_role = str(work_order.get("worker_role") or _worker_role_from_mailbox(mailbox))
     bundle = dict(result_bundle or {})
+    facts, paths = _support_facts_and_paths(bundle)
+    worker_role = str(work_order.get("worker_role") or _worker_role_from_mailbox(mailbox))
+    if worker_role == "unknown":
+        worker_role = "memory_finder" if facts or paths or isinstance(bundle.get("support_bundle"), Mapping) else "memory_saver"
     judgment = dict(
         worker_judgment
         or bundle.get("worker_judgment")
@@ -370,7 +373,6 @@ def build_worker_result_spec(
             result_bundle=bundle,
         )
     )
-    facts, paths = _support_facts_and_paths(bundle)
     typed_unavailable = _typed_unavailable(bundle)
     result_kind = "storage_evidence" if worker_role == "memory_saver" else "support_bundle"
     if typed_unavailable or (worker_role == "memory_finder" and not (facts and paths)):
