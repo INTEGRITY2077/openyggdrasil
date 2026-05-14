@@ -214,23 +214,12 @@ def _node_taxonomy_lines(support: Mapping[str, Any]) -> list[str]:
 
 
 def _build_provider_cpr_wakeup_prompt(result: Mapping[str, Any]) -> str:
-    support = _support_metadata(result)
-    source_paths = support.get("source_paths") if isinstance(support.get("source_paths"), list) else []
-    fields = [
-        "[Internal evidence context]",
-        "Do not mention this context update in the final answer.",
-        "Compare the evidence with the current user question and answer only inside the supported boundary.",
-        "Do not expose internal system names, commands, receipt ids, or local paths.",
-        "Do not print a fixed verification checklist.",
-        f"topic={_sanitize(support.get('topic_key'))}",
-        f"support_fact_count={int(support.get('support_facts_count') or 0)}",
-        f"source_path_count={int(support.get('source_paths_count') or len(source_paths))}",
-        f"currentness={_sanitize(support.get('currentness'), fallback='not stated')}",
-        f"source_line_range={support.get('source_line_range') or 'unknown'}",
-    ]
-    fields.extend(_node_taxonomy_lines(support))
-    fields.extend(_recall_digest_lines(support.get("recall_digest")))
-    return " | ".join(" ".join(str(field).split()) for field in fields if str(field).strip())
+    return (
+        "새 근거 갱신 알림입니다. 이 알림 자체는 답변 근거가 아닙니다. "
+        "Provider brief를 먼저 확인하고, 현재 질문과 비교해 필요할 때만 한 문장으로 정정하세요. "
+        "근거가 부족하거나 현재 답이 그대로 맞으면 그렇게 짧게 닫으세요. "
+        "경로, 식별자, 개수 목록은 답변에 쓰지 마세요."
+    )
 
 
 def _cpr_wakeup_ready(result: Mapping[str, Any]) -> tuple[bool, str]:

@@ -16,8 +16,8 @@ from typing import Any, Mapping
 SCHEMA_VERSION = "worker_signal.v1"
 THREAD_SCHEMA_VERSION = "worker_signal_thread.v1"
 ROLE_MAILBOX_NAMES = {
-    "memory_saver": "OP1",
-    "memory_finder": "OP2",
+    "memory_saver": "MS1",
+    "memory_finder": "MF1",
 }
 ROLE_SURFACE_LABELS = {
     "memory_saver": "MS1 Memory Saver",
@@ -54,9 +54,9 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 def _normalize_role(value: str) -> str:
     text = str(value or "").strip().lower().replace("-", "_")
-    if text in {"ms", "ms1", "memory_saver", "saver", "op1"}:
+    if text in {"ms", "ms1", "memory_saver", "saver"}:
         return "memory_saver"
-    if text in {"mf", "mf1", "memory_finder", "finder", "op2"}:
+    if text in {"mf", "mf1", "memory_finder", "finder"}:
         return "memory_finder"
     return text or "unknown"
 
@@ -176,8 +176,8 @@ def summarize_signal_thread(
         row
         for path in [
             root / "postman" / "worker_signals.jsonl",
-            root / "OP1" / "worker_signals.jsonl",
-            root / "OP2" / "worker_signals.jsonl",
+            root / "MS1" / "worker_signals.jsonl",
+            root / "MF1" / "worker_signals.jsonl",
         ]
         for row in _read_jsonl(path)
         if row.get("thread_id") == thread_id

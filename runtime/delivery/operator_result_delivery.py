@@ -199,6 +199,13 @@ def _project_native_receipt_notice(
 ) -> dict[str, Any]:
     if os.environ.get("OY_POSTMAN_NATIVE_RESULT_PROJECTION", "0") != "1":
         return {"enabled": False, "written": False, "status": "disabled"}
+    if os.environ.get("OY_ALLOW_UNSAFE_POSTMAN_RESULT_PROJECTION", "0") != "1":
+        return {
+            "enabled": False,
+            "written": False,
+            "status": "disabled_unsafe_postman_result_projection_guard",
+            "hard_nonclaim": "postman_result_projection_is_not_live_worker_judgment",
+        }
     session = _worker_lane_session(mailbox)
     if not session:
         return {"enabled": True, "written": False, "status": "no_worker_lane"}

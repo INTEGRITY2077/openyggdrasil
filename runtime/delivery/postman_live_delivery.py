@@ -74,8 +74,8 @@ def _append_jsonl(path: Path, row: dict[str, Any]) -> None:
 
 def _recipient_mailbox(recipient: str) -> Path:
     recipient = recipient.upper()
-    if not recipient.startswith("OP"):
-        raise ValueError(f"recipient must be OP#, got {recipient!r}")
+    if not (recipient.startswith("MS") or recipient.startswith("MF")):
+        raise ValueError(f"recipient must be MS# or MF#, got {recipient!r}")
     mailbox = _sessions_dir() / recipient
     mailbox.mkdir(parents=True, exist_ok=True)
     return mailbox
@@ -227,26 +227,17 @@ def submit_live_delivery(
     provider_id: str,
     mail_id: str | None = None,
 ) -> dict[str, Any]:
-    """Provider 요청을 Postman live-delivery packet으로 위탁하고 수신인 MS/MF mailbox/live_inbox에 전달한다.
-
-    Postman이 OP mailbox append 책임을 가진다. Provider/ygg는 이 함수를 호출해
-    Postman에게 위탁할 뿐, OP mailbox 파일 형식을 직접 소유하지 않는다.
-    """
+    """Route a Provider letter to a canonical MS/MF mailbox."""
     recipient = recipient.upper()
-    if not recipient.startswith("OP"):
-        raise ValueError(f"recipient must be OP#, got {recipient!r}")
+    if not (recipient.startswith("MS") or recipient.startswith("MF")):
+        raise ValueError(f"recipient must be MS# or MF#, got {recipient!r}")
     try:
         recipient_index = int(recipient[2:])
     except ValueError:
         recipient_index = 0
-    worker_key = (
-        f"ms{(recipient_index + 1) // 2}"
-        if recipient_index and recipient_index % 2 == 1
-        else f"mf{recipient_index // 2}"
-        if recipient_index
-        else "unknown"
-    )
-    recipient_role = "memory_saver" if recipient_index % 2 == 1 else "memory_finder"
+    is_saver = recipient.startswith("MS")
+    worker_key = f"{'ms' if is_saver else 'mf'}{recipient_index}" if recipient_index else "unknown"
+    recipient_role = "memory_saver" if is_saver else "memory_finder"
     delivery_id = f"postman-{uuid.uuid4().hex[:8]}"
     timestamp = _now()
 

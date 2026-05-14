@@ -132,7 +132,31 @@ def _memory_finder_alignment(*, query_text: str, bundle: dict) -> dict:
     missing_specific = sorted(token for token in high_specificity if token not in support_tokens)
     overlap = sorted(query_tokens & support_tokens)
     overlap_score = 0.0 if not query_tokens else len(overlap) / max(len(query_tokens), 1)
-    if missing_specific:
+    agent_tokens = {"agent", "agents", "subagent", "subagents"}
+    skill_tokens = {"skill", "skills"}
+    plugin_tokens = {"plugin", "plugins"}
+    asks_agent_skill_boundary = bool(query_tokens & agent_tokens) and bool(query_tokens & skill_tokens)
+    asks_plugin_agent_boundary = bool(query_tokens & plugin_tokens) and bool(query_tokens & agent_tokens)
+    missing_boundary_markers: list[str] = []
+    if asks_agent_skill_boundary:
+        if not (support_tokens & agent_tokens):
+            missing_boundary_markers.append("agent_side")
+        if not (support_tokens & skill_tokens):
+            missing_boundary_markers.append("skill_side")
+    if asks_plugin_agent_boundary:
+        if not (support_tokens & plugin_tokens):
+            missing_boundary_markers.append("plugin_side")
+        if not (support_tokens & agent_tokens):
+            missing_boundary_markers.append("agent_side")
+        if not (support_tokens & {"runtime", "model", "category", "coordination"}):
+            missing_boundary_markers.append("runtime_category_side")
+    if asks_agent_skill_boundary and missing_boundary_markers:
+        status = "misaligned"
+        reason = "paired_boundary_marker_missing_from_support"
+    elif asks_plugin_agent_boundary and missing_boundary_markers:
+        status = "misaligned"
+        reason = "paired_boundary_marker_missing_from_support"
+    elif missing_specific:
         status = "misaligned"
         reason = "high_specificity_marker_missing_from_support"
     elif facts and paths and high_specificity:
@@ -153,6 +177,7 @@ def _memory_finder_alignment(*, query_text: str, bundle: dict) -> dict:
         "overlap_score": round(overlap_score, 4),
         "matched_specific_tokens": sorted(token for token in high_specificity if token in support_tokens)[:20],
         "missing_specific_tokens": missing_specific[:20],
+        "missing_boundary_markers": missing_boundary_markers,
         "hard_gate_applied": bool(high_specificity),
     }
 
@@ -322,6 +347,9 @@ def run_consumer(mailbox: Path, vault: Path):
         for line in receipts_file.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 completed.add(json.loads(line).get("in_reply_to"))
+                row = json.loads(line)
+                completed.add(row.get("mail_id"))
+                completed.add(row.get("work_order_id"))
 
     for line in queries_file.read_text(encoding="utf-8").splitlines():
         if not line.strip():

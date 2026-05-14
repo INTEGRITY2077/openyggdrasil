@@ -28,8 +28,8 @@ STATE_PATH = POSTMAN_DIR / "provider_admission_hook_state.jsonl"
 LOG_PATH = POSTMAN_DIR / "provider_admission_hook_log.jsonl"
 RECALL_STATE_PATH = POSTMAN_DIR / "provider_recall_hook_state.jsonl"
 RECALL_LOG_PATH = POSTMAN_DIR / "provider_recall_hook_log.jsonl"
-DEFAULT_RECIPIENT = "OP1"
-DEFAULT_RECALL_RECIPIENT = "OP2"
+DEFAULT_RECIPIENT = "MS1"
+DEFAULT_RECALL_RECIPIENT = "MF1"
 
 
 def _now() -> str:

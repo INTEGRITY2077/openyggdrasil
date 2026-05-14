@@ -32,7 +32,7 @@ SAFE_SESSION_ID_RE = re.compile(r"^[A-Za-z0-9._:-]+$")
 
 def _hard_nonclaims() -> dict[str, bool]:
     return {
-        "op1_storage_passed": False,
+        "ms1_storage_passed": False,
         "full_ux_passed": False,
         "readme_scorecard_promotion_allowed": False,
         "production_ready": False,

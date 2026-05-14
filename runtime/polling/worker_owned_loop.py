@@ -21,11 +21,14 @@ from runtime.polling.ygg_poll_context import MAILBOX, MODE, role, tmux_target
 def _worker_owned_native_loop_text(event: dict) -> str:
     """Public start note for worker-owned MS/MF action."""
 
-    mission = _short(_mission_text(event), 900)
     interpretation = _worker_start_interpretation()
     return (
         f"[{role} 작업 시작]\n"
-        f"받은 일: {mission}\n\n"
+        f"mail_id: {event.get('mail_id') or '?'}\n"
+        f"delivery_id: {event.get('delivery_id') or '?'}\n"
+        "first_visible_step: mailbox_row_resolved\n"
+        "accepted evidence / rejected evidence will be listed after reading the mailbox row.\n"
+        "semantic summary is intentionally hidden until the worker reads the mailbox SOT.\n\n"
         f"내 역할: {interpretation['role_name']}.\n"
         f"내 해석: {interpretation['read']}\n"
         f"내가 세운 작업 방향: {interpretation['work_plan']}.\n"
@@ -140,6 +143,20 @@ def _worker_owned_receipt_projection_text(event: dict, receipt: dict | None, sta
 
 def _send_worker_owned_receipt_projection(event: dict, receipt: dict | None, status: str,
                                           elapsed_ms: int, attempts: list[dict]) -> dict:
+    if os.environ.get("OY_WORKER_OWNED_RECEIPT_PROJECTION", "0") != "1":
+        row = {
+            "timestamp": time.time(),
+            "mode": "produce" if MODE == "produce" else "consume",
+            "role": role,
+            "delivery_id": event.get("delivery_id"),
+            "mail_id": event.get("mail_id"),
+            "phase": "worker_owned_receipt_projection_blocked",
+            "written": False,
+            "status": "disabled_route_only_worker_surface",
+            "hard_nonclaim": "worker_result_projection_is_not_live_worker_judgment",
+        }
+        _append_worker_owned_loop_log(row)
+        return row
     prompt = _worker_owned_receipt_projection_text(event, receipt, status, elapsed_ms, attempts)
     if _worker_trace_to_hermes_chat():
         readiness = _wait_context_card_lane_ready(

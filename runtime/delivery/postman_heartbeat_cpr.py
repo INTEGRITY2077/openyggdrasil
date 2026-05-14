@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -234,6 +235,14 @@ def _engine_bootstrap_report(
 def _safe_source_paths(values: Iterable[Any]) -> list[str]:
     source_paths: list[str] = []
     for value in values:
+        if isinstance(value, Mapping):
+            path_text = _clean_string(value.get("path"), max_length=512).replace("\\", "/")
+            lines = _clean_string(value.get("lines"), max_length=80)
+            match = re.search(r"/\.yggdrasil/sessions/([^/]+)/(receipts|query_receipts|work_history)\.jsonl$", path_text)
+            if match:
+                suffix = f"#L{lines}" if lines else ""
+                source_paths.append(f"worker-ledger://{match.group(1)}/{match.group(2)}.jsonl{suffix}")
+                continue
         text = _clean_string(value, max_length=512).replace("\\", "/")
         if not text:
             continue
@@ -442,8 +451,8 @@ def _support_fact_texts(support: Mapping[str, Any], receipt: Mapping[str, Any]) 
     return _non_empty_strings(origin_facts, limit=12)
 
 
-def _support_metadata(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
-    receipt = dict(op2_receipt or {})
+def _support_metadata(mf1_receipt: Mapping[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
+    receipt = dict(mf1_receipt or {})
     support = _select_support(receipt)
     typed_unavailable = _typed_unavailable_from(support) or _typed_unavailable_from(receipt)
     facts = _support_fact_texts(support, receipt)
@@ -491,15 +500,15 @@ def _support_metadata(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, 
     return metadata, missing
 
 
-def _mailbox_correlation(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
-    receipt = dict(op2_receipt or {})
+def _mailbox_correlation(mf1_receipt: Mapping[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
+    receipt = dict(mf1_receipt or {})
     correlation = {
         "mail_id": _first_text(receipt, ("mail_id", "query_mail_id", "source_mail_id", "message_id", "in_reply_to")),
         "delivery_id": _first_text(receipt, ("delivery_id", "postman_delivery_id")),
-        "receipt_id": _first_text(receipt, ("receipt_id", "op2_receipt_id", "consumer_receipt_id")),
-        "op2_query_receipt_id": _first_text(receipt, ("op2_query_receipt_id", "query_receipt_id", "receipt_id")),
+        "receipt_id": _first_text(receipt, ("receipt_id", "mf1_receipt_id", "consumer_receipt_id")),
+        "mf1_query_receipt_id": _first_text(receipt, ("mf1_query_receipt_id", "query_receipt_id", "receipt_id")),
     }
-    missing = [key for key, value in correlation.items() if not value]
+    missing = [key for key, value in correlation.items() if not value and key != "delivery_id"]
     return correlation, [f"correlation_{key}" for key in missing]
 
 
@@ -525,7 +534,7 @@ def _unavailable_for_missing(missing_refs: Sequence[str], *, created_at: str) ->
 def build_postman_heartbeat_cpr_payload(
     *,
     live_group: Mapping[str, Any],
-    op2_receipt: Mapping[str, Any] | None,
+    mf1_receipt: Mapping[str, Any] | None,
     engine_status: Mapping[str, Any] | None = None,
     postman_helper_status: Mapping[str, Any] | None = None,
     watcher_status: Mapping[str, Any] | None = None,
@@ -549,8 +558,8 @@ def build_postman_heartbeat_cpr_payload(
         mailbox_status=mailbox_status,
         receipt_registry=receipt_registry,
     )
-    correlation, correlation_missing = _mailbox_correlation(op2_receipt)
-    support_metadata, support_missing = _support_metadata(op2_receipt)
+    correlation, correlation_missing = _mailbox_correlation(mf1_receipt)
+    support_metadata, support_missing = _support_metadata(mf1_receipt)
     missing = live_missing + engine_missing + correlation_missing + support_missing
     typed_unavailable = _unavailable_for_missing(missing, created_at=generated_at) if missing else None
     status = "typed_unavailable" if typed_unavailable else "ready"
@@ -598,7 +607,7 @@ def inject_postman_heartbeat_cpr_to_provider_inbox(
     provider_profile: str,
     provider_session_id: str,
     live_group: Mapping[str, Any],
-    op2_receipt: Mapping[str, Any] | None,
+    mf1_receipt: Mapping[str, Any] | None,
     engine_status: Mapping[str, Any] | None = None,
     postman_helper_status: Mapping[str, Any] | None = None,
     watcher_status: Mapping[str, Any] | None = None,
@@ -608,7 +617,7 @@ def inject_postman_heartbeat_cpr_to_provider_inbox(
 ) -> dict[str, Any]:
     payload = build_postman_heartbeat_cpr_payload(
         live_group=live_group,
-        op2_receipt=op2_receipt,
+        mf1_receipt=mf1_receipt,
         engine_status=engine_status,
         postman_helper_status=postman_helper_status,
         watcher_status=watcher_status,

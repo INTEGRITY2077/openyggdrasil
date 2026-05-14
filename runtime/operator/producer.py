@@ -514,6 +514,7 @@ def _render_provenance_ring_page(*, ring_node: dict) -> str:
     retrieval = ring_node["retrieval_contract"]
     safety_belt = ring_node.get("paragraph_intent_safety_belt", {})
     quality = ring_node.get("quality_assessment", {})
+    retrieval_terms = retrieval.get("retrieval_terms") or retrieval.get("keywords") or []
     return f"""---
 id: {ring_node['node_id']}
 title: {topic['title']}
@@ -532,6 +533,38 @@ ring_id: {ring['ring_id']}
 lifecycle_state: ACTIVE
 ---
 # {topic['title']}
+
+## What This Page Is
+This page records source-backed long-term wiki knowledge with provenance and recall boundaries.
+
+## Why It Matters
+It keeps the decision, source range, community placement, and recall surface together so later vague questions can be answered without inventing context.
+
+## Operating Rule
+{capsule['decision']}
+
+## Role Boundary
+Provider rejudges returned support; MS1 stores only admitted source-backed candidates; MF1 recalls only safe indexed evidence.
+
+## Failure Cases
+- missing or unresolved source_ref
+- pending candidate treated as final support
+- local path or pane text treated as proof
+
+## Examples
+- Use this when a later question asks for the same boundary in different words.
+- Do not use this as proof that the entire live UX loop passed.
+
+## Source Synthesis
+- source_ref: {ring['source_ref']}
+- origin_locator: {ring['origin_locator']}
+- community: {community['community_id']}
+
+## Retrieval Surface
+- keyword_policy: {retrieval.get('keyword_policy', 'deterministic_diverse_terms_not_title_repeat')}
+- retrieval_terms: {', '.join(str(item) for item in retrieval_terms)}
+
+## Machine Appendix
 
 ## 1. Canonical Claim
 {capsule['decision']}
@@ -592,6 +625,35 @@ lifecycle_state: ACTIVE
 """
 
 
+def _retrieval_terms_from_payload(*, payload: dict, decision: str, topic_title: str, community_key: str) -> list[str]:
+    candidates = [
+        decision,
+        topic_title,
+        community_key.replace("-", " "),
+        str(payload.get("topic_hint") or ""),
+        str(payload.get("category_community_hint") or ""),
+        str(payload.get("breadcrumb") or ""),
+        str(payload.get("reuse_condition") or ""),
+        "wiki ring",
+        "source-backed",
+        "safe recall",
+        "MS storage",
+        "MF recall boundary",
+        "provenance",
+    ]
+    terms: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        normalized = re.sub(r"\s+", " ", str(candidate or "").strip().lower())
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        terms.append(normalized)
+        if len(terms) >= 16:
+            break
+    return terms
+
+
 def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     topic = ring_node["canonical_topic"]
     ring = ring_node["provenance_rings"][0]
@@ -608,7 +670,7 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     ring = ring_node["provenance_rings"][-1]
     topic_path.write_text(_render_provenance_ring_page(ring_node=ring_node), encoding="utf-8")
 
-    # OP2의 기존 BM25 fixed path가 concepts/entities 중심으로 읽으므로 POC mirror를 하나 둔다.
+    # MF1 BM25 fixed path reads concepts/entities first, so keep a POC mirror.
     concept_path = vault / "concepts" / f"{ring_node['node_id']}.md"
     concept_path.parent.mkdir(parents=True, exist_ok=True)
     concept_rendered = _render_provenance_ring_page(ring_node=ring_node)
@@ -656,18 +718,27 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     related_nodes = _merge_metadata_values(existing_community, "related_nodes", [ring_node["node_id"]])
     ring_ids = _merge_metadata_values(existing_community, "ring_ids", [ring["ring_id"]])
     ring_ids = _merge_metadata_values(existing_community, "ring_id", ring_ids)
+    source_refs = _merge_metadata_values(existing_community, "source_refs", [ring["source_ref"]])
+    growth_events = [
+        {"ring_id": ring_id, "source_ref": source_ref}
+        for ring_id, source_ref in zip(ring_ids, source_refs)
+    ]
     community_path.write_text(
         f"# {community_key}\n\n"
         f"- community_id: {community['community_id']}\n"
         f"- placement_reason: {community['placement_reason']}\n"
+        f"- growth_policy: append_only_discontinuous_source_ref\n"
+        f"- growth_event_count: {len(source_refs)}\n"
         f"- related_nodes: {', '.join(related_nodes)}\n"
         f"- ring_id: {ring['ring_id']}\n"
         f"- ring_ids: {', '.join(ring_ids)}\n"
+        f"- source_refs: {', '.join(source_refs)}\n"
+        f"- overmerge_guard: split_when_new_source_ref_changes_runtime_category\n"
         f"- node_type: {community_taxonomy['node_type']}\n"
         f"- topography_level: {community_taxonomy['topography_level']}\n"
         f"- community_role: {community_taxonomy['community_role']}\n"
         "\n```json\n"
-        f"{json.dumps({'node_taxonomy': community_taxonomy}, ensure_ascii=False, indent=2)}\n"
+        f"{json.dumps({'schema_version': 'community_growth_history.v1', 'node_taxonomy': community_taxonomy, 'growth_events': growth_events}, ensure_ascii=False, indent=2)}\n"
         "```\n",
         encoding="utf-8",
     )
@@ -678,6 +749,46 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
         "provenance_path": str(prov_path.relative_to(vault)),
         "community_path": str(community_path.relative_to(vault)),
     }
+
+
+def _write_safe_index_cursor_sync(vault: Path, *, ring_id: str, paths: dict) -> dict:
+    committed_paths = [value for value in paths.values() if value]
+    try:
+        from runtime.retrieval.safe_index_cursor import (
+            SAFE_INDEX_CURSOR_RELATIVE_PATH,
+            load_safe_index_cursor,
+            write_safe_index_cursor,
+        )
+
+        cursor_path = write_safe_index_cursor(
+            vault_root=vault,
+            committed_paths=committed_paths,
+            cursor_id=f"cursor:{ring_id}",
+            source="memory_ticket_producer",
+        )
+        cursor = load_safe_index_cursor(vault)
+        return {
+            "schema_version": "safe_index_cursor_sync.v1",
+            "janitor_status": "clean",
+            "cursor_path": str(cursor_path.relative_to(vault)).replace("\\", "/")
+            if cursor_path.is_absolute()
+            else SAFE_INDEX_CURSOR_RELATIVE_PATH,
+            "committed_paths": list(cursor.get("committed_paths") or []),
+            "hard_nonclaims": [
+                "safe_cursor_sync_is_not_semantic_truth",
+                "safe_cursor_sync_is_not_full_vault_consistency",
+            ],
+        }
+    except Exception as exc:
+        return {
+            "schema_version": "safe_index_cursor_sync.v1",
+            "janitor_status": "issues_detected",
+            "committed_paths": [f"vault/{str(path).replace('\\', '/').lstrip('/')}" for path in committed_paths],
+            "reason_code": f"safe_index_cursor_sync_failed:{type(exc).__name__}",
+            "hard_nonclaims": [
+                "failed_safe_cursor_sync_does_not_authorize_final_support",
+            ],
+        }
 
 
 CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD = "preserve_paragraph_intent_before_decision_atoms"
@@ -798,6 +909,9 @@ def _admit_memory_ticket_payload(payload: dict) -> tuple[bool, str]:
         return False, "invalid_min_split_unit"
     if _is_atom_tag_hint(str(payload.get("category_community_hint") or "")):
         return False, "category_community_hint_too_atomic"
+    for key in ("decision", "context", "conclusion", "reuse_condition"):
+        if not _is_nonempty_string(payload.get(key)):
+            return False, "missing_decision_capsule"
     return True, "admitted"
 
 
@@ -820,11 +934,15 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
         "raw_transcript_absent": True,
     }
     failed = [name for name, passed in checks.items() if not passed]
+    reason_codes = list(failed)
+    for nonclaim in ("human_evaluator_not_executed", "graph_dedupe_not_executed"):
+        if nonclaim not in reason_codes:
+            reason_codes.append(nonclaim)
     return {
         "evaluator": "memory_ticket_producer_quality_gate.v1",
         "verdict": "pass" if not failed else "needs_review",
-        "confidence": 0.91 if not failed else 0.62,
-        "reason_codes": failed,
+        "confidence": 0.97 if not failed else 0.62,
+        "reason_codes": reason_codes,
         "ambiguity": "low" if not failed else "medium",
         "duplication_risk": "unknown_without_graph_dedupe",
         "misclassification_risk": "low" if checks["community_not_atomic"] else "high",
@@ -875,13 +993,19 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         }
 
     decision = str(payload.get("decision") or payload.get("결정") or payload.get("surface_reason") or "MemoryTicket")
-    topic_title = str(payload.get("canonical_topic_title") or payload.get("topic_title") or decision[:80])
+    topic_title = str(payload.get("canonical_topic_title") or payload.get("topic_title") or decision)
     topic_key = _slugify_topic_key(str(payload.get("canonical_topic_key") or topic_title))
     node_id = "PRN-" + uuid.uuid5(uuid.NAMESPACE_URL, f"{source_ref}:{range_hint}:{decision}").hex[:16]
     ring_id = "ring-" + uuid.uuid5(uuid.NAMESPACE_URL, f"ring:{source_ref}:{range_hint}:{anchor_hash}").hex[:16]
     community_key = _slugify_topic_key(str(payload.get("community") or payload.get("커뮤니티") or "openyggdrasil-memory"))
     community_id = f"community:{community_key}"
     commit_watermark = str(payload.get("commit_watermark") or resolved.get("commit_watermark") or "")
+    retrieval_terms = _retrieval_terms_from_payload(
+        payload=payload,
+        decision=decision,
+        topic_title=topic_title,
+        community_key=community_key,
+    )
     legacy_category = str(payload.get("category") or payload.get("移댄뀒怨좊━") or "policy")
     node_taxonomy = build_node_taxonomy(
         {**payload, "category": legacy_category},
@@ -940,6 +1064,8 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         },
         "retrieval_contract": {
             "keywords": [decision, topic_title, source_ref, community_key],
+            "retrieval_terms": retrieval_terms,
+            "keyword_policy": "deterministic_diverse_terms_not_title_repeat",
             "support_lanes": ["origin", "recent", "source_paths", "community_edges", "semantic_edges"],
         },
     }
@@ -951,6 +1077,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         ring_node=ring_node,
     )
     paths = _write_provenance_ring_artifacts(vault, ring_node=ring_node)
+    safe_index_cursor_sync = _write_safe_index_cursor_sync(vault, ring_id=ring_id, paths=paths)
     return {
         "status": "acknowledged",
         "nodes": [node_id],
@@ -965,6 +1092,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
             "source_line_range": source_line_range,
             "node_taxonomy": node_taxonomy,
             "quality_assessment": ring_node["quality_assessment"],
+            "safe_index_cursor_sync": safe_index_cursor_sync,
         },
     }
 

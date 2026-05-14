@@ -60,7 +60,7 @@ def main():
         print("  ygg status [ms1|mf1]       memory lane status")
         print("  ygg release <ms1|mf1>      release a memory lane")
         print("  numbering: Provider Unit N = PRO N + MS N + MF N")
-        print("  note: OP ids and ygg-* tmux names are internal evidence ids, not user commands")
+        print("  note: tmux names are internal evidence ids; use ygg pro1 / ygg ms1 / ygg mf1")
         print("  provider env: OY_PROVIDER_ID, OY_PROVIDER_PROFILE, OY_PROVIDER_COMMAND")
         print("  memory env: OY_MEMORY_SAVER_COMMAND/OY_MS_COMMAND, OY_MEMORY_FINDER_COMMAND/OY_MF_COMMAND")
         print(f"  vault env: OY_VAULT (default: {DEFAULT_PRIVATE_VAULT})")
@@ -237,11 +237,14 @@ def main():
     elif cmd == "status":
         cmd_status(sys.argv[2] if len(sys.argv) > 2 else "ms1")
     else:
-        # Legacy OP aliases are accepted silently for old automation; do not advertise them as commands.
+        # Canonical memory-lane commands are msN/mfN. Older aliases are not product-facing commands.
         if re.match(r'^\d+$', cmd):
             print("Error: bare numeric commands are ambiguous. Use 'ygg pro1' for Provider, 'ygg ms1' for Memory Saver 1, or 'ygg mf1' for Memory Finder 1.")
             sys.exit(1)
-        m = re.match(r'^(op|OP|ms|MS|mf|MF)(\d+)$', cmd, re.IGNORECASE)
+        if re.match(r'^(op|OP)\d+$', cmd, re.IGNORECASE):
+            print("Error: legacy memory-lane alias is not a user command. Use 'ygg ms1' or 'ygg mf1'.")
+            sys.exit(1)
+        m = re.match(r'^(ms|MS|mf|MF)(\d+)$', cmd, re.IGNORECASE)
         if m:
             op = _resolve_op(cmd)
             reg = _load_registry()

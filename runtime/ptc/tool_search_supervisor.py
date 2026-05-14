@@ -940,14 +940,21 @@ def build_memory_ticket_tst_supervisor(
     source_ref_resolved = str(result.get("source_ref_status") or "") in {"resolved", "verified"}
     raw_storage_succeeded = status in {"acknowledged", "completed"} and bool(nodes)
     admitted = raw_storage_succeeded and not missing_payload_fields and source_ref_resolved
+    pre_execution_gate_passed = not missing_payload_fields and source_ref_resolved
+    write_attempted = bool(nodes) or raw_storage_succeeded
+    write_executed_after_gate = bool(admitted and write_attempted)
     strict_gate = {
         "schema_version": "memory_ticket_strict_storage_gate.v1",
+        "gate_stage": "post_execution",
         "required_payload_fields": required_payload_fields,
         "decision_capsule_fields": capsule_fields,
         "decision_capsule_present": capsule_present,
         "bounded_source_range_present": bounded_source_range_present,
         "missing_payload_fields": missing_payload_fields,
         "source_ref_resolved": source_ref_resolved,
+        "pre_execution_gate_passed": pre_execution_gate_passed,
+        "write_attempted": write_attempted,
+        "write_executed_after_gate": write_executed_after_gate,
         "raw_storage_succeeded": raw_storage_succeeded,
         "storage_success_allowed": admitted,
         "failure_reason": None
@@ -1075,6 +1082,13 @@ def build_memory_ticket_tst_supervisor(
         "schema_version": SCHEMA_VERSION,
         "role": "memory_saver",
         "mode": "memory_ticket_strict_save",
+        "execution_order": {
+            "stage": "pre_execution_then_post_execution",
+            "pre_execution_gate_required": True,
+            "pre_execution_gate_passed": pre_execution_gate_passed,
+            "write_attempted": write_attempted,
+            "write_executed_after_gate": write_executed_after_gate,
+        },
         "catalog_version": catalog.get("catalog_version"),
         "catalog_source_ref": catalog.get("source_ref"),
         "available_family_counts": _available_family_counts(catalog),

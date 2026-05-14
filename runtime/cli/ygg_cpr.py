@@ -96,7 +96,7 @@ def _latest_provider_cpr_result(record: dict) -> dict:
     handoff = payload.get("provider_inbox_handoff", {}) if isinstance(payload, dict) else {}
     support = (
         payload.get("mf1_support_metadata")
-        or payload.get("op2_support_metadata", {})
+        or payload.get("mf1_support_metadata", {})
         if isinstance(payload, dict)
         else {}
     )
@@ -128,9 +128,9 @@ def _latest_provider_cpr_result(record: dict) -> dict:
             "mail_id": correlation.get("mail_id") if isinstance(correlation, dict) else None,
             "delivery_id": correlation.get("delivery_id") if isinstance(correlation, dict) else None,
             "receipt_id": correlation.get("receipt_id") if isinstance(correlation, dict) else None,
-            "op2_query_receipt_id": correlation.get("op2_query_receipt_id") if isinstance(correlation, dict) else None,
+            "mf1_query_receipt_id": correlation.get("mf1_query_receipt_id") if isinstance(correlation, dict) else None,
         },
-        "op2_support_metadata": {
+        "mf1_support_metadata": {
             "status": support.get("status") if isinstance(support, dict) else None,
             "support_schema_version": support.get("support_schema_version") if isinstance(support, dict) else None,
             "topic_key": support.get("topic_key") if isinstance(support, dict) else None,
@@ -180,7 +180,7 @@ def _provider_cpr_status_summary_for_op(op: str, reg: dict) -> str | None:
     if cpr.get("status") != "done":
         reason = cpr.get("reason_code") or "unavailable"
         return f"provider_cpr={cpr.get('status', 'blocked')} reason={reason}"
-    support = cpr.get("op2_support_metadata", {})
+    support = cpr.get("mf1_support_metadata", {})
     correlation = cpr.get("mailbox_correlation", {})
     if not isinstance(support, dict):
         return "provider_cpr=done support=unavailable"
@@ -189,7 +189,7 @@ def _provider_cpr_status_summary_for_op(op: str, reg: dict) -> str | None:
     recall_status = recall_digest.get("status") if isinstance(recall_digest, dict) else "none"
     receipt_id = "none"
     if isinstance(correlation, dict):
-        receipt_id = correlation.get("op2_query_receipt_id") or correlation.get("receipt_id") or "none"
+        receipt_id = correlation.get("mf1_query_receipt_id") or correlation.get("receipt_id") or "none"
     return (
         f"provider_cpr={support.get('status', 'unknown')} "
         f"schema={support.get('support_schema_version') or 'none'} "
@@ -209,7 +209,7 @@ def _print_cpr_workflow(result: dict) -> None:
         "heartbeat_cpr_status",
         "handoff_status",
         "mailbox_correlation",
-        "op2_support_metadata",
+        "mf1_support_metadata",
         "hard_nonclaims",
         "reason_code",
     ]

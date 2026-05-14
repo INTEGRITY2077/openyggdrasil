@@ -8,12 +8,12 @@ CANONICAL_PROVIDER_ROLE = "provider"
 CANONICAL_MEMORY_SAVER_ROLE = "memory_saver"
 CANONICAL_MEMORY_FINDER_ROLE = "memory_finder"
 
-LEGACY_ACTIVE_OPERATOR_PAIR = ("OP1", "OP2")
+LEGACY_ACTIVE_OPERATOR_PAIR = ("MS1", "MF1")
 LEGACY_OPERATOR_TMUX_SESSION_PATTERN = r"^(oy-op\d+|ygg-op\d+|ygg-ms\d+|ygg-mf\d+)$"
 
 WORKER_ROLE_MAILBOX_NAMES = {
-    CANONICAL_MEMORY_SAVER_ROLE: "OP1",
-    CANONICAL_MEMORY_FINDER_ROLE: "OP2",
+    CANONICAL_MEMORY_SAVER_ROLE: "MS1",
+    CANONICAL_MEMORY_FINDER_ROLE: "MF1",
 }
 WORKER_ROLE_SHORT_LABELS = {
     CANONICAL_MEMORY_SAVER_ROLE: "MS1",
@@ -25,17 +25,17 @@ WORKER_ROLE_SURFACE_LABELS = {
 }
 WORKER_ROLE_ALIASES = {
     CANONICAL_MEMORY_SAVER_ROLE: frozenset(
-        {"ms", "ms1", "memory_saver", "memory-saver", "saver", "producer", "op1"}
+        {"ms", "ms1", "memory_saver", "memory-saver", "saver", "producer"}
     ),
     CANONICAL_MEMORY_FINDER_ROLE: frozenset(
-        {"mf", "mf1", "memory_finder", "memory-finder", "finder", "consumer", "op2"}
+        {"mf", "mf1", "memory_finder", "memory-finder", "finder", "consumer"}
     ),
 }
 
 LIVE_GROUP_ROLE_ALIASES = {
     "provider": ("provider", "pro1", "ygg-pro1", "hermes"),
-    "ms1": ("ms1", "op1", "memory_saver_1", "producer", "ygg-ms1"),
-    "mf1": ("mf1", "op2", "memory_finder_1", "consumer", "ygg-mf1"),
+    "ms1": ("ms1", "memory_saver_1", "producer", "ygg-ms1"),
+    "mf1": ("mf1", "memory_finder_1", "consumer", "ygg-mf1"),
 }
 LIVE_GROUP_ROLE_DISPLAY_NAMES = {
     "provider": "Provider Lane",
@@ -48,8 +48,8 @@ LIVE_GROUP_ROLE_COMMAND_TARGETS = {
     "mf1": "ygg mf1",
 }
 LIVE_GROUP_LEGACY_ALIAS_REPLACEMENTS = {
-    "ms1": (("op1", "ms1"),),
-    "mf1": (("op2", "mf1"),),
+    "ms1": (),
+    "mf1": (),
 }
 
 ROW_8_LIVE_VERIFICATION_LABEL = "row_8_live_verification"
@@ -60,7 +60,7 @@ LEGACY_WORKER4_VERIFICATION_EVIDENCE_KIND = "worker4_verification"
 LEGACY_WORKER4_VERIFICATION_REF = (
     "worker4-verification-ref://openyggdrasil/producer-first-poc/worker4/pass-001"
 )
-LEGACY_MEMORY_FINDER_SUPPORT_METADATA_FIELD = "op2_support_metadata"
+LEGACY_MEMORY_FINDER_SUPPORT_METADATA_FIELD = "mf1_support_metadata"
 
 
 def _alias_key(value: Any) -> str:

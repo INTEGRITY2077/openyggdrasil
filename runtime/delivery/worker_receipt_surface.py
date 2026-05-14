@@ -9,6 +9,7 @@ remain a fallback, but this is the normal structured close path.
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,11 +50,34 @@ def _append_jsonl(path: Path, row: Mapping[str, Any]) -> int:
     return existing_count + 1
 
 
+def _append_provider_inbox_handoff(*, worker_role: str, mail_id: str, work_order_id: str, receipt: Mapping[str, Any]) -> None:
+    target = os.environ.get("YGG_PROVIDER_INBOX")
+    if not target:
+        return
+    sender = "MF1 Memory Finder" if worker_role == "memory_finder" else "MS1 Memory Saver"
+    row = {
+        "schema_version": "worker_result_provider_handoff.v1",
+        "sender": sender,
+        "mail_id": mail_id,
+        "work_order_id": work_order_id,
+        "delivery_owner": "postman",
+        "worker_result_spec": {
+            "provider_rejudgment": {
+                "provider_action": "compare_worker_result_with_current_user_question_before_answering",
+                "absolute_trust_allowed": False,
+            },
+            "receipt_status": receipt.get("status"),
+            "reason_code": receipt.get("reason_code"),
+        },
+    }
+    _append_jsonl(Path(target), row)
+
+
 def _worker_role_from_label(label: str | None) -> str:
     normalized = (label or "").strip().lower()
-    if normalized in {"mf", "mf1", "op2", "consumer", "memory_finder", "memory-finder"}:
+    if normalized in {"mf", "mf1", "consumer", "memory_finder", "memory-finder"}:
         return "memory_finder"
-    if normalized in {"ms", "ms1", "op1", "producer", "memory_saver", "memory-saver"}:
+    if normalized in {"ms", "ms1", "producer", "memory_saver", "memory-saver"}:
         return "memory_saver"
     return normalized or "unknown"
 
@@ -353,6 +377,12 @@ def close_worker_work_order(
         receipt=receipt,
         work_order_id=work_order_id,
         actor=recorded_by,
+    )
+    _append_provider_inbox_handoff(
+        worker_role=worker_role,
+        mail_id=mail_id,
+        work_order_id=work_order_id,
+        receipt=receipt,
     )
 
     return {

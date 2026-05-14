@@ -112,6 +112,7 @@ def _activation_prompt(
     payload: Mapping[str, Any],
     delivery: Mapping[str, Any],
 ) -> str:
+    del payload
     role = _worker_role(label, role_type)
     if role_type == "producer":
         request_name = "Save Request"
@@ -119,15 +120,22 @@ def _activation_prompt(
         request_name = "Find Request"
     else:
         request_name = "Work Request"
-    prompt = (
-        "메일 전달 알림\n"
-        f"lane: {label}\n"
-        f"role: {role}\n"
-        f"kind: {request_name}\n"
-        f"mail_id: {delivery.get('mail_id') or 'unknown'}\n"
-        f"work_order_id: {delivery.get('work_order_id') or 'unknown'}\n"
-        "request_hint: mailbox work order ready\n\n"
-        "상세 내용은 mailbox work order에 있습니다. 이 알림은 깨우기 전용이며 mailbox 확인만 요청합니다."
+    prompt = " | ".join(
+        [
+            "mailbox notice",
+            f"lane={label}",
+            f"role={role}",
+            f"kind={request_name}",
+            f"mailbox_ref={delivery.get('mailbox_ref') or '(mailbox-row)'}",
+            f"mail_id={delivery.get('mail_id') or 'unknown'}",
+            f"work_order_id={delivery.get('work_order_id') or 'unknown'}",
+            "SOT=mailbox work_order row before deciding",
+            "first_visible_step=mailbox_row_resolved then accepted/rejected evidence",
+            "process_step=run_role_owned_mailbox_processor_before_missing_receipt_close",
+            "missing_receipt_close_only_after_processor_attempt",
+            "final_step=close_mailbox_receipt_or_typed_unavailable",
+            "route_only_no_semantic_payload",
+        ]
     )
     validate_visible_notice_route_only(prompt)
     return prompt

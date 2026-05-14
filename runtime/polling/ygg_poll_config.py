@@ -43,6 +43,13 @@ def build_ygg_poll_config(
     poll_interval: int = 3,
 ) -> YggPollConfig:
     normalized_mode = "produce" if str(mode or "").strip().lower() == "produce" else "consume"
+    vault_text = str(vault).replace("\\", "/").lower()
+    if (
+        "/0_project/openyggdrasil/vault" in vault_text
+        and "openyggdrasil-private-dev" not in vault_text
+        and not _env_flag(env, "OY_ALLOW_PUBLIC_RUNTIME_VAULT")
+    ):
+        raise ValueError("public_runtime_vault_forbidden")
     enable_legacy_ralph_prompts = _env_flag(env, "OY_ENABLE_LEGACY_RALPH_PROMPTS")
     native_goal_mode = _env_flag(env, "OY_OP_NATIVE_GOAL")
     native_goal_action_loop = _env_flag(env, "OY_OP_NATIVE_GOAL_ACTION_LOOP")

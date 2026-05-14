@@ -70,7 +70,7 @@ def _install_legacy_aliases() -> None:
             continue
         try:
             sys.modules[name] = importlib.import_module(f"{__name__}.{name}")
-        except ModuleNotFoundError:
+        except (ModuleNotFoundError, ImportError):
             # Legacy top-level aliases are compatibility only. A narrow command
             # such as `ygg list` must not fail merely because an unrelated legacy
             # surface imports an optional or undeployed dependency.

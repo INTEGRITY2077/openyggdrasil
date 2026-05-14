@@ -325,7 +325,7 @@ def cmd_status(op: str) -> None:
             watching="memory lane registry",
             creating="상태 보고",
             created="등록된 memory lane 없음",
-            evidence=f"{op}: not registered",
+            evidence=f"{label}: not registered",
             next_action="ygg list 또는 ygg spawn으로 세션 등록 상태 확인",
             status="blocked",
         )
@@ -676,6 +676,18 @@ def _build_recall_result(
     else:
         status = "accepted"
         reason_code = "find_request_delivered_async"
+    provider_answer_guidance = {
+        "schema_version": "provider_async_recall_answer_guidance.v1",
+        "answer_state": "not_yet_confirmed" if wait_for_receipt and not receipt else "async_recall_queued" if not wait_for_receipt else "support_received",
+        "immediate_action": (
+            "Answer the current safe core now; apply a later one-sentence correction if MF1 returns stronger source-backed support."
+            if not wait_for_receipt
+            else "Use only returned support when it is source-backed; otherwise answer unsupported."
+        ),
+        "later_backfill": "later one-sentence correction",
+        "forbidden_claims": ["unsupported", "unsupported_without_source", "memory_found_without_receipt"],
+        "forbidden_surface": ["local_paths", "source_path_lists", "internal_receipt_payloads"],
+    }
     return {
         "schema_version": "ygg_provider_recall_result.v1",
         "status": status,
@@ -688,6 +700,7 @@ def _build_recall_result(
         "timeout_seconds": timeout_seconds if wait_for_receipt else 0,
         "postman_activation": activation,
         "support": support,
+        "provider_answer_guidance": provider_answer_guidance,
         "hard_nonclaims": {
             "full_ux_passed": False,
             "provider_local_recall_only": False,
