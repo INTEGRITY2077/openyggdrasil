@@ -82,6 +82,7 @@ def _activation_prompt(
     role_type: str,
     message_type: str,
     payload: Mapping[str, Any],
+    delivery: Mapping[str, Any],
 ) -> str:
     role = _worker_role(label, role_type)
     mission = _mission_summary(message_type, payload)
@@ -92,12 +93,14 @@ def _activation_prompt(
     else:
         request_name = "Work Request"
     return (
-        f"[{label} 메일 도착]\n"
-        f"역할: {role}\n"
-        f"종류: {request_name}\n"
-        f"받은 일: {mission}\n\n"
-        "작업서는 메일박스에 기록되었습니다. "
-        f"{label}는 자신의 역할 기준으로 읽고, 필요한 결과만 남깁니다."
+        "메일 도착\n"
+        f"lane: {label}\n"
+        f"role: {role}\n"
+        f"kind: {request_name}\n"
+        f"mail_id: {delivery.get('mail_id') or 'unknown'}\n"
+        f"work_order_id: {delivery.get('work_order_id') or 'unknown'}\n"
+        f"요청 요약: {mission}\n\n"
+        "상세 작업서는 메일박스에 있습니다. 이 알림은 라우팅/깨우기용이며 답변, 근거, 결론을 포함하지 않습니다."
     )
 
 
@@ -159,6 +162,7 @@ def activate_native_lane(
             role_type=role_type,
             message_type=message_type,
             payload=payload,
+            delivery=delivery,
         )
         written, reason = _send_tmux_target_text(target, prompt)
     else:
