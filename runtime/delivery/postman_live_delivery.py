@@ -360,6 +360,7 @@ def submit_live_delivery(
         "delivery_id": delivery_id,
         "mail_id": mail_id,
         "recipient": recipient,
+        "canonical_mailbox_key": recipient,
         "recipient_role": recipient_role,
         "worker_key": worker_key,
         "message_type": message_type,

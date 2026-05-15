@@ -9,6 +9,23 @@ def _contains_any(text: str, needles: tuple[str, ...]) -> bool:
     return any(needle in text for needle in needles)
 
 
+def _has_explicit_save_command(text: str, lowered: str) -> bool:
+    return _contains_any(lowered, ("remember this", "save this", "store this")) or _contains_any(
+        text,
+        ("기억해", "기억해줘", "저장해", "저장해줘", "보존해", "보존해줘"),
+    )
+
+
+def _has_durable_reuse_signal(text: str, lowered: str) -> bool:
+    return _contains_any(
+        lowered,
+        ("use this later", "reuse this later", "later reuse", "need this later", "stable boundary"),
+    ) or _contains_any(
+        text,
+        ("나중에", "다시 써", "다시 쓰", "재사용", "흔들리지 않을", "배치 원칙", "기준으로 굳힌다면"),
+    )
+
+
 def _base_emit(
     *,
     paragraph: str,
@@ -58,9 +75,52 @@ def detect_provider_memory_salience(paragraph: str) -> dict[str, Any]:
         return {"trigger_decision": "defer", "trigger_kind": "none", "reason": "empty_paragraph"}
     lowered = text.lower()
 
+    if _contains_any(text, ("트리깅", "필요성", "명령")) and _contains_any(text, ("스스로", "유저 프롬프트")):
+        return _base_emit(
+            paragraph=text,
+            trigger_kind="boundary_correction",
+            intent_field="Provider autonomous salience trigger is not a user 저장 명령.",
+            topic_hint="Provider autonomous salience trigger",
+            category_community_hint="OpenYggdrasil provider behavior contract / memory authoring bridge",
+            breadcrumb="Provider may notice a durable boundary without treating every user line as a save command.",
+            why_not_atomic="The trigger source, responsibility boundary, and storage nonclaim must stay together.",
+        )
+
+    if _contains_any(lowered, ("decision atom", "paragraph-level intent", "authoring bridge")) and _contains_any(
+        lowered,
+        ("category/community", "community"),
+    ):
+        return _base_emit(
+            paragraph=text,
+            trigger_kind="topic_decision_completed",
+            intent_field="The exchange completes a paragraph-level topic decision for category/community authoring.",
+            topic_hint="Provider paragraph intent authoring bridge",
+            category_community_hint="OpenYggdrasil provider behavior contract / category/community authoring bridge",
+            breadcrumb="Preserve paragraph-level intent before extracting decision atoms.",
+            why_not_atomic="The authoring rule depends on paragraph scope, category/community placement, and anti-atomization.",
+        )
+
+    if (
+        _has_durable_reuse_signal(text, lowered)
+        and not _has_explicit_save_command(text, lowered)
+        and not _contains_any(text, ("CLAUDE.md", "auto memory", "Hook", "Skill", "MCP", "Plugin", "agents", "skills"))
+    ):
+        return _base_emit(
+            paragraph=text,
+            trigger_kind="durable_reuse_signal",
+            intent_field="The exchange contains a durable reuse signal but not an explicit save command.",
+            topic_hint="durable reuse boundary candidate",
+            category_community_hint="OpenYggdrasil provider behavior contract / durable reuse signal",
+            breadcrumb=(
+                "A later-use signal should enter episode-ledger admission instead of being "
+                "treated as a direct save command."
+            ),
+            why_not_atomic="The reuse need, scope, and uncertainty must stay together until MS judges maturity.",
+        )
+
     if _contains_any(lowered, ("remember this", "save this", "store this")) or _contains_any(
         text,
-        ("기억해", "기억해줘", "저장해", "저장해줘", "나중에 다시", "다음에 다시", "앞으로 다시"),
+        ("기억해", "기억해줘", "저장해", "저장해줘", "보존해", "보존해줘"),
     ):
         return _base_emit(
             paragraph=text,
@@ -124,6 +184,38 @@ def detect_provider_memory_salience(paragraph: str) -> dict[str, Any]:
             canonical_topic_title="Public README affordance boundary",
         )
 
+    if _contains_any(lowered, ("agent", "agents", "subagent", "subagents")) and _contains_any(
+        lowered,
+        ("skill", "skills", "placement", "where", "where to place"),
+    ):
+        return _base_emit(
+            paragraph=text,
+            trigger_kind="category_community_shift",
+            intent_field="The exchange forms reusable Claude Code agents and skills placement criteria.",
+            topic_hint="Claude Code agents and skills placement criteria",
+            category_community_hint="Claude Code documentation boundary / agents and skills placement criteria",
+            breadcrumb="Separate reusable model-read procedures from worker execution roles.",
+            why_not_atomic="The distinction depends on both placement and execution shape.",
+            canonical_topic_key="claude-code-agents-skills-placement-criteria",
+            canonical_topic_title="Claude Code agents and skills placement criteria",
+        )
+
+    if _contains_any(text, ("Hook", "Skill")) and _contains_any(
+        lowered,
+        ("automatic", "lifecycle", "event", "timing", "formatting"),
+    ):
+        return _base_emit(
+            paragraph=text,
+            trigger_kind="category_community_shift",
+            intent_field="The exchange forms reusable Claude Code Hook and Skill timing criteria.",
+            topic_hint="Claude Code Hook and Skill timing boundary",
+            category_community_hint="Claude Code documentation boundary / Hook and Skill timing boundary",
+            breadcrumb="Use trigger timing: automatic lifecycle/event actions belong in Hooks; model-read procedures belong in Skills.",
+            why_not_atomic="The boundary requires timing, trigger, and model-read procedure distinctions together.",
+            canonical_topic_key="claude-code-hook-skill-timing-boundary",
+            canonical_topic_title="Claude Code Hook and Skill timing boundary",
+        )
+
     if _contains_any(text, ("CLAUDE.md", "auto memory", "Hook", "Skill", "MCP", "Plugin")) and _contains_any(
         text,
         ("기준", "갈라", "어디에 둬야", "선택", "팀 문서", "오해", "placement", "boundary"),
@@ -147,10 +239,10 @@ def detect_provider_memory_salience(paragraph: str) -> dict[str, Any]:
         return _base_emit(
             paragraph=text,
             trigger_kind="strong_memory_stimulus",
-            intent_field="Unverified README, Production Ready, or 100% claims are prohibited.",
+            intent_field="Unverified README, Production Ready, 100%, or 검증 없는 claims are prohibited.",
             topic_hint="README claim gating and proof discipline",
             category_community_hint="OpenYggdrasil verification governance / provider behavior contract",
-            breadcrumb="Facing claims may be promoted only after code and live workflow evidence agree.",
+            breadcrumb="README and facing claims may be promoted only after code and live workflow evidence agree.",
             why_not_atomic="The claim, evidence threshold, and prohibited wording must stay together.",
             canonical_topic_key="readme-claim-gating-proof-discipline",
             canonical_topic_title="README claim gating and proof discipline",

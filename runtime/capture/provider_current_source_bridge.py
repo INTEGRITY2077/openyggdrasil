@@ -21,6 +21,7 @@ ALLOWED_MIN_SPLIT_UNITS = {"paragraph_intent", "topic_decision_cluster"}
 ALLOWED_TRIGGER_KINDS = {
     "explicit_user_save_command",
     "strong_memory_stimulus",
+    "durable_reuse_signal",
     "topic_decision_completed",
     "boundary_correction",
     "reusable_operational_rule",
@@ -392,6 +393,36 @@ def _provider_exchange_memory_fields(*, user_text: str, assistant_text: str) -> 
             "reuse_condition": "Use when editing or reviewing public-facing README and first-contact documentation.",
             "canonical_topic_title": "Public README affordance boundary",
             "canonical_topic_key": "public-readme-affordance-boundary",
+        }
+    lowered = combined.lower()
+    if any(marker in lowered for marker in ("agent", "agents", "subagent", "subagents")) and any(
+        marker in lowered for marker in ("skill", "skills")
+    ):
+        return {
+            "decision": (
+                "Claude Code agents and skills should be separated by execution shape: "
+                "Skills are reusable model-read procedures and rubrics; agents/subagents are worker roles "
+                "used for isolated or role-specific execution."
+            ),
+            "context": "The user asked where agents and skills belong when team documentation mixes the concepts.",
+            "conclusion": "Put reusable procedures in Skills and worker execution roles in agents/subagents.",
+            "reuse_condition": "Use when a later question asks whether a Claude Code convention belongs in Skills or agents.",
+            "canonical_topic_title": "Claude Code agents and skills placement criteria",
+            "canonical_topic_key": "claude-code-agents-skills-placement-criteria",
+        }
+    if "Hook" in combined and "Skill" in combined and any(
+        marker in lowered for marker in ("automatic", "lifecycle", "event", "timing", "formatting")
+    ):
+        return {
+            "decision": (
+                "Claude Code Hook versus Skill placement should use trigger timing: Hooks are automatic "
+                "lifecycle or event actions; Skills are reusable model-read procedures, rubrics, and playbooks."
+            ),
+            "context": "The user asked whether automatic formatting belongs in Hook or Skill.",
+            "conclusion": "Put automatic lifecycle/event behavior in Hooks and reusable judgment procedures in Skills.",
+            "reuse_condition": "Use when a later Claude Code docs question asks whether automation belongs in Hooks or Skills.",
+            "canonical_topic_title": "Claude Code Hook and Skill timing boundary",
+            "canonical_topic_key": "claude-code-hook-skill-timing-boundary",
         }
     if any(marker in combined for marker in ("CLAUDE.md", "auto memory", "Hook", "Skill", "MCP", "Plugin")):
         return {
