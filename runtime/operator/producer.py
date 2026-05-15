@@ -654,6 +654,42 @@ def _retrieval_terms_from_payload(*, payload: dict, decision: str, topic_title: 
     return terms
 
 
+def _merge_unique_values(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    merged: list[str] = []
+    for value in values:
+        item = str(value or "").strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        merged.append(item)
+    return merged
+
+
+def _source_refs_from_related_nodes(vault: Path, related_nodes: list[str]) -> list[str]:
+    refs: list[str] = []
+    for node_id in related_nodes:
+        node = str(node_id or "").strip()
+        if not node:
+            continue
+        path = vault / "concepts" / f"{node}.md"
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        refs.extend(re.findall(r"hermes-session-json://[A-Za-z0-9_\-]+", text))
+    return _merge_unique_values(refs)
+
+
+def _community_growth_events(*, ring_ids: list[str], source_refs: list[str]) -> list[dict[str, str]]:
+    events: list[dict[str, str]] = []
+    for index, source_ref in enumerate(source_refs):
+        event = {"source_ref": source_ref}
+        if index < len(ring_ids):
+            event["ring_id"] = ring_ids[index]
+        events.append(event)
+    return events
+
+
 def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     topic = ring_node["canonical_topic"]
     ring = ring_node["provenance_rings"][0]
@@ -718,11 +754,14 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     related_nodes = _merge_metadata_values(existing_community, "related_nodes", [ring_node["node_id"]])
     ring_ids = _merge_metadata_values(existing_community, "ring_ids", [ring["ring_id"]])
     ring_ids = _merge_metadata_values(existing_community, "ring_id", ring_ids)
-    source_refs = _merge_metadata_values(existing_community, "source_refs", [ring["source_ref"]])
-    growth_events = [
-        {"ring_id": ring_id, "source_ref": source_ref}
-        for ring_id, source_ref in zip(ring_ids, source_refs)
-    ]
+    source_refs = _merge_unique_values(
+        [
+            *_metadata_values(existing_community, "source_refs"),
+            *_source_refs_from_related_nodes(vault, related_nodes),
+            ring["source_ref"],
+        ]
+    )
+    growth_events = _community_growth_events(ring_ids=ring_ids, source_refs=source_refs)
     community_path.write_text(
         f"# {community_key}\n\n"
         f"- community_id: {community['community_id']}\n"
