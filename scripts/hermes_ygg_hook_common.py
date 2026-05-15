@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -30,6 +31,52 @@ RECALL_STATE_PATH = POSTMAN_DIR / "provider_recall_hook_state.jsonl"
 RECALL_LOG_PATH = POSTMAN_DIR / "provider_recall_hook_log.jsonl"
 DEFAULT_RECIPIENT = "MS1"
 DEFAULT_RECALL_RECIPIENT = "MF1"
+CONTEXTUAL_RECALL_MARKERS = (
+    "방금",
+    "아까",
+    "그 기준",
+    "이 기준",
+    "저장된 쪽",
+    "저장된 기준",
+    "위키 근거",
+    "뒤에서",
+    "나중에",
+    "계속 기준",
+    "same basis",
+    "stored side",
+    "stored basis",
+    "previous basis",
+)
+ANCHOR_TERM_RE = re.compile(
+    r"`([^`]{2,80})`|(?<![\w.])([A-Za-z][A-Za-z0-9_.-]{1,}(?:/[A-Za-z][A-Za-z0-9_.-]{1,})?)"
+)
+ANCHOR_STOPWORDS = {
+    "and",
+    "are",
+    "basis",
+    "code",
+    "criterion",
+    "criteria",
+    "docs",
+    "documentation",
+    "does",
+    "for",
+    "from",
+    "kind",
+    "later",
+    "question",
+    "same",
+    "stored",
+    "team",
+    "that",
+    "the",
+    "this",
+    "use",
+    "what",
+    "when",
+    "where",
+    "with",
+}
 
 
 def _now() -> str:
@@ -168,6 +215,64 @@ def _event_query_text(event: Mapping[str, Any]) -> str:
     return ""
 
 
+def _is_contextual_recall_query(text: str) -> bool:
+    lowered = str(text or "").lower()
+    return any(marker.lower() in lowered for marker in CONTEXTUAL_RECALL_MARKERS)
+
+
+def _recall_context_anchor_terms(
+    messages: list[dict[str, Any]],
+    latest_user_index: int,
+    *,
+    lookback_messages: int = 8,
+    limit: int = 12,
+) -> list[str]:
+    if latest_user_index <= 0:
+        return []
+    selected = messages[max(0, latest_user_index - lookback_messages) : latest_user_index]
+    anchors: list[str] = []
+    seen: set[str] = set()
+    for message in reversed(selected):
+        if message.get("role") not in {"user", "assistant"}:
+            continue
+        text = _message_text(message)
+        if not text:
+            continue
+        for match in ANCHOR_TERM_RE.finditer(text):
+            raw = (match.group(1) or match.group(2) or "").strip("` ,.;:()[]{}")
+            if not raw:
+                continue
+            lowered = raw.lower()
+            if lowered in ANCHOR_STOPWORDS:
+                continue
+            has_identifier_shape = (
+                raw[:1].isupper()
+                or raw.isupper()
+                or any(char in raw for char in "/._-")
+            )
+            if not has_identifier_shape or lowered in seen:
+                continue
+            seen.add(lowered)
+            anchors.append(raw)
+            if len(anchors) >= limit:
+                return anchors
+    return anchors
+
+
+def _augment_contextual_recall_query(
+    *,
+    query_text: str,
+    messages: list[dict[str, Any]],
+    latest_user_index: int,
+) -> tuple[str, list[str]]:
+    if not _is_contextual_recall_query(query_text):
+        return query_text, []
+    anchors = _recall_context_anchor_terms(messages, latest_user_index)
+    if not anchors:
+        return query_text, []
+    return f"{query_text}\n관련 맥락 앵커: {', '.join(anchors)}", anchors
+
+
 def _hash_text(value: str) -> str:
     return _canonical_anchor_hash([{"role": "user", "content": value}])
 
@@ -175,9 +280,10 @@ def _hash_text(value: str) -> str:
 def run_latest_provider_recall_hook(*, event_name: str, require_tool_name: str | None = None) -> dict[str, Any]:
     """Turn a Provider recall tool attempt into a product-shaped MF query.
 
-    The hook is intentionally narrow: it sends only the current user-facing
-    question text as `query_text`. It does not send source refs, support paths,
-    worker instructions, or validation vocabulary.
+    The hook is intentionally narrow: it sends the current user-facing question
+    text, plus recent conversation anchors only for anaphoric follow-up turns.
+    It does not send source refs, support paths, worker instructions, or
+    validation vocabulary.
     """
 
     event = _read_stdin_event()
@@ -203,6 +309,13 @@ def run_latest_provider_recall_hook(*, event_name: str, require_tool_name: str |
     query_text = _event_query_text(event)
     if not query_text and latest_user:
         query_text = latest_user[1]
+    context_anchor_terms: list[str] = []
+    if latest_user is not None:
+        query_text, context_anchor_terms = _augment_contextual_recall_query(
+            query_text=query_text,
+            messages=normalized_messages,
+            latest_user_index=latest_user[0],
+        )
     if not query_text:
         result = {"status": "skipped", "reason_code": "query_text_missing", "event_name": event_name}
         _append_jsonl(RECALL_LOG_PATH, {**result, "created_at": _now(), "tool_name": tool_name, "session_path_name": session_path.name})
@@ -265,9 +378,12 @@ def run_latest_provider_recall_hook(*, event_name: str, require_tool_name: str |
         "work_order_id": delivery.get("work_order_id"),
         "recipient": delivery.get("recipient"),
         "postman_activation_status": activation.get("status"),
+        "query_text_source": "session_latest_user_with_context_anchor" if context_anchor_terms else "session_latest_user",
+        "context_anchor_terms": context_anchor_terms,
         "hard_nonclaims": [
             "recall_delivery_is_not_support_bundle",
             "provider_question_text_only_no_source_ref_or_support_paths",
+            "context_anchor_terms_are_not_source_refs_or_support_paths",
             "postman_does_not_judge_recall_answer",
         ],
     }
