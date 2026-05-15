@@ -687,7 +687,7 @@ def _build_recall_result(
         "schema_version": "provider_async_recall_answer_guidance.v1",
         "answer_state": "not_yet_confirmed" if wait_for_receipt and not receipt else "async_recall_queued" if not wait_for_receipt else "support_received",
         "immediate_action": (
-            "Answer the current safe core now; if MF1 later returns stronger source-backed support, apply a correction with the density required by the original question."
+            "Answer the current safe core now; if MF1 later returns stronger source-backed support, apply a correction with the density required by the original question. If the user asks to be brief, remove filler without collapsing multi-concept boundary answers into an unstructured single sentence."
             if not wait_for_receipt
             else "Use only returned support when it is source-backed; otherwise answer unsupported."
         ),
@@ -695,6 +695,7 @@ def _build_recall_result(
         "minimum_answer_shape": [
             "core_conclusion",
             "placement_or_decision_criteria",
+            "per_item_boundary_when_multiple_concepts_are_named",
             "evidence_state_or_limit",
         ],
         "forbidden_claims": ["unsupported", "unsupported_without_source", "memory_found_without_receipt"],
