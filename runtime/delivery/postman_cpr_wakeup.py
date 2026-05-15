@@ -216,8 +216,8 @@ def _node_taxonomy_lines(support: Mapping[str, Any]) -> list[str]:
 def _build_provider_cpr_wakeup_prompt(result: Mapping[str, Any]) -> str:
     return (
         "새 근거 갱신 알림입니다. 이 알림 자체는 답변 근거가 아닙니다. "
-        "Provider brief를 먼저 확인하고, 현재 질문과 비교해 필요할 때만 한 문장으로 정정하세요. "
-        "근거가 부족하거나 현재 답이 그대로 맞으면 그렇게 짧게 닫으세요. "
+        "Provider brief를 먼저 확인하고, 현재 질문과 비교해 필요할 때만 원 질문에 필요한 밀도로 정정하세요. "
+        "근거가 부족하거나 현재 답이 그대로 맞으면 그렇게 닫으세요. "
         "경로, 식별자, 개수 목록은 답변에 쓰지 마세요."
     )
 

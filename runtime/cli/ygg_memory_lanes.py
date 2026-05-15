@@ -687,11 +687,11 @@ def _build_recall_result(
         "schema_version": "provider_async_recall_answer_guidance.v1",
         "answer_state": "not_yet_confirmed" if wait_for_receipt and not receipt else "async_recall_queued" if not wait_for_receipt else "support_received",
         "immediate_action": (
-            "Answer the current safe core now; apply a later one-sentence correction if MF1 returns stronger source-backed support."
+            "Answer the current safe core now; if MF1 later returns stronger source-backed support, apply a correction with the density required by the original question."
             if not wait_for_receipt
             else "Use only returned support when it is source-backed; otherwise answer unsupported."
         ),
-        "later_backfill": "later one-sentence correction",
+        "later_backfill": "later_needed_density_correction",
         "forbidden_claims": ["unsupported", "unsupported_without_source", "memory_found_without_receipt"],
         "forbidden_surface": ["local_paths", "source_path_lists", "internal_receipt_payloads"],
     }
