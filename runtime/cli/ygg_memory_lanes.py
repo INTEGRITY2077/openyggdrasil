@@ -75,6 +75,12 @@ def _memory_lane_command(op: str, record: dict, mailbox: Path, vault: str) -> st
         return DEFAULT_MEMORY_SAVER_COMMAND if is_saver else DEFAULT_MEMORY_FINDER_COMMAND
     return None
 
+
+def _live_delivery_recipient_for(op: str) -> str:
+    if str(op).upper().startswith("OP") and str(op)[2:].isdigit():
+        return _canonical_alias_for_op(op)
+    return str(op).upper()
+
 def _run_operator(mode: str, mailbox: Path, vault: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "-m", "runtime.operator_entrypoint", mode,
@@ -191,7 +197,7 @@ def _postman_activate_native_lane(
     payload: dict,
 ) -> dict:
     return activate_native_lane(
-        op=op,
+        op=_live_delivery_recipient_for(op),
         label=_op_label(op),
         role_type=str(record.get("type") or ""),
         session=_ensure_memory_lane_tmux_name(op),
@@ -406,7 +412,7 @@ def cmd_tell(op: str, message: str, use_ptc: bool = False, memory_ticket: bool =
 
     try:
         delivery = submit_live_delivery(
-            recipient=op,
+            recipient=_live_delivery_recipient_for(op),
             message_type="memory_ticket" if memory_ticket else "save",
             payload=payload,
             provider_id=str(r.get("provider") or _provider_id()),
@@ -468,7 +474,7 @@ def cmd_ask(op: str, question: str, use_ptc: bool = False) -> None:
 
     try:
         delivery = submit_live_delivery(
-            recipient=op,
+            recipient=_live_delivery_recipient_for(op),
             message_type="query",
             payload=payload,
             provider_id=str(r.get("provider") or _provider_id()),
@@ -596,7 +602,7 @@ def _support_view_from_query_receipt(receipt: dict) -> dict:
     }
 
 def _query_receipt_for_mail_id(op: str, mail_id: str) -> dict:
-    path = SESSIONS_DIR / op / "query_receipts.jsonl"
+    path = SESSIONS_DIR / _live_delivery_recipient_for(op) / "query_receipts.jsonl"
     for _line, row in reversed(_jsonl_rows(path)):
         if row.get("in_reply_to") == mail_id or row.get("mail_id") == mail_id:
             return row
@@ -650,7 +656,7 @@ def _submit_recall_delivery(op: str, record: dict, label: str, question: str, pa
 
     try:
         return submit_live_delivery(
-            recipient=op,
+            recipient=_live_delivery_recipient_for(op),
             message_type="query",
             payload=payload,
             provider_id=str(record.get("provider") or _provider_id()),

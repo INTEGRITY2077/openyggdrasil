@@ -280,6 +280,3 @@ def retrying_file_lock(
             if time.monotonic() >= deadline:
                 raise TimeoutError(f"Timed out waiting for lock: {name}")
             time.sleep(poll_interval)
-
-
-ensure_runtime_state_root()

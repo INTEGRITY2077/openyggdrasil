@@ -40,6 +40,99 @@ def _append_jsonl(path: Path, row: dict) -> None:
     with path.open("a", encoding="utf-8") as stream:
         stream.write(json.dumps(row, ensure_ascii=False) + "\n")
 
+
+def _timestamp_value(value: object) -> float:
+    text = str(value or "").strip()
+    if not text:
+        return 0.0
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(text).timestamp()
+    except ValueError:
+        return 0.0
+
+
+def _latest_provider_inbox_handoff() -> dict:
+    path = REGISTRY_DIR / "sessions" / "provider_inbox.jsonl"
+    latest: dict = {}
+    for _line, row in _jsonl_rows(path):
+        if str(row.get("worker_role") or "") != "memory_finder":
+            continue
+        if not row.get("mail_id"):
+            continue
+        if _timestamp_value(row.get("timestamp")) >= _timestamp_value(latest.get("timestamp")):
+            latest = row
+    return latest
+
+
+def _bridge_latest_provider_handoff_to_cpr(record: dict, packets: list[dict]) -> tuple[list[dict], dict]:
+    handoff = _latest_provider_inbox_handoff()
+    if not handoff:
+        return packets, {"status": "not_applicable", "reason_code": "provider_inbox_handoff_missing"}
+    latest_packet = packets[-1] if packets else {}
+    latest_payload = latest_packet.get("payload") if isinstance(latest_packet, dict) else {}
+    latest_correlation = latest_payload.get("mailbox_correlation") if isinstance(latest_payload, dict) else {}
+    if (
+        isinstance(latest_correlation, dict)
+        and latest_correlation.get("mail_id") == handoff.get("mail_id")
+    ):
+        return packets, {"status": "not_applicable", "reason_code": "cpr_already_current"}
+    if packets and _timestamp_value(latest_packet.get("created_at")) >= _timestamp_value(handoff.get("timestamp")):
+        return packets, {"status": "not_applicable", "reason_code": "cpr_packet_newer_than_provider_handoff"}
+    provider_id = str(record.get("provider_id") or _provider_id())
+    provider_profile = str(record.get("provider_profile") or _provider_profile(provider_id))
+    provider_session_id = str(record.get("provider_session_id") or "")
+    if not provider_session_id:
+        return packets, {"status": "blocked", "reason_code": "provider_session_id_missing"}
+    try:
+        _ensure_runtime_path()
+        from delivery.postman_heartbeat_cpr import (  # noqa: PLC0415
+            inject_postman_heartbeat_cpr_to_provider_inbox,
+            read_postman_heartbeat_cpr_packets,
+        )
+
+        delivery = inject_postman_heartbeat_cpr_to_provider_inbox(
+            workspace_root=REPO,
+            provider_id=provider_id,
+            provider_profile=provider_profile,
+            provider_session_id=provider_session_id,
+            live_group={
+                "provider": {"status": "ready", "session_name": provider_session_id},
+                "ms1": {"status": "ready", "session_name": "ygg-ms1"},
+                "mf1": {"status": "ready", "session_name": "ygg-mf1"},
+            },
+            engine_status={
+                "tmux": {"status": "ready"},
+                "postman_helper": {"status": "ready"},
+                "mailbox": {"status": "ready"},
+                "receipt_registry": {"status": "ready", "receipt_id": handoff.get("receipt_id")},
+            },
+            mf1_receipt={
+                "mail_id": handoff.get("mail_id"),
+                "in_reply_to": handoff.get("mail_id"),
+                "receipt_id": handoff.get("receipt_id") or handoff.get("mail_id"),
+                "status": handoff.get("status"),
+                "bundle": handoff.get("bundle") or handoff.get("result_bundle") or {},
+            },
+            created_at=str(handoff.get("timestamp") or ""),
+        )
+        packets = read_postman_heartbeat_cpr_packets(
+            workspace_root=REPO,
+            provider_id=provider_id,
+            provider_profile=provider_profile,
+            provider_session_id=provider_session_id,
+        )
+    except Exception as exc:  # noqa: BLE001 - CPR read must still return the last known packet.
+        return packets, {"status": "failed", "reason_code": exc.__class__.__name__}
+    return packets, {
+        "status": delivery.get("delivery_status") or "created",
+        "reason_code": "provider_inbox_handoff_bridged",
+        "mail_id": handoff.get("mail_id"),
+        "message_id": delivery.get("message_id"),
+    }
+
+
 def _provider_cpr_blocked_result(record: dict, *, reason_code: str) -> dict:
     provider_inbox = record.get("provider_inbox") if isinstance(record, dict) else {}
     if not isinstance(provider_inbox, dict):
@@ -88,6 +181,7 @@ def _latest_provider_cpr_result(record: dict) -> dict:
         result = _provider_cpr_blocked_result(record, reason_code=f"cpr_read_failed:{exc.__class__.__name__}")
         result["error_class"] = exc.__class__.__name__
         return result
+    packets, bridge = _bridge_latest_provider_handoff_to_cpr(record, packets)
     if not packets:
         return _provider_cpr_blocked_result(record, reason_code="postman_cpr_packet_missing")
 
@@ -122,6 +216,7 @@ def _latest_provider_cpr_result(record: dict) -> dict:
         "packet_created_at": packet.get("created_at"),
         "packet_type": packet.get("packet_type"),
         "heartbeat_cpr_status": payload.get("heartbeat_cpr_status") if isinstance(payload, dict) else None,
+        "provider_inbox_bridge": bridge,
         "handoff_status": handoff.get("handoff_status") if isinstance(handoff, dict) else None,
         "manual_prompt_injection_required": handoff.get("manual_prompt_injection_required") if isinstance(handoff, dict) else None,
         "mailbox_correlation": {

@@ -25,6 +25,61 @@ def _provider_inbox_path(mailbox: Path) -> Path:
     return mailbox.parent / "provider_inbox.jsonl"
 
 
+def _provider_id() -> str:
+    return (os.environ.get("OY_PROVIDER_ID") or "hermes").strip() or "hermes"
+
+
+def _provider_profile(provider_id: str) -> str:
+    configured = (os.environ.get("OY_PROVIDER_PROFILE") or "").strip()
+    if configured:
+        return configured
+    return "openyggdrasil-provider" if provider_id == "hermes" else f"openyggdrasil-{provider_id}"
+
+
+def _provider_session_id() -> str:
+    return (
+        os.environ.get("YGG_PROVIDER_SESSION_ID")
+        or os.environ.get("OY_PROVIDER_SESSION_ID")
+        or "ygg-pro1"
+    ).strip() or "ygg-pro1"
+
+
+def _workspace_root(*, provider_id: str, provider_profile: str, provider_session_id: str) -> Path:
+    candidates = [
+        os.environ.get("OY_PROVIDER_WORKSPACE_ROOT"),
+        os.environ.get("OY_PRIVATE_DEV"),
+        str(Path(__file__).resolve().parents[2]),
+        os.environ.get("OPENYGGDRASIL_REPO"),
+    ]
+    seen: set[Path] = set()
+    roots = []
+    for candidate in candidates:
+        if not candidate:
+            continue
+        root = Path(candidate).expanduser()
+        if root in seen:
+            continue
+        seen.add(root)
+        roots.append(root)
+    try:
+        from runtime.attachments.provider_attachment import provider_attachment_root
+
+        for root in roots:
+            if (
+                provider_attachment_root(
+                    workspace_root=root,
+                    provider_id=provider_id,
+                    provider_profile=provider_profile,
+                    provider_session_id=provider_session_id,
+                )
+                / "session_attachment.v1.json"
+            ).exists():
+                return root
+    except Exception:
+        pass
+    return roots[0] if roots else Path(__file__).resolve().parents[2]
+
+
 def _worker_unit_index(mailbox: Path) -> int:
     name = mailbox.name.upper()
     if name.startswith("OP") and name[2:].isdigit():
@@ -140,6 +195,58 @@ def _support_counts(bundle: dict[str, Any] | None) -> tuple[int, int]:
         len(facts) if isinstance(facts, list) else 0,
         len(paths) if isinstance(paths, list) else 0,
     )
+
+
+def _inject_provider_cpr_handoff(
+    mailbox: Path,
+    *,
+    receipt: dict[str, Any],
+) -> dict[str, Any]:
+    if _worker_role_kind(mailbox) != "memory_finder":
+        return {"status": "not_applicable", "reason_code": "worker_role_not_memory_finder"}
+    provider_id = _provider_id()
+    provider_profile = _provider_profile(provider_id)
+    provider_session_id = _provider_session_id()
+    try:
+        from runtime.delivery.postman_heartbeat_cpr import inject_postman_heartbeat_cpr_to_provider_inbox
+
+        delivery = inject_postman_heartbeat_cpr_to_provider_inbox(
+            workspace_root=_workspace_root(
+                provider_id=provider_id,
+                provider_profile=provider_profile,
+                provider_session_id=provider_session_id,
+            ),
+            provider_id=provider_id,
+            provider_profile=provider_profile,
+            provider_session_id=provider_session_id,
+            live_group={
+                "provider": {"status": "ready", "session_name": provider_session_id},
+                "ms1": {"status": "ready", "session_name": "ygg-ms1"},
+                "mf1": {"status": "ready", "session_name": "ygg-mf1"},
+            },
+            engine_status={
+                "tmux": {"status": "ready"},
+                "postman_helper": {"status": "ready"},
+                "mailbox": {"status": "ready"},
+                "receipt_registry": {"status": "ready", "receipt_id": receipt.get("receipt_id")},
+            },
+            mf1_receipt=receipt,
+        )
+    except Exception as exc:  # noqa: BLE001 - CPR handoff must not break receipt recording.
+        return {
+            "status": "failed",
+            "reason_code": exc.__class__.__name__,
+            "provider_session_id": provider_session_id,
+        }
+    payload = delivery.get("payload") if isinstance(delivery, dict) else {}
+    handoff = payload.get("provider_inbox_handoff") if isinstance(payload, dict) else {}
+    return {
+        "status": delivery.get("delivery_status") or "created",
+        "heartbeat_cpr_status": payload.get("heartbeat_cpr_status") if isinstance(payload, dict) else None,
+        "handoff_status": handoff.get("handoff_status") if isinstance(handoff, dict) else None,
+        "provider_session_id": provider_session_id,
+        "message_id": delivery.get("message_id"),
+    }
 
 
 def _native_result_projection_text(
@@ -357,6 +464,28 @@ def deliver_operator_result(
         )
     except OSError:
         pass
+
+    provider_cpr = _inject_provider_cpr_handoff(mailbox, receipt=receipt)
+    receipt["provider_cpr"] = provider_cpr
+    if provider_cpr.get("status") != "not_applicable":
+        try:
+            append_jsonl(
+                mailbox / "postman_observations.jsonl",
+                {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "sender": "Postman",
+                    "receiver": "Provider",
+                    "worker_surface": _worker_surface_label(mailbox),
+                    "worker_role": _worker_role_kind(mailbox),
+                    "mail_id": mail_id,
+                    "delivery_mode": "provider_cpr_packet",
+                    "delivery_owner": "postman",
+                    "provider_cpr": provider_cpr,
+                    "hard_nonclaim": "cpr_packet_is_handoff_metadata_not_answer_material",
+                },
+            )
+        except OSError:
+            pass
 
     try:
         projection = _project_native_receipt_notice(

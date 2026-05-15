@@ -272,7 +272,22 @@ def _typed_unavailable_from(source: Mapping[str, Any]) -> dict[str, Any] | None:
         return None
     payload = dict(value)
     if payload.get("schema_version") == "typed_unavailable.v1":
-        validate_typed_unavailable(payload)
+        try:
+            validate_typed_unavailable(payload)
+        except Exception:
+            raw_reason = _clean_string(payload.get("reason_code"), max_length=96) or "worker_typed_unavailable"
+            payload = build_typed_unavailable(
+                reason_code="consumer_ingress_blocked",
+                blocked_stage="recall_support_bundle",
+                unavailable_ref=f"typed-unavailable-ref://openyggdrasil/postman-cpr/{raw_reason}",
+                missing_or_rejected_refs=[
+                    {
+                        "ref": f"typed-unavailable-ref://openyggdrasil/postman-cpr/raw/{raw_reason}",
+                        "reason_code": raw_reason,
+                        "rejection_kind": "unresolved",
+                    }
+                ],
+            )
     return payload
 
 

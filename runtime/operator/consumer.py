@@ -225,11 +225,12 @@ def _generic_boundary_alignment(*, query_text: str, support_tokens: set[str]) ->
 
 
 def _high_specificity_tokens(text: str) -> set[str]:
-    return {
-        token
-        for token in _tokens(text)
-        if any(ch.isdigit() for ch in token) or "_" in token or len(token) >= 24
-    }
+    terms: set[str] = set()
+    for token in _tokens(text):
+        normalized = _normalize_query_term(token)
+        if any(ch.isdigit() for ch in token) or "_" in token or "-" in token or len(normalized) >= 24:
+            terms.add(normalized)
+    return terms
 
 
 def _support_text(value) -> str:
@@ -273,7 +274,7 @@ def _memory_finder_alignment(*, query_text: str, bundle: dict) -> dict:
     support_tokens = _tokens(support_text)
     normalized_support_tokens = _normalized_tokens(support_text)
     high_specificity = _high_specificity_tokens(query_text)
-    missing_specific = sorted(token for token in high_specificity if token not in support_tokens)
+    missing_specific = sorted(token for token in high_specificity if token not in normalized_support_tokens)
     overlap = sorted(query_tokens & support_tokens)
     overlap_score = 0.0 if not query_tokens else len(overlap) / max(len(query_tokens), 1)
     boundary_alignment = _generic_boundary_alignment(query_text=query_text, support_tokens=normalized_support_tokens)
@@ -304,7 +305,7 @@ def _memory_finder_alignment(*, query_text: str, bundle: dict) -> dict:
         "query_token_count": len(query_tokens),
         "support_token_count": len(support_tokens),
         "overlap_score": round(overlap_score, 4),
-        "matched_specific_tokens": sorted(token for token in high_specificity if token in support_tokens)[:20],
+        "matched_specific_tokens": sorted(token for token in high_specificity if token in normalized_support_tokens)[:20],
         "missing_specific_tokens": missing_specific[:20],
         "missing_boundary_markers": missing_boundary_markers,
         "boundary_alignment": boundary_alignment,
