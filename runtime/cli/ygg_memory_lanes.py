@@ -692,6 +692,11 @@ def _build_recall_result(
             else "Use only returned support when it is source-backed; otherwise answer unsupported."
         ),
         "later_backfill": "later_needed_density_correction",
+        "minimum_answer_shape": [
+            "core_conclusion",
+            "placement_or_decision_criteria",
+            "evidence_state_or_limit",
+        ],
         "forbidden_claims": ["unsupported", "unsupported_without_source", "memory_found_without_receipt"],
         "forbidden_surface": ["local_paths", "source_path_lists", "internal_receipt_payloads"],
     }
