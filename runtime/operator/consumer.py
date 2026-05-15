@@ -78,9 +78,11 @@ _GENERIC_QUERY_STOPWORDS = {
     "같은",
     "것",
     "그",
+    "그럼",
     "기준",
     "기준을",
     "나오면",
+    "나중",
     "나중에도",
     "다시",
     "되겠지",
@@ -89,6 +91,8 @@ _GENERIC_QUERY_STOPWORDS = {
     "배치",
     "세",
     "쓰게",
+    "써",
+    "써도",
     "않게",
     "유지하면",
     "종류",
@@ -214,6 +218,11 @@ def _normalize_query_term(token: str) -> str:
     normalized = token.lower().replace("_", "-").strip("-")
     if normalized.isascii() and len(normalized) > 4 and normalized.endswith("s") and not normalized.endswith("ss"):
         normalized = normalized[:-1]
+    if not normalized.isascii():
+        for suffix in ("으로", "에서", "에게", "까지", "부터", "처럼", "에도", "이라도", "이라면", "이면", "은", "는", "이", "가", "을", "를", "과", "와", "도", "만", "에", "로"):
+            if normalized.endswith(suffix) and len(normalized) > len(suffix) + 1:
+                normalized = normalized[: -len(suffix)]
+                break
     return normalized
 
 
@@ -228,6 +237,8 @@ def _significant_query_terms(text: str) -> set[str]:
         if not normalized or normalized in _GENERIC_QUERY_STOPWORDS:
             continue
         if len(normalized) < 3 and normalized.isascii():
+            continue
+        if not normalized.isascii() and (len(normalized) < 2 or "겠" in normalized):
             continue
         terms.add(normalized)
     return terms
