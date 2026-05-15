@@ -132,6 +132,7 @@ def _activation_prompt(
             "SOT=mailbox work_order row before deciding",
             "first_visible_step=mailbox_row_resolved then accepted/rejected evidence",
             "process_step=run_role_owned_mailbox_processor_before_missing_receipt_close",
+            "processor_entrypoint=configured role-owned mailbox processor",
             "missing_receipt_close_only_after_processor_attempt",
             "final_step=close_mailbox_receipt_or_typed_unavailable",
             "route_only_no_semantic_payload",
@@ -154,8 +155,8 @@ def verify_visible_notice_contract() -> dict[str, Any]:
     return {
         "schema_version": "postman_visible_notice_contract_check.v1",
         "status": "pass" if not leaked else "fail",
-        "hidden_by_default_env": "OY_POSTMAN_VISIBLE_CPR=0",
-        "visible_mode_policy": "dev_fallback_only",
+        "visible_by_default_env": "OY_POSTMAN_VISIBLE_CPR defaults to 1; set 0 only when a worker loop is independently observed",
+        "visible_mode_policy": "pane_centered_route_only_wakeup",
         "mission_summary_included": False,
         "semantic_material_terms_present": leaked,
         "cancel_existing_prompt": False,
@@ -212,7 +213,7 @@ def activate_native_lane(
     }
     _append_jsonl(sessions_dir / op / "work_history.jsonl", work_history)
 
-    visible_cpr = os.environ.get("OY_POSTMAN_VISIBLE_CPR", "0") == "1"
+    visible_cpr = os.environ.get("OY_POSTMAN_VISIBLE_CPR", "1") != "0"
     prompt = ""
     if visible_cpr:
         prompt = _activation_prompt(
@@ -237,7 +238,7 @@ def activate_native_lane(
         "semantic_receipt_included": False,
         "visible_notice_semantic_material_included": False,
         "cancel_existing_prompt": False,
-        "prompt_contract": "hidden_by_default_route_only_notice_when_visible",
+        "prompt_contract": "visible_by_default_route_only_notice",
         "visible_cpr": visible_cpr,
     }
     _append_jsonl(registry_dir / "postman" / "activation_log.jsonl", result)

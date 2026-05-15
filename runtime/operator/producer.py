@@ -85,12 +85,15 @@ def run_producer(mailbox: Path, vault: Path):
         log_event("producer_no_messages")
         return
 
-    # Load completed
+    # Load completed. A typed_unavailable close is not a durable save success and
+    # must not permanently block a later role-owned processor retry.
     completed = set()
     if receipts_file.exists():
         for line in receipts_file.read_text(encoding="utf-8").splitlines():
             if line.strip():
-                completed.add(json.loads(line).get("in_reply_to"))
+                row = json.loads(line)
+                if row.get("status") in {"acknowledged", "completed", "delivered"} and int(row.get("produced_count") or 0) > 0:
+                    completed.add(row.get("in_reply_to"))
 
     # Process pending
     for line in messages_file.read_text(encoding="utf-8").splitlines():

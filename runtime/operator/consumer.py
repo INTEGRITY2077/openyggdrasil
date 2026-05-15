@@ -640,6 +640,7 @@ def _boundary_fallback_bundle(
             ],
         }
     diagnostic_context = _diagnostic_support_context(prior_bundle if isinstance(prior_bundle, dict) else {})
+    prior_safe_index_cursor = diagnostic_context.pop("safe_index_cursor", None)
     return {
         "schema_version": "boundary_fallback_support_bundle.v1",
         "query": query_text,
@@ -665,6 +666,7 @@ def _boundary_fallback_bundle(
             "candidate_count": len(candidates),
             "selected_count": len(selected),
             "selected_paths": source_paths,
+            "prior_safe_index_cursor": prior_safe_index_cursor,
             "prior_support_summary": {
                 "support_fact_count": len(_support_facts_and_paths(prior_bundle)[0]),
                 "source_path_count": len(_support_facts_and_paths(prior_bundle)[1]),
@@ -733,6 +735,7 @@ def _prepare_memory_finder_bundle_with_fallback(
     if receipt_status not in {
         "typed_unavailable_misaligned_support",
         "typed_unavailable_support_facts_or_source_paths_missing",
+        "typed_unavailable_unsafe_index_cursor",
     }:
         return prepared, receipt_status
     fallback = _boundary_fallback_bundle(
