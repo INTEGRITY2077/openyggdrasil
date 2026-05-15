@@ -683,22 +683,33 @@ def _build_recall_result(
     else:
         status = "accepted"
         reason_code = "find_request_delivered_async"
+    minimum_answer_shape = [
+        "core_conclusion",
+        "placement_or_decision_criteria",
+        "per_item_boundary_when_multiple_concepts_are_named",
+        "evidence_state_or_limit",
+    ]
     provider_answer_guidance = {
         "schema_version": "provider_async_recall_answer_guidance.v1",
         "answer_state": "not_yet_confirmed" if wait_for_receipt and not receipt else "async_recall_queued" if not wait_for_receipt else "support_received",
         "immediate_action": (
             "Answer the current safe core now; if MF1 later returns stronger source-backed support, apply a correction with the density required by the original question. If the user asks to be brief, remove filler without collapsing multi-concept boundary answers into an unstructured single sentence."
             if not wait_for_receipt
-            else "Use only returned support when it is source-backed; otherwise answer unsupported."
+            else "Use returned support only when it is source-backed. If support is missing or weak, give a structured unavailable answer with the same compact shape instead of a bare 'unsupported' token."
         ),
         "later_backfill": "later_needed_density_correction",
-        "minimum_answer_shape": [
-            "core_conclusion",
-            "placement_or_decision_criteria",
-            "per_item_boundary_when_multiple_concepts_are_named",
-            "evidence_state_or_limit",
+        "minimum_answer_shape": minimum_answer_shape,
+        "unavailable_answer_shape": [
+            "core_limit",
+            "what_was_checked_or_requested",
+            "what_would_make_it_supported",
         ],
         "forbidden_claims": ["unsupported", "unsupported_without_source", "memory_found_without_receipt"],
+        "forbidden_answer_shapes": [
+            "bare_unsupported",
+            "one_sentence_collapse_for_multi_concept_boundary",
+            "single_token_or_single_clause_when_the_question_names_multiple_concepts",
+        ],
         "forbidden_surface": ["local_paths", "source_path_lists", "internal_receipt_payloads"],
     }
     return {
