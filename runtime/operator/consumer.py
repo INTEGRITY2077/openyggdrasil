@@ -137,6 +137,12 @@ except ImportError as exc:
     build_ptc_retrieval_orchestrator_result = None
 
 try:
+    from runtime.retrieval.safe_index_cursor import evaluate_safe_index_cursor
+except ImportError as exc:
+    log_event("optional_import_unavailable", module="runtime.retrieval.safe_index_cursor", reason=str(exc))
+    evaluate_safe_index_cursor = None
+
+try:
     from runtime.ptc.tool_search_supervisor import build_memory_finder_tst_result
 except ImportError as exc:
     log_event("optional_import_unavailable", module="runtime.ptc.tool_search_supervisor", reason=str(exc))
@@ -479,15 +485,39 @@ def _boundary_fallback_bundle(
         for row in selected
     ]
     source_paths = [row["path"] for row in selected]
+    if evaluate_safe_index_cursor is not None:
+        try:
+            safe_index_cursor = evaluate_safe_index_cursor(vault_root=vault, source_paths=source_paths)
+        except Exception as exc:  # pragma: no cover - defensive receipt preservation
+            safe_index_cursor = {
+                "schema_version": "safe_index_cursor_check.v1",
+                "status": "invalid",
+                "final_support_allowed": False,
+                "reason": exc.__class__.__name__,
+                "hard_nonclaims": [
+                    "safe_cursor_evaluation_error_is_not_safe_support",
+                ],
+            }
+    else:
+        safe_index_cursor = {
+            "schema_version": "safe_index_cursor_check.v1",
+            "status": "unavailable",
+            "final_support_allowed": False,
+            "hard_nonclaims": [
+                "safe_cursor_evaluator_missing_is_not_safe_support",
+            ],
+        }
     return {
         "schema_version": "boundary_fallback_support_bundle.v1",
         "query": query_text,
         "support_facts": support_facts,
         "source_paths": source_paths,
+        "safe_index_cursor": safe_index_cursor,
         "support_bundle": {
             "schema_version": "support_bundle.v1",
             "support_facts": support_facts,
             "source_paths": source_paths,
+            "safe_index_cursor": safe_index_cursor,
             "hard_nonclaims": [
                 "boundary_fallback_candidate_still_requires_alignment_gate",
                 "source_path_presence_is_not_final_answer",
@@ -520,7 +550,10 @@ def _prepare_memory_finder_bundle(*, query_text: str, bundle: dict, status: str)
         return _insufficient_support_bundle(query_text=query_text, bundle=prepared, alignment=alignment), (
             "typed_unavailable_support_facts_or_source_paths_missing"
         )
-    if status == "completed" and _safe_index_cursor(prepared).get("status") == "outside":
+    safe_index_cursor = _safe_index_cursor(prepared)
+    if status == "completed" and (
+        safe_index_cursor.get("status") == "outside" or safe_index_cursor.get("final_support_allowed") is False
+    ):
         return _unsafe_cursor_bundle(query_text=query_text, bundle=prepared, alignment=alignment), (
             "typed_unavailable_unsafe_index_cursor"
         )

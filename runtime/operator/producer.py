@@ -760,9 +760,11 @@ def _write_safe_index_cursor_sync(vault: Path, *, ring_id: str, paths: dict) -> 
             write_safe_index_cursor,
         )
 
+        existing_cursor = load_safe_index_cursor(vault)
+        existing_committed_paths = list(existing_cursor.get("committed_paths") or [])
         cursor_path = write_safe_index_cursor(
             vault_root=vault,
-            committed_paths=committed_paths,
+            committed_paths=[*existing_committed_paths, *committed_paths],
             cursor_id=f"cursor:{ring_id}",
             source="memory_ticket_producer",
         )
