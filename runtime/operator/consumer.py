@@ -29,6 +29,24 @@ from runtime.ptc.primitives import (
 from .helpers import deliver_receipt, write_operator_receipt
 
 
+try:  # jsonschema is a runtime dependency of the PTC trace validator.
+    from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
+except Exception:  # pragma: no cover - dependency absence should not break import
+    JsonSchemaValidationError = None  # type: ignore[assignment]
+
+_EXTRA_RECOVERABLE_ERRORS: tuple[type[BaseException], ...] = (
+    (JsonSchemaValidationError,) if JsonSchemaValidationError is not None else ()
+)
+RECOVERABLE_CONSUMER_ERRORS: tuple[type[BaseException], ...] = (
+    KeyError,
+    TypeError,
+    ValueError,
+    OSError,
+    RuntimeError,
+    *_EXTRA_RECOVERABLE_ERRORS,
+)
+
+
 _WORD_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{1,}|[\uac00-\ud7a3]{2,}")
 _GENERIC_QUERY_STOPWORDS = {
     "about",
@@ -219,8 +237,54 @@ def _support_facts_and_paths(bundle: dict) -> tuple[list, list]:
     return list(facts or []), list(paths or [])
 
 
+_SUPPORT_CONTEXT_KEYS = (
+    "topic_key",
+    "topic_id",
+    "ring_ids",
+    "ring_id",
+    "community_id",
+    "community_edges",
+    "semantic_edges",
+    "origin_claims",
+    "recent_rings",
+    "safe_index_cursor",
+    "node_taxonomy",
+    "continent",
+    "node_type",
+    "topography_level",
+    "community_role",
+)
+
+
+def _diagnostic_support_context(bundle: dict) -> dict:
+    """Preserve non-authoritative ring context across typed-unavailable closes."""
+
+    nested = bundle.get("support_bundle") if isinstance(bundle.get("support_bundle"), dict) else {}
+    context: dict = {}
+    for key in _SUPPORT_CONTEXT_KEYS:
+        value = bundle.get(key)
+        if value in (None, "", [], {}):
+            value = nested.get(key)
+        if value not in (None, "", [], {}):
+            context[key] = value
+    return context
+
+
 def _tokens(text: str) -> set[str]:
     return {match.group(0).lower() for match in _WORD_RE.finditer(text or "")}
+
+
+def _query_text_without_context_anchor(text: str) -> str:
+    """Remove Provider recall-hook context anchors from semantic hard gates."""
+
+    kept: list[str] = []
+    for raw_line in str(text or "").splitlines():
+        line = raw_line.strip()
+        lowered = line.casefold()
+        if line.startswith("관련 맥락 앵커:") or "context anchor" in lowered:
+            continue
+        kept.append(raw_line)
+    return "\n".join(kept).strip()
 
 
 def _normalize_query_term(token: str) -> str:
@@ -329,14 +393,15 @@ def _memory_finder_alignment(*, query_text: str, bundle: dict) -> dict:
             _support_text((bundle or {}).get("support_bundle") if isinstance(bundle, dict) else {}),
         ]
     )
-    query_tokens = _tokens(query_text)
+    semantic_query_text = _query_text_without_context_anchor(query_text)
+    query_tokens = _tokens(semantic_query_text)
     support_tokens = _tokens(support_text)
     normalized_support_tokens = _normalized_tokens(support_text)
-    high_specificity = _high_specificity_tokens(query_text)
+    high_specificity = _high_specificity_tokens(semantic_query_text)
     missing_specific = sorted(token for token in high_specificity if token not in normalized_support_tokens)
     overlap = sorted(query_tokens & support_tokens)
     overlap_score = 0.0 if not query_tokens else len(overlap) / max(len(query_tokens), 1)
-    boundary_alignment = _generic_boundary_alignment(query_text=query_text, support_tokens=normalized_support_tokens)
+    boundary_alignment = _generic_boundary_alignment(query_text=semantic_query_text, support_tokens=normalized_support_tokens)
     missing_boundary_markers: list[str] = []
     if boundary_alignment["applies"] and len(boundary_alignment["covered_terms"]) < 2:
         missing_boundary_markers.extend(
@@ -401,6 +466,7 @@ def _misaligned_support_bundle(*, query_text: str, bundle: dict, alignment: dict
         "support_facts": [],
         "source_paths": [],
         "typed_unavailable": typed_unavailable,
+        **_diagnostic_support_context(guarded),
     }
     guarded["worker_query_alignment"] = alignment
     return guarded
@@ -434,6 +500,7 @@ def _insufficient_support_bundle(*, query_text: str, bundle: dict, alignment: di
         "support_facts": [],
         "source_paths": [],
         "typed_unavailable": typed_unavailable,
+        **_diagnostic_support_context(guarded),
     }
     guarded["worker_query_alignment"] = alignment
     return guarded
@@ -479,6 +546,7 @@ def _unsafe_cursor_bundle(*, query_text: str, bundle: dict, alignment: dict) -> 
         "support_facts": [],
         "source_paths": [],
         "typed_unavailable": typed_unavailable,
+        **_diagnostic_support_context(guarded),
     }
     guarded["worker_query_alignment"] = alignment
     return guarded
@@ -571,17 +639,20 @@ def _boundary_fallback_bundle(
                 "safe_cursor_evaluator_missing_is_not_safe_support",
             ],
         }
+    diagnostic_context = _diagnostic_support_context(prior_bundle if isinstance(prior_bundle, dict) else {})
     return {
         "schema_version": "boundary_fallback_support_bundle.v1",
         "query": query_text,
         "support_facts": support_facts,
         "source_paths": source_paths,
         "safe_index_cursor": safe_index_cursor,
+        **diagnostic_context,
         "support_bundle": {
             "schema_version": "support_bundle.v1",
             "support_facts": support_facts,
             "source_paths": source_paths,
             "safe_index_cursor": safe_index_cursor,
+            **diagnostic_context,
             "hard_nonclaims": [
                 "boundary_fallback_candidate_still_requires_alignment_gate",
                 "source_path_presence_is_not_final_answer",
@@ -681,6 +752,8 @@ def _prepare_memory_finder_bundle_with_fallback(
     ):
         if key in prepared and key not in fallback:
             fallback[key] = prepared[key]
+    for key, value in _diagnostic_support_context(prepared).items():
+        fallback.setdefault(key, value)
     fallback["initial_worker_query_alignment"] = prepared.get("worker_query_alignment")
     return _prepare_memory_finder_bundle(
         query_text=query_text,
@@ -900,7 +973,7 @@ def run_consumer(mailbox: Path, vault: Path):
                     )
                     pathfinder_plan = tst_supervisor_result.get("pathfinder_plan") or {}
                     pathfinder_runtime = tst_supervisor_result.get("pathfinder_runtime") or {}
-                except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
+                except RECOVERABLE_CONSUMER_ERRORS as exc:
                     pathfinder_error = type(exc).__name__
             elif (
                 build_query_adaptive_pathfinder_plan is not None
@@ -927,7 +1000,7 @@ def run_consumer(mailbox: Path, vault: Path):
                         "final_result": trace.get("final_result") or {},
                         "reason_codes": trace.get("reason_codes") or [],
                     }
-                except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
+                except RECOVERABLE_CONSUMER_ERRORS as exc:
                     pathfinder_error = type(exc).__name__
             if build_ptc_retrieval_orchestrator_result is not None:
                 try:
@@ -1085,7 +1158,7 @@ def run_consumer(mailbox: Path, vault: Path):
                     )
                     deliver_receipt(mailbox, msg["mail_id"], status=receipt_status, result_bundle=bundle)
                     continue
-                except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
+                except RECOVERABLE_CONSUMER_ERRORS as exc:
                     log_event("ptc_retrieval_orchestrator_skip", reason=type(exc).__name__)
             stdout = (ptc_result.get("stdout", "") or "")[:3000] if ptc_result else ""
             degraded_bundle = {
@@ -1141,7 +1214,7 @@ def run_consumer(mailbox: Path, vault: Path):
                             or tst_result.get("tst_supervisor")
                             or None
                         )
-                    except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
+                    except RECOVERABLE_CONSUMER_ERRORS as exc:
                         bundle["tst_capability_supervisor"] = {
                             "schema_version": "tst_capability_supervisor.v1",
                             "status": "typed_unavailable",
@@ -1171,7 +1244,7 @@ def run_consumer(mailbox: Path, vault: Path):
                 )
                 deliver_receipt(mailbox, msg["mail_id"], status=receipt_status, result_bundle=bundle)
                 continue
-            except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
+            except RECOVERABLE_CONSUMER_ERRORS as exc:
                 log_event("ptc_retrieval_orchestrator_skip", reason=type(exc).__name__)
 
         # 고정 경로
@@ -1213,7 +1286,7 @@ def run_consumer(mailbox: Path, vault: Path):
                                       depth=parsed["result"].get("depth_reached"))
                     except (json.JSONDecodeError, KeyError, TypeError):
                         pass
-            except (OSError, RuntimeError, ValueError, TypeError):
+            except RECOVERABLE_CONSUMER_ERRORS:
                 pass
 
         bundle = format_consumer_result(query_text, matches)
@@ -1228,7 +1301,7 @@ def run_consumer(mailbox: Path, vault: Path):
                     if bundle.get("korean_query_expansion"):
                         ring_bundle["korean_query_expansion"] = bundle["korean_query_expansion"]
                     bundle["support_bundle"] = ring_bundle
-            except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
+            except RECOVERABLE_CONSUMER_ERRORS as exc:
                 log_event("ring_support_bundle_skip", reason=type(exc).__name__)
         bundle, receipt_status = _prepare_memory_finder_bundle_with_fallback(
             query_text=query_text,

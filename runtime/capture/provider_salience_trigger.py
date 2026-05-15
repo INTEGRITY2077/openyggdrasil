@@ -26,6 +26,30 @@ def _has_durable_reuse_signal(text: str, lowered: str) -> bool:
     )
 
 
+def _has_agent_runtime_distribution_boundary(text: str, lowered: str) -> bool:
+    has_agent_surface = _contains_any(
+        lowered,
+        (
+            "agent",
+            "agents",
+            "subagent",
+            "subagents",
+            "main agent",
+            "agent team",
+            "plugin agents",
+        ),
+    )
+    has_runtime_surface = _contains_any(
+        lowered,
+        ("runtime", "execution", "execute", "model", "main-thread", "main thread"),
+    ) or _contains_any(text, ("실행", "런타임", "모델"))
+    has_distribution_surface = _contains_any(
+        lowered,
+        ("distribution", "definition", "packaged", "plugin", ".claude/agents", "--agents"),
+    ) or _contains_any(text, ("배포", "정의", "위치", "플러그인"))
+    return has_agent_surface and has_runtime_surface and has_distribution_surface
+
+
 def _base_emit(
     *,
     paragraph: str,
@@ -100,11 +124,7 @@ def detect_provider_memory_salience(paragraph: str) -> dict[str, Any]:
             why_not_atomic="The authoring rule depends on paragraph scope, category/community placement, and anti-atomization.",
         )
 
-    if (
-        _has_durable_reuse_signal(text, lowered)
-        and not _has_explicit_save_command(text, lowered)
-        and not _contains_any(text, ("CLAUDE.md", "auto memory", "Hook", "Skill", "MCP", "Plugin", "agents", "skills"))
-    ):
+    if _has_durable_reuse_signal(text, lowered) and not _has_explicit_save_command(text, lowered):
         return _base_emit(
             paragraph=text,
             trigger_kind="durable_reuse_signal",
@@ -182,6 +202,28 @@ def detect_provider_memory_salience(paragraph: str) -> dict[str, Any]:
             why_not_atomic="The rule combines audience, exposed surface, hidden internals, exceptions, and failure cases.",
             canonical_topic_key="public-readme-affordance-boundary",
             canonical_topic_title="Public README affordance boundary",
+        )
+
+    if _has_agent_runtime_distribution_boundary(text, lowered):
+        return _base_emit(
+            paragraph=text,
+            trigger_kind="category_community_shift",
+            intent_field=(
+                "The exchange forms reusable criteria for separating agent execution models "
+                "from agent definition or distribution locations."
+            ),
+            topic_hint="Claude Code agent runtime and distribution boundary",
+            category_community_hint="Claude Code documentation boundary / agent runtime and distribution boundary",
+            breadcrumb=(
+                "Keep main agent, subagent, and agent team in the execution-model surface; "
+                "keep plugin-packaged or file-based agent definitions in the distribution surface."
+            ),
+            why_not_atomic=(
+                "The rule only works when execution role, packaging location, and documentation "
+                "placement are preserved together."
+            ),
+            canonical_topic_key="claude-code-agent-runtime-distribution-boundary",
+            canonical_topic_title="Claude Code agent runtime and distribution boundary",
         )
 
     if _contains_any(lowered, ("agent", "agents", "subagent", "subagents")) and _contains_any(

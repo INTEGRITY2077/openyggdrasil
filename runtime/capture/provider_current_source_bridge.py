@@ -395,6 +395,57 @@ def _provider_exchange_memory_fields(*, user_text: str, assistant_text: str) -> 
             "canonical_topic_key": "public-readme-affordance-boundary",
         }
     lowered = combined.lower()
+    has_agent_runtime_distribution_boundary = (
+        any(
+            marker in lowered
+            for marker in (
+                "agent",
+                "agents",
+                "subagent",
+                "subagents",
+                "main agent",
+                "agent team",
+                "plugin agents",
+            )
+        )
+        and (
+            any(
+                marker in lowered
+                for marker in ("runtime", "execution", "execute", "model", "main-thread", "main thread")
+            )
+            or any(marker in combined for marker in ("실행", "런타임", "모델"))
+        )
+        and (
+            any(
+                marker in lowered
+                for marker in ("distribution", "definition", "packaged", "plugin", ".claude/agents", "--agents")
+            )
+            or any(marker in combined for marker in ("배포", "정의", "위치", "플러그인"))
+        )
+    )
+    if has_agent_runtime_distribution_boundary:
+        return {
+            "decision": (
+                "Claude Code agent documentation should separate execution models from definition "
+                "or distribution locations: main agent, subagent, and agent team describe how work "
+                "runs; plugin agents, file-based agents, and command-injected agents describe where "
+                "agent definitions are packaged or supplied."
+            ),
+            "context": (
+                "A natural Provider exchange distinguished subagent, agent team, main agent, and "
+                "plugin agents for team documentation."
+            ),
+            "conclusion": (
+                "Use one execution-model surface for main agent, subagent, and agent team; use a "
+                "separate distribution/definition surface for plugin-packaged or file-based agent definitions."
+            ),
+            "reuse_condition": (
+                "Use when a later Claude Code documentation question asks whether an agent concept "
+                "belongs to runtime execution or definition/distribution placement."
+            ),
+            "canonical_topic_title": "Claude Code agent runtime and distribution boundary",
+            "canonical_topic_key": "claude-code-agent-runtime-distribution-boundary",
+        }
     if any(marker in lowered for marker in ("agent", "agents", "subagent", "subagents")) and any(
         marker in lowered for marker in ("skill", "skills")
     ):
