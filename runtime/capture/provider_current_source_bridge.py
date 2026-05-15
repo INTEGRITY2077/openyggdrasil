@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -14,8 +15,6 @@ from runtime.capture.provider_salience_trigger import detect_provider_memory_sal
 SCHEMA_VERSION = "provider_current_source_bridge.v1"
 MEMORY_TICKET_SCHEMA_VERSION = "memory_ticket.v1"
 CANONICAL_DECOMPOSITION_GUARD = "preserve_paragraph_intent_before_decision_atoms"
-BOUNDARY_CANONICAL_TOPIC_TITLE = "OpenYggdrasil과 Hermes 기본 기억의 책임 경계"
-BOUNDARY_CANONICAL_TOPIC_KEY = "openyggdrasil-hermes-memory-boundary"
 ALLOWED_SOURCE_REF_SCHEMES = {"hermes-session-json", "provider-session-json"}
 ALLOWED_MIN_SPLIT_UNITS = {"paragraph_intent", "topic_decision_cluster"}
 ALLOWED_TRIGGER_KINDS = {
@@ -92,12 +91,7 @@ def build_provider_current_source_bridge(
     sessions_dir: str | Path,
     created_at: str | None = None,
 ) -> dict[str, Any]:
-    """Capture a Provider-authored final answer as a bounded current source.
-
-    The bridge writes the answer to a Hermes-session-json-compatible local
-    source file, then returns only source pointers, range, hash, and watermark.
-    It does not write raw Provider text to Vault and does not claim MS storage.
-    """
+    """Capture a Provider-authored final answer as a bounded source pointer."""
 
     provider_id = _clean_required_text(provider_id)
     provider_profile = _clean_required_text(provider_profile)
@@ -120,13 +114,14 @@ def build_provider_current_source_bridge(
     session_path = _session_path(sessions_dir=sessions_dir, provider_session_id=provider_session_id)
     messages = _load_messages(session_path)
     start = len(messages)
-    message = {
-        "role": "assistant",
-        "content": final_answer_text,
-        "created_at": created_at,
-        "source_surface": "provider_final_answer",
-    }
-    messages.append(message)
+    messages.append(
+        {
+            "role": "assistant",
+            "content": final_answer_text,
+            "created_at": created_at,
+            "source_surface": "provider_final_answer",
+        }
+    )
     end = len(messages) - 1
     selected = messages[start : end + 1]
     anchor_hash = _canonical_anchor_hash(selected)
@@ -151,10 +146,6 @@ def build_provider_current_source_bridge(
         "commit_watermark": commit_watermark,
         "origin_locator": origin_locator,
     }
-    memory_ticket_source_fields = {
-        **provider_visible_card,
-        "resolver_options": {"sessions_dir": str(sessions_dir.resolve())},
-    }
     return {
         "schema_version": SCHEMA_VERSION,
         "status": "ready",
@@ -163,7 +154,10 @@ def build_provider_current_source_bridge(
         "provider_profile": provider_profile,
         "provider_session_id": provider_session_id,
         "provider_visible_card": provider_visible_card,
-        "memory_ticket_source_fields": memory_ticket_source_fields,
+        "memory_ticket_source_fields": {
+            **provider_visible_card,
+            "resolver_options": {"sessions_dir": str(sessions_dir.resolve())},
+        },
         "local_source": {
             "session_path": str(session_path.resolve()),
             "local_path_not_for_provider_answer": True,
@@ -182,7 +176,7 @@ def build_provider_exchange_current_source_bridge(
     sessions_dir: str | Path,
     created_at: str | None = None,
 ) -> dict[str, Any]:
-    """Capture a bounded user/assistant exchange as a source_ref pointer."""
+    """Capture a bounded user/assistant exchange as a source pointer."""
 
     provider_id = _clean_required_text(provider_id)
     provider_profile = _clean_required_text(provider_profile)
@@ -248,10 +242,6 @@ def build_provider_exchange_current_source_bridge(
         "commit_watermark": commit_watermark,
         "origin_locator": origin_locator,
     }
-    memory_ticket_source_fields = {
-        **provider_visible_card,
-        "resolver_options": {"sessions_dir": str(sessions_dir.resolve())},
-    }
     return {
         "schema_version": SCHEMA_VERSION,
         "status": "ready",
@@ -260,7 +250,10 @@ def build_provider_exchange_current_source_bridge(
         "provider_profile": provider_profile,
         "provider_session_id": provider_session_id,
         "provider_visible_card": provider_visible_card,
-        "memory_ticket_source_fields": memory_ticket_source_fields,
+        "memory_ticket_source_fields": {
+            **provider_visible_card,
+            "resolver_options": {"sessions_dir": str(sessions_dir.resolve())},
+        },
         "local_source": {
             "session_path": str(session_path.resolve()),
             "local_path_not_for_provider_answer": True,
@@ -321,10 +314,6 @@ def build_existing_provider_exchange_current_source_bridge(
         "commit_watermark": commit_watermark,
         "origin_locator": origin_locator,
     }
-    memory_ticket_source_fields = {
-        **provider_visible_card,
-        "resolver_options": {"sessions_dir": str(sessions_dir.resolve())},
-    }
     return {
         "schema_version": SCHEMA_VERSION,
         "status": "ready",
@@ -333,7 +322,10 @@ def build_existing_provider_exchange_current_source_bridge(
         "provider_profile": provider_profile,
         "provider_session_id": provider_session_id,
         "provider_visible_card": provider_visible_card,
-        "memory_ticket_source_fields": memory_ticket_source_fields,
+        "memory_ticket_source_fields": {
+            **provider_visible_card,
+            "resolver_options": {"sessions_dir": str(sessions_dir.resolve())},
+        },
         "local_source": {
             "session_path": str(session_path.resolve()),
             "local_path_not_for_provider_answer": True,
@@ -344,152 +336,63 @@ def build_existing_provider_exchange_current_source_bridge(
     }
 
 
-def _boundary_memory_fields(*, user_text: str, assistant_text: str) -> dict[str, str]:
-    combined = f"{user_text}\n{assistant_text}"
-    if (
-        "OpenYggdrasil" in combined
-        and "Hermes" in combined
-        and any(marker in combined for marker in ("복사", "복제물", "복제"))
-        and any(marker in combined for marker in ("장기 위키", "장기 지식", "출처"))
-    ):
-        return {
-            "decision": "OpenYggdrasil은 Hermes 기본 기억의 복제물이 아니라 여러 제공자가 공유하는 근거 있는 장기 위키 계층이다.",
-            "context": "Provider 자연 대화에서 사용자가 OpenYggdrasil과 Hermes 기본 기억의 책임 경계를 설명했다.",
-            "conclusion": "Hermes 기본 기억은 말투, 짧은 선호, 현재 세션 습관 같은 즉시 행동 표면을 다루고, OpenYggdrasil 기억은 출처와 판단 흐름이 남는 장기 지식을 다룬다.",
-            "reuse_condition": "사용자가 OpenYggdrasil과 Hermes 기본 기억의 차이, 장기 위키 계층, 제공자 공용 기억 경계를 물을 때 사용한다.",
-            "canonical_topic_title": BOUNDARY_CANONICAL_TOPIC_TITLE,
-            "canonical_topic_key": BOUNDARY_CANONICAL_TOPIC_KEY,
-        }
-    return {}
+def _compact_for_decision(text: str, *, limit: int = 220) -> str:
+    compact = " ".join(str(text or "").split())
+    if len(compact) <= limit:
+        return compact
+    return compact[: limit - 1].rstrip() + "..."
 
 
-def _provider_exchange_memory_fields(*, user_text: str, assistant_text: str) -> dict[str, str]:
+def _stable_signal_buckets(text: str) -> list[str]:
+    lowered = text.lower()
+    buckets = {
+        "placement": ("placement", "where", "belongs", "어디", "배치", "위치"),
+        "role-boundary": ("role", "roles", "separate", "split", "distinction", "경계", "구분", "분리"),
+        "reuse": ("reuse", "later", "stable", "나중", "재사용", "계속 다시"),
+        "evidence": ("proof", "source", "evidence", "claim", "unsupported", "근거", "출처", "검증", "증명", "주장"),
+        "automation-timing": (
+            "automatic",
+            "lifecycle",
+            "event",
+            "timing",
+            "formatting",
+            "자동",
+            "이벤트",
+        ),
+        "execution-distribution": ("runtime", "execution", "definition", "distribution", "실행", "정의"),
+        "policy": ("policy", "rule", "criterion", "criteria", "규칙", "정책", "기준"),
+    }
+    active = [
+        bucket
+        for bucket, markers in buckets.items()
+        if any(marker in lowered or marker in text for marker in markers)
+    ]
+    return sorted(active)
+
+
+def _generic_provider_exchange_memory_fields(*, user_text: str, assistant_text: str) -> dict[str, str]:
     combined = f"{user_text}\n{assistant_text}"
-    if "OpenYggdrasil" in combined and "Hermes" in combined:
-        return {
-            "decision": (
-                "OpenYggdrasil is not a mirror of Hermes native memory; it is an "
-                "evidence-backed long-term wiki layer. Hermes native memory remains "
-                "the Provider behavior surface for tone, short preferences, and current-session habits."
-            ),
-            "context": "A natural Provider exchange discussed the boundary between Hermes native memory and OpenYggdrasil memory.",
-            "conclusion": "Use Hermes native memory for immediate behavior shaping and OpenYggdrasil for sourced, reusable, long-term knowledge.",
-            "reuse_condition": "Use when a later question asks how Hermes native memory, Provider behavior, and OpenYggdrasil wiki memory differ.",
-            "canonical_topic_title": BOUNDARY_CANONICAL_TOPIC_TITLE,
-            "canonical_topic_key": BOUNDARY_CANONICAL_TOPIC_KEY,
-        }
-    if "README" in combined or "공개 문서" in combined or "공개 README" in combined:
-        return {
-            "decision": (
-                "Public README surfaces should show the current user-facing affordance and keep "
-                "internal lane names, legacy aliases, proof/run/phase labels, mailbox, receipt, "
-                "and tmux details out of the first-contact product surface."
-            ),
-            "context": "The user and Provider refined a public documentation boundary through failure cases.",
-            "conclusion": (
-                "Put current install/use concepts in README; move migration, debug, status, and historical "
-                "compatibility details to separate documents."
-            ),
-            "reuse_condition": "Use when editing or reviewing public-facing README and first-contact documentation.",
-            "canonical_topic_title": "Public README affordance boundary",
-            "canonical_topic_key": "public-readme-affordance-boundary",
-        }
-    lowered = combined.lower()
-    has_agent_runtime_distribution_boundary = (
-        any(
-            marker in lowered
-            for marker in (
-                "agent",
-                "agents",
-                "subagent",
-                "subagents",
-                "main agent",
-                "agent team",
-                "plugin agents",
-            )
-        )
-        and (
-            any(
-                marker in lowered
-                for marker in ("runtime", "execution", "execute", "model", "main-thread", "main thread")
-            )
-            or any(marker in combined for marker in ("실행", "런타임", "모델"))
-        )
-        and (
-            any(
-                marker in lowered
-                for marker in ("distribution", "definition", "packaged", "plugin", ".claude/agents", "--agents")
-            )
-            or any(marker in combined for marker in ("배포", "정의", "위치", "플러그인"))
-        )
-    )
-    if has_agent_runtime_distribution_boundary:
-        return {
-            "decision": (
-                "Claude Code agent documentation should separate execution models from definition "
-                "or distribution locations: main agent, subagent, and agent team describe how work "
-                "runs; plugin agents, file-based agents, and command-injected agents describe where "
-                "agent definitions are packaged or supplied."
-            ),
-            "context": (
-                "A natural Provider exchange distinguished subagent, agent team, main agent, and "
-                "plugin agents for team documentation."
-            ),
-            "conclusion": (
-                "Use one execution-model surface for main agent, subagent, and agent team; use a "
-                "separate distribution/definition surface for plugin-packaged or file-based agent definitions."
-            ),
-            "reuse_condition": (
-                "Use when a later Claude Code documentation question asks whether an agent concept "
-                "belongs to runtime execution or definition/distribution placement."
-            ),
-            "canonical_topic_title": "Claude Code agent runtime and distribution boundary",
-            "canonical_topic_key": "claude-code-agent-runtime-distribution-boundary",
-        }
-    if any(marker in lowered for marker in ("agent", "agents", "subagent", "subagents")) and any(
-        marker in lowered for marker in ("skill", "skills")
-    ):
-        return {
-            "decision": (
-                "Claude Code agents and skills should be separated by execution shape: "
-                "Skills are reusable model-read procedures and rubrics; agents/subagents are worker roles "
-                "used for isolated or role-specific execution."
-            ),
-            "context": "The user asked where agents and skills belong when team documentation mixes the concepts.",
-            "conclusion": "Put reusable procedures in Skills and worker execution roles in agents/subagents.",
-            "reuse_condition": "Use when a later question asks whether a Claude Code convention belongs in Skills or agents.",
-            "canonical_topic_title": "Claude Code agents and skills placement criteria",
-            "canonical_topic_key": "claude-code-agents-skills-placement-criteria",
-        }
-    if "Hook" in combined and "Skill" in combined and any(
-        marker in lowered for marker in ("automatic", "lifecycle", "event", "timing", "formatting")
-    ):
-        return {
-            "decision": (
-                "Claude Code Hook versus Skill placement should use trigger timing: Hooks are automatic "
-                "lifecycle or event actions; Skills are reusable model-read procedures, rubrics, and playbooks."
-            ),
-            "context": "The user asked whether automatic formatting belongs in Hook or Skill.",
-            "conclusion": "Put automatic lifecycle/event behavior in Hooks and reusable judgment procedures in Skills.",
-            "reuse_condition": "Use when a later Claude Code docs question asks whether automation belongs in Hooks or Skills.",
-            "canonical_topic_title": "Claude Code Hook and Skill timing boundary",
-            "canonical_topic_key": "claude-code-hook-skill-timing-boundary",
-        }
-    if any(marker in combined for marker in ("CLAUDE.md", "auto memory", "Hook", "Skill", "MCP", "Plugin")):
-        return {
-            "decision": (
-                "Claude Code documentation should prefer placement criteria over definitions: "
-                "CLAUDE.md for explicit managed team/project rules, auto memory for learned project context, "
-                "Hook for automatic event actions, Skill for model-read procedures, MCP for external system "
-                "connections, and Plugin for packaged extension sets."
-            ),
-            "context": "The user asked for short placement boundaries across Claude Code documentation concepts.",
-            "conclusion": "Answer with where-to-place criteria first, then give definitions only when needed.",
-            "reuse_condition": "Use when the user asks to distinguish Claude Code concepts for team documentation.",
-            "canonical_topic_title": "Claude Code extension placement criteria",
-            "canonical_topic_key": "claude-code-extension-placement-criteria",
-        }
-    return {}
+    buckets = _stable_signal_buckets(combined)
+    digest_source = "|".join(buckets) if buckets else " ".join(combined.lower().split())
+    digest = hashlib.sha1(digest_source.encode("utf-8")).hexdigest()[:10]
+    return {
+        "decision": f"Candidate boundary from Provider answer: {_compact_for_decision(assistant_text)}",
+        "context": (
+            "A natural Provider exchange contained a reusable boundary or later-use signal. "
+            "The Provider must keep the decision open and let MS1 classify the domain, "
+            "community, maturity, and promotion path from source-backed evidence."
+        ),
+        "conclusion": (
+            "Treat this as a source-ref-backed boundary candidate, not as native Provider memory "
+            "and not as verified long-term storage."
+        ),
+        "reuse_condition": (
+            "Use when a later question revisits the same bounded exchange and asks whether the "
+            "criterion remained stable."
+        ),
+        "canonical_topic_title": "Provider durable reuse boundary",
+        "canonical_topic_key": f"provider-durable-reuse-boundary-{digest}",
+    }
 
 
 def build_memory_ticket_payload_from_provider_exchange(
@@ -500,7 +403,7 @@ def build_memory_ticket_payload_from_provider_exchange(
     user_text: str,
     assistant_text: str,
     sessions_dir: str | Path,
-    category_community_hint: str = "OpenYggdrasil memory architecture community / provider memory boundary",
+    category_community_hint: str = "provider-authored durable knowledge candidate / MS-classified community",
     created_at: str | None = None,
 ) -> dict[str, Any]:
     """Build a MemoryTicket from a natural Provider exchange when salience is sufficient."""
@@ -508,9 +411,7 @@ def build_memory_ticket_payload_from_provider_exchange(
     salience = detect_provider_memory_salience(f"{user_text}\n{assistant_text}")
     if salience.get("trigger_decision") != "emit":
         return _memory_ticket_unavailable("provider_exchange_not_salient")
-    fields = _provider_exchange_memory_fields(user_text=user_text, assistant_text=assistant_text)
-    if not fields:
-        return _memory_ticket_unavailable("provider_exchange_requires_bounded_distillation")
+    fields = _generic_provider_exchange_memory_fields(user_text=user_text, assistant_text=assistant_text)
     current_source = build_provider_exchange_current_source_bridge(
         provider_id=provider_id,
         provider_profile=provider_profile,
@@ -524,25 +425,26 @@ def build_memory_ticket_payload_from_provider_exchange(
         return _memory_ticket_unavailable("provider_exchange_source_unavailable", current_source)
     payload = build_memory_ticket_payload_from_current_source(
         current_source=current_source,
-        surface_reason=str(salience.get("intent_field") or "Provider 자연 대화에서 나온 장기 기억 후보"),
-        intent_field=str(salience.get("intent_field") or "장기 기억 후보"),
-        why_not_atomic=str(salience.get("why_not_atomic") or "문단 의도를 보존해야 한다."),
-        topic_hint=str(salience.get("topic_hint") or "OpenYggdrasil 기억 책임 경계"),
+        surface_reason=str(salience.get("intent_field") or "Provider exchange contains a reusable boundary candidate."),
+        intent_field=str(salience.get("intent_field") or "Provider exchange contains a reusable boundary candidate."),
+        why_not_atomic=str(salience.get("why_not_atomic") or "The bounded exchange must stay intact until MS classifies it."),
+        topic_hint=str(salience.get("topic_hint") or "provider reusable boundary candidate"),
         category_community_hint=str(salience.get("category_community_hint") or category_community_hint),
         decision=fields["decision"],
         context=fields["context"],
         conclusion=fields["conclusion"],
-        trigger_kind=str(salience.get("trigger_kind") or "explicit_user_save_command"),
+        trigger_kind=str(salience.get("trigger_kind") or "category_community_shift"),
         min_split_unit="topic_decision_cluster",
         breadcrumb=str(salience.get("breadcrumb") or ""),
         reuse_condition=fields["reuse_condition"],
-        canonical_topic_title=fields.get("canonical_topic_title") or str(salience.get("canonical_topic_title") or ""),
-        canonical_topic_key=fields.get("canonical_topic_key") or str(salience.get("canonical_topic_key") or ""),
+        canonical_topic_title=fields["canonical_topic_title"],
+        canonical_topic_key=fields["canonical_topic_key"],
     )
     payload["admission_bridge"] = {
         "schema_version": "provider_exchange_admission_bridge.v1",
         "salience_trigger_kind": salience.get("trigger_kind"),
-        "distillation_status": "bounded_heuristic_boundary_contract",
+        "distillation_status": "generic_evidence_bound_boundary_candidate",
+        "topic_specific_runtime_branch": False,
         "raw_provider_material_included": False,
         "postman_semantic_quality_owner": False,
     }
@@ -560,7 +462,7 @@ def build_memory_ticket_payload_from_existing_provider_exchange(
     anchor_hash: str,
     sessions_dir: str | Path,
     source_ref_scheme: str = "hermes-session-json",
-    category_community_hint: str = "OpenYggdrasil memory architecture community / provider memory boundary",
+    category_community_hint: str = "provider-authored durable knowledge candidate / MS-classified community",
     created_at: str | None = None,
 ) -> dict[str, Any]:
     """Build a MemoryTicket from a salient Provider range without copying the session."""
@@ -568,9 +470,7 @@ def build_memory_ticket_payload_from_existing_provider_exchange(
     salience = detect_provider_memory_salience(f"{user_text}\n{assistant_text}")
     if salience.get("trigger_decision") != "emit":
         return _memory_ticket_unavailable("provider_exchange_not_salient")
-    fields = _provider_exchange_memory_fields(user_text=user_text, assistant_text=assistant_text)
-    if not fields:
-        return _memory_ticket_unavailable("provider_exchange_requires_bounded_distillation")
+    fields = _generic_provider_exchange_memory_fields(user_text=user_text, assistant_text=assistant_text)
     current_source = build_existing_provider_exchange_current_source_bridge(
         provider_id=provider_id,
         provider_profile=provider_profile,
@@ -585,25 +485,26 @@ def build_memory_ticket_payload_from_existing_provider_exchange(
         return _memory_ticket_unavailable("provider_exchange_source_unavailable", current_source)
     payload = build_memory_ticket_payload_from_current_source(
         current_source=current_source,
-        surface_reason=str(salience.get("intent_field") or "Provider 자연 대화에서 나온 장기 기억 후보"),
-        intent_field=str(salience.get("intent_field") or "장기 기억 후보"),
-        why_not_atomic=str(salience.get("why_not_atomic") or "문단 의도를 보존해야 한다."),
-        topic_hint=str(salience.get("topic_hint") or "OpenYggdrasil 기억 책임 경계"),
+        surface_reason=str(salience.get("intent_field") or "Provider exchange contains a reusable boundary candidate."),
+        intent_field=str(salience.get("intent_field") or "Provider exchange contains a reusable boundary candidate."),
+        why_not_atomic=str(salience.get("why_not_atomic") or "The bounded exchange must stay intact until MS classifies it."),
+        topic_hint=str(salience.get("topic_hint") or "provider reusable boundary candidate"),
         category_community_hint=str(salience.get("category_community_hint") or category_community_hint),
         decision=fields["decision"],
         context=fields["context"],
         conclusion=fields["conclusion"],
-        trigger_kind=str(salience.get("trigger_kind") or "explicit_user_save_command"),
+        trigger_kind=str(salience.get("trigger_kind") or "category_community_shift"),
         min_split_unit="topic_decision_cluster",
         breadcrumb=str(salience.get("breadcrumb") or ""),
         reuse_condition=fields["reuse_condition"],
-        canonical_topic_title=fields.get("canonical_topic_title") or str(salience.get("canonical_topic_title") or ""),
-        canonical_topic_key=fields.get("canonical_topic_key") or str(salience.get("canonical_topic_key") or ""),
+        canonical_topic_title=fields["canonical_topic_title"],
+        canonical_topic_key=fields["canonical_topic_key"],
     )
     payload["admission_bridge"] = {
         "schema_version": "provider_exchange_admission_bridge.v1",
         "salience_trigger_kind": salience.get("trigger_kind"),
-        "distillation_status": "bounded_heuristic_boundary_contract",
+        "distillation_status": "generic_evidence_bound_boundary_candidate",
+        "topic_specific_runtime_branch": False,
         "raw_provider_material_included": False,
         "postman_semantic_quality_owner": False,
         "existing_provider_session_range": True,
@@ -637,11 +538,11 @@ def build_memory_ticket_payload_from_current_source(
     topic_hint: str,
     category_community_hint: str,
     decision: str,
-    context: str = "",
-    conclusion: str = "",
-    trigger_kind: str = "reusable_operational_rule",
+    trigger_kind: str = "explicit_user_save_command",
     min_split_unit: str = "paragraph_intent",
     breadcrumb: str = "",
+    context: str = "",
+    conclusion: str = "",
     reuse_condition: str = "",
     canonical_topic_title: str = "",
     canonical_topic_key: str = "",
@@ -708,8 +609,6 @@ def build_memory_ticket_payload_from_current_source(
 
 
 __all__ = [
-    "BOUNDARY_CANONICAL_TOPIC_KEY",
-    "BOUNDARY_CANONICAL_TOPIC_TITLE",
     "ALLOWED_SOURCE_REF_SCHEMES",
     "build_existing_provider_exchange_current_source_bridge",
     "build_memory_ticket_payload_from_existing_provider_exchange",

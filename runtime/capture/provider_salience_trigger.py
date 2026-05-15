@@ -19,35 +19,90 @@ def _has_explicit_save_command(text: str, lowered: str) -> bool:
 def _has_durable_reuse_signal(text: str, lowered: str) -> bool:
     return _contains_any(
         lowered,
-        ("use this later", "reuse this later", "later reuse", "need this later", "stable boundary"),
+        (
+            "use this later",
+            "reuse this later",
+            "later reuse",
+            "need this later",
+            "stable boundary",
+            "will need this",
+        ),
     ) or _contains_any(
         text,
-        ("나중에", "다시 써", "다시 쓰", "재사용", "흔들리지 않을", "배치 원칙", "기준으로 굳힌다면"),
-    )
-
-
-def _has_agent_runtime_distribution_boundary(text: str, lowered: str) -> bool:
-    has_agent_surface = _contains_any(
-        lowered,
         (
-            "agent",
-            "agents",
-            "subagent",
-            "subagents",
-            "main agent",
-            "agent team",
-            "plugin agents",
+            "계속 다시",
+            "나중에",
+            "다시 쓸",
+            "재사용",
+            "헷갈리지 않게",
+            "바뀐 부분",
+            "기준으로 구분",
         ),
     )
-    has_runtime_surface = _contains_any(
-        lowered,
-        ("runtime", "execution", "execute", "model", "main-thread", "main thread"),
-    ) or _contains_any(text, ("실행", "런타임", "모델"))
-    has_distribution_surface = _contains_any(
-        lowered,
-        ("distribution", "definition", "packaged", "plugin", ".claude/agents", "--agents"),
-    ) or _contains_any(text, ("배포", "정의", "위치", "플러그인"))
-    return has_agent_surface and has_runtime_surface and has_distribution_surface
+
+
+def _has_reusable_boundary_signal(text: str, lowered: str) -> bool:
+    lower_signals = (
+        "boundary",
+        "criterion",
+        "criteria",
+        "policy",
+        "rule",
+        "placement",
+        "distinction",
+        "separate",
+        "split",
+        "where",
+        "where to place",
+        "belongs",
+        "convention",
+        "conventions",
+        "role",
+        "roles",
+        "runtime",
+        "execution",
+        "definition",
+        "distribution",
+        "timing",
+        "automatic",
+        "lifecycle",
+        "event",
+        "formatting",
+        "reuse",
+        "later",
+        "proof",
+        "source",
+        "evidence",
+        "claim",
+        "production ready",
+        "unsupported",
+    )
+    text_signals = (
+        "경계",
+        "기준",
+        "구분",
+        "분리",
+        "실행",
+        "정의",
+        "위치",
+        "자동",
+        "이벤트",
+        "규칙",
+        "정책",
+        "어디",
+        "배치",
+        "근거",
+        "출처",
+        "검증",
+        "증명",
+        "주장",
+        "헷갈",
+        "위키",
+        "나중",
+    )
+    hits = sum(1 for signal in lower_signals if signal in lowered)
+    hits += sum(1 for signal in text_signals if signal in text)
+    return hits >= 2
 
 
 def _base_emit(
@@ -86,29 +141,17 @@ def _base_emit(
 
 
 def detect_provider_memory_salience(paragraph: str) -> dict[str, Any]:
-    """Detect whether a Provider exchange deserves memory admission review.
+    """Detect whether a Provider exchange deserves MS admission review.
 
-    This function does not decide storage. It only flags durable, reusable,
-    source-ref-worthy boundaries so the admission path can ask MS to judge them.
-    Ordinary tone preference, one-off status, and unsupported self-claims stay
-    out of OpenYggdrasil.
+    This function does not decide storage and does not classify domain topics.
+    It only detects reusable boundary, placement, evidence, and later-use
+    signals so MS can judge maturity from source-backed context.
     """
 
     text = (paragraph or "").strip()
     if not text:
         return {"trigger_decision": "defer", "trigger_kind": "none", "reason": "empty_paragraph"}
     lowered = text.lower()
-
-    if _contains_any(text, ("트리깅", "필요성", "명령")) and _contains_any(text, ("스스로", "유저 프롬프트")):
-        return _base_emit(
-            paragraph=text,
-            trigger_kind="boundary_correction",
-            intent_field="Provider autonomous salience trigger is not a user 저장 명령.",
-            topic_hint="Provider autonomous salience trigger",
-            category_community_hint="OpenYggdrasil provider behavior contract / memory authoring bridge",
-            breadcrumb="Provider may notice a durable boundary without treating every user line as a save command.",
-            why_not_atomic="The trigger source, responsibility boundary, and storage nonclaim must stay together.",
-        )
 
     if _contains_any(lowered, ("decision atom", "paragraph-level intent", "authoring bridge")) and _contains_any(
         lowered,
@@ -118,8 +161,8 @@ def detect_provider_memory_salience(paragraph: str) -> dict[str, Any]:
             paragraph=text,
             trigger_kind="topic_decision_completed",
             intent_field="The exchange completes a paragraph-level topic decision for category/community authoring.",
-            topic_hint="Provider paragraph intent authoring bridge",
-            category_community_hint="OpenYggdrasil provider behavior contract / category/community authoring bridge",
+            topic_hint="provider paragraph intent authoring bridge",
+            category_community_hint="provider-authored durable knowledge candidate / authoring bridge",
             breadcrumb="Preserve paragraph-level intent before extracting decision atoms.",
             why_not_atomic="The authoring rule depends on paragraph scope, category/community placement, and anti-atomization.",
         )
@@ -130,7 +173,7 @@ def detect_provider_memory_salience(paragraph: str) -> dict[str, Any]:
             trigger_kind="durable_reuse_signal",
             intent_field="The exchange contains a durable reuse signal but not an explicit save command.",
             topic_hint="durable reuse boundary candidate",
-            category_community_hint="OpenYggdrasil provider behavior contract / durable reuse signal",
+            category_community_hint="provider-authored durable knowledge candidate / durable reuse signal",
             breadcrumb=(
                 "A later-use signal should enter episode-ledger admission instead of being "
                 "treated as a direct save command."
@@ -138,156 +181,35 @@ def detect_provider_memory_salience(paragraph: str) -> dict[str, Any]:
             why_not_atomic="The reuse need, scope, and uncertainty must stay together until MS judges maturity.",
         )
 
-    if _contains_any(lowered, ("remember this", "save this", "store this")) or _contains_any(
-        text,
-        ("기억해", "기억해줘", "저장해", "저장해줘", "보존해", "보존해줘"),
-    ):
+    if _has_explicit_save_command(text, lowered):
         return _base_emit(
             paragraph=text,
             trigger_kind="explicit_user_save_command",
             intent_field="The user indicated this may be needed later.",
             topic_hint="explicit durable memory candidate",
-            category_community_hint="OpenYggdrasil provider behavior contract / memory authoring bridge",
+            category_community_hint="provider-authored durable knowledge candidate / explicit request",
             breadcrumb="A later-use signal should enter source_ref-backed admission instead of being claimed as stored.",
             why_not_atomic="The reason, scope, and reuse condition matter together; a single preference atom would lose the boundary.",
         )
 
-    if _contains_any(text, ("OpenYggdrasil", "Hermes", "Provider")) and _contains_any(
-        text,
-        ("책임 경계", "역할 경계", "복제", "위키", "출처", "근거", "native memory", "기본 기억"),
-    ):
-        return _base_emit(
-            paragraph=text,
-            trigger_kind="boundary_correction",
-            intent_field=(
-                "The exchange defines the boundary between Provider native memory "
-                "and OpenYggdrasil evidence-backed wiki memory."
-            ),
-            topic_hint="OpenYggdrasil and Provider/Hermes memory boundary",
-            category_community_hint="OpenYggdrasil memory architecture community / provider memory boundary",
-            breadcrumb="Provider/Hermes/OpenYggdrasil boundary corrections should stay reusable across provider lanes.",
-            why_not_atomic="The roles, forbidden claims, evidence scope, and reuse condition must stay together.",
-            canonical_topic_key="openyggdrasil-hermes-memory-boundary",
-            canonical_topic_title="OpenYggdrasil and Hermes memory boundary",
-        )
-
-    if _contains_any(text, ("README", "공개 문서", "public doc", "공개 README")) and _contains_any(
-        text,
-        (
-            "내부어",
-            "내부 세션",
-            "과거 명령",
-            "호환명",
-            "legacy",
-            "proof",
-            "run",
-            "phase",
-            "receipt",
-            "mailbox",
-            "tmux",
-            "affordance",
-            "공식 사용",
-        ),
-    ):
-        return _base_emit(
-            paragraph=text,
-            trigger_kind="reusable_operational_rule",
-            intent_field="The exchange defines a reusable public README surface rule.",
-            topic_hint="public README affordance boundary",
-            category_community_hint="OpenYggdrasil public documentation governance / README affordance boundary",
-            breadcrumb=(
-                "Public-facing docs should not expose internal lane names, legacy aliases, "
-                "proof/run labels, or mailbox mechanics as product API."
-            ),
-            why_not_atomic="The rule combines audience, exposed surface, hidden internals, exceptions, and failure cases.",
-            canonical_topic_key="public-readme-affordance-boundary",
-            canonical_topic_title="Public README affordance boundary",
-        )
-
-    if _has_agent_runtime_distribution_boundary(text, lowered):
+    if _has_reusable_boundary_signal(text, lowered):
         return _base_emit(
             paragraph=text,
             trigger_kind="category_community_shift",
             intent_field=(
-                "The exchange forms reusable criteria for separating agent execution models "
-                "from agent definition or distribution locations."
+                "The exchange contains a reusable boundary, placement, evidence, "
+                "or claim-control signal that needs MS judgment before storage."
             ),
-            topic_hint="Claude Code agent runtime and distribution boundary",
-            category_community_hint="Claude Code documentation boundary / agent runtime and distribution boundary",
+            topic_hint="provider reusable boundary candidate",
+            category_community_hint="provider-authored durable knowledge candidate / MS-classified community",
             breadcrumb=(
-                "Keep main agent, subagent, and agent team in the execution-model surface; "
-                "keep plugin-packaged or file-based agent definitions in the distribution surface."
+                "Provider should preserve the bounded exchange and let MS classify the domain, "
+                "community, maturity, and promotion path from evidence."
             ),
             why_not_atomic=(
-                "The rule only works when execution role, packaging location, and documentation "
-                "placement are preserved together."
+                "The reusable rule, uncertainty, evidence threshold, and later-use condition "
+                "must stay together until MS classifies the topic."
             ),
-            canonical_topic_key="claude-code-agent-runtime-distribution-boundary",
-            canonical_topic_title="Claude Code agent runtime and distribution boundary",
-        )
-
-    if _contains_any(lowered, ("agent", "agents", "subagent", "subagents")) and _contains_any(
-        lowered,
-        ("skill", "skills", "placement", "where", "where to place"),
-    ):
-        return _base_emit(
-            paragraph=text,
-            trigger_kind="category_community_shift",
-            intent_field="The exchange forms reusable Claude Code agents and skills placement criteria.",
-            topic_hint="Claude Code agents and skills placement criteria",
-            category_community_hint="Claude Code documentation boundary / agents and skills placement criteria",
-            breadcrumb="Separate reusable model-read procedures from worker execution roles.",
-            why_not_atomic="The distinction depends on both placement and execution shape.",
-            canonical_topic_key="claude-code-agents-skills-placement-criteria",
-            canonical_topic_title="Claude Code agents and skills placement criteria",
-        )
-
-    if _contains_any(text, ("Hook", "Skill")) and _contains_any(
-        lowered,
-        ("automatic", "lifecycle", "event", "timing", "formatting"),
-    ):
-        return _base_emit(
-            paragraph=text,
-            trigger_kind="category_community_shift",
-            intent_field="The exchange forms reusable Claude Code Hook and Skill timing criteria.",
-            topic_hint="Claude Code Hook and Skill timing boundary",
-            category_community_hint="Claude Code documentation boundary / Hook and Skill timing boundary",
-            breadcrumb="Use trigger timing: automatic lifecycle/event actions belong in Hooks; model-read procedures belong in Skills.",
-            why_not_atomic="The boundary requires timing, trigger, and model-read procedure distinctions together.",
-            canonical_topic_key="claude-code-hook-skill-timing-boundary",
-            canonical_topic_title="Claude Code Hook and Skill timing boundary",
-        )
-
-    if _contains_any(text, ("CLAUDE.md", "auto memory", "Hook", "Skill", "MCP", "Plugin")) and _contains_any(
-        text,
-        ("기준", "갈라", "어디에 둬야", "선택", "팀 문서", "오해", "placement", "boundary"),
-    ):
-        return _base_emit(
-            paragraph=text,
-            trigger_kind="category_community_shift",
-            intent_field="The exchange forms reusable Claude Code documentation placement criteria.",
-            topic_hint="Claude Code extension placement criteria",
-            category_community_hint="Claude Code documentation boundary / extension placement criteria",
-            breadcrumb=(
-                "The user prefers placement criteria over definitions when distinguishing "
-                "CLAUDE.md, auto memory, Hook, Skill, MCP, and Plugin."
-            ),
-            why_not_atomic="The distinctions work as a comparative matrix; splitting them into isolated terms loses the placement rule.",
-            canonical_topic_key="claude-code-extension-placement-criteria",
-            canonical_topic_title="Claude Code extension placement criteria",
-        )
-
-    if _contains_any(text, ("README", "PRODUCTION READY", "100%", "검증", "mock", "demo", "과장")):
-        return _base_emit(
-            paragraph=text,
-            trigger_kind="strong_memory_stimulus",
-            intent_field="Unverified README, Production Ready, 100%, or 검증 없는 claims are prohibited.",
-            topic_hint="README claim gating and proof discipline",
-            category_community_hint="OpenYggdrasil verification governance / provider behavior contract",
-            breadcrumb="README and facing claims may be promoted only after code and live workflow evidence agree.",
-            why_not_atomic="The claim, evidence threshold, and prohibited wording must stay together.",
-            canonical_topic_key="readme-claim-gating-proof-discipline",
-            canonical_topic_title="README claim gating and proof discipline",
         )
 
     return {
