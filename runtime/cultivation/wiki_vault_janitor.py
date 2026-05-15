@@ -13,6 +13,7 @@ from runtime.retrieval.safe_index_cursor import load_safe_index_cursor
 MAINTENANCE_RECEIPTS_RELATIVE_PATH = "_meta/maintenance_receipts.jsonl"
 MUTATION_LOG_RELATIVE_PATH = "_meta/mutation_log.jsonl"
 TOMBSTONES_RELATIVE_PATH = "_meta/tombstones.jsonl"
+REPAIR_QUEUE_RELATIVE_PATH = "_meta/repair_queue.jsonl"
 
 
 def _now_iso() -> str:
@@ -68,6 +69,77 @@ def _scan_duplicate_titles(vault_root: Path) -> list[dict[str, Any]]:
     ]
 
 
+def _path_role(path: str) -> str:
+    normalized = path.replace("\\", "/")
+    if normalized.startswith("vault/queries/"):
+        return "query"
+    if normalized.startswith("vault/concepts/PRN-"):
+        return "prose_ring_node"
+    if normalized.startswith("vault/concepts/N-"):
+        return "concept_node"
+    if normalized.startswith("vault/communities/"):
+        return "community"
+    if normalized.startswith("vault/_meta/provenance/"):
+        return "provenance"
+    return "other"
+
+
+def _content_hash_groups(vault_root: Path, paths: list[str]) -> dict[str, list[str]]:
+    groups: dict[str, list[str]] = {}
+    for rel_path in paths:
+        path = _vault_path(vault_root, rel_path)
+        if not path.exists():
+            groups.setdefault("missing", []).append(rel_path)
+            continue
+        groups.setdefault(_sha256_file(path), []).append(rel_path)
+    return groups
+
+
+def _duplicate_repair_decision(vault_root: Path, duplicate: Mapping[str, Any]) -> dict[str, Any]:
+    paths = [str(item) for item in duplicate.get("paths") or []]
+    roles = sorted({_path_role(path) for path in paths})
+    hash_groups = _content_hash_groups(vault_root, paths)
+    hash_group_count = len([key for key in hash_groups if key != "missing"])
+    title_key = str(duplicate.get("title_key") or "")
+    has_mojibake = "\ufffd" in title_key
+    query_count = sum(1 for path in paths if _path_role(path) == "query")
+    concept_count = sum(1 for path in paths if _path_role(path) in {"concept_node", "prose_ring_node"})
+
+    if has_mojibake:
+        suggested_action = "repair_encoding_title_then_recheck"
+        queue_status = "queued"
+        reason_codes = ["title_contains_replacement_character"]
+    elif query_count == 1 and concept_count >= 1 and hash_group_count == 1:
+        suggested_action = "treat_as_expected_query_concept_projection_group"
+        queue_status = "not_queued_expected_projection"
+        reason_codes = ["query_and_concept_projection_share_title"]
+    else:
+        suggested_action = "review_merge_split_or_supersede"
+        queue_status = "queued"
+        reason_codes = ["same_title_multiple_distinct_artifacts"]
+
+    return {
+        "schema_version": "wiki_duplicate_repair_decision.v1",
+        "title_key": title_key,
+        "candidate_count": len(paths),
+        "roles": roles,
+        "content_hash_group_count": hash_group_count,
+        "suggested_action": suggested_action,
+        "repair_queue_status": queue_status,
+        "reason_codes": reason_codes,
+        "paths": paths,
+        "hard_nonclaims": [
+            "duplicate_title_decision_is_not_semantic_merge",
+            "repair_queue_entry_is_not_delete_or_tombstone",
+            "expected_projection_group_still_needs_manifest_sync_if_rendered_as_duplicate",
+        ],
+    }
+
+
+def _duplicate_repair_decisions(vault_root: Path, duplicates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [_duplicate_repair_decision(vault_root, duplicate) for duplicate in duplicates]
+
+
 def run_wiki_vault_janitor(
     *,
     vault_root: Path,
@@ -96,6 +168,12 @@ def run_wiki_vault_janitor(
         )
 
     duplicates = _scan_duplicate_titles(vault_root)
+    duplicate_repair_decisions = _duplicate_repair_decisions(vault_root, duplicates)
+    queued_repairs = [
+        decision
+        for decision in duplicate_repair_decisions
+        if decision.get("repair_queue_status") == "queued"
+    ]
     status = "pass" if cursor.get("status") == "configured" and not missing else "partial"
     now = _now_iso()
     maintenance_receipt = {
@@ -111,9 +189,13 @@ def run_wiki_vault_janitor(
         "checked_path_count": len(checked),
         "missing_committed_paths": missing,
         "duplicate_title_candidates": duplicates,
+        "duplicate_repair_decisions": duplicate_repair_decisions,
+        "queued_repair_count": len(queued_repairs),
         "mutation_log_checked": True,
         "safe_index_cursor_checked": True,
         "conflict_or_tombstone_policy_checked": True,
+        "semantic_repair_decision_policy_checked": True,
+        "repair_queue_path": REPAIR_QUEUE_RELATIVE_PATH,
         "tombstone_policy": {
             "physical_delete_allowed": False,
             "delete_requires_tombstone": True,
@@ -133,6 +215,7 @@ def run_wiki_vault_janitor(
         "cursor_id": cursor.get("cursor_id"),
         "checked_paths": checked,
         "missing_committed_paths": missing,
+        "queued_repair_count": len(queued_repairs),
         "hard_nonclaims": [
             "hash_check_is_not_semantic_quality_review",
         ],
@@ -144,6 +227,21 @@ def run_wiki_vault_janitor(
         tombstones.parent.mkdir(parents=True, exist_ok=True)
         if not tombstones.exists():
             tombstones.write_text("", encoding="utf-8")
+        for decision in queued_repairs:
+            append_jsonl_atomic(
+                vault_root / REPAIR_QUEUE_RELATIVE_PATH,
+                {
+                    "schema_version": "wiki_repair_queue_entry.v1",
+                    "run_id": run_id,
+                    "created_at": now,
+                    "source": source,
+                    "decision": decision,
+                    "hard_nonclaims": [
+                        "repair_queue_entry_is_not_a_file_mutation",
+                        "human_or_worker_semantic_review_required_before_merge_split_or_tombstone",
+                    ],
+                },
+            )
     return {
         "schema_version": "wiki_vault_janitor_result.v1",
         "run_id": run_id,
