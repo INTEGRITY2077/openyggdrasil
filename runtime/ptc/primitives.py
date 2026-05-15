@@ -667,7 +667,16 @@ def load_vault(vault_path: Path) -> list[dict[str, Any]]:
         try:
             parsed = yaml.safe_load(fm_text) or {}
         except yaml.YAMLError:
-            continue
+            parsed = {}
+            for line in fm_text.splitlines():
+                if ":" not in line or line.lstrip().startswith("-"):
+                    continue
+                key, value = line.split(":", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if not key or value.startswith("["):
+                    continue
+                parsed[key] = value
         fm = parsed if isinstance(parsed, dict) else {}
 
         # Reconstruct node dict for search compatibility

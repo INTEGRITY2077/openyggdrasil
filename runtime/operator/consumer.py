@@ -552,6 +552,15 @@ def _prepare_memory_finder_bundle_with_fallback(
     )
     if fallback is None:
         return prepared, receipt_status
+    for key in (
+        "ptc_retrieval_orchestrator",
+        "candidate_reranker",
+        "structured_recall_answer_frame",
+        "ptc_worker_program",
+        "tst_capability_supervisor",
+    ):
+        if key in prepared and key not in fallback:
+            fallback[key] = prepared[key]
     fallback["initial_worker_query_alignment"] = prepared.get("worker_query_alignment")
     return _prepare_memory_finder_bundle(
         query_text=query_text,

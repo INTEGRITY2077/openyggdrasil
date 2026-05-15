@@ -45,6 +45,17 @@ DOMAIN_ROUTE_FRAGMENTS = {
     "skills": ("skills", "reusable-guidance", "skill.md"),
     "subagents": ("subagent", "subagents", "isolated-context", "isolated-worker"),
     "mcp": ("mcp", "external-tool-transport", "external-capability"),
+    "documentation_placement": (
+        "documentation-placement",
+        "extension-placement",
+        "extension placement",
+        "placement-criteria",
+        "placement criteria",
+        "team-documentation",
+        "team documentation",
+        "claude-code-extension-placement",
+        "claude code extension placement",
+    ),
     "context_safe_recall": ("context-window-safe-recall", "safe-recall", "recall"),
 }
 
@@ -84,6 +95,11 @@ def _query_domain_hints(query_text: str) -> set[str]:
         hints.add("subagents")
     if any(marker in text for marker in ("외부", "데이터베이스", "database", "api", "transport", "mcp", "서비스", "도구 연결")):
         hints.add("mcp")
+    if (
+        any(marker in text for marker in ("팀 문서", "문서에 남", "team doc", "team documentation", "project rules"))
+        and any(marker in text for marker in ("배치", "축", "기준", "어디", "구분", "나눠", "placement", "criteria", "taxonomy"))
+    ) or any(marker in text for marker in ("placement criteria", "extension placement", "배치 기준", "축 이름")):
+        hints.add("documentation_placement")
     if any(marker in text for marker in ("raw", "원문", "복붙", "곱씹", "회상", "digest", "alignment", "정렬")):
         hints.add("context_safe_recall")
 
@@ -102,6 +118,11 @@ def _candidate_route_text(candidate: Mapping[str, Any]) -> str:
         candidate.get("origin_locator"),
         candidate.get("community_id"),
         candidate.get("ring_id"),
+        candidate.get("subject"),
+        candidate.get("predicate"),
+        candidate.get("object"),
+        candidate.get("category"),
+        candidate.get("node_text"),
     ]
     return " ".join(str(value or "").lower() for value in values)
 
@@ -1043,10 +1064,11 @@ def build_ptc_retrieval_orchestrator_result(
     final_ring_bundle = ring_bundle
     if matched_nodes:
         try:
+            ring_matched_nodes = matched_nodes[:1] if domain_hints else matched_nodes
             final_ring_bundle = build_ring_support_bundle(
                 query_text=query_text,
                 vault_root=vault_root,
-                matched_nodes=matched_nodes,
+                matched_nodes=ring_matched_nodes,
             )
         except RECOVERABLE_RUNTIME_ERRORS:
             final_ring_bundle = ring_bundle

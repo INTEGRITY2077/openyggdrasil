@@ -106,6 +106,9 @@ def _load_vault_nodes(vault: Path) -> list[dict]:
 def _node_to_text(node: dict) -> str:
     """노드를 BM25 색인용 평문으로 변환."""
     parts = []
+    search_text = node.get("_search_text")
+    if search_text:
+        parts.append(str(search_text))
     title = node.get("title", node.get("_filename", ""))
     if title:
         parts.append(title)

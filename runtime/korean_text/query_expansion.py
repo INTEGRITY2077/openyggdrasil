@@ -232,6 +232,31 @@ def _is_choseong_query(text: str) -> bool:
     return bool(text) and all(char in CHOSEONG_SET for char in text)
 
 
+def _semantic_recall_aliases(text: str) -> list[str]:
+    """Return bounded bilingual recall aliases for common Korean UX wording.
+
+    These aliases are retrieval hints only. They do not rewrite canonical text
+    and are not evidence that a candidate is semantically correct.
+    """
+    normalized = unicodedata.normalize("NFC", str(text or "")).casefold()
+    aliases: OrderedDict[str, None] = OrderedDict()
+
+    def add_many(values: tuple[str, ...]) -> None:
+        for value in values:
+            _add_unique(aliases, value, max_len=40)
+
+    if any(marker in normalized for marker in ("팀 문서", "문서에 남", "팀 규칙", "팀 기준")):
+        add_many(("team", "documentation", "team documentation", "project rules"))
+    if any(marker in normalized for marker in ("배치", "축 이름", "어디에", "어디다", "뭘 둬", "무엇을 둬")):
+        add_many(("placement", "criteria", "placement criteria", "taxonomy"))
+    if any(marker in normalized for marker in ("구분", "나눠", "다르", "헷갈")):
+        add_many(("boundary", "distinction", "different", "criteria"))
+    if any(marker in normalized for marker in ("전에", "이전에", "예전에", "나중에", "다시 봐", "다시")):
+        add_many(("previous", "later", "reuse", "recall"))
+
+    return list(aliases.keys())
+
+
 def query_expansion_tokens(text: str, *, max_tokens: int = 32) -> list[str]:
     """Return secondary search tokens for Hangul recall.
 
@@ -240,6 +265,11 @@ def query_expansion_tokens(text: str, *, max_tokens: int = 32) -> list[str]:
     """
     tokens: OrderedDict[str, None] = OrderedDict()
     normalized = unicodedata.normalize("NFC", str(text or ""))
+
+    for alias in _semantic_recall_aliases(normalized):
+        _add_unique(tokens, alias, max_len=40)
+        if len(tokens) >= max_tokens:
+            return list(tokens.keys())[:max_tokens]
 
     for match in HANGUL_SPAN_RE.finditer(normalized):
         span = match.group(0)
