@@ -46,6 +46,31 @@ _RUNTIME_ROOT = Path(__file__).resolve().parent
 _PROJECT_ROOT = _RUNTIME_ROOT.parent
 
 
+def _arg_value(flag: str) -> str | None:
+    try:
+        index = sys.argv.index(flag)
+    except ValueError:
+        return None
+    if index + 1 >= len(sys.argv):
+        return None
+    return sys.argv[index + 1]
+
+
+def _seed_runtime_state_env_from_cli_args() -> None:
+    vault_arg = _arg_value("--vault")
+    if not vault_arg:
+        return
+    mailbox_arg = _arg_value("--mailbox")
+    vault = Path(vault_arg).expanduser()
+    lane = Path(mailbox_arg).name if mailbox_arg else "entrypoint"
+    workspace_root = vault.parent
+    runtime_state_root = workspace_root / "runtime_state" / lane
+    import os
+
+    os.environ.setdefault("OPENYGGDRASIL_WORKSPACE_ROOT", str(workspace_root))
+    os.environ.setdefault("OPENYGGDRASIL_RUNTIME_STATE_ROOT", str(runtime_state_root))
+
+
 def _append_package_path(module, path: Path) -> None:
     if not path.exists() or not hasattr(module, "__path__"):
         return
@@ -77,4 +102,5 @@ def _install_legacy_aliases() -> None:
             continue
 
 
+_seed_runtime_state_env_from_cli_args()
 _install_legacy_aliases()

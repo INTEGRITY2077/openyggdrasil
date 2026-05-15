@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -43,13 +44,16 @@ def _read_provider_lane_record(session: str) -> dict:
         return {"unparseable_record": str(path)}
 
 def _op_tmux_session(op: str) -> str:
-    num = int(str(op).upper().replace("OP", ""))
-    unit = (num + 1) // 2
-    prefix = "ms" if num % 2 else "mf"
+    lane = _canonical_alias_for_op(op)
+    match = re.fullmatch(r"(MS|MF)(\d+)", lane, flags=re.IGNORECASE)
+    if not match:
+        raise ValueError("unsupported_memory_lane")
+    prefix = match.group(1).lower()
+    unit = int(match.group(2))
     return f"ygg-{prefix}{unit}"
 
 def _legacy_op_tmux_session(op: str) -> str:
-    return f"ygg-{op.lower()}"
+    return f"ygg-{_legacy_op_id_for_lane(op).lower()}"
 
 def _ensure_memory_lane_tmux_name(op: str) -> str:
     session = _op_tmux_session(op)
@@ -59,19 +63,41 @@ def _ensure_memory_lane_tmux_name(op: str) -> str:
     return session
 
 def _op_number(op: str) -> int:
-    return int(str(op).upper().replace("OP", ""))
+    text = str(op).strip().upper()
+    if re.fullmatch(r"OP\d+", text):
+        return int(text.replace("OP", ""))
+    match = re.fullmatch(r"(MS|MF)(\d+)", text)
+    if not match:
+        raise ValueError("unsupported_memory_lane")
+    unit = int(match.group(2))
+    return (unit * 2) - 1 if match.group(1) == "MS" else unit * 2
 
 def _unit_number_for_op(op: str) -> int:
     num = _op_number(op)
     return (num + 1) // 2
 
 def _canonical_alias_for_op(op: str) -> str:
+    text = str(op).strip().upper()
+    match = re.fullmatch(r"(MS|MF)(\d+)", text)
+    if match:
+        return f"{match.group(1)}{int(match.group(2))}"
     num = _op_number(op)
     unit = _unit_number_for_op(op)
     return f"MS{unit}" if num % 2 else f"MF{unit}"
 
+def _legacy_op_id_for_lane(op: str) -> str:
+    num = _op_number(op)
+    return f"OP{num}"
+
+def _lane_sort_key(op: str) -> tuple[int, int]:
+    lane = _canonical_alias_for_op(op)
+    match = re.fullmatch(r"(MS|MF)(\d+)", lane)
+    if not match:
+        return (999999, 99)
+    return (int(match.group(2)), 0 if match.group(1) == "MS" else 1)
+
 def _role_name_for_op(op: str) -> str:
-    return "Memory Saver" if _op_number(op) % 2 else "Memory Finder"
+    return "Memory Saver" if _canonical_alias_for_op(op).startswith("MS") else "Memory Finder"
 
 def _op_label(op: str) -> str:
     return f"{_canonical_alias_for_op(op)} ({_role_name_for_op(op)})"
@@ -85,7 +111,7 @@ def _active_pair_from_record(record: dict, reg: dict, provider_id: str) -> tuple
         producer = pair.get("producer")
         consumer = pair.get("consumer")
         if producer and consumer:
-            return str(producer), str(consumer)
+            return _canonical_alias_for_op(str(producer)), _canonical_alias_for_op(str(consumer))
     existing = _existing_pair_for_provider(reg, provider_id)
     if existing:
         return existing
@@ -312,8 +338,8 @@ def _provider_lane_zombie_hints(active_session: str, active_pair: tuple[str, str
         if re.match(LEGACY_OPERATOR_TMUX_SESSION_PATTERN, row) and row not in active_op_sessions
     ]
     reg = _load_registry()
-    inactive_ops = [
-        op for op in sorted(reg.keys(), key=lambda x: int(x.replace("OP", "")))
+    inactive_lanes = [
+        op for op in sorted(reg.keys(), key=_lane_sort_key)
         if op not in set(active_pair)
     ]
     try:
@@ -325,18 +351,20 @@ def _provider_lane_zombie_hints(active_session: str, active_pair: tuple[str, str
     for row in live_stdout.splitlines():
         if "pgrep" in row or "ygg_poll.py" not in row:
             continue
-        match = re.search(r"/sessions/(OP\d+)", row)
-        if match and match.group(1) not in set(active_pair):
-            orphan_live.append(match.group(1))
+        match = re.search(r"/sessions/(OP\d+|MS\d+|MF\d+)", row)
+        if match:
+            lane = _canonical_alias_for_op(match.group(1))
+            if lane not in set(active_pair):
+                orphan_live.append(lane)
     hints = []
     if provider_like:
         hints.append(f"extra_provider_like_tmux={','.join(provider_like)}")
     if op_like:
-        hints.append(f"extra_op_tmux={','.join(op_like)}")
-    if inactive_ops:
-        hints.append(f"inactive_registry_ops={','.join(inactive_ops)}")
+        hints.append(f"extra_memory_lane_tmux={','.join(op_like)}")
+    if inactive_lanes:
+        hints.append(f"inactive_registry_lanes={','.join(inactive_lanes)}")
     if orphan_live:
-        hints.append(f"orphan_debug_monitors={','.join(sorted(set(orphan_live)))}")
+        hints.append(f"orphan_memory_lane_debug_monitors={','.join(sorted(set(orphan_live), key=_lane_sort_key))}")
     return hints
 
 def cmd_provider_lane_doctor(*, attach_intent: bool = False) -> str:
@@ -439,32 +467,110 @@ def cmd_tmux_doctor() -> None:
         status="done",
     )
 
+_SESSION_JSONL_FILES = {
+    "intents.jsonl",
+    "receipts.jsonl",
+    "queries.jsonl",
+    "query_receipts.jsonl",
+    "delivery_receipts.jsonl",
+    "work_orders.jsonl",
+    "work_history.jsonl",
+    "live_inbox.jsonl",
+    "live_delivered.jsonl",
+    "live_operator_log.jsonl",
+    "live_goal_log.jsonl",
+}
+
+def _normalize_registry(raw: dict) -> tuple[dict, bool]:
+    normalized: dict = {}
+    changed = False
+    for key, value in raw.items():
+        try:
+            lane = _canonical_alias_for_op(key)
+        except Exception:
+            normalized[key] = value
+            continue
+        changed = changed or lane != key
+        row = dict(value) if isinstance(value, dict) else {"value": value}
+        row.pop("legacy_registry_id", None)
+        if lane.startswith("MS"):
+            row.setdefault("type", "producer")
+        elif lane.startswith("MF"):
+            row.setdefault("type", "consumer")
+        if lane not in normalized:
+            normalized[lane] = row
+        else:
+            merged = dict(row)
+            merged.update(normalized[lane])
+            normalized[lane] = merged
+    return normalized, changed
+
+def _append_unique_file_lines(src: Path, dst: Path) -> bool:
+    if not src.exists() or not src.is_file():
+        return False
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    existing = set(dst.read_text(encoding="utf-8").splitlines()) if dst.exists() else set()
+    added: list[str] = []
+    for line in src.read_text(encoding="utf-8").splitlines():
+        if line and line not in existing:
+            existing.add(line)
+            added.append(line)
+    if not added:
+        return False
+    with dst.open("a", encoding="utf-8") as stream:
+        for line in added:
+            stream.write(line + "\n")
+    return True
+
+def _materialize_canonical_session_dir(lane: str) -> bool:
+    canonical = SESSIONS_DIR / _canonical_alias_for_op(lane)
+    legacy = SESSIONS_DIR / _legacy_op_id_for_lane(lane)
+    if canonical == legacy or not legacy.exists():
+        canonical.mkdir(parents=True, exist_ok=True)
+        return False
+    canonical.mkdir(parents=True, exist_ok=True)
+    changed = False
+    for src in legacy.iterdir():
+        dst = canonical / src.name
+        if src.is_file() and src.name in _SESSION_JSONL_FILES:
+            changed = _append_unique_file_lines(src, dst) or changed
+        elif src.is_file() and not dst.exists():
+            shutil.copy2(src, dst)
+            changed = True
+    return changed
+
 def _load_registry() -> dict:
     if not REGISTRY_FILE.exists():
         return {}
-    return json.loads(REGISTRY_FILE.read_text())
+    raw = json.loads(REGISTRY_FILE.read_text())
+    normalized, changed = _normalize_registry(raw)
+    session_changed = False
+    for lane in list(normalized):
+        if re.fullmatch(r"(MS|MF)\d+", lane):
+            session_changed = _materialize_canonical_session_dir(lane) or session_changed
+    if changed:
+        _save_registry(normalized)
+    return normalized
 
 def _save_registry(reg: dict) -> None:
     REGISTRY_DIR.mkdir(parents=True, exist_ok=True)
-    REGISTRY_FILE.write_text(json.dumps(reg, indent=2, ensure_ascii=False))
+    normalized, _changed = _normalize_registry(reg)
+    REGISTRY_FILE.write_text(json.dumps(normalized, indent=2, ensure_ascii=False))
 
-def _next_pair(reg: dict) -> tuple[int, int]:
-    used = {int(k.replace("OP", "")) for k in reg}
-    n = 1
-    while n in used or (n + 1) in used:
-        n += 2
-    return n, n + 1
+def _next_pair(reg: dict) -> tuple[str, str]:
+    units = {_unit_number_for_op(k) for k in reg if re.fullmatch(r"(MS|MF|OP)\d+", str(k).upper())}
+    unit = 1
+    while unit in units:
+        unit += 1
+    return f"MS{unit}", f"MF{unit}"
 
 def _existing_pair_for_provider(reg: dict, provider: str) -> tuple[str, str] | None:
-    ops = sorted(reg.keys(), key=lambda x: int(x.replace("OP", "")))
+    ops = sorted(reg.keys(), key=_lane_sort_key)
     for op in ops:
-        try:
-            num = int(op.replace("OP", ""))
-        except ValueError:
+        lane = _canonical_alias_for_op(op)
+        if not lane.startswith("MS"):
             continue
-        if num % 2 == 0:
-            continue
-        peer = f"OP{num + 1}"
+        peer = f"MF{_unit_number_for_op(lane)}"
         left = reg.get(op, {})
         right = reg.get(peer, {})
         if (
@@ -473,23 +579,23 @@ def _existing_pair_for_provider(reg: dict, provider: str) -> tuple[str, str] | N
             and left.get("type") == "producer"
             and right.get("type") == "consumer"
         ):
-            return op, peer
+            return lane, peer
     return None
 
 def _resolve_op(arg: str) -> str:
-    """Resolve public memory-lane aliases to the internal OP registry id."""
+    """Resolve memory-lane aliases to the canonical active mailbox id."""
     m = re.match(r'^ms(\d+)$', arg, re.IGNORECASE)
     if m:
-        return f"OP{(int(m.group(1)) * 2) - 1}"
+        return f"MS{int(m.group(1))}"
     m = re.match(r'^mf(\d+)$', arg, re.IGNORECASE)
     if m:
-        return f"OP{int(m.group(1)) * 2}"
+        return f"MF{int(m.group(1))}"
     m = re.match(r'^(op|OP)?(\d+)$', arg, re.IGNORECASE)
     if m:
-        return f"OP{m.group(2)}"
+        return _canonical_alias_for_op(f"OP{m.group(2)}")
     if arg.startswith("OP") and arg[2:].isdigit():
-        return arg
-    return f"OP{arg}" if arg.isdigit() else arg
+        return _canonical_alias_for_op(arg)
+    return _canonical_alias_for_op(f"OP{arg}") if arg.isdigit() else arg
 
 def _ensure_tmux_hygiene() -> None:
     """Keep tmux usable as a witness surface, not an unbounded work log."""
@@ -505,8 +611,8 @@ def _ensure_tmux_hygiene() -> None:
         reg = _load_registry()
     except Exception:
         reg = {}
-    for op in sorted(reg):
-        if re.fullmatch(r"OP\d+", op):
+    for op in sorted(reg, key=_lane_sort_key):
+        if re.fullmatch(r"(MS|MF)\d+", op):
             _ensure_memory_lane_tmux_name(op)
 
 

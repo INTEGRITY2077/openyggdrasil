@@ -47,8 +47,56 @@ def _bootstrap_runtime_package_for_direct_script() -> None:
 
 _bootstrap_runtime_package_for_direct_script()
 
-from runtime.operator.producer import run_producer
-from runtime.operator.consumer import run_consumer
+
+def _early_arg_value(flag: str) -> str | None:
+    try:
+        index = sys.argv.index(flag)
+    except ValueError:
+        return None
+    if index + 1 >= len(sys.argv):
+        return None
+    return sys.argv[index + 1]
+
+
+def _configure_runtime_state_before_import() -> None:
+    vault_arg = _early_arg_value("--vault")
+    mailbox_arg = _early_arg_value("--mailbox")
+    if not vault_arg:
+        return
+    vault = Path(vault_arg).expanduser()
+    lane = Path(mailbox_arg).name if mailbox_arg else "entrypoint"
+    os.environ.setdefault("OPENYGGDRASIL_WORKSPACE_ROOT", str(vault.parent))
+    os.environ.setdefault("OPENYGGDRASIL_RUNTIME_STATE_ROOT", str(vault.parent / "runtime_state" / lane))
+
+
+_configure_runtime_state_before_import()
+
+
+def _runtime_state_root_for_entrypoint(mode: str, mailbox: Path, vault: Path) -> Path:
+    lane = mailbox.name or ("MS1" if mode == "produce" else "MF1")
+    return vault.parent / "runtime_state" / lane
+
+
+def _configure_runtime_state_for_entrypoint(mode: str, mailbox: Path, vault: Path) -> None:
+    os.environ.setdefault(
+        "OPENYGGDRASIL_RUNTIME_STATE_ROOT",
+        str(_runtime_state_root_for_entrypoint(mode, mailbox, vault)),
+    )
+    os.environ.setdefault("OPENYGGDRASIL_WORKSPACE_ROOT", str(vault.parent))
+
+
+def run_producer(mailbox: Path, vault: Path) -> None:
+    _configure_runtime_state_for_entrypoint("produce", mailbox, vault)
+    from runtime.operator.producer import run_producer as _run_producer
+
+    _run_producer(mailbox, vault)
+
+
+def run_consumer(mailbox: Path, vault: Path) -> None:
+    _configure_runtime_state_for_entrypoint("consume", mailbox, vault)
+    from runtime.operator.consumer import run_consumer as _run_consumer
+
+    _run_consumer(mailbox, vault)
 
 # ─── tests backward-compat re-exports (구현은 runtime/operator/ 아래에 있음) ───
 
@@ -78,7 +126,10 @@ from runtime.operator.prune import (  # noqa: F401 — tests import from here
 )
 
 # ─── consumer BM25 re-export (tests backward-compat) ───
-from runtime.operator.consumer import _bm25_search_vault  # noqa: F401
+def _bm25_search_vault(*args, **kwargs):  # noqa: ANN002, ANN003
+    from runtime.operator.consumer import _bm25_search_vault as _impl
+
+    return _impl(*args, **kwargs)
 
 
 if __name__ == "__main__":
@@ -88,6 +139,7 @@ if __name__ == "__main__":
     parser.add_argument("--vault", required=True, type=Path)
     args = parser.parse_args()
 
+    _configure_runtime_state_for_entrypoint(args.mode, args.mailbox, args.vault)
     if args.mode == "produce":
         run_producer(args.mailbox, args.vault)
     else:

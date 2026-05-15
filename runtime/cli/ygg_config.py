@@ -40,11 +40,11 @@ Usage:
                                 dev fallback: type one bounded prompt into PRO1
 
 Compatibility:
-  Legacy OP ids remain internal registry/mailbox evidence ids only.
-  User entry, monitoring, and follow-up commands use ygg proN/msN/mfN.
+  MSN/MFN are the active registry and mailbox ids.
+  Legacy OP ids are migration-only source ids and must not be active status evidence.
 
 Registry: ~/.yggdrasil/registry.json
-Sessions:  ~/.yggdrasil/sessions/OP{N}/
+Sessions:  ~/.yggdrasil/sessions/MS{N}/ and ~/.yggdrasil/sessions/MF{N}/
 """
 import json
 import os
@@ -67,7 +67,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 from runtime.delivery.postman_cpr_wakeup import provider_lane_monitor_summary, wake_provider_with_cpr
 from runtime.delivery.postman_native_activation import activate_native_lane
 from runtime.common.role_aliases import (
-    LEGACY_ACTIVE_OPERATOR_PAIR,
+    DEFAULT_ACTIVE_WORKER_PAIR,
     LEGACY_OPERATOR_TMUX_SESSION_PATTERN,
 )
 
@@ -89,7 +89,7 @@ POSTMAN_CPR_SCHEMA_VERSION = "postman_heartbeat_cpr.v1"
 POSTMAN_CPR_PACKET_TYPE = "operator_brief"
 LEGACY_PROVIDER_SESSIONS = ("oy-1", "oy-provider")
 TMUX_CORE_SESSIONS = {PROVIDER_PAIR_SESSION, "ygg-ms1", "ygg-mf1"}
-DEFAULT_ACTIVE_PAIR = LEGACY_ACTIVE_OPERATOR_PAIR
+DEFAULT_ACTIVE_PAIR = DEFAULT_ACTIVE_WORKER_PAIR
 TMUX_HYGIENE_OPTIONS = (
     ("set-option", "-g", "history-limit", "20000"),
     ("set-option", "-g", "escape-time", "10"),

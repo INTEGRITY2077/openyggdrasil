@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from runtime.log_event import log_event
+from runtime.common.provider_wake_markers import is_provider_rejudgment_wakeup_text
 from runtime.ptc.primitives import (
     search_vault_bm25,
     format_consumer_result,
@@ -623,6 +624,29 @@ def _prepare_memory_finder_bundle(*, query_text: str, bundle: dict, status: str)
     return prepared, status
 
 
+def _provider_rejudgment_wakeup_bundle(query_text: str) -> tuple[dict, str]:
+    typed_unavailable = {
+        "schema_version": "typed_unavailable.v1",
+        "reason_code": "provider_rejudgment_wakeup_not_user_recall",
+        "query_hash": hashlib.sha256(str(query_text or "").encode("utf-8")).hexdigest()[:12],
+        "hard_nonclaims": [
+            "provider_rejudgment_wakeup_is_not_user_recall_request",
+            "postman_visible_wakeup_must_not_recurse_to_mf1",
+        ],
+    }
+    return (
+        {
+            "schema_version": "support_bundle.v1",
+            "query": query_text,
+            "support_facts": [],
+            "source_paths": [],
+            "typed_unavailable": typed_unavailable,
+            "hard_nonclaims": typed_unavailable["hard_nonclaims"],
+        },
+        "typed_unavailable_provider_rejudgment_wakeup_not_user_recall",
+    )
+
+
 def _prepare_memory_finder_bundle_with_fallback(
     *,
     query_text: str,
@@ -663,6 +687,49 @@ def _prepare_memory_finder_bundle_with_fallback(
         bundle=fallback,
         status="completed",
     )
+
+
+def _promote_ptc_contract_fields(bundle: dict) -> dict:
+    """Mirror fresh worker-authored PTC contracts to stable receipt fields."""
+
+    if not isinstance(bundle, dict):
+        return bundle
+    supervisors = []
+    for candidate in (
+        bundle.get("tst_capability_supervisor"),
+        bundle.get("tst_supervisor"),
+        (bundle.get("ptc_worker_program") or {}).get("tst_capability_supervisor")
+        if isinstance(bundle.get("ptc_worker_program"), dict)
+        else None,
+        (bundle.get("ptc_worker_program") or {}).get("tst_supervisor")
+        if isinstance(bundle.get("ptc_worker_program"), dict)
+        else None,
+    ):
+        if isinstance(candidate, dict):
+            supervisors.append(candidate)
+    supervisor = supervisors[0] if supervisors else {}
+    for source_key, target_key in (
+        ("worker_authored_ptc_program", "worker_authored_ptc_program"),
+        ("worker_authored_ptc_program", "worker_authored_ptc_program_ref"),
+        ("ptc_program_observation", "ptc_program_observation"),
+        ("tst_capability_allowlist", "tst_capability_allowlist"),
+        ("observation_delta_gate", "observation_delta_gate"),
+    ):
+        value = supervisor.get(source_key) if isinstance(supervisor, dict) else None
+        if not value:
+            continue
+        if target_key == "worker_authored_ptc_program_ref":
+            if isinstance(value, dict):
+                bundle[target_key] = value.get("worker_authored_ptc_program_ref") or value.get("code_hash")
+                if value.get("code_hash"):
+                    bundle["code_hash"] = value["code_hash"]
+            continue
+        bundle[target_key] = value
+        if target_key == "ptc_program_observation":
+            bundle["execution_trace"] = value
+        if target_key == "tst_capability_allowlist":
+            bundle["capability_allowlist"] = value
+    return bundle
 
 
 def _memory_finder_judgment(*, query_text: str, bundle: dict, status: str) -> dict:
@@ -789,6 +856,29 @@ def run_consumer(mailbox: Path, vault: Path):
 
         query_text = msg["payload"]["query_text"]
         receipt_delivery_id = msg.get("postman_delivery_id") or msg.get("delivery_id")
+        if is_provider_rejudgment_wakeup_text(query_text):
+            bundle, receipt_status = _provider_rejudgment_wakeup_bundle(query_text)
+            worker_judgment = _memory_finder_judgment(
+                query_text=query_text,
+                bundle=bundle,
+                status=receipt_status,
+            )
+            bundle["worker_judgment"] = worker_judgment
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status=receipt_status,
+                bundle=bundle,
+                worker_judgment=worker_judgment,
+                consumer_pid=os.getpid(),
+                delivery_id=receipt_delivery_id,
+            )
+            log_event(
+                "provider_rejudgment_wakeup_query_ignored",
+                mail_id=msg.get("mail_id"),
+                action="write_receipt_without_provider_delivery",
+            )
+            continue
 
         # Phase 2: PTC path. The worker-authored program is a visible probe,
         # but the final answer must still be evidence-bound as a support bundle.
@@ -977,6 +1067,7 @@ def run_consumer(mailbox: Path, vault: Path):
                         status="completed",
                         vault=vault,
                     )
+                    bundle = _promote_ptc_contract_fields(bundle)
                     worker_judgment = _memory_finder_judgment(
                         query_text=query_text,
                         bundle=bundle,
@@ -1062,6 +1153,7 @@ def run_consumer(mailbox: Path, vault: Path):
                     status="completed",
                     vault=vault,
                 )
+                bundle = _promote_ptc_contract_fields(bundle)
                 worker_judgment = _memory_finder_judgment(
                     query_text=query_text,
                     bundle=bundle,
@@ -1144,6 +1236,7 @@ def run_consumer(mailbox: Path, vault: Path):
             status="completed",
             vault=vault,
         )
+        bundle = _promote_ptc_contract_fields(bundle)
         worker_judgment = _memory_finder_judgment(
             query_text=query_text,
             bundle=bundle,

@@ -44,6 +44,14 @@ def _provider_session_id() -> str:
     ).strip() or "ygg-pro1"
 
 
+def _provider_wakeup_target(provider_session_id: str) -> str:
+    return (
+        os.environ.get("OY_PROVIDER_WAKE_TARGET")
+        or os.environ.get("YGG_PROVIDER_WAKE_TARGET")
+        or provider_session_id
+    ).strip() or provider_session_id
+
+
 def _workspace_root(*, provider_id: str, provider_profile: str, provider_session_id: str) -> Path:
     candidates = [
         os.environ.get("OY_PROVIDER_WORKSPACE_ROOT"),
@@ -170,6 +178,10 @@ def _append_postman_observation(
 
 def _worker_lane_session(mailbox: Path) -> str | None:
     name = mailbox.name.upper()
+    if name == "MS1":
+        return "ygg-ms1"
+    if name == "MF1":
+        return "ygg-mf1"
     if not name.startswith("OP"):
         return None
     try:
@@ -180,6 +192,12 @@ def _worker_lane_session(mailbox: Path) -> str | None:
         return None
     unit = (index + 1) // 2
     return f"ygg-ms{unit}" if index % 2 == 1 else f"ygg-mf{unit}"
+
+
+def _registry_dir_for_mailbox(mailbox: Path) -> Path:
+    if mailbox.parent.name == "sessions":
+        return mailbox.parent.parent
+    return mailbox.parent
 
 
 def _support_counts(bundle: dict[str, Any] | None) -> tuple[int, int]:
@@ -207,6 +225,7 @@ def _inject_provider_cpr_handoff(
     provider_id = _provider_id()
     provider_profile = _provider_profile(provider_id)
     provider_session_id = _provider_session_id()
+    provider_wakeup_target = _provider_wakeup_target(provider_session_id)
     try:
         from runtime.delivery.postman_heartbeat_cpr import inject_postman_heartbeat_cpr_to_provider_inbox
 
@@ -240,13 +259,46 @@ def _inject_provider_cpr_handoff(
         }
     payload = delivery.get("payload") if isinstance(delivery, dict) else {}
     handoff = payload.get("provider_inbox_handoff") if isinstance(payload, dict) else {}
-    return {
+    result = {
         "status": delivery.get("delivery_status") or "created",
         "heartbeat_cpr_status": payload.get("heartbeat_cpr_status") if isinstance(payload, dict) else None,
         "handoff_status": handoff.get("handoff_status") if isinstance(handoff, dict) else None,
         "provider_session_id": provider_session_id,
+        "provider_wakeup_target": provider_wakeup_target,
         "message_id": delivery.get("message_id"),
     }
+    if os.environ.get("OY_PROVIDER_VISIBLE_REJUDGMENT_WAKE", "0") == "1":
+        try:
+            from runtime.delivery.postman_cpr_wakeup import wake_provider_with_cpr
+
+            result["visible_rejudgment_wakeup"] = wake_provider_with_cpr(
+                {
+                    "status": "done",
+                    "heartbeat_cpr_status": result.get("heartbeat_cpr_status"),
+                    "handoff_status": result.get("handoff_status"),
+                    "manual_prompt_injection_required": (
+                        handoff.get("manual_prompt_injection_required")
+                        if isinstance(handoff, dict)
+                        else None
+                    ),
+                    "mf1_support_metadata": (
+                        payload.get("mf1_support_metadata") if isinstance(payload, dict) else {}
+                    ),
+                    "message_id": delivery.get("message_id"),
+                    "mailbox_correlation": (
+                        payload.get("mailbox_correlation") if isinstance(payload, dict) else {}
+                    ),
+                },
+                registry_dir=_registry_dir_for_mailbox(mailbox),
+                provider_session=provider_wakeup_target,
+                inject_visible=True,
+            )
+        except Exception as exc:  # noqa: BLE001 - visible wakeup must not break receipt recording.
+            result["visible_rejudgment_wakeup"] = {
+                "status": "failed",
+                "reason_code": exc.__class__.__name__,
+            }
+    return result
 
 
 def _native_result_projection_text(
@@ -426,7 +478,6 @@ def deliver_operator_result(
         "worker_role": _worker_role_kind(mailbox),
         "delivery_owner": "postman",
     }
-    append_jsonl(mailbox / "delivery_receipts.jsonl", receipt)
     append_worker_history_event(
         mailbox=mailbox,
         mail_id=mail_id,
@@ -467,6 +518,7 @@ def deliver_operator_result(
 
     provider_cpr = _inject_provider_cpr_handoff(mailbox, receipt=receipt)
     receipt["provider_cpr"] = provider_cpr
+    append_jsonl(mailbox / "delivery_receipts.jsonl", receipt)
     if provider_cpr.get("status") != "not_applicable":
         try:
             append_jsonl(

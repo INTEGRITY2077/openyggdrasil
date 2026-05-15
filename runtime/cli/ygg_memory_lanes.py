@@ -292,12 +292,11 @@ def cmd_spawn(provider: str, *, force_new: bool = False) -> None:
     p, c = _next_pair(reg)
     vault = str(_default_vault())
     now = datetime.now(timezone.utc).isoformat()
-    for num, otype in [(p, "producer"), (c, "consumer")]:
-        op = f"OP{num}"
+    for op, otype in [(p, "producer"), (c, "consumer")]:
         (SESSIONS_DIR / op).mkdir(parents=True, exist_ok=True)
         reg[op] = {"provider": provider, "type": otype, "vault": vault, "created": now}
     _save_registry(reg)
-    print(f"{_op_label(f'OP{p}')} + {_op_label(f'OP{c}')} allocated for {provider}")
+    print(f"{_op_label(p)} + {_op_label(c)} allocated for {provider}")
     print("  vault: configured")
 
 def cmd_list() -> None:

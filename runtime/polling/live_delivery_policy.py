@@ -36,6 +36,7 @@ from runtime.polling.worker_owned_loop import (
     _paste_context_prompt,
     _send_worker_owned_native_loop,
     _send_worker_owned_receipt_projection,
+    _send_worker_owned_structured_close_surface,
     _wait_context_card_lane_ready,
 )
 from runtime.polling.ygg_poll_context import (
@@ -464,13 +465,17 @@ def _handle_worker_owned_result(
 ) -> bool:
     if not WORKER_OWNED_NATIVE_LOOP:
         return False
+    structured_surface = _send_worker_owned_structured_close_surface(
+        event, receipt, status, elapsed_ms, attempts
+    )
     receipt_projection = _send_worker_owned_receipt_projection(event, receipt, status, elapsed_ms, attempts)
     summary = _receipt_public_summary_for_event(event, receipt)
     log_row.update({
-        "goal_phase": "worker_owned_receipt_projection",
+        "goal_phase": "worker_owned_structured_close_surface",
         "goal_status": "closed" if receipt else "blocked",
-        "context_window_written": bool(receipt_projection.get("written")),
-        "context_card_status": receipt_projection.get("status"),
+        "context_window_written": bool(structured_surface.get("written")),
+        "context_card_status": structured_surface.get("status"),
+        "worker_owned_structured_close_surface_sent": bool(structured_surface.get("written")),
         "worker_owned_receipt_projection_sent": bool(receipt_projection.get("written")),
         "final_support_quality": summary.get("quality"),
         "final_support_result": summary.get("result"),
@@ -485,6 +490,8 @@ def _handle_worker_owned_result(
         "receipt_present": bool(receipt),
         "elapsed_ms": elapsed_ms,
         "attempt_count": len(attempts),
+        "structured_surface_sent": bool(structured_surface.get("written")),
+        "structured_surface_status": structured_surface.get("status"),
         "receipt_projection_sent": bool(receipt_projection.get("written")),
         "receipt_projection_status": receipt_projection.get("status"),
         "final_support_quality": summary.get("quality"),

@@ -6,6 +6,8 @@ execution and the observation must structurally change the next action.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any, Mapping, Sequence
 
 
@@ -120,7 +122,7 @@ def build_worker_authored_ptc_program(
     """Build a provider-safe worker program receipt section."""
     role = str(worker_role or "").strip()
     mode = str(program_mode or "canonical_flow").strip()
-    return {
+    payload: dict[str, Any] = {
         "schema_version": WORKER_PROGRAM_SCHEMA_VERSION,
         "worker_role": role,
         "work_order_ref": work_order_ref,
@@ -155,6 +157,12 @@ def build_worker_authored_ptc_program(
             "changed_next_action_self_claim_is_not_enough",
         ]),
     }
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
+    payload["code_hash"] = "sha256:" + hashlib.sha256(encoded).hexdigest()
+    payload["worker_authored_ptc_program_ref"] = (
+        f"ptc-program-ref://{role or 'unknown'}/{payload['code_hash'].split(':', 1)[1][:16]}"
+    )
+    return payload
 
 
 def review_ptc_program(

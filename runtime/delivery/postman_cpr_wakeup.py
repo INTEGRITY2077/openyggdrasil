@@ -215,31 +215,41 @@ def _node_taxonomy_lines(support: Mapping[str, Any]) -> list[str]:
 
 def _build_provider_cpr_wakeup_prompt(result: Mapping[str, Any]) -> str:
     return (
-        "새 근거 갱신 알림입니다. 이 알림 자체는 답변 근거가 아닙니다. "
-        "Provider brief를 먼저 확인하고, 현재 질문과 비교해 필요할 때만 원 질문에 필요한 밀도로 정정하세요. "
-        "구조가 필요한 질문이면 결론, 기준 변화, 근거 상태를 구분하세요. "
-        "근거가 부족하거나 현재 답이 그대로 맞으면 그렇게 닫으세요. "
-        "경로, 식별자, 개수 목록은 답변에 쓰지 마세요."
+        "아까 답을 뒤에서 확인된 기준과 비교해서 필요한 밀도로 다시 봐줘. "
+        "근거가 충분하면 달라지는 부분과 판단 근거를 구조적으로 보강하고, 부족하거나 바뀔 게 없으면 그 한계만 분명히 닫아줘. "
+        "근거 이름이나 내부 번호를 나열하지는 마."
     )
 
 
 def _cpr_wakeup_ready(result: Mapping[str, Any]) -> tuple[bool, str]:
     support = _support_metadata(result)
-    checks = [
+    base_checks = [
         (result.get("status") == "done", "provider_cpr_not_done"),
         (result.get("heartbeat_cpr_status") == "ready", "heartbeat_cpr_not_ready"),
         (result.get("handoff_status") == "ready_for_provider_current_dialogue", "provider_handoff_not_ready"),
         (result.get("manual_prompt_injection_required") is False, "manual_prompt_injection_required"),
-        (support.get("status") == "available", "memory_finder_support_unavailable"),
-        (int(support.get("support_facts_count") or 0) > 0, "support_facts_missing"),
-        (int(support.get("source_paths_count") or len(support.get("source_paths") or [])) > 0, "source_paths_missing"),
-        (support.get("typed_unavailable_present") is False, "typed_unavailable_present"),
         (bool(result.get("message_id")), "cpr_message_id_missing"),
     ]
-    for passed, reason_code in checks:
+    for passed, reason_code in base_checks:
         if not passed:
             return False, reason_code
-    return True, "ready"
+    if support.get("status") == "available":
+        checks = [
+            (int(support.get("support_facts_count") or 0) > 0, "support_facts_missing"),
+            (int(support.get("source_paths_count") or len(support.get("source_paths") or [])) > 0, "source_paths_missing"),
+            (support.get("typed_unavailable_present") is False, "typed_unavailable_present"),
+        ]
+        for passed, reason_code in checks:
+            if not passed:
+                return False, reason_code
+        return True, "ready"
+    if (
+        support.get("status") == "typed_unavailable"
+        or support.get("typed_unavailable_present") is True
+        or isinstance(support.get("typed_unavailable"), Mapping)
+    ):
+        return True, "ready_typed_unavailable"
+    return False, "memory_finder_support_unavailable"
 
 
 def _write_cpr_wakeup_log(result: Mapping[str, Any], wakeup: Mapping[str, Any], *, registry_dir: Path) -> Path:
