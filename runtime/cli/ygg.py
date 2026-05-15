@@ -44,7 +44,7 @@ def main():
         print("  ygg recall [--ptc] [--json] [--stdin|--b64 TEXT] <mf1> <question>")
         print("                              async Provider recall via Memory Finder")
         print("  ygg recall --wait [--timeout N] <mf1> <question>")
-        print("                              verification-only bounded receipt wait")
+        print("                              verification-only; Provider sessions downgrade to async unless explicitly allowed")
         print("  ygg doctor                 Provider Unit 1 healthcheck")
         print("  ygg cpr [--json]           Provider-bound Status Brief check")
         print("  ygg cpr --wake-provider    record an internal Provider heartbeat")

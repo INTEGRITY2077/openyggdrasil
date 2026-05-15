@@ -28,7 +28,97 @@ from runtime.ptc.primitives import (
 from .helpers import deliver_receipt, write_operator_receipt
 
 
-_WORD_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{2,}")
+_WORD_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{1,}|[\uac00-\ud7a3]{2,}")
+_GENERIC_QUERY_STOPWORDS = {
+    "about",
+    "after",
+    "again",
+    "also",
+    "and",
+    "are",
+    "based",
+    "between",
+    "can",
+    "case",
+    "code",
+    "docs",
+    "does",
+    "enough",
+    "for",
+    "from",
+    "get",
+    "give",
+    "how",
+    "into",
+    "just",
+    "later",
+    "like",
+    "line",
+    "make",
+    "model",
+    "more",
+    "not",
+    "one",
+    "only",
+    "same",
+    "should",
+    "that",
+    "the",
+    "then",
+    "this",
+    "use",
+    "used",
+    "uses",
+    "what",
+    "when",
+    "where",
+    "which",
+    "with",
+    "기준",
+    "나중에",
+    "대충",
+    "문서",
+    "보면",
+    "어떤",
+    "언제",
+    "위키",
+    "정도",
+    "질문",
+    "하면",
+}
+_BOUNDARY_CUE_TERMS = {
+    "boundary",
+    "category",
+    "criteria",
+    "criterion",
+    "different",
+    "difference",
+    "distinction",
+    "enough",
+    "fourth",
+    "kind",
+    "layer",
+    "runtime",
+    "same",
+    "sufficient",
+    "type",
+    "versus",
+    "when",
+    "가르",
+    "나눠",
+    "다른",
+    "묶어",
+    "선",
+    "언제",
+    "올리",
+    "끝내",
+    "차이",
+    "층위",
+    "충분",
+    "같은",
+    "과한",
+    "구분",
+}
 
 try:
     from runtime.retrieval.pathfinder_tools import build_ring_support_bundle
@@ -81,6 +171,59 @@ def _tokens(text: str) -> set[str]:
     return {match.group(0).lower() for match in _WORD_RE.finditer(text or "")}
 
 
+def _normalize_query_term(token: str) -> str:
+    normalized = token.lower().replace("_", "-").strip("-")
+    if normalized.isascii() and len(normalized) > 4 and normalized.endswith("s") and not normalized.endswith("ss"):
+        normalized = normalized[:-1]
+    return normalized
+
+
+def _normalized_tokens(text: str) -> set[str]:
+    return {term for token in _tokens(text) if (term := _normalize_query_term(token))}
+
+
+def _significant_query_terms(text: str) -> set[str]:
+    terms: set[str] = set()
+    for token in _tokens(text):
+        normalized = _normalize_query_term(token)
+        if not normalized or normalized in _GENERIC_QUERY_STOPWORDS:
+            continue
+        if len(normalized) < 3 and normalized.isascii():
+            continue
+        terms.add(normalized)
+    return terms
+
+
+def _is_boundary_question(text: str, query_tokens: set[str]) -> bool:
+    lowered = f" {str(text or '').lower()} "
+    has_phrase_cue = any(phrase in lowered for phrase in (" vs ", " versus ", " or ", "랑", "하고", "와 ", "과 "))
+    has_text_cue = any(cue in lowered for cue in _BOUNDARY_CUE_TERMS)
+    has_token_cue = bool(query_tokens & _BOUNDARY_CUE_TERMS)
+    return has_phrase_cue or has_text_cue or has_token_cue
+
+
+def _generic_boundary_alignment(*, query_text: str, support_tokens: set[str]) -> dict:
+    query_tokens = _tokens(query_text)
+    significant_terms = _significant_query_terms(query_text)
+    if not _is_boundary_question(query_text, query_tokens) or len(significant_terms) < 2:
+        return {
+            "applies": False,
+            "covered_terms": [],
+            "missing_terms": [],
+            "required_terms": [],
+        }
+    ascii_terms = {term for term in significant_terms if term.isascii()}
+    required_terms = ascii_terms if len(ascii_terms) >= 2 else significant_terms
+    covered = sorted(term for term in required_terms if term in support_tokens)
+    missing = sorted(term for term in required_terms if term not in support_tokens)
+    return {
+        "applies": True,
+        "covered_terms": covered[:20],
+        "missing_terms": missing[:20],
+        "required_terms": sorted(required_terms)[:20],
+    }
+
+
 def _high_specificity_tokens(text: str) -> set[str]:
     return {
         token
@@ -128,32 +271,18 @@ def _memory_finder_alignment(*, query_text: str, bundle: dict) -> dict:
     )
     query_tokens = _tokens(query_text)
     support_tokens = _tokens(support_text)
+    normalized_support_tokens = _normalized_tokens(support_text)
     high_specificity = _high_specificity_tokens(query_text)
     missing_specific = sorted(token for token in high_specificity if token not in support_tokens)
     overlap = sorted(query_tokens & support_tokens)
     overlap_score = 0.0 if not query_tokens else len(overlap) / max(len(query_tokens), 1)
-    agent_tokens = {"agent", "agents", "subagent", "subagents"}
-    skill_tokens = {"skill", "skills"}
-    plugin_tokens = {"plugin", "plugins"}
-    asks_agent_skill_boundary = bool(query_tokens & agent_tokens) and bool(query_tokens & skill_tokens)
-    asks_plugin_agent_boundary = bool(query_tokens & plugin_tokens) and bool(query_tokens & agent_tokens)
+    boundary_alignment = _generic_boundary_alignment(query_text=query_text, support_tokens=normalized_support_tokens)
     missing_boundary_markers: list[str] = []
-    if asks_agent_skill_boundary:
-        if not (support_tokens & agent_tokens):
-            missing_boundary_markers.append("agent_side")
-        if not (support_tokens & skill_tokens):
-            missing_boundary_markers.append("skill_side")
-    if asks_plugin_agent_boundary:
-        if not (support_tokens & plugin_tokens):
-            missing_boundary_markers.append("plugin_side")
-        if not (support_tokens & agent_tokens):
-            missing_boundary_markers.append("agent_side")
-        if not (support_tokens & {"runtime", "model", "category", "coordination"}):
-            missing_boundary_markers.append("runtime_category_side")
-    if asks_agent_skill_boundary and missing_boundary_markers:
-        status = "misaligned"
-        reason = "paired_boundary_marker_missing_from_support"
-    elif asks_plugin_agent_boundary and missing_boundary_markers:
+    if boundary_alignment["applies"] and len(boundary_alignment["covered_terms"]) < 2:
+        missing_boundary_markers.extend(
+            f"query_term:{term}" for term in boundary_alignment["missing_terms"][:8]
+        )
+    if boundary_alignment["applies"] and missing_boundary_markers:
         status = "misaligned"
         reason = "paired_boundary_marker_missing_from_support"
     elif missing_specific:
@@ -178,6 +307,7 @@ def _memory_finder_alignment(*, query_text: str, bundle: dict) -> dict:
         "matched_specific_tokens": sorted(token for token in high_specificity if token in support_tokens)[:20],
         "missing_specific_tokens": missing_specific[:20],
         "missing_boundary_markers": missing_boundary_markers,
+        "boundary_alignment": boundary_alignment,
         "hard_gate_applied": bool(high_specificity),
     }
 
@@ -216,6 +346,167 @@ def _misaligned_support_bundle(*, query_text: str, bundle: dict, alignment: dict
     return guarded
 
 
+def _insufficient_support_bundle(*, query_text: str, bundle: dict, alignment: dict) -> dict:
+    original_facts, original_paths = _support_facts_and_paths(bundle if isinstance(bundle, dict) else {})
+    typed_unavailable = {
+        "schema_version": "typed_unavailable.v1",
+        "reason_code": "typed_unavailable_support_facts_or_source_paths_missing",
+        "query_hash": hashlib.sha256(str(query_text or "").encode("utf-8")).hexdigest()[:12],
+        "observed_support_fact_count": len(original_facts),
+        "observed_source_path_count": len(original_paths),
+        "hard_nonclaims": [
+            "completed_status_requires_support_facts",
+            "completed_status_requires_source_paths",
+            "provider_rejudgment_still_required",
+        ],
+    }
+    guarded = dict(bundle if isinstance(bundle, dict) else {})
+    guarded["original_support_summary"] = {
+        "support_fact_count": len(original_facts),
+        "source_path_count": len(original_paths),
+        "withheld_reason": "support_facts_or_source_paths_missing",
+    }
+    guarded["support_facts"] = []
+    guarded["source_paths"] = []
+    guarded["typed_unavailable"] = typed_unavailable
+    guarded["support_bundle"] = {
+        "schema_version": "support_bundle.v1",
+        "support_facts": [],
+        "source_paths": [],
+        "typed_unavailable": typed_unavailable,
+    }
+    guarded["worker_query_alignment"] = alignment
+    return guarded
+
+
+def _safe_index_cursor(bundle: dict) -> dict:
+    nested_bundle = bundle.get("support_bundle") if isinstance(bundle.get("support_bundle"), dict) else {}
+    if isinstance(bundle.get("safe_index_cursor"), dict):
+        return bundle["safe_index_cursor"]
+    if isinstance(nested_bundle.get("safe_index_cursor"), dict):
+        return nested_bundle["safe_index_cursor"]
+    return {}
+
+
+def _unsafe_cursor_bundle(*, query_text: str, bundle: dict, alignment: dict) -> dict:
+    original_facts, original_paths = _support_facts_and_paths(bundle if isinstance(bundle, dict) else {})
+    safe_index_cursor = _safe_index_cursor(bundle if isinstance(bundle, dict) else {})
+    typed_unavailable = {
+        "schema_version": "typed_unavailable.v1",
+        "reason_code": "typed_unavailable_unsafe_index_cursor",
+        "query_hash": hashlib.sha256(str(query_text or "").encode("utf-8")).hexdigest()[:12],
+        "safe_index_cursor": safe_index_cursor,
+        "observed_support_fact_count": len(original_facts),
+        "observed_source_path_count": len(original_paths),
+        "hard_nonclaims": [
+            "safe_index_cursor_outside_is_not_final_support",
+            "source_backed_candidate_is_not_safe_support",
+            "provider_rejudgment_still_required",
+        ],
+    }
+    guarded = dict(bundle if isinstance(bundle, dict) else {})
+    guarded["original_support_summary"] = {
+        "support_fact_count": len(original_facts),
+        "source_path_count": len(original_paths),
+        "withheld_reason": "unsafe_index_cursor",
+    }
+    guarded["support_facts"] = []
+    guarded["source_paths"] = []
+    guarded["safe_index_cursor"] = safe_index_cursor
+    guarded["typed_unavailable"] = typed_unavailable
+    guarded["support_bundle"] = {
+        "schema_version": "support_bundle.v1",
+        "support_facts": [],
+        "source_paths": [],
+        "typed_unavailable": typed_unavailable,
+    }
+    guarded["worker_query_alignment"] = alignment
+    return guarded
+
+
+def _support_snippet(text: str, covered_terms: set[str]) -> str:
+    normalized_terms = {term.lower() for term in covered_terms}
+    for raw_line in str(text or "").splitlines():
+        line = " ".join(raw_line.strip().split())
+        if not line:
+            continue
+        line_terms = _normalized_tokens(line)
+        if len(line_terms & normalized_terms) >= 2:
+            return line[:500]
+    return " ".join(str(text or "").split())[:500]
+
+
+def _boundary_fallback_bundle(
+    *,
+    query_text: str,
+    vault: Path,
+    prior_bundle: dict,
+    reason_code: str,
+) -> dict | None:
+    significant_terms = _significant_query_terms(query_text)
+    if len(significant_terms) < 2:
+        return None
+    candidates: list[dict] = []
+    for path in vault.rglob("*.md"):
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        doc_terms = _normalized_tokens(text)
+        covered = sorted(significant_terms & doc_terms)
+        if len(covered) < 2:
+            continue
+        relative = path.relative_to(vault).as_posix()
+        candidates.append(
+            {
+                "path": relative,
+                "covered_terms": covered[:20],
+                "score": len(covered),
+                "snippet": _support_snippet(text, set(covered)),
+            }
+        )
+    if not candidates:
+        return None
+    candidates.sort(key=lambda row: (-int(row["score"]), row["path"]))
+    selected = candidates[:5]
+    support_facts = [
+        {
+            "source_path": row["path"],
+            "covered_terms": row["covered_terms"],
+            "text": row["snippet"],
+        }
+        for row in selected
+    ]
+    source_paths = [row["path"] for row in selected]
+    return {
+        "schema_version": "boundary_fallback_support_bundle.v1",
+        "query": query_text,
+        "support_facts": support_facts,
+        "source_paths": source_paths,
+        "support_bundle": {
+            "schema_version": "support_bundle.v1",
+            "support_facts": support_facts,
+            "source_paths": source_paths,
+            "hard_nonclaims": [
+                "boundary_fallback_candidate_still_requires_alignment_gate",
+                "source_path_presence_is_not_final_answer",
+                "provider_rejudgment_still_required",
+            ],
+        },
+        "boundary_fallback": {
+            "schema_version": "boundary_alignment_fallback.v1",
+            "reason_code": reason_code,
+            "candidate_count": len(candidates),
+            "selected_count": len(selected),
+            "selected_paths": source_paths,
+            "prior_support_summary": {
+                "support_fact_count": len(_support_facts_and_paths(prior_bundle)[0]),
+                "source_path_count": len(_support_facts_and_paths(prior_bundle)[1]),
+            },
+        },
+    }
+
+
 def _prepare_memory_finder_bundle(*, query_text: str, bundle: dict, status: str) -> tuple[dict, str]:
     prepared = dict(bundle if isinstance(bundle, dict) else {})
     alignment = _memory_finder_alignment(query_text=query_text, bundle=prepared)
@@ -224,7 +515,48 @@ def _prepare_memory_finder_bundle(*, query_text: str, bundle: dict, status: str)
         return _misaligned_support_bundle(query_text=query_text, bundle=prepared, alignment=alignment), (
             "typed_unavailable_misaligned_support"
         )
+    if status == "completed" and alignment.get("status") == "insufficient_support":
+        return _insufficient_support_bundle(query_text=query_text, bundle=prepared, alignment=alignment), (
+            "typed_unavailable_support_facts_or_source_paths_missing"
+        )
+    if status == "completed" and _safe_index_cursor(prepared).get("status") == "outside":
+        return _unsafe_cursor_bundle(query_text=query_text, bundle=prepared, alignment=alignment), (
+            "typed_unavailable_unsafe_index_cursor"
+        )
     return prepared, status
+
+
+def _prepare_memory_finder_bundle_with_fallback(
+    *,
+    query_text: str,
+    bundle: dict,
+    status: str,
+    vault: Path,
+) -> tuple[dict, str]:
+    prepared, receipt_status = _prepare_memory_finder_bundle(
+        query_text=query_text,
+        bundle=bundle,
+        status=status,
+    )
+    if receipt_status not in {
+        "typed_unavailable_misaligned_support",
+        "typed_unavailable_support_facts_or_source_paths_missing",
+    }:
+        return prepared, receipt_status
+    fallback = _boundary_fallback_bundle(
+        query_text=query_text,
+        vault=vault,
+        prior_bundle=prepared,
+        reason_code=receipt_status,
+    )
+    if fallback is None:
+        return prepared, receipt_status
+    fallback["initial_worker_query_alignment"] = prepared.get("worker_query_alignment")
+    return _prepare_memory_finder_bundle(
+        query_text=query_text,
+        bundle=fallback,
+        status="completed",
+    )
 
 
 def _memory_finder_judgment(*, query_text: str, bundle: dict, status: str) -> dict:
@@ -241,16 +573,7 @@ def _memory_finder_judgment(*, query_text: str, bundle: dict, status: str) -> di
         and bool(paths)
         and alignment.get("status") in {"aligned", "aligned_with_limits"}
     )
-    safe_index_cursor = {}
-    if isinstance(bundle, dict):
-        nested_bundle = bundle.get("support_bundle") if isinstance(bundle.get("support_bundle"), dict) else {}
-        safe_index_cursor = (
-            bundle.get("safe_index_cursor")
-            if isinstance(bundle.get("safe_index_cursor"), dict)
-            else nested_bundle.get("safe_index_cursor")
-            if isinstance(nested_bundle.get("safe_index_cursor"), dict)
-            else {}
-        )
+    safe_index_cursor = _safe_index_cursor(bundle if isinstance(bundle, dict) else {})
     if safe_index_cursor.get("status") == "outside":
         success = False
     return {
@@ -542,10 +865,11 @@ def run_consumer(mailbox: Path, vault: Path):
                             "not_full_ux_pass",
                         ],
                     }
-                    bundle, receipt_status = _prepare_memory_finder_bundle(
+                    bundle, receipt_status = _prepare_memory_finder_bundle_with_fallback(
                         query_text=query_text,
                         bundle=bundle,
                         status="completed",
+                        vault=vault,
                     )
                     worker_judgment = _memory_finder_judgment(
                         query_text=query_text,
@@ -626,10 +950,11 @@ def run_consumer(mailbox: Path, vault: Path):
                             "status": "typed_unavailable",
                             "reason_code": type(exc).__name__,
                         }
-                bundle, receipt_status = _prepare_memory_finder_bundle(
+                bundle, receipt_status = _prepare_memory_finder_bundle_with_fallback(
                     query_text=query_text,
                     bundle=bundle,
                     status="completed",
+                    vault=vault,
                 )
                 worker_judgment = _memory_finder_judgment(
                     query_text=query_text,
@@ -707,10 +1032,11 @@ def run_consumer(mailbox: Path, vault: Path):
                     bundle["support_bundle"] = ring_bundle
             except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                 log_event("ring_support_bundle_skip", reason=type(exc).__name__)
-        bundle, receipt_status = _prepare_memory_finder_bundle(
+        bundle, receipt_status = _prepare_memory_finder_bundle_with_fallback(
             query_text=query_text,
             bundle=bundle,
             status="completed",
+            vault=vault,
         )
         worker_judgment = _memory_finder_judgment(
             query_text=query_text,

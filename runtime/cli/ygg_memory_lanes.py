@@ -669,6 +669,7 @@ def _build_recall_result(
     support: dict,
     wait_for_receipt: bool,
     timeout_seconds: float,
+    provider_sync_wait_downgraded: bool = False,
 ) -> dict:
     if wait_for_receipt:
         status = "done" if receipt else "pending"
@@ -698,6 +699,7 @@ def _build_recall_result(
         "delivery_mode": "async_postman",
         "wait_for_receipt": wait_for_receipt,
         "timeout_seconds": timeout_seconds if wait_for_receipt else 0,
+        "provider_sync_wait_downgraded": provider_sync_wait_downgraded,
         "postman_activation": activation,
         "support": support,
         "provider_answer_guidance": provider_answer_guidance,
@@ -725,6 +727,10 @@ def _recall_workflow_evidence(delivery: dict, support: dict, activation: dict, *
         "legacy_debug_monitor": "not_used",
         "wait_for_receipt": wait_for_receipt,
     }
+
+
+def _provider_sync_recall_allowed() -> bool:
+    return os.environ.get("YGG_ALLOW_PROVIDER_SYNC_RECALL", "").strip().lower() in {"1", "true", "yes"}
 
 def _print_recall_workflow(
     *,
@@ -774,6 +780,10 @@ def cmd_recall(
     if r["type"] != "consumer":
         print(json.dumps({"status": "blocked", "reason_code": "recipient_not_memory_finder", "recipient": label}, ensure_ascii=False) if json_mode else f"Error: {label} is {r['type']}, use a Memory Finder")
         sys.exit(1)
+    provider_sync_wait_downgraded = False
+    if wait_for_receipt and os.environ.get("YGG_PROVIDER_SESSION_ID") and not _provider_sync_recall_allowed():
+        wait_for_receipt = False
+        provider_sync_wait_downgraded = True
 
     payload = _recall_payload(question, use_ptc=use_ptc)
     delivery = _submit_recall_delivery(op, r, label, question, payload, json_mode=json_mode)
@@ -795,6 +805,7 @@ def cmd_recall(
         support=support,
         wait_for_receipt=wait_for_receipt,
         timeout_seconds=timeout_seconds,
+        provider_sync_wait_downgraded=provider_sync_wait_downgraded,
     )
     if json_mode:
         print(json.dumps(result, ensure_ascii=False, indent=2))
