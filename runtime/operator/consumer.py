@@ -464,18 +464,29 @@ def _boundary_fallback_bundle(
         if len(covered) < 2:
             continue
         relative = path.relative_to(vault).as_posix()
+        safe_cursor_inside = False
+        if evaluate_safe_index_cursor is not None:
+            try:
+                safe_cursor_inside = (
+                    evaluate_safe_index_cursor(vault_root=vault, source_paths=[relative]).get("status") == "inside"
+                )
+            except Exception:
+                safe_cursor_inside = False
         candidates.append(
             {
                 "path": relative,
                 "covered_terms": covered[:20],
                 "score": len(covered),
                 "snippet": _support_snippet(text, set(covered)),
+                "safe_cursor_inside": safe_cursor_inside,
             }
         )
     if not candidates:
         return None
-    candidates.sort(key=lambda row: (-int(row["score"]), row["path"]))
-    selected = candidates[:5]
+    safe_candidates = [row for row in candidates if row.get("safe_cursor_inside")]
+    selection_pool = safe_candidates or candidates
+    selection_pool.sort(key=lambda row: (-int(row["score"]), row["path"]))
+    selected = selection_pool[:5]
     support_facts = [
         {
             "source_path": row["path"],
