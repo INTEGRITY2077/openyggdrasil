@@ -1010,15 +1010,20 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
     resolver_options = dict(payload.get("resolver_options") or {})
     if payload.get("sessions_dir") and "sessions_dir" not in resolver_options:
         resolver_options["sessions_dir"] = payload.get("sessions_dir")
+    if payload.get("evidence") and "evidence" not in resolver_options:
+        resolver_options["evidence"] = payload.get("evidence")
 
     try:
         from runtime.source_ref.bootstrap import register_default_source_ref_resolvers
         from runtime.source_ref.registry import resolve_source_ref
 
         register_default_source_ref_resolvers()
+        resolver_range_hint = {"start": int(range_hint.get("start", 0)), "end": int(range_hint.get("end", 0))}
+        if source_line_range:
+            resolver_range_hint["source_line_range"] = dict(source_line_range)
         resolved = resolve_source_ref(
             source_ref=source_ref,
-            range_hint={"start": int(range_hint.get("start", 0)), "end": int(range_hint.get("end", 0))},
+            range_hint=resolver_range_hint,
             anchor_hash=anchor_hash,
             resolver_options=resolver_options,
         )

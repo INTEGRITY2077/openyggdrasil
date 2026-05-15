@@ -149,6 +149,35 @@ def _parse_range_value(value: str) -> dict:
         return {"start": match.group(1).strip(), "end": match.group(2).strip()}
     return {}
 
+
+def _canonicalize_local_docs_memory_ticket_anchor(payload: dict) -> None:
+    source_ref = str(payload.get("source_ref") or "")
+    if not source_ref.startswith("local-docs://"):
+        return
+    resolver_options = payload.get("resolver_options")
+    evidence = payload.get("evidence")
+    if not isinstance(resolver_options, dict) or not isinstance(evidence, list):
+        return
+    docs_roots = resolver_options.get("docs_roots")
+    if not isinstance(docs_roots, dict):
+        return
+    source_key = source_ref.split("://", 1)[1].strip()
+    docs_root = docs_roots.get(source_key)
+    if not docs_root:
+        return
+    try:
+        from runtime.source_ref.local_docs import (
+            _canonical_local_docs_anchor_hash,
+            build_local_docs_source_segments,
+        )
+
+        segments = build_local_docs_source_segments(docs_root=docs_root, evidence=[str(item) for item in evidence])
+        payload["anchor_hash"] = _canonical_local_docs_anchor_hash(segments)
+        payload["anchor_hash_source"] = "ygg_local_docs_canonicalizer"
+    except (ImportError, OSError, TypeError, ValueError):
+        return
+
+
 def _parse_memory_ticket_payload(message: str) -> dict:
     """Parse newline key-value MemoryTicket text into the top-level delivery payload."""
     payload = {"schema_version": "memory_ticket.v1"}
@@ -177,6 +206,7 @@ def _parse_memory_ticket_payload(message: str) -> dict:
             payload[key] = [part.strip() for part in value.split(";") if part.strip()]
             continue
         payload[key] = value
+    _canonicalize_local_docs_memory_ticket_anchor(payload)
     return payload
 
 def _has_classic_save_marker(message: str) -> bool:
