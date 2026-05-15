@@ -63,6 +63,32 @@ def _latest_provider_inbox_handoff() -> dict:
             continue
         if _timestamp_value(row.get("timestamp")) >= _timestamp_value(latest.get("timestamp")):
             latest = row
+    latest_receipt = _latest_mf1_query_receipt_handoff()
+    if _timestamp_value(latest_receipt.get("timestamp")) > _timestamp_value(latest.get("timestamp")):
+        return latest_receipt
+    return latest
+
+
+def _latest_mf1_query_receipt_handoff() -> dict:
+    path = REGISTRY_DIR / "sessions" / "MF1" / "query_receipts.jsonl"
+    latest: dict = {}
+    for _line, receipt in _jsonl_rows(path):
+        mail_id = receipt.get("mail_id") or receipt.get("in_reply_to")
+        if not mail_id:
+            continue
+        timestamp = receipt.get("timestamp") or receipt.get("created_at")
+        row = {
+            "timestamp": timestamp,
+            "worker_role": "memory_finder",
+            "mail_id": mail_id,
+            "receipt_id": receipt.get("receipt_id") or mail_id,
+            "status": receipt.get("status"),
+            "bundle": receipt.get("bundle") or receipt.get("support_bundle") or {},
+            "result_bundle": receipt.get("bundle") or receipt.get("support_bundle") or {},
+            "source": "mf1_query_receipts",
+        }
+        if _timestamp_value(row.get("timestamp")) >= _timestamp_value(latest.get("timestamp")):
+            latest = row
     return latest
 
 

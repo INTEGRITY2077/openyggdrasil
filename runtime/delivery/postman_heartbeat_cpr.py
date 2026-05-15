@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
+from urllib.parse import quote
 
 from attachments.provider_inbox import inject_session_packet, read_session_inbox
 from delivery.consumer_receipt_ingress import build_typed_unavailable, validate_typed_unavailable
@@ -246,10 +247,31 @@ def _safe_source_paths(values: Iterable[Any]) -> list[str]:
         text = _clean_string(value, max_length=512).replace("\\", "/")
         if not text:
             continue
+        portable_text = _portable_reference_repo_source_path(text)
+        if portable_text:
+            source_paths.append(portable_text)
+            continue
         if looks_like_local_path(text):
             raise ValueError("Engine Heartbeat CPR source_paths must be portable relative pointers")
         source_paths.append(text)
     return _non_empty_strings(source_paths, limit=16)
+
+
+def _portable_reference_repo_source_path(text: str) -> str:
+    normalized = str(text or "").strip().replace("\\", "/")
+    if not normalized:
+        return ""
+    match = re.match(
+        r"^(?:[A-Za-z]:)?/?(?:mnt/[A-Za-z]/)?0_PROJECT/0_reference-repo/([^/]+)/(.+?)(?::(\d+))?$",
+        normalized,
+    )
+    if not match:
+        return ""
+    repo, rel, line = match.groups()
+    safe_repo = quote(repo.strip("/"), safe="-._~")
+    safe_rel = "/".join(quote(part, safe="-._~") for part in rel.strip("/").split("/"))
+    suffix = f"#L{line}" if line else ""
+    return f"reference-repo://{safe_repo}/{safe_rel}{suffix}"
 
 
 def _safe_portable_text(value: Any, *, max_length: int = 240) -> str:
