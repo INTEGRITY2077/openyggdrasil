@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
@@ -14,6 +15,7 @@ MAINTENANCE_RECEIPTS_RELATIVE_PATH = "_meta/maintenance_receipts.jsonl"
 MUTATION_LOG_RELATIVE_PATH = "_meta/mutation_log.jsonl"
 TOMBSTONES_RELATIVE_PATH = "_meta/tombstones.jsonl"
 REPAIR_QUEUE_RELATIVE_PATH = "_meta/repair_queue.jsonl"
+SOURCE_REF_RE = re.compile(r"hermes-session-json://[A-Za-z0-9_\-]+")
 
 
 def _now_iso() -> str:
@@ -52,6 +54,50 @@ def _markdown_title(path: Path) -> str:
     return ""
 
 
+def _ordered_unique(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    merged: list[str] = []
+    for value in values:
+        item = str(value or "").strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        merged.append(item)
+    return merged
+
+
+def _metadata_values(text: str, key: str) -> list[str]:
+    prefix = f"- {key}:"
+    for line in text.splitlines():
+        if line.startswith(prefix):
+            raw = line.split(":", 1)[1].strip()
+            return [part.strip() for part in raw.split(",") if part.strip()]
+    return []
+
+
+def _metadata_int(text: str, key: str) -> int | None:
+    values = _metadata_values(text, key)
+    if not values:
+        return None
+    try:
+        return int(values[0])
+    except ValueError:
+        return None
+
+
+def _source_refs_from_related_nodes(vault_root: Path, related_nodes: list[str]) -> list[str]:
+    refs: list[str] = []
+    for node_id in related_nodes:
+        node = str(node_id or "").strip()
+        if not node:
+            continue
+        node_path = vault_root / "concepts" / f"{node}.md"
+        if not node_path.exists():
+            continue
+        refs.extend(SOURCE_REF_RE.findall(node_path.read_text(encoding="utf-8", errors="replace")))
+    return _ordered_unique(refs)
+
+
 def _scan_duplicate_titles(vault_root: Path) -> list[dict[str, Any]]:
     title_paths: dict[str, list[str]] = {}
     for base in ("queries", "concepts", "communities"):
@@ -67,6 +113,58 @@ def _scan_duplicate_titles(vault_root: Path) -> list[dict[str, Any]]:
         for key, paths in sorted(title_paths.items())
         if len(paths) > 1
     ]
+
+
+def _scan_community_source_ref_drift(vault_root: Path) -> list[dict[str, Any]]:
+    community_root = vault_root / "communities"
+    if not community_root.exists():
+        return []
+    drift_candidates: list[dict[str, Any]] = []
+    for path in sorted(community_root.rglob("*.md")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        related_nodes = _metadata_values(text, "related_nodes")
+        if not related_nodes:
+            continue
+        declared_source_refs = _ordered_unique(_metadata_values(text, "source_refs"))
+        discovered_source_refs = _source_refs_from_related_nodes(vault_root, related_nodes)
+        missing_source_refs = [ref for ref in discovered_source_refs if ref not in declared_source_refs]
+        extra_declared_source_refs = [ref for ref in declared_source_refs if ref not in discovered_source_refs]
+        declared_growth_count = _metadata_int(text, "growth_event_count")
+        expected_growth_count = len(discovered_source_refs)
+        growth_count_mismatch = (
+            declared_growth_count is not None
+            and expected_growth_count > 0
+            and declared_growth_count != expected_growth_count
+        )
+        if not missing_source_refs and not extra_declared_source_refs and not growth_count_mismatch:
+            continue
+        drift_candidates.append(
+            {
+                "schema_version": "wiki_community_source_ref_drift.v1",
+                "community_path": _relative_vault_path(path, vault_root=vault_root),
+                "related_node_count": len(related_nodes),
+                "declared_source_ref_count": len(declared_source_refs),
+                "discovered_source_ref_count": len(discovered_source_refs),
+                "declared_growth_event_count": declared_growth_count,
+                "expected_growth_event_count": expected_growth_count,
+                "missing_source_refs": missing_source_refs,
+                "extra_declared_source_refs": extra_declared_source_refs,
+                "reason_codes": [
+                    *(
+                        ["community_missing_related_node_source_refs"]
+                        if missing_source_refs
+                        else []
+                    ),
+                    *(
+                        ["community_has_source_refs_not_found_in_related_nodes"]
+                        if extra_declared_source_refs
+                        else []
+                    ),
+                    *(["community_growth_event_count_mismatch"] if growth_count_mismatch else []),
+                ],
+            }
+        )
+    return drift_candidates
 
 
 def _path_role(path: str) -> str:
@@ -140,6 +238,32 @@ def _duplicate_repair_decisions(vault_root: Path, duplicates: list[dict[str, Any
     return [_duplicate_repair_decision(vault_root, duplicate) for duplicate in duplicates]
 
 
+def _community_source_ref_repair_decision(candidate: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "wiki_community_source_ref_repair_decision.v1",
+        "community_path": candidate.get("community_path"),
+        "related_node_count": candidate.get("related_node_count"),
+        "declared_source_ref_count": candidate.get("declared_source_ref_count"),
+        "discovered_source_ref_count": candidate.get("discovered_source_ref_count"),
+        "declared_growth_event_count": candidate.get("declared_growth_event_count"),
+        "expected_growth_event_count": candidate.get("expected_growth_event_count"),
+        "missing_source_ref_count": len(candidate.get("missing_source_refs") or []),
+        "extra_declared_source_ref_count": len(candidate.get("extra_declared_source_refs") or []),
+        "suggested_action": "rerender_community_source_refs_from_related_nodes",
+        "repair_queue_status": "queued",
+        "reason_codes": list(candidate.get("reason_codes") or []),
+        "hard_nonclaims": [
+            "community_source_ref_drift_decision_is_not_a_file_mutation",
+            "community_source_ref_drift_is_not_semantic_merge_or_split",
+            "repair_requires_rerender_or_review_before_claiming_summary_sync",
+        ],
+    }
+
+
+def _community_source_ref_repair_decisions(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [_community_source_ref_repair_decision(candidate) for candidate in candidates]
+
+
 def run_wiki_vault_janitor(
     *,
     vault_root: Path,
@@ -169,9 +293,13 @@ def run_wiki_vault_janitor(
 
     duplicates = _scan_duplicate_titles(vault_root)
     duplicate_repair_decisions = _duplicate_repair_decisions(vault_root, duplicates)
+    community_source_ref_drift_candidates = _scan_community_source_ref_drift(vault_root)
+    community_source_ref_repair_decisions = _community_source_ref_repair_decisions(
+        community_source_ref_drift_candidates
+    )
     queued_repairs = [
         decision
-        for decision in duplicate_repair_decisions
+        for decision in [*duplicate_repair_decisions, *community_source_ref_repair_decisions]
         if decision.get("repair_queue_status") == "queued"
     ]
     status = "pass" if cursor.get("status") == "configured" and not missing else "partial"
@@ -190,11 +318,14 @@ def run_wiki_vault_janitor(
         "missing_committed_paths": missing,
         "duplicate_title_candidates": duplicates,
         "duplicate_repair_decisions": duplicate_repair_decisions,
+        "community_source_ref_drift_candidates": community_source_ref_drift_candidates,
+        "community_source_ref_repair_decisions": community_source_ref_repair_decisions,
         "queued_repair_count": len(queued_repairs),
         "mutation_log_checked": True,
         "safe_index_cursor_checked": True,
         "conflict_or_tombstone_policy_checked": True,
         "semantic_repair_decision_policy_checked": True,
+        "community_source_ref_sync_checked": True,
         "repair_queue_path": REPAIR_QUEUE_RELATIVE_PATH,
         "tombstone_policy": {
             "physical_delete_allowed": False,
@@ -204,6 +335,7 @@ def run_wiki_vault_janitor(
         "hard_nonclaims": [
             "janitor_slice_is_not_full_vault_health",
             "duplicate_title_candidate_is_not_confirmed_semantic_conflict",
+            "community_source_ref_drift_candidate_is_not_a_rendered_repair",
             "tombstone_policy_check_is_not_a_delete_event",
         ],
     }
@@ -215,6 +347,7 @@ def run_wiki_vault_janitor(
         "cursor_id": cursor.get("cursor_id"),
         "checked_paths": checked,
         "missing_committed_paths": missing,
+        "community_source_ref_drift_count": len(community_source_ref_drift_candidates),
         "queued_repair_count": len(queued_repairs),
         "hard_nonclaims": [
             "hash_check_is_not_semantic_quality_review",
