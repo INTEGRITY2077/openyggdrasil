@@ -115,7 +115,7 @@ def _build_ralph_turn(event: dict, phase: str, *, attempt: int = 0,
         return (
             f"[{role} RALPH] job={mission_id} turn=revise_answer\n"
             f"검토를 반영해 사용자에게 넘길 최종 답변을 다시 작성하세요. 답변 재료는 다음 범위입니다: {_answer_material(event, receipt)} "
-            "최종 답변은 단답이 아니어야 합니다. 먼저 한 문장 결론을 주고, 그 아래에 Hook을 쓰는 경우, Skill을 쓰는 경우, "
+            "최종 답변은 단답이 아니어야 합니다. 먼저 핵심 결론을 주고, 그 아래에 Hook을 쓰는 경우, Skill을 쓰는 경우, "
             "둘이 겹칠 때 나누는 방법, 이번 답의 근거 제한을 자연스럽게 정리하세요. "
             "내부 시스템명, 로컬 경로, receipt id는 쓰지 마세요."
         )
@@ -134,7 +134,7 @@ def _build_ralph_turn(event: dict, phase: str, *, attempt: int = 0,
             f"[{role} RALPH] job={mission_id} turn=final_answer\n"
             f"품질 게이트를 반영해 사용자에게 실제로 넘길 최종 답을 쓰세요. 답변 재료는 다음 범위입니다: {_answer_material(event, receipt)} "
             "답은 짧은 종료 문장이 아니라 적용 가능한 답이어야 합니다. "
-            "구성은 1) 한 문장 결론, 2) 판단 규칙, 3) 실제 적용 예시, 4) 겹치는 경우의 분리법, 5) 이번 답의 제한입니다. "
+            "구성은 1) 핵심 결론, 2) 판단 규칙, 3) 실제 적용 예시, 4) 겹치는 경우의 분리법, 5) 이번 답의 제한입니다. "
             "질문 의도와 회수한 기억이 어떻게 정렬되는지도 한 문단으로 짚으세요. "
             "내부 시스템명, 내부 명령, 로컬 경로, receipt id는 쓰지 마세요."
         )
