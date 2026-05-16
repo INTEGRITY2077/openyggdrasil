@@ -13,6 +13,7 @@ from harness_common import utc_now_iso
 from attachments.provider_attachment import (
     _read_jsonl,
     build_session_uid,
+    bootstrap_skill_provider_session,
     provider_attachment_root,
     provider_inbox_path,
 )
@@ -54,7 +55,18 @@ def inject_session_packet(
         provider_session_id=provider_session_id,
     )
     if not (attachment_root / "session_attachment.v1.json").exists():
-        raise FileNotFoundError(f"Missing generated session attachment: {attachment_root}")
+        bootstrap_skill_provider_session(
+            workspace_root=workspace_root,
+            provider_id=provider_id,
+            provider_profile=provider_profile,
+            provider_session_id=provider_session_id,
+            origin_kind="provider-thread",
+            origin_locator={
+                "provider_session_id": provider_session_id,
+                "event": "provider_inbox_attachment_auto_bootstrap",
+                "reason": "missing_attachment_for_provider_inbox",
+            },
+        )
 
     session_uid = build_session_uid(
         provider_id=provider_id,

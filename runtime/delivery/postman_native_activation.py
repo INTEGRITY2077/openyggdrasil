@@ -133,6 +133,7 @@ def _activation_prompt(
             "first_visible_step=mailbox_row_resolved then accepted/rejected evidence",
             "process_step=run_role_owned_mailbox_processor_before_missing_receipt_close",
             "processor_entrypoint=configured role-owned mailbox processor",
+            "surface_fields=selected capability class and bounded program hash from processor result when present",
             "missing_receipt_close_only_after_processor_attempt",
             "final_step=close_mailbox_receipt_or_typed_unavailable",
             "route_only_no_semantic_payload",

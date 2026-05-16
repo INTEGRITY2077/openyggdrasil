@@ -325,6 +325,23 @@ def _is_boundary_question(text: str, query_tokens: set[str]) -> bool:
     return has_phrase_cue or has_text_cue or has_token_cue
 
 
+def _conceptual_boundary_aliases(terms: set[str]) -> set[str]:
+    aliases: set[str] = set()
+    if terms & {"실행", "단위"}:
+        aliases.update({"execution", "runtime", "model"})
+    if terms & {"정의"}:
+        aliases.add("definition")
+    if terms & {"공급", "경로", "위치"}:
+        aliases.update({"distribution", "source", "path", "supplied"})
+    if terms & {"섞지", "분리", "구분"}:
+        aliases.update({"separate", "separates", "not"})
+    if terms & {"저장", "후보"}:
+        aliases.update({"storage", "candidate", "pending"})
+    if terms & {"회상", "근거"}:
+        aliases.update({"recall", "support", "evidence"})
+    return aliases
+
+
 def _generic_boundary_alignment(*, query_text: str, support_tokens: set[str]) -> dict:
     query_tokens = _tokens(query_text)
     significant_terms = _significant_query_terms(query_text)
@@ -336,7 +353,8 @@ def _generic_boundary_alignment(*, query_text: str, support_tokens: set[str]) ->
             "required_terms": [],
         }
     ascii_terms = {term for term in significant_terms if term.isascii()}
-    required_terms = ascii_terms if len(ascii_terms) >= 2 else significant_terms
+    alias_terms = _conceptual_boundary_aliases(significant_terms)
+    required_terms = ascii_terms if len(ascii_terms) >= 2 else alias_terms or significant_terms
     covered = sorted(term for term in required_terms if term in support_tokens)
     missing = sorted(term for term in required_terms if term not in support_tokens)
     return {

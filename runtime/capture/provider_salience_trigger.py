@@ -140,6 +140,186 @@ def _base_emit(
     }
 
 
+def _has_explicit_save_command(text: str, lowered: str) -> bool:
+    return _contains_any(lowered, ("remember this", "save this", "store this")) or _contains_any(
+        text,
+        (
+            "\uae30\uc5b5\ud574",
+            "\uae30\uc5b5\ud574\uc918",
+            "\uc800\uc7a5\ud574",
+            "\uc800\uc7a5\ud574\uc918",
+            "\ubcf4\uc874\ud574",
+            "\ubcf4\uc874\ud574\uc918",
+        ),
+    )
+
+
+def _has_durable_reuse_signal(text: str, lowered: str) -> bool:
+    return _contains_any(
+        lowered,
+        (
+            "use this later",
+            "reuse this later",
+            "later reuse",
+            "need this later",
+            "stable boundary",
+            "will need this",
+            "next time",
+        ),
+    ) or _contains_any(
+        text,
+        (
+            "\uacc4\uc18d \ub2e4\uc2dc",
+            "\ub098\uc911\uc5d0",
+            "\ub2e4\uc2dc",
+            "\uc7ac\uc0ac\uc6a9",
+            "\ud5f7\uac08\ub9ac\uc9c0 \uc54a\uac8c",
+            "\ubc14\ub010 \ubd80\ubd84",
+            "\uae30\uc900\uc73c\ub85c",
+            "\uc720\uc9c0",
+            "\ud754\ub4e4\ub9ac\uc9c0",
+        ),
+    )
+
+
+def _has_reusable_boundary_signal(text: str, lowered: str) -> bool:
+    lower_signals = (
+        "boundary",
+        "criterion",
+        "criteria",
+        "policy",
+        "rule",
+        "placement",
+        "distinction",
+        "separate",
+        "split",
+        "where",
+        "where to place",
+        "belongs",
+        "convention",
+        "conventions",
+        "role",
+        "roles",
+        "runtime",
+        "execution",
+        "definition",
+        "distribution",
+        "timing",
+        "automatic",
+        "lifecycle",
+        "event",
+        "formatting",
+        "reuse",
+        "later",
+        "proof",
+        "source",
+        "evidence",
+        "claim",
+        "production ready",
+        "unsupported",
+    )
+    text_signals = (
+        "\uacbd\uacc4",
+        "\uae30\uc900",
+        "\uad6c\ubd84",
+        "\ubd84\ub9ac",
+        "\uc2e4\ud589",
+        "\uc2e4\ud589 \ub2e8\uc704",
+        "\uc815\uc758",
+        "\uacf5\uae09",
+        "\uacf5\uae09 \uacbd\ub85c",
+        "\ubc30\uce58",
+        "\ubc30\ud3ec",
+        "\uc790\ub3d9",
+        "\uc774\ubca4\ud2b8",
+        "\uaddc\uce59",
+        "\uc815\ucc45",
+        "\uc5b4\ub514",
+        "\uc704\uce58",
+        "\uadfc\uac70",
+        "\ucd9c\ucc98",
+        "\uac80\uc99d",
+        "\uc99d\uba85",
+        "\uc8fc\uc7a5",
+        "\ud5f7\uac08",
+        "\uc704\ud0a4",
+        "\ub098\uc911",
+        "\uc12c\uc9c0",
+        "\uc11e\uc9c0",
+    )
+    hits = sum(1 for signal in lower_signals if signal in lowered)
+    hits += sum(1 for signal in text_signals if signal in text)
+    return hits >= 2
+
+
+def _has_instruction_boundary_correction_signal(text: str, lowered: str) -> bool:
+    instruction_terms = (
+        "prompt",
+        "command",
+        "instruction",
+        "trigger",
+        "forced",
+        "force",
+        "worker",
+        "provider",
+    )
+    korean_terms = (
+        "\ud504\ub86c\ud504\ud2b8",
+        "\uba85\ub839",
+        "\uc9c0\uc2dc",
+        "\uc2a4\uc2a4\ub85c",
+        "\ud2b8\ub9ac\uac70",
+        "\ud2b8\ub9ac\uae45",
+        "\uac15\uc81c",
+        "\uc6cc\ucee4",
+        "\ud504\ub85c\ubc14\uc774\ub354",
+    )
+    return _contains_any(lowered, instruction_terms) or _contains_any(text, korean_terms)
+
+
+def _has_verification_gated_claim_signal(text: str, lowered: str) -> bool:
+    claim_terms = (
+        "production ready",
+        "production-ready",
+        "release ready",
+        "ship",
+        "shipping",
+        "deploy",
+        "deployment",
+        "public claim",
+        "readme claim",
+        "front page claim",
+    )
+    korean_claim_terms = (
+        "\ud504\ub85c\ub355\uc158",
+        "\ubc30\ud3ec",
+        "\ucd9c\uc2dc",
+        "\uacf5\uac1c",
+        "\uccab \ud654\uba74",
+        "\uc804\uba74",
+        "\uc8fc\uc7a5",
+    )
+    verification_terms = (
+        "verify",
+        "verified",
+        "evidence",
+        "proof",
+        "gate",
+        "claim",
+    )
+    korean_verification_terms = (
+        "\uac80\uc99d",
+        "\ud655\uc778",
+        "\uadfc\uac70",
+        "\uc99d\uac70",
+        "\uc99d\uba85",
+        "\uac8c\uc774\ud2b8",
+    )
+    has_claim = _contains_any(lowered, claim_terms) or _contains_any(text, korean_claim_terms)
+    has_verification = _contains_any(lowered, verification_terms) or _contains_any(text, korean_verification_terms)
+    return has_claim and has_verification
+
+
 def detect_provider_memory_salience(paragraph: str) -> dict[str, Any]:
     """Detect whether a Provider exchange deserves MS admission review.
 
@@ -162,9 +342,37 @@ def detect_provider_memory_salience(paragraph: str) -> dict[str, Any]:
             trigger_kind="topic_decision_completed",
             intent_field="The exchange completes a paragraph-level topic decision for category/community authoring.",
             topic_hint="provider paragraph intent authoring bridge",
-            category_community_hint="provider-authored durable knowledge candidate / authoring bridge",
+            category_community_hint="provider-authored durable knowledge candidate / category/community authoring bridge",
             breadcrumb="Preserve paragraph-level intent before extracting decision atoms.",
             why_not_atomic="The authoring rule depends on paragraph scope, category/community placement, and anti-atomization.",
+        )
+
+    if _has_instruction_boundary_correction_signal(text, lowered):
+        return _base_emit(
+            paragraph=text,
+            trigger_kind="boundary_correction",
+            intent_field=(
+                "The exchange corrects that user instructions are not the storage trigger; "
+                "the Provider autonomous salience trigger must detect its own need."
+            ),
+            topic_hint="Provider autonomous salience trigger",
+            category_community_hint="OpenYggdrasil provider behavior contract / memory authoring bridge",
+            breadcrumb="Provider autonomous salience trigger must stay separate from explicit user commands.",
+            why_not_atomic="The command boundary, autonomous trigger, and provider responsibility must remain together.",
+        )
+
+    if _has_verification_gated_claim_signal(text, lowered):
+        return _base_emit(
+            paragraph=text,
+            trigger_kind="strong_memory_stimulus",
+            intent_field=(
+                "Public/release readiness claims require verification before promotion; "
+                "\uac80\uc99d\ub418\uc9c0 \uc54a\uc740 production claim is forbidden."
+            ),
+            topic_hint="production claim verification boundary",
+            category_community_hint="OpenYggdrasil provider behavior contract / production claim control",
+            breadcrumb="Public-facing claims must not outrank verifier evidence.",
+            why_not_atomic="The public surface, verification gate, and production claim ban must remain together.",
         )
 
     if _has_durable_reuse_signal(text, lowered) and not _has_explicit_save_command(text, lowered):

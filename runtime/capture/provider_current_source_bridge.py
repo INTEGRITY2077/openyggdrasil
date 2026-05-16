@@ -344,28 +344,108 @@ def _compact_for_decision(text: str, *, limit: int = 220) -> str:
 
 
 def _stable_signal_buckets(text: str) -> list[str]:
+    """Return stable semantic buckets for episode grouping.
+
+    This intentionally groups by durable decision axes instead of transient
+    prompt wording, so a user can revisit the same idea over discontinuous
+    turns without fragmenting the pending episode ledger.
+    """
+
     lowered = text.lower()
     buckets = {
-        "placement": ("placement", "where", "belongs", "어디", "배치", "위치"),
-        "role-boundary": ("role", "roles", "separate", "split", "distinction", "경계", "구분", "분리"),
-        "reuse": ("reuse", "later", "stable", "나중", "재사용", "계속 다시"),
-        "evidence": ("proof", "source", "evidence", "claim", "unsupported", "근거", "출처", "검증", "증명", "주장"),
+        "agent-taxonomy": (
+            "agent",
+            "agents",
+            "main agent",
+            "subagent",
+            "agent team",
+            "agent-team",
+            "\uc5d0\uc774\uc804\ud2b8",
+            "\uc11c\ube0c\uc5d0\uc774\uc804\ud2b8",
+        ),
+        "extension-placement": (
+            "hook",
+            "hooks",
+            "skill",
+            "skills",
+            "mcp",
+            "plugin",
+            "plugins",
+            "\ud6c5",
+            "\uc2a4\ud0ac",
+            "\ud50c\ub7ec\uadf8\uc778",
+        ),
+        "execution-distribution": (
+            "runtime",
+            "execution",
+            "execute",
+            "definition",
+            "distribution",
+            "supplied",
+            "source path",
+            "\uc2e4\ud589",
+            "\uc2e4\ud589 \ub2e8\uc704",
+            "\uc815\uc758",
+            "\uacf5\uae09",
+            "\uacf5\uae09 \uacbd\ub85c",
+            "\ubc30\ud3ec",
+        ),
+        "role-boundary": (
+            "boundary",
+            "separate",
+            "separates",
+            "split",
+            "distinction",
+            "not mix",
+            "\uacbd\uacc4",
+            "\uad6c\ubd84",
+            "\ubd84\ub9ac",
+            "\uc11e\uc9c0",
+            "\ub530\ub85c",
+        ),
+        "durable-reuse": (
+            "reuse",
+            "later",
+            "stable",
+            "next time",
+            "keep",
+            "criterion",
+            "criteria",
+            "rule",
+            "\ub098\uc911",
+            "\ub2e4\uc74c",
+            "\uacc4\uc18d",
+            "\uc720\uc9c0",
+            "\uae30\uc900",
+            "\uc6d0\uce59",
+        ),
+        "source-evidence": (
+            "source",
+            "evidence",
+            "proof",
+            "unsupported",
+            "verify",
+            "\uadfc\uac70",
+            "\ucd9c\ucc98",
+            "\uac80\uc99d",
+            "\ud655\uc778",
+            "\ub2e8\uc815\ud558\uc9c0",
+        ),
         "automation-timing": (
             "automatic",
             "lifecycle",
             "event",
             "timing",
             "formatting",
-            "자동",
-            "이벤트",
+            "\uc790\ub3d9",
+            "\uc0dd\uba85\uc8fc\uae30",
+            "\uc774\ubca4\ud2b8",
         ),
-        "execution-distribution": ("runtime", "execution", "definition", "distribution", "실행", "정의"),
-        "policy": ("policy", "rule", "criterion", "criteria", "규칙", "정책", "기준"),
     }
     active = [
         bucket
         for bucket, markers in buckets.items()
-        if any(marker in lowered or marker in text for marker in markers)
+        if any(marker in lowered for marker in markers)
     ]
     return sorted(active)
 
@@ -373,7 +453,12 @@ def _stable_signal_buckets(text: str) -> list[str]:
 def _generic_provider_exchange_memory_fields(*, user_text: str, assistant_text: str) -> dict[str, str]:
     combined = f"{user_text}\n{assistant_text}"
     buckets = _stable_signal_buckets(combined)
-    digest_source = "|".join(buckets) if buckets else " ".join(combined.lower().split())
+    topic_buckets = [
+        bucket
+        for bucket in buckets
+        if bucket not in {"durable-reuse", "role-boundary", "source-evidence"}
+    ]
+    digest_source = "|".join(topic_buckets or buckets) if buckets else " ".join(combined.lower().split())
     digest = hashlib.sha1(digest_source.encode("utf-8")).hexdigest()[:10]
     return {
         "decision": f"Candidate boundary from Provider answer: {_compact_for_decision(assistant_text)}",
