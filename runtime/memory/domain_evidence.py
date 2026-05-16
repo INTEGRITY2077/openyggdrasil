@@ -12,6 +12,8 @@ SCHEMA_VERSION = "domain_evidence_enrichment.v1"
 REQUEST_SCHEMA_VERSION = "domain_evidence_request.v1"
 ROOTS_JSON_ENV = "OPENYGGDRASIL_DOMAIN_SOURCE_ROOTS_JSON"
 ROOTS_ENV = "OPENYGGDRASIL_DOMAIN_SOURCE_ROOTS"
+ROOTS_FILE_ENV = "OPENYGGDRASIL_DOMAIN_SOURCE_ROOTS_FILE"
+WORKSPACE_ROOT_ENV = "OPENYGGDRASIL_WORKSPACE_ROOT"
 TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9_-]{2,}|[가-힣]{2,}")
 MAX_FILES_PER_ROOT = 160
 MAX_FILE_BYTES = 650_000
@@ -58,6 +60,8 @@ def build_domain_evidence_request(
             "configured_roots_only": True,
             "env_json": ROOTS_JSON_ENV,
             "env_pairs": ROOTS_ENV,
+            "env_file": ROOTS_FILE_ENV,
+            "workspace_config": "config/domain_source_roots.json",
         },
         "hard_nonclaims": [
             "provider_does_not_choose_source_files",
@@ -252,7 +256,30 @@ def _configured_roots(*, payload: Mapping[str, Any], env: Mapping[str, str]) -> 
         key = _source_key(key)
         if key and value.strip():
             roots[key] = value.strip()
+    roots.update(_roots_from_config_file(env))
     return roots
+
+
+def _roots_from_config_file(env: Mapping[str, str]) -> dict[str, str]:
+    candidates: list[Path] = []
+    explicit = str(env.get(ROOTS_FILE_ENV) or "").strip()
+    if explicit:
+        candidates.append(Path(explicit).expanduser())
+    workspace_root = str(env.get(WORKSPACE_ROOT_ENV) or "").strip()
+    if workspace_root:
+        candidates.append(Path(workspace_root).expanduser() / "config" / "domain_source_roots.json")
+    for path in candidates:
+        try:
+            if not path.exists() or not path.is_file():
+                continue
+            parsed = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(parsed, Mapping):
+            if isinstance(parsed.get("docs_roots"), Mapping):
+                return _clean_roots(parsed["docs_roots"])
+            return _clean_roots(parsed)
+    return {}
 
 
 def _clean_roots(values: Mapping[str, Any]) -> dict[str, str]:

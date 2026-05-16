@@ -113,6 +113,7 @@ def _fixture_payload(sessions_dir: Path) -> dict:
 
 def main() -> None:
     original_env = os.environ.get("OPENYGGDRASIL_DOMAIN_SOURCE_ROOTS_JSON")
+    original_workspace = os.environ.get("OPENYGGDRASIL_WORKSPACE_ROOT")
     try:
         with tempfile.TemporaryDirectory(prefix="ygg-domain-enrich-smoke-") as raw:
             root = Path(raw)
@@ -130,13 +131,24 @@ def main() -> None:
             if blocked.get("nodes"):
                 raise AssertionError("weak payload produced nodes without configured source roots")
 
-            os.environ["OPENYGGDRASIL_DOMAIN_SOURCE_ROOTS_JSON"] = json.dumps(
-                {"fixture-docs": str(docs_root)},
-                ensure_ascii=False,
+            workspace_root = root / "workspace"
+            _write(
+                workspace_root / "config" / "domain_source_roots.json",
+                json.dumps({"docs_roots": {"fixture-docs": str(docs_root)}}, ensure_ascii=False, indent=2),
             )
+            os.environ["OPENYGGDRASIL_WORKSPACE_ROOT"] = str(workspace_root)
+            os.environ.pop("OPENYGGDRASIL_DOMAIN_SOURCE_ROOTS_JSON", None)
             admitted = _handle_memory_ticket(mailbox, vault, {"mail_id": "strong", "payload": payload})
             if admitted.get("status") != "acknowledged":
-                raise AssertionError(f"enriched payload should be acknowledged: {admitted}")
+                raise AssertionError(f"workspace-config enriched payload should be acknowledged: {admitted}")
+
+            os.environ["OPENYGGDRASIL_DOMAIN_SOURCE_ROOTS_JSON"] = json.dumps(
+                {"fixture-docs-env": str(docs_root)},
+                ensure_ascii=False,
+            )
+            admitted = _handle_memory_ticket(mailbox, vault, {"mail_id": "strong-env", "payload": payload})
+            if admitted.get("status") != "acknowledged":
+                raise AssertionError(f"env enriched payload should be acknowledged: {admitted}")
             if len(admitted.get("nodes") or []) != 1:
                 raise AssertionError("enriched payload did not produce one canonical node")
             node_id = admitted["nodes"][0]
@@ -172,6 +184,10 @@ def main() -> None:
             os.environ.pop("OPENYGGDRASIL_DOMAIN_SOURCE_ROOTS_JSON", None)
         else:
             os.environ["OPENYGGDRASIL_DOMAIN_SOURCE_ROOTS_JSON"] = original_env
+        if original_workspace is None:
+            os.environ.pop("OPENYGGDRASIL_WORKSPACE_ROOT", None)
+        else:
+            os.environ["OPENYGGDRASIL_WORKSPACE_ROOT"] = original_workspace
 
 
 if __name__ == "__main__":
