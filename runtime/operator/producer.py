@@ -509,9 +509,39 @@ def _as_list(value) -> list[str]:
     return [str(value)] if str(value) else []
 
 
+def _canonical_claim_from_capsule(capsule: dict) -> str:
+    conclusion = str(capsule.get("conclusion") or "").strip()
+    decision = str(capsule.get("decision") or "").strip()
+    return conclusion or decision
+
+
+def _is_source_reference(value: object) -> bool:
+    text = str(value or "").strip()
+    lowered = text.lower()
+    return lowered.startswith(
+        (
+            "local-docs://",
+            "hermes-session-json://",
+            "http://",
+            "https://",
+            "source:",
+            "ring:",
+        )
+    )
+
+
+def _semantic_related_nodes(values: list[str]) -> list[str]:
+    return [
+        value
+        for value in _as_list(values)
+        if not _is_source_reference(value)
+    ]
+
+
 def _render_provenance_ring_page(*, ring_node: dict) -> str:
     topic = ring_node["canonical_topic"]
     capsule = ring_node["decision_capsule"]
+    canonical_claim = _canonical_claim_from_capsule(capsule)
     rings = list(ring_node["provenance_rings"] or [])
     ring = rings[-1]
     source_refs = []
@@ -542,7 +572,7 @@ community_role: {taxonomy.get('community_role', 'member')}
 status: {lifecycle_state}
 community: {community['community_id']}
 sources: [{', '.join(source_refs)}]
-root_claim: {capsule['decision']}
+root_claim: {canonical_claim}
 current_authority: {current_authority}
 ring_id: {ring['ring_id']}
 lifecycle_state: {lifecycle_state}
@@ -550,25 +580,34 @@ lifecycle_state: {lifecycle_state}
 # {topic['title']}
 
 ## What This Page Is
-This page records a reusable knowledge candidate with provenance and recall boundaries.
+This page preserves a reusable, source-backed boundary from a Provider discussion.
+
+{canonical_claim}
 
 ## Why It Matters
-It keeps the decision, source range, community placement, and recall surface together so later vague questions can be answered without inventing context.
+{capsule.get('context') or 'A later question may revisit the same boundary in different words.'}
+
+Use this page to keep the rule stable without turning mailbox receipts, runtime proof, or temporary conversation state into the rule itself.
 
 ## Operating Rule
-{capsule['decision']}
+{canonical_claim}
 
 ## Role Boundary
-Provider rejudges returned support; MS1 stores only admitted source-backed candidates; MF1 recalls only safe indexed evidence.
+- Domain boundary: {capsule.get('conclusion') or 'Keep the documented responsibilities separate unless source evidence supports merging them.'}
+- Memory boundary: Provider may use this page only after MF1 returns safe source-backed support.
+- Evidence boundary: source links and receipts explain provenance; they are not the user-facing answer.
 
 ## Failure Cases
 - missing or unresolved source_ref
 - pending candidate treated as final support
 - local path or pane text treated as proof
+- source references treated as semantic related pages
+- generated confidence treated as human review
 
 ## Examples
 - Use this when a later question asks for the same boundary in different words.
-- If the page is still `NEEDS_REPAIR`, treat it as a candidate until janitor and recall gates admit it.
+- Do not use it for unrelated product-currentness questions.
+- If the page is still `NEEDS_REPAIR`, keep it candidate-only until janitor and recall gates admit it.
 
 ## Source Synthesis
 {_render_source_synthesis(ring=ring, community=community, domain_evidence=domain_evidence, lifecycle_state=lifecycle_state)}
@@ -589,7 +628,7 @@ Provider rejudges returned support; MS1 stores only admitted source-backed candi
 ## Machine Appendix
 
 ## 1. Canonical Claim
-{capsule['decision']}
+{canonical_claim}
 
 ## 2. Decision Capsule
 ```json
@@ -608,7 +647,7 @@ Provider rejudges returned support; MS1 stores only admitted source-backed candi
 
 ## 5. Edges
 - DERIVES_FROM: {ring['origin_locator']}
-- SUPPORTS: {capsule['decision']}
+- SUPPORTS: {canonical_claim}
 
 ## 6. Community Placement
 ```json
@@ -630,7 +669,7 @@ Provider rejudges returned support; MS1 stores only admitted source-backed candi
 {json.dumps(retrieval, ensure_ascii=False, indent=2)}
 ```
 
-## 9. Quality Assessment
+## 9. Quality Evaluation
 ```json
 {json.dumps(quality, ensure_ascii=False, indent=2)}
 ```
@@ -649,9 +688,16 @@ Provider rejudges returned support; MS1 stores only admitted source-backed candi
 
 def _render_related_pages(community: dict) -> str:
     related_nodes = _as_list(community.get("related_nodes"))
-    if not related_nodes:
-        return "- related pages are not established yet; janitor must backfill or keep this candidate out of final support."
-    return "\n".join(f"- {node_id}" for node_id in related_nodes)
+    semantic_nodes = _semantic_related_nodes(related_nodes)
+    source_refs = [node for node in related_nodes if _is_source_reference(node)]
+    lines: list[str] = []
+    if semantic_nodes:
+        lines.extend(f"- {node_id}" for node_id in semantic_nodes)
+    else:
+        lines.append("- semantic related pages are not established yet; janitor must attach, split, or keep this page below full wiki-quality claim.")
+    if source_refs:
+        lines.append("- source references are listed under Source Synthesis and are not counted as semantic related pages.")
+    return "\n".join(lines)
 
 
 def _render_source_synthesis(*, ring: dict, community: dict, domain_evidence: dict, lifecycle_state: str) -> str:
@@ -754,6 +800,28 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     if merged_rings:
         ring_node = {**ring_node, "provenance_rings": merged_rings}
     ring = ring_node["provenance_rings"][-1]
+    community_key_for_related = community["community_id"].split(":", 1)[-1]
+    community_path_for_related = vault / "communities" / f"{community_key_for_related}.md"
+    existing_community_for_related = (
+        community_path_for_related.read_text(encoding="utf-8")
+        if community_path_for_related.exists()
+        else ""
+    )
+    semantic_siblings = [
+        node
+        for node in _semantic_related_nodes(_metadata_values(existing_community_for_related, "related_nodes"))
+        if node != ring_node["node_id"]
+    ]
+    if semantic_siblings:
+        updated_community = dict(community)
+        updated_community["related_nodes"] = _merge_unique_values(
+            [
+                *_as_list(updated_community.get("related_nodes")),
+                *semantic_siblings,
+            ]
+        )
+        ring_node = {**ring_node, "community": updated_community}
+        community = updated_community
     topic_path.write_text(_render_provenance_ring_page(ring_node=ring_node), encoding="utf-8")
 
     # MF1 BM25 fixed path reads concepts/entities first, so keep one canonical concept mirror.
@@ -1010,6 +1078,7 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
         if not str(ref).startswith("hermes-session-json://")
     ]
     related_nodes = _as_list(community.get("related_nodes"))
+    semantic_related_nodes = _semantic_related_nodes(related_nodes)
     domain_evidence = payload.get("domain_evidence_enrichment")
     domain_evidence_resolved = (
         isinstance(domain_evidence, dict)
@@ -1048,8 +1117,11 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
     confidence_deductions = []
     if str(payload.get("human_evaluator_status") or "").lower() != "executed":
         confidence_deductions.append("human_evaluator_not_executed")
+    if related_nodes and not semantic_related_nodes:
+        confidence_deductions.append("semantic_related_pages_not_established")
+    confidence_reason_codes = list(confidence_deductions)
     if verdict == "pass":
-        confidence = round(max(0.0, 1.0 - (0.03 * len(confidence_deductions))), 2)
+        confidence = round(max(0.0, 0.94 - (0.06 * len(confidence_deductions))), 2)
     else:
         confidence = round(max(0.0, 0.72 - (0.03 * len(failed))), 2)
     return {
@@ -1057,7 +1129,9 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
         "verdict": verdict,
         "confidence": confidence,
         "confidence_deductions": confidence_deductions,
-        "reason_codes": reason_codes,
+        "reason_codes": [*reason_codes, *confidence_reason_codes],
+        "quality_blocker_reason_codes": reason_codes,
+        "confidence_reason_codes": confidence_reason_codes,
         "ambiguity": "low" if verdict == "pass" else "medium",
         "duplication_risk": "checked_bounded_graph_dedupe" if str(payload.get("graph_dedupe_status") or "").lower() == "executed" else "unknown_without_graph_dedupe",
         "misclassification_risk": "low" if checks["community_not_atomic"] else "high",
@@ -1066,6 +1140,7 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
         "hard_nonclaims": [
             *([] if str(payload.get("graph_dedupe_status") or "").lower() == "executed" else ["graph_dedupe_not_executed"]),
             *([] if str(payload.get("human_evaluator_status") or "").lower() == "executed" else ["human_evaluator_not_executed"]),
+            *([] if semantic_related_nodes else ["semantic_related_pages_not_established"]),
         ],
     }
 
@@ -1114,6 +1189,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
 
     decision = str(payload.get("decision") or payload.get("결정") or payload.get("surface_reason") or "MemoryTicket")
     payload = enrich_memory_ticket_payload(payload, vault=vault)
+    decision = str(payload.get("conclusion") or decision)
     topic_title = str(payload.get("canonical_topic_title") or payload.get("topic_title") or decision)
     topic_key = _slugify_topic_key(str(payload.get("canonical_topic_key") or topic_title))
     node_id = "N-" + uuid.uuid5(uuid.NAMESPACE_URL, f"{source_ref}:{range_hint}:{decision}").hex[:16]
@@ -1133,6 +1209,16 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         physical_continent="concepts",
         default_node_type="policy",
     )
+    initial_related_nodes = _as_list(payload.get("related_nodes") or payload.get("related_pages"))
+    existing_community_path = vault / "communities" / f"{community_key}.md"
+    if existing_community_path.exists():
+        existing_community_text = existing_community_path.read_text(encoding="utf-8", errors="replace")
+        existing_semantic_siblings = [
+            node
+            for node in _semantic_related_nodes(_metadata_values(existing_community_text, "related_nodes"))
+            if node != node_id
+        ]
+        initial_related_nodes = _merge_unique_values([*initial_related_nodes, *existing_semantic_siblings])
     ring_node = {
         "schema_version": "provenance_ring_node.v1",
         "node_id": node_id,
@@ -1171,7 +1257,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         "community": {
             "community_id": community_id,
             "placement_reason": str(payload.get("surface_reason") or "MemoryTicket provenance placement"),
-            "related_nodes": _as_list(payload.get("related_nodes") or payload.get("related_pages")),
+            "related_nodes": initial_related_nodes,
         },
         "paragraph_intent_safety_belt": {
             "intent_field": str(payload.get("intent_field") or ""),

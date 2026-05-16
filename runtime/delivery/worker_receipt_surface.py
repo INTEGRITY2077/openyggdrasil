@@ -94,6 +94,8 @@ def _matching_receipt(receipts: list[dict[str, Any]], *, mail_id: str | None, wo
             return row
         if work_order_id and row.get("work_order_id") == work_order_id:
             return row
+        if mail_id and row.get("in_reply_to") == mail_id:
+            return row
         if mail_id and row.get("mail_id") == mail_id:
             return row
     return None

@@ -16,11 +16,16 @@ if str(REPO_ROOT) not in sys.path:
 from runtime.capture.provider_current_source_bridge import (  # noqa: E402
     build_memory_ticket_payload_from_existing_provider_exchange,
 )
+from runtime.capture.hermes_state_db_source import (  # noqa: E402
+    materialize_hermes_state_db_session_json,
+    materialize_latest_hermes_state_db_session_json,
+)
 from runtime.delivery.postman_native_activation import activate_native_lane  # noqa: E402
 from runtime.delivery.postman_live_delivery import (  # noqa: E402
     PostmanIntegrityError,
     submit_live_delivery,
 )
+from runtime.common.provider_wake_markers import is_provider_rejudgment_wakeup_text  # noqa: E402
 from source_ref.hermes_session_json import _canonical_anchor_hash  # noqa: E402
 
 
@@ -31,6 +36,28 @@ RECALL_STATE_PATH = POSTMAN_DIR / "provider_recall_hook_state.jsonl"
 RECALL_LOG_PATH = POSTMAN_DIR / "provider_recall_hook_log.jsonl"
 DEFAULT_RECIPIENT = "MS1"
 DEFAULT_RECALL_RECIPIENT = "MF1"
+STATE_DB_SOURCE_CACHE_DIR = Path.home() / ".yggdrasil" / "sessions" / "provider-source-cache"
+WORKER_SURFACE_MARKERS = (
+    "mailbox_row_resolved",
+    "work_order_id=",
+    "bounded program",
+    "selected capabilities",
+    "accepted evidence",
+    "rejected evidence",
+    "route_only_no_semantic_payload",
+    "worker judgment",
+    "close decision",
+    "mission:",
+    "TODO:",
+)
+WORKER_SURFACE_ROLE_MARKERS = (
+    "Memory Finder",
+    "Memory Saver",
+    "lane: MF1",
+    "lane: MS1",
+    "role: MF1",
+    "role: MS1",
+)
 CONTEXTUAL_RECALL_MARKERS = (
     "방금",
     "아까",
@@ -49,6 +76,11 @@ CONTEXTUAL_RECALL_MARKERS = (
 )
 ANCHOR_TERM_RE = re.compile(
     r"`([^`]{2,80})`|(?<![\w.])([A-Za-z][A-Za-z0-9_.-]{1,}(?:/[A-Za-z][A-Za-z0-9_.-]{1,})?)"
+)
+INTERNAL_CONTEXT_ANCHOR_RE = re.compile(
+    r"(?i)(?:^oy-|^work-|^ask-|^memticket-|^postman-|"
+    r"mailbox|work_order|mail_id|receipt|support_bundle|source_ref|node_id|"
+    r"route_only|cpr|tst|ptc|proof)"
 )
 ANCHOR_STOPWORDS = {
     "and",
@@ -107,16 +139,44 @@ def _session_id_from_name(path: Path) -> str:
     return path.stem
 
 
+def _materialized_state_db_session_path(session_id: str) -> Path | None:
+    result = materialize_hermes_state_db_session_json(
+        session_id=session_id,
+        output_dir=STATE_DB_SOURCE_CACHE_DIR,
+    )
+    if result.get("status") != "ready":
+        return None
+    session_path = Path(str(result.get("session_path") or ""))
+    return session_path if session_path.exists() else None
+
+
+def _materialized_latest_state_db_session_path() -> Path | None:
+    result = materialize_latest_hermes_state_db_session_json(output_dir=STATE_DB_SOURCE_CACHE_DIR)
+    if result.get("status") != "ready":
+        return None
+    session_path = Path(str(result.get("session_path") or ""))
+    return session_path if session_path.exists() else None
+
+
 def _session_path_from_event(event: Mapping[str, Any]) -> Path | None:
     session_id = str(event.get("session_id") or "").strip()
     candidates: list[Path] = []
     if session_id:
+        materialized = _materialized_state_db_session_path(session_id)
+        if materialized is not None:
+            return materialized
         candidates.append(Path.home() / ".hermes" / "sessions" / f"session_{session_id}.json")
         for path in (Path.home() / ".hermes" / "profiles").glob("*/sessions"):
             candidates.append(path / f"session_{session_id}.json")
+    else:
+        materialized = _materialized_latest_state_db_session_path()
+        if materialized is not None:
+            return materialized
     for candidate in candidates:
         if candidate.exists():
             return candidate
+    if session_id:
+        return None
     roots = [Path.home() / ".hermes" / "sessions"]
     roots.extend((Path.home() / ".hermes" / "profiles").glob("*/sessions"))
     files: list[Path] = []
@@ -124,7 +184,7 @@ def _session_path_from_event(event: Mapping[str, Any]) -> Path | None:
         if root.exists():
             files.extend(root.glob("session_*.json"))
     if not files:
-        return None
+        return _materialized_latest_state_db_session_path()
     files.sort(key=lambda path: path.stat().st_mtime, reverse=True)
     return files[0]
 
@@ -140,6 +200,35 @@ def _load_session(path: Path) -> dict[str, Any]:
 def _message_text(message: Mapping[str, Any]) -> str:
     content = message.get("content")
     return content.strip() if isinstance(content, str) else ""
+
+
+def _looks_like_worker_surface_text(text: str) -> bool:
+    lowered = str(text or "").lower()
+    structural_hits = sum(1 for marker in WORKER_SURFACE_MARKERS if marker.lower() in lowered)
+    has_worker_role = any(marker.lower() in lowered for marker in WORKER_SURFACE_ROLE_MARKERS)
+    return "mailbox_row_resolved" in lowered or structural_hits >= 2 or (has_worker_role and structural_hits >= 1)
+
+
+def _is_internal_context_anchor_term(value: str) -> bool:
+    raw = str(value or "").strip()
+    if not raw:
+        return True
+    return bool(INTERNAL_CONTEXT_ANCHOR_RE.search(raw))
+
+
+def _worker_surface_session_result(*, event_name: str, session_path: Path, session_id: str | None = None) -> dict[str, Any]:
+    return {
+        "status": "skipped",
+        "reason_code": "worker_surface_session_not_provider_dialogue",
+        "event_name": event_name,
+        "provider_session_id": session_id,
+        "session_path_name": session_path.name,
+        "hard_nonclaims": [
+            "ms_mf_worker_pane_text_is_not_provider_natural_dialogue",
+            "mailbox_row_surface_is_not_provider_source_ref",
+            "worker_owned_surface_must_not_be_saved_as_wiki_claim",
+        ],
+    }
 
 
 def _latest_user_assistant_range(messages: list[dict[str, Any]]) -> tuple[int, int, str, str, list[dict[str, Any]]] | None:
@@ -238,12 +327,14 @@ def _recall_context_anchor_terms(
         text = _message_text(message)
         if not text:
             continue
+        if is_provider_rejudgment_wakeup_text(text) or _looks_like_worker_surface_text(text):
+            continue
         for match in ANCHOR_TERM_RE.finditer(text):
             raw = (match.group(1) or match.group(2) or "").strip("` ,.;:()[]{}")
             if not raw:
                 continue
             lowered = raw.lower()
-            if lowered in ANCHOR_STOPWORDS:
+            if lowered in ANCHOR_STOPWORDS or _is_internal_context_anchor_term(raw):
                 continue
             has_identifier_shape = (
                 raw[:1].isupper()
@@ -306,6 +397,14 @@ def run_latest_provider_recall_hook(*, event_name: str, require_tool_name: str |
 
     normalized_messages = [dict(row) for row in messages if isinstance(row, Mapping)]
     latest_user = _latest_user_message(normalized_messages)
+    session_id = str(payload.get("provider_session_id") or payload.get("session_id") or _session_id_from_name(session_path))
+    if any(_looks_like_worker_surface_text(_message_text(row)) for row in normalized_messages[-12:]):
+        result = _worker_surface_session_result(event_name=event_name, session_path=session_path, session_id=session_id)
+        _append_jsonl(
+            RECALL_LOG_PATH,
+            {**result, "created_at": _now(), "tool_name": tool_name, "session_path_name": session_path.name},
+        )
+        return result
     query_text = _event_query_text(event)
     if not query_text and latest_user:
         query_text = latest_user[1]
@@ -321,7 +420,6 @@ def run_latest_provider_recall_hook(*, event_name: str, require_tool_name: str |
         _append_jsonl(RECALL_LOG_PATH, {**result, "created_at": _now(), "tool_name": tool_name, "session_path_name": session_path.name})
         return result
 
-    session_id = str(payload.get("provider_session_id") or payload.get("session_id") or _session_id_from_name(session_path))
     user_index = latest_user[0] if latest_user else -1
     query_hash = _hash_text(query_text)
     dedupe_key = f"provider-recall:{session_id}:{user_index}:{query_hash}"
@@ -418,6 +516,15 @@ def run_latest_provider_admission_hook(*, event_name: str, require_tool_name: st
 
     start, end, user_text, assistant_text, selected = latest
     session_id = str(payload.get("provider_session_id") or payload.get("session_id") or _session_id_from_name(session_path))
+    if any(_looks_like_worker_surface_text(_message_text(row)) for row in selected):
+        source_ref = f"hermes-session-json://{session_id}"
+        result = {
+            **_worker_surface_session_result(event_name=event_name, session_path=session_path, session_id=session_id),
+            "source_ref": source_ref,
+            "message_index_range": {"start": start, "end": end},
+        }
+        _append_jsonl(LOG_PATH, {**result, "created_at": _now(), "session_path_name": session_path.name})
+        return result
     anchor_hash = _canonical_anchor_hash(selected)
     source_ref = f"hermes-session-json://{session_id}"
     dedupe_key = f"{source_ref}:{start}:{end}:{anchor_hash}"
@@ -464,10 +571,25 @@ def run_latest_provider_admission_hook(*, event_name: str, require_tool_name: st
             provider_id="hermes",
             mail_id=f"memticket-{uuid.uuid4().hex[:6]}",
         )
+        try:
+            activation = activate_native_lane(
+                op=DEFAULT_RECIPIENT,
+                label="MS1",
+                role_type="producer",
+                session="ygg-ms1",
+                delivery=delivery,
+                message_type="memory_ticket",
+                payload=ticket,
+                registry_dir=Path.home() / ".yggdrasil",
+                sessions_dir=Path.home() / ".yggdrasil" / "sessions",
+            )
+        except OSError as exc:
+            activation = {"status": "blocked", "reason_code": f"native_activation_unavailable:{exc.__class__.__name__}"}
         status = "delivered"
         reason_code = "memory_ticket_delivered"
     except PostmanIntegrityError as exc:
         delivery = exc.result
+        activation = {}
         status = "rejected"
         reason_code = str(delivery.get("reason") or "postman_integrity_rejected")
 
@@ -483,6 +605,7 @@ def run_latest_provider_admission_hook(*, event_name: str, require_tool_name: st
         "mail_id": delivery.get("mail_id"),
         "work_order_id": delivery.get("work_order_id"),
         "recipient": delivery.get("recipient"),
+        "postman_activation_status": activation.get("status"),
     }
     _append_jsonl(STATE_PATH, {**result, "created_at": _now(), "dedupe_key": dedupe_key})
     _append_jsonl(LOG_PATH, {**result, "created_at": _now(), "session_path_name": session_path.name})

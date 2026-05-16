@@ -261,7 +261,7 @@ def _configured_roots(*, payload: Mapping[str, Any], env: Mapping[str, str]) -> 
 
 
 def _roots_from_config_file(env: Mapping[str, str]) -> dict[str, str]:
-    candidates: list[Path] = []
+    candidates: list[Path] = [Path.home() / ".yggdrasil" / "config" / "domain_source_roots.json"]
     explicit = str(env.get(ROOTS_FILE_ENV) or "").strip()
     if explicit:
         candidates.append(Path(explicit).expanduser())
@@ -298,17 +298,25 @@ def _source_key(value: str) -> str:
 
 
 def _query_terms(text: str) -> list[str]:
+    candidates: list[tuple[int, int, str]] = []
     seen: set[str] = set()
-    terms: list[str] = []
-    for match in TOKEN_RE.finditer(str(text or "")):
-        token = match.group(0).lower()
+    for index, match in enumerate(TOKEN_RE.finditer(str(text or ""))):
+        raw = match.group(0)
+        token = raw.lower()
         if token in STOPWORDS or token in seen:
             continue
         seen.add(token)
-        terms.append(token)
-        if len(terms) >= 28:
-            break
-    return terms
+        has_ascii = bool(re.search(r"[a-z]", token))
+        identifier_like = has_ascii and (
+            raw[:1].isupper()
+            or raw.isupper()
+            or any(char in raw for char in "._/-")
+            or len(token) >= 5
+        )
+        priority = 0 if identifier_like else 1 if has_ascii else 2
+        candidates.append((priority, index, token))
+    candidates.sort(key=lambda row: (row[0], row[1]))
+    return [token for _, _, token in candidates[:28]]
 
 
 def _rank_markdown_segments(*, source_key: str, root: Path, query_terms: list[str]) -> list[dict[str, Any]]:

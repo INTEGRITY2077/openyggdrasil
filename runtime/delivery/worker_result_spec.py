@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Any, Mapping
 
 
-_WORD_RE = re.compile(r"[A-Za-z0-9가-힣][A-Za-z0-9가-힣_-]{2,}")
+
+
+
+
+_WORD_RE = re.compile(r"[A-Za-z0-9_\uac00-\ud7a3][A-Za-z0-9_.:\uac00-\ud7a3-]{1,}")
 
 
 def _now_iso() -> str:
@@ -39,7 +43,31 @@ def _latest_work_order(mailbox: Path, mail_id: str) -> dict[str, Any]:
 
 
 def _tokens(text: str) -> set[str]:
-    return {match.group(0).lower() for match in _WORD_RE.finditer(text or "")}
+    tokens = {match.group(0).lower() for match in _WORD_RE.finditer(text or "")}
+    expanded = set(tokens)
+    alias_groups = [
+        {"agent", "agents", "에이전트"},
+        {"plugin", "plugins", "플러그인"},
+        {"subagent", "subagents", "서브에이전트"},
+        {"team", "teams", "팀"},
+        {"hook", "hooks", "훅"},
+        {"skill", "skills", "스킬"},
+        {"mcp"},
+        {"execution", "runtime", "실행"},
+        {"model", "models", "모델"},
+        {"definition", "defined", "정의"},
+        {"supply", "source", "path", "공급", "공급원", "경로"},
+        {"placement", "axis", "axes", "배치", "축"},
+        {"automatic", "event", "자동", "이벤트"},
+        {"procedure", "rubric", "judgment", "절차", "판단", "기준"},
+        {"external", "connection", "connect", "외부", "연결"},
+        {"distribution", "package", "packaging", "배포", "패키지", "묶음"},
+    ]
+    for token in list(tokens):
+        for group in alias_groups:
+            if token in group or any(item and item in token for item in group):
+                expanded.update(group)
+    return expanded
 
 
 def _high_specificity_tokens(text: str) -> set[str]:
@@ -79,8 +107,8 @@ def _fact_text(fact: Any) -> str:
 
 
 def _support_text(result_bundle: Mapping[str, Any] | None) -> str:
-    facts, _paths = _support_facts_and_paths(result_bundle)
-    return "\n".join(_fact_text(fact) for fact in facts)
+    facts, paths = _support_facts_and_paths(result_bundle)
+    return "\n".join([*(_fact_text(fact) for fact in facts), *(str(path) for path in paths)])
 
 
 def _selected_capabilities(result_bundle: Mapping[str, Any] | None) -> list[dict[str, Any]]:
@@ -239,7 +267,7 @@ def _alignment_state(*, user_question: str, result_bundle: Mapping[str, Any] | N
     score = 0.0 if not question_tokens else len(overlap) / max(len(question_tokens), 1)
     if missing_specific:
         state = "misaligned"
-    elif score >= 0.18 or (high_specificity and not missing_specific):
+    elif score >= 0.15 or (high_specificity and not missing_specific):
         state = "aligned"
     elif support_tokens:
         state = "insufficient_context"

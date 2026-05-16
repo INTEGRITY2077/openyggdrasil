@@ -451,6 +451,125 @@ def _stable_signal_buckets(text: str) -> list[str]:
     return sorted(active)
 
 
+def _wiki_rule_from_provider_answer(answer: str) -> str:
+    text = _compact_for_decision(answer)
+    text = re.sub(r"^(네,?\s*)?맞습니다\.\s*", "", text)
+    text = re.sub(r"^네\s+.{1,24}\s+맞습니다\.\s*", "", text)
+    text = re.sub(r"^정리하면[:：]?\s*", "", text)
+    text = re.sub(r"^이렇게\s+바로잡으면\s+됩니다\.\s*", "", text)
+    text = re.split(r"\s+더\s+짧게[:：]", text, maxsplit=1)[0].strip()
+    text = re.split(r"\s+주의할\s+문장[:：]", text, maxsplit=1)[0].strip()
+    quoted = re.search(r"[“\"]([^”\"]{20,500})[”\"]", text)
+    if quoted:
+        text = quoted.group(1).strip()
+    return text or _compact_for_decision(answer)
+
+
+def _looks_like_answer_scaffold(text: str) -> bool:
+    compact = " ".join(str(text or "").split())
+    if not compact:
+        return True
+    table_markers = ("|---|", " | ", "| 축 |", "| 기준 |")
+    if any(marker in compact for marker in table_markers):
+        return True
+    if compact.endswith("..."):
+        return True
+    return len(compact) > 180
+
+
+def _select_canonical_decision(*, answer_candidate: str, conclusion: str) -> str:
+    """Keep the durable claim separate from Provider answer prose."""
+
+    answer_candidate = str(answer_candidate or "").strip()
+    conclusion = str(conclusion or "").strip()
+    sentence_count = sum(answer_candidate.count(marker) for marker in (".", "?", "!", "。"))
+    if conclusion and (_looks_like_answer_scaffold(answer_candidate) or sentence_count >= 2):
+        return conclusion
+    return answer_candidate or conclusion
+
+
+_CLAUDE_CODE_PLACEMENT_CONCEPTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    (
+        "Hook",
+        "automatic event handler",
+        ("hook", "hooks", "\ud6c5"),
+    ),
+    (
+        "Skill",
+        "model-loaded procedure or rubric",
+        ("skill", "skills", "\uc2a4\ud0ac"),
+    ),
+    (
+        "slash command",
+        "user-called entrypoint",
+        ("slash command", "slash commands", "/name", "/review", "\uc2ac\ub798\uc2dc"),
+    ),
+    (
+        "CLAUDE.md/rules",
+        "always-on project guidance",
+        ("claude.md", "claude md", "rules", "\ud56d\uc0c1 \uc801\uc6a9", "\ud300 \uaddc\uce59"),
+    ),
+    (
+        "MCP",
+        "external tool or data connector",
+        ("mcp",),
+    ),
+    (
+        "Plugin",
+        "packaged distribution unit",
+        ("plugin", "plugins", "\ud50c\ub7ec\uadf8\uc778"),
+    ),
+)
+
+
+def _mentioned_claude_code_placement_concepts(text: str) -> list[tuple[str, str]]:
+    lowered = str(text or "").lower()
+    concepts: list[tuple[str, str]] = []
+    for name, role, markers in _CLAUDE_CODE_PLACEMENT_CONCEPTS:
+        if name == "slash command":
+            has_explicit_slash_command = any(marker.lower() in lowered for marker in markers)
+            has_contextual_command = (
+                ("command" in lowered or "\uba85\ub839" in lowered or "\ud638\ucd9c \uc785\uad6c" in lowered)
+                and any(anchor in lowered for anchor in ("hook", "skill", "claude.md", "rules", "\ud6c5", "\uc2a4\ud0ac"))
+            )
+            if has_explicit_slash_command or has_contextual_command:
+                concepts.append((name, role))
+            continue
+        if any(marker.lower() in lowered for marker in markers):
+            concepts.append((name, role))
+    return concepts
+
+
+def _extension_topic_title(concepts: list[tuple[str, str]]) -> str:
+    names = [name for name, _role in concepts]
+    lowered = {name.lower() for name in names}
+    if {"slash command", "skill", "hook", "claude.md/rules"}.issubset(lowered):
+        return "Claude Code command, skill, hook, and project guidance placement boundary"
+    if {"hook", "skill", "mcp", "plugin"}.issubset(lowered):
+        return "Claude Code extension placement boundary"
+    if names:
+        joined = ", ".join(names[:-1]) + (f", and {names[-1]}" if len(names) > 1 else names[0])
+        return f"Claude Code {joined} placement boundary"
+    return "Claude Code extension placement boundary"
+
+
+def _extension_boundary_context(concepts: list[tuple[str, str]]) -> str:
+    if not concepts:
+        return (
+            "A Provider exchange separated Claude Code extension responsibilities "
+            "by how each item is invoked, loaded, or applied."
+        )
+    concept_text = ", ".join(f"{name} as {role}" for name, role in concepts)
+    return f"A Provider exchange separated {concept_text}."
+
+
+def _extension_boundary_conclusion(concepts: list[tuple[str, str]]) -> str:
+    if not concepts:
+        return "Keep Claude Code extension concepts on separate placement axes unless source evidence supports merging them."
+    clauses = [f"{name} = {role}" for name, role in concepts]
+    return "Keep the mentioned Claude Code surfaces separate by placement role: " + "; ".join(clauses) + "."
+
+
 def _generic_provider_exchange_memory_fields(*, user_text: str, assistant_text: str) -> dict[str, Any]:
     combined = f"{user_text}\n{assistant_text}"
     buckets = _stable_signal_buckets(combined)
@@ -461,23 +580,69 @@ def _generic_provider_exchange_memory_fields(*, user_text: str, assistant_text: 
     ]
     digest_source = "|".join(topic_buckets or buckets) if buckets else " ".join(combined.lower().split())
     digest = hashlib.sha1(digest_source.encode("utf-8")).hexdigest()[:10]
-    return {
-        "decision": f"Candidate boundary from Provider answer: {_compact_for_decision(assistant_text)}",
-        "context": (
+    answer_decision = _wiki_rule_from_provider_answer(assistant_text)
+    if {"agent-taxonomy", "extension-placement"}.issubset(set(buckets)):
+        canonical_topic_title = "Claude Code agent and extension placement boundary"
+        topic_stem = "claude-code-agent-extension-placement-boundary"
+        context = (
+            "A Provider exchange separated execution-model choices, definition "
+            "supply paths, automatic execution, model-readable procedures, external "
+            "connections, and extension packaging."
+        )
+        conclusion = (
+            "Keep agent execution models separate from agent definition supply paths, "
+            "and keep Hook, Skill, MCP, and Plugin on their own placement axes."
+        )
+        reuse_condition = (
+            "Use when team documentation needs to explain where agent, hook, skill, "
+            "MCP, and plugin responsibilities belong without merging the axes."
+        )
+    elif "agent-taxonomy" in buckets:
+        canonical_topic_title = "Claude Code agent execution and definition boundary"
+        topic_stem = "claude-code-agent-boundary"
+        context = (
+            "A Provider exchange separated how agent work executes from where an "
+            "agent definition is supplied."
+        )
+        conclusion = "Keep execution model and definition source as separate documentation axes."
+        reuse_condition = "Use when a later question asks whether an agent concept is an execution model or a definition source."
+    elif "extension-placement" in buckets:
+        mentioned_concepts = _mentioned_claude_code_placement_concepts(combined)
+        canonical_topic_title = _extension_topic_title(mentioned_concepts)
+        topic_stem = "claude-code-extension-placement-boundary"
+        context = _extension_boundary_context(mentioned_concepts)
+        conclusion = _extension_boundary_conclusion(mentioned_concepts)
+        reuse_condition = (
+            "Use when team documentation revisits the same mentioned Claude Code surfaces "
+            "and needs their placement roles kept separate."
+        )
+    else:
+        canonical_topic_title = "Provider durable reuse boundary"
+        topic_stem = "provider-durable-reuse-boundary"
+        context = (
             "A natural Provider exchange contained a reusable boundary or later-use signal. "
             "The Provider must keep the decision open and let MS1 classify the domain, "
             "community, maturity, and promotion path from source-backed evidence."
-        ),
-        "conclusion": (
+        )
+        conclusion = (
             "Treat this as a source-ref-backed boundary candidate, not as native Provider memory "
             "and not as verified long-term storage."
-        ),
-        "reuse_condition": (
+        )
+        reuse_condition = (
             "Use when a later question revisits the same bounded exchange and asks whether the "
             "criterion remained stable."
-        ),
-        "canonical_topic_title": "Provider durable reuse boundary",
-        "canonical_topic_key": f"provider-durable-reuse-boundary-{digest}",
+        )
+    decision = _select_canonical_decision(
+        answer_candidate=answer_decision,
+        conclusion=conclusion,
+    )
+    return {
+        "decision": decision,
+        "context": context,
+        "conclusion": conclusion,
+        "reuse_condition": reuse_condition,
+        "canonical_topic_title": canonical_topic_title,
+        "canonical_topic_key": f"{topic_stem}-{digest}",
         "signal_buckets": buckets,
     }
 

@@ -95,6 +95,61 @@ def _send_tmux_target_text(target: str, text: str) -> tuple[bool, str]:
     return True, "sent"
 
 
+def _capture_tmux_target_text(target: str, *, lines: int = 80) -> str:
+    result = _tmux("capture-pane", "-p", "-t", target, "-S", f"-{max(lines, 1)}")
+    if result.returncode != 0:
+        return ""
+    return result.stdout or ""
+
+
+def _recent_nonempty_lines(text: str, *, limit: int = 16) -> list[str]:
+    lines = [line.strip() for line in str(text or "").splitlines() if line.strip()]
+    return lines[-max(1, limit) :]
+
+
+def _looks_idle_at_prompt(text: str) -> bool:
+    prompt_marker = chr(0x276F)
+    for line in reversed(_recent_nonempty_lines(text, limit=10)):
+        if line == prompt_marker or line.endswith(f" {prompt_marker}") or line.startswith(f"{prompt_marker} "):
+            return True
+        if "msg=interrupt" in line.lower() or "ctrl+c cancel" in line.lower():
+            return False
+    return False
+
+
+def _native_pane_status(target: str) -> dict[str, Any]:
+    text = _capture_tmux_target_text(target)
+    if _looks_idle_at_prompt(text):
+        return {
+            "status": "idle",
+            "reason_code": "native_pane_idle_prompt_visible",
+        }
+    recent = "\n".join(_recent_nonempty_lines(text, limit=24)).lower()
+    if "preflight compression" in recent:
+        return {
+            "status": "busy",
+            "reason_code": "native_pane_busy_preflight_compression",
+        }
+    busy_markers = (
+        "msg=interrupt",
+        "/queue",
+        "/bg",
+        "ctrl+c cancel",
+        "cogitating",
+        "pondering",
+        "reasoning...",
+    )
+    if any(marker in recent for marker in busy_markers):
+        return {
+            "status": "busy",
+            "reason_code": "native_pane_busy_existing_work",
+        }
+    return {
+        "status": "idle",
+        "reason_code": "native_pane_idle",
+    }
+
+
 def validate_visible_notice_route_only(text: str) -> None:
     lowered = str(text or "").lower()
     blocked = [term for term in VISIBLE_NOTICE_FORBIDDEN_TERMS if term.lower() in lowered]
@@ -134,6 +189,9 @@ def _activation_prompt(
             "process_step=run_role_owned_mailbox_processor_before_missing_receipt_close",
             "processor_entrypoint=configured role-owned mailbox processor",
             "surface_fields=selected capability class and bounded program hash from processor result when present",
+            f"same_mail_status_check=scripts/ygg receipt {delivery.get('mail_id') or 'unknown'}",
+            "completed_claim_requires_same_mail_done_and_nonzero_when_saving",
+            "pending_or_zero_output_must_close_typed_unavailable",
             "missing_receipt_close_only_after_processor_attempt",
             "final_step=close_mailbox_receipt_or_typed_unavailable",
             "route_only_no_semantic_payload",
@@ -216,15 +274,19 @@ def activate_native_lane(
 
     visible_cpr = os.environ.get("OY_POSTMAN_VISIBLE_CPR", "1") != "0"
     prompt = ""
+    pane_status = _native_pane_status(target)
     if visible_cpr:
-        prompt = _activation_prompt(
-            label=label,
-            role_type=role_type,
-            message_type=message_type,
-            payload=payload,
-            delivery=delivery,
-        )
-        written, reason = _send_tmux_target_text(target, prompt)
+        if pane_status.get("status") == "busy":
+            written, reason = False, str(pane_status.get("reason_code") or "native_pane_busy")
+        else:
+            prompt = _activation_prompt(
+                label=label,
+                role_type=role_type,
+                message_type=message_type,
+                payload=payload,
+                delivery=delivery,
+            )
+            written, reason = _send_tmux_target_text(target, prompt)
     else:
         written, reason = False, "mailbox_work_order_recorded"
 
@@ -241,6 +303,7 @@ def activate_native_lane(
         "cancel_existing_prompt": False,
         "prompt_contract": "visible_by_default_route_only_notice",
         "visible_cpr": visible_cpr,
+        "native_pane_status": pane_status,
     }
     _append_jsonl(registry_dir / "postman" / "activation_log.jsonl", result)
     _append_jsonl(sessions_dir / op / "postman_activation.jsonl", result)

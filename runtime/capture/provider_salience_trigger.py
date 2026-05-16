@@ -294,18 +294,10 @@ def _has_verification_gated_claim_signal(text: str, lowered: str) -> bool:
         "shipping",
         "deploy",
         "deployment",
-        "public claim",
-        "readme claim",
-        "front page claim",
     )
     korean_claim_terms = (
         "\ud504\ub85c\ub355\uc158",
-        "\ubc30\ud3ec",
         "\ucd9c\uc2dc",
-        "\uacf5\uac1c",
-        "\uccab \ud654\uba74",
-        "\uc804\uba74",
-        "\uc8fc\uc7a5",
     )
     verification_terms = (
         "verify",

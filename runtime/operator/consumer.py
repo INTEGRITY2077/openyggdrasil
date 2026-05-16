@@ -490,11 +490,29 @@ def _misaligned_support_bundle(*, query_text: str, bundle: dict, alignment: dict
     return guarded
 
 
+def _support_facts_are_title_anchor_only(facts: list) -> bool:
+    meaningful = []
+    for fact in facts:
+        text = _support_text(fact).strip()
+        if text:
+            meaningful.append(" ".join(text.split()).lower())
+    if not meaningful:
+        return False
+    title_prefixes = (
+        "title:",
+        "# provenance ring",
+        "# provenance rings",
+        "query index for ",
+    )
+    return all(any(text.startswith(prefix) for prefix in title_prefixes) for text in meaningful)
+
+
 def _insufficient_support_bundle(*, query_text: str, bundle: dict, alignment: dict) -> dict:
     original_facts, original_paths = _support_facts_and_paths(bundle if isinstance(bundle, dict) else {})
+    reason_code = str(alignment.get("reason_code") or "support_facts_or_source_paths_missing")
     typed_unavailable = {
         "schema_version": "typed_unavailable.v1",
-        "reason_code": "typed_unavailable_support_facts_or_source_paths_missing",
+        "reason_code": f"typed_unavailable_{reason_code}",
         "query_hash": hashlib.sha256(str(query_text or "").encode("utf-8")).hexdigest()[:12],
         "observed_support_fact_count": len(original_facts),
         "observed_source_path_count": len(original_paths),
@@ -508,7 +526,7 @@ def _insufficient_support_bundle(*, query_text: str, bundle: dict, alignment: di
     guarded["original_support_summary"] = {
         "support_fact_count": len(original_facts),
         "source_path_count": len(original_paths),
-        "withheld_reason": "support_facts_or_source_paths_missing",
+        "withheld_reason": reason_code,
     }
     guarded["support_facts"] = []
     guarded["source_paths"] = []
@@ -572,13 +590,27 @@ def _unsafe_cursor_bundle(*, query_text: str, bundle: dict, alignment: dict) -> 
 
 def _support_snippet(text: str, covered_terms: set[str]) -> str:
     normalized_terms = {term.lower() for term in covered_terms}
+    fallback_lines: list[str] = []
     for raw_line in str(text or "").splitlines():
         line = " ".join(raw_line.strip().split())
         if not line:
             continue
+        lowered = line.lower()
+        if lowered.startswith(("title:", "id:", "sources:", "ring_id:", "# provenance ring")):
+            continue
         line_terms = _normalized_tokens(line)
         if len(line_terms & normalized_terms) >= 2:
+            support_fact_match = re.search(r'"support_fact"\s*:\s*"([^"]+)"', line)
+            if support_fact_match:
+                return support_fact_match.group(1).strip()[:500]
+            if lowered.startswith("root_claim:"):
+                return line.split(":", 1)[1].strip()[:500]
+            if line.startswith("#"):
+                fallback_lines.append(line)
+                continue
             return line[:500]
+    if fallback_lines:
+        return fallback_lines[0][:500]
     return " ".join(str(text or "").split())[:500]
 
 
@@ -697,6 +729,16 @@ def _prepare_memory_finder_bundle(*, query_text: str, bundle: dict, status: str)
     prepared = dict(bundle if isinstance(bundle, dict) else {})
     alignment = _memory_finder_alignment(query_text=query_text, bundle=prepared)
     prepared["worker_query_alignment"] = alignment
+    facts, _paths = _support_facts_and_paths(prepared)
+    if status == "completed" and _support_facts_are_title_anchor_only(facts):
+        alignment = {
+            **alignment,
+            "status": "insufficient_support",
+            "reason_code": "title_anchor_only_support",
+        }
+        return _insufficient_support_bundle(query_text=query_text, bundle=prepared, alignment=alignment), (
+            "typed_unavailable_title_anchor_only_support"
+        )
     if status == "completed" and alignment.get("status") == "misaligned":
         return _misaligned_support_bundle(query_text=query_text, bundle=prepared, alignment=alignment), (
             "typed_unavailable_misaligned_support"

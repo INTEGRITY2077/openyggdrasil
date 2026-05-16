@@ -555,12 +555,19 @@ def _vault_source_path(path: Path, *, vault_root: Path) -> str:
         return str(path).replace("\\", "/")
 
 
-def _topic_key_from_candidate_paths(*, candidate_paths: list[Path], vault_root: Path) -> str | None:
+def _topic_key_from_candidate_paths(
+    *,
+    candidate_paths: list[Path],
+    vault_root: Path,
+    query_text: str = "",
+) -> str | None:
     tokens: set[str] = set()
+    direct_topic_stems: set[str] = set()
     for path in candidate_paths:
-        if path.parent.name == "queries":
-            return path.stem
         text = path.read_text(encoding="utf-8", errors="ignore")
+        if path.parent.name == "queries":
+            direct_topic_stems.add(path.stem)
+            tokens.add(path.stem)
         tokens.update(_extract_ring_ids(text, _extract_json_objects_from_fenced_blocks(text)))
         tokens.update(_extract_community_ids(text, _extract_json_objects_from_fenced_blocks(text)))
         for key in ("id", "canonical_node_id", "node_id"):
@@ -571,17 +578,22 @@ def _topic_key_from_candidate_paths(*, candidate_paths: list[Path], vault_root: 
         if source_ref:
             tokens.add(source_ref)
 
-    if not tokens:
+    if not tokens and not direct_topic_stems:
         return None
-    best: tuple[int, str] | None = None
+    best: tuple[int, int, str] | None = None
     for query_path in (vault_root / "queries").glob("*.md"):
         text = query_path.read_text(encoding="utf-8", errors="ignore")
-        score = sum(1 for token in tokens if token and token in text)
-        if score <= 0:
+        token_score = sum(1 for token in tokens if token and token in text)
+        if query_path.stem in direct_topic_stems:
+            token_score += 1
+        title = _topic_page_title(text, fallback=query_path.stem.replace("-", " "))
+        query_score = _query_text_score(query_text, f"{query_path.stem}\n{title}\n{text}") if query_text else 0
+        if token_score <= 0 and query_score <= 0:
             continue
-        if best is None or score > best[0]:
-            best = (score, query_path.stem)
-    return best[1] if best else None
+        rank = (query_score, token_score, query_path.stem)
+        if best is None or rank > best:
+            best = rank
+    return best[2] if best else None
 
 
 def _typed_unavailable_bundle(*, query_text: str, missing_refs: list[str]) -> dict[str, Any]:
@@ -655,7 +667,11 @@ def build_ring_support_bundle(
     selected_topic_key = topic_key
     if not selected_topic_key and matched_nodes:
         candidate_paths = _candidate_paths_from_matched_nodes(matched_nodes=matched_nodes, vault_root=vault_root)
-        selected_topic_key = _topic_key_from_candidate_paths(candidate_paths=candidate_paths, vault_root=vault_root)
+        selected_topic_key = _topic_key_from_candidate_paths(
+            candidate_paths=candidate_paths,
+            vault_root=vault_root,
+            query_text=query_text,
+        )
     if not selected_topic_key:
         selected_topic_key = _select_ring_topic_key(query_text=query_text, vault_root=vault_root)
     if not selected_topic_key:

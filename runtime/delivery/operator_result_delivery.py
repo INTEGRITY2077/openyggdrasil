@@ -267,7 +267,7 @@ def _inject_provider_cpr_handoff(
         "provider_wakeup_target": provider_wakeup_target,
         "message_id": delivery.get("message_id"),
     }
-    if os.environ.get("OY_PROVIDER_VISIBLE_REJUDGMENT_WAKE", "0") == "1":
+    if os.environ.get("OY_PROVIDER_VISIBLE_REJUDGMENT_WAKE", "1") == "1":
         try:
             from runtime.delivery.postman_cpr_wakeup import wake_provider_with_cpr
 
