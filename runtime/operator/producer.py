@@ -518,6 +518,9 @@ def _render_provenance_ring_page(*, ring_node: dict) -> str:
     safety_belt = ring_node.get("paragraph_intent_safety_belt", {})
     quality = ring_node.get("quality_assessment", {})
     retrieval_terms = retrieval.get("retrieval_terms") or retrieval.get("keywords") or []
+    quality_verdict = str(quality.get("verdict") or "").lower()
+    lifecycle_state = "ACTIVE" if quality_verdict == "pass" else "NEEDS_REPAIR"
+    current_authority = "active" if quality_verdict == "pass" else "candidate_only"
     return f"""---
 id: {ring_node['node_id']}
 title: {topic['title']}
@@ -527,18 +530,18 @@ physical_continent: {taxonomy.get('physical_continent', 'concepts')}
 node_type: {taxonomy.get('node_type', ring_node.get('category', 'policy'))}
 topography_level: {taxonomy.get('topography_level', 'tree')}
 community_role: {taxonomy.get('community_role', 'member')}
-status: ACTIVE
+status: {lifecycle_state}
 community: {community['community_id']}
 sources: [{', '.join(source_refs)}]
 root_claim: {capsule['decision']}
-current_authority: active
+current_authority: {current_authority}
 ring_id: {ring['ring_id']}
-lifecycle_state: ACTIVE
+lifecycle_state: {lifecycle_state}
 ---
 # {topic['title']}
 
 ## What This Page Is
-This page records source-backed long-term wiki knowledge with provenance and recall boundaries.
+This page records a reusable knowledge candidate with provenance and recall boundaries.
 
 ## Why It Matters
 It keeps the decision, source range, community placement, and recall surface together so later vague questions can be answered without inventing context.
@@ -556,16 +559,25 @@ Provider rejudges returned support; MS1 stores only admitted source-backed candi
 
 ## Examples
 - Use this when a later question asks for the same boundary in different words.
-- Do not use this as proof that the entire live UX loop passed.
+- If the page is still `NEEDS_REPAIR`, treat it as a candidate until janitor and recall gates admit it.
 
 ## Source Synthesis
 - source_ref: {ring['source_ref']}
 - origin_locator: {ring['origin_locator']}
 - community: {community['community_id']}
+- maturity: {lifecycle_state}
 
 ## Retrieval Surface
 - keyword_policy: {retrieval.get('keyword_policy', 'deterministic_diverse_terms_not_title_repeat')}
 - retrieval_terms: {', '.join(str(item) for item in retrieval_terms)}
+
+## Related Pages
+{_render_related_pages(community)}
+
+## Maintenance Notes
+- quality_verdict: {quality.get('verdict', 'unknown')}
+- reason_codes: {', '.join(str(item) for item in quality.get('reason_codes') or [])}
+- confidence: {quality.get('confidence', 'unknown')}
 
 ## Machine Appendix
 
@@ -626,6 +638,13 @@ Provider rejudges returned support; MS1 stores only admitted source-backed candi
 - message_index_range: {json.dumps(ring.get('message_index_range', {}), ensure_ascii=False)}
 - source_line_range: {json.dumps(ring.get('source_line_range') or {}, ensure_ascii=False)}
 """
+
+
+def _render_related_pages(community: dict) -> str:
+    related_nodes = _as_list(community.get("related_nodes"))
+    if not related_nodes:
+        return "- related pages are not established yet; janitor must backfill or keep this candidate out of final support."
+    return "\n".join(f"- {node_id}" for node_id in related_nodes)
 
 
 def _retrieval_terms_from_payload(*, payload: dict, decision: str, topic_title: str, community_key: str) -> list[str]:
@@ -709,17 +728,11 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     ring = ring_node["provenance_rings"][-1]
     topic_path.write_text(_render_provenance_ring_page(ring_node=ring_node), encoding="utf-8")
 
-    # MF1 BM25 fixed path reads concepts/entities first, so keep a POC mirror.
+    # MF1 BM25 fixed path reads concepts/entities first, so keep one canonical concept mirror.
     concept_path = vault / "concepts" / f"{ring_node['node_id']}.md"
     concept_path.parent.mkdir(parents=True, exist_ok=True)
     concept_rendered = _render_provenance_ring_page(ring_node=ring_node)
     concept_path.write_text(concept_rendered, encoding="utf-8")
-
-    # 기존 full UX 최소 계약은 concepts/N-*.md mirror를 찾는다. POC ring node의 정식 ID는 PRN-*로 유지하되
-    # legacy 검색/회귀 호환 mirror를 함께 둔다.
-    legacy_id = "N-" + ring_node["node_id"].split("-", 1)[1]
-    legacy_concept_path = vault / "concepts" / f"{legacy_id}.md"
-    legacy_concept_path.write_text(concept_rendered.replace(f"id: {ring_node['node_id']}", f"id: {legacy_id}\ncanonical_node_id: {ring_node['node_id']}"), encoding="utf-8")
 
     topic_key = topic["topic_id"].split(":", 1)[1]
     prov_path = vault / "_meta" / "provenance" / f"{topic_key}.md"
@@ -787,7 +800,6 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     return {
         "canonical_topic_path": str(topic_path.relative_to(vault)),
         "concept_path": str(concept_path.relative_to(vault)),
-        "legacy_concept_path": str(legacy_concept_path.relative_to(vault)),
         "provenance_path": str(prov_path.relative_to(vault)),
         "community_path": str(community_path.relative_to(vault)),
     }
@@ -963,6 +975,13 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
     capsule = ring_node["decision_capsule"]
     community = ring_node["community"]
     ring = ring_node["provenance_rings"][0]
+    evidence_refs = _as_list(capsule.get("evidence"))
+    external_evidence_refs = [
+        ref
+        for ref in evidence_refs
+        if not str(ref).startswith("hermes-session-json://")
+    ]
+    related_nodes = _as_list(community.get("related_nodes"))
     checks = {
         "decision_capsule_present": bool(capsule.get("decision")),
         "context_present": bool(str(capsule.get("context") or "").strip()),
@@ -976,25 +995,30 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
         "community_not_atomic": not _is_atom_tag_hint(str(payload.get("category_community_hint") or community.get("community_id") or "")),
         "node_taxonomy_valid": validate_node_taxonomy(ring_node.get("node_taxonomy", {}))["valid"],
         "raw_transcript_absent": True,
+        "external_source_synthesis_present": bool(external_evidence_refs),
+        "related_nodes_present": bool(related_nodes),
     }
     failed = [name for name, passed in checks.items() if not passed]
     reason_codes = list(failed)
-    for nonclaim in ("human_evaluator_not_executed", "graph_dedupe_not_executed"):
-        if nonclaim not in reason_codes:
-            reason_codes.append(nonclaim)
+    if str(payload.get("human_evaluator_status") or "").lower() != "executed":
+        reason_codes.append("human_evaluator_not_executed")
+    if str(payload.get("graph_dedupe_status") or "").lower() != "executed":
+        reason_codes.append("graph_dedupe_not_executed")
+    verdict = "pass" if not reason_codes else "needs_review"
+    confidence = 0.91 if verdict == "pass" else 0.72
     return {
         "evaluator": "memory_ticket_producer_quality_gate.v1",
-        "verdict": "pass" if not failed else "needs_review",
-        "confidence": 0.97 if not failed else 0.62,
+        "verdict": verdict,
+        "confidence": confidence,
         "reason_codes": reason_codes,
-        "ambiguity": "low" if not failed else "medium",
+        "ambiguity": "low" if verdict == "pass" else "medium",
         "duplication_risk": "unknown_without_graph_dedupe",
         "misclassification_risk": "low" if checks["community_not_atomic"] else "high",
-        "recallability": "community_and_source_path_retrievable" if not failed else "partial",
+        "recallability": "community_and_source_path_retrievable" if verdict == "pass" else "candidate_only",
         "checks": checks,
         "hard_nonclaims": [
-            "graph_dedupe_not_executed",
-            "human_evaluator_not_executed",
+            *([] if str(payload.get("graph_dedupe_status") or "").lower() == "executed" else ["graph_dedupe_not_executed"]),
+            *([] if str(payload.get("human_evaluator_status") or "").lower() == "executed" else ["human_evaluator_not_executed"]),
         ],
     }
 
@@ -1044,7 +1068,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
     decision = str(payload.get("decision") or payload.get("결정") or payload.get("surface_reason") or "MemoryTicket")
     topic_title = str(payload.get("canonical_topic_title") or payload.get("topic_title") or decision)
     topic_key = _slugify_topic_key(str(payload.get("canonical_topic_key") or topic_title))
-    node_id = "PRN-" + uuid.uuid5(uuid.NAMESPACE_URL, f"{source_ref}:{range_hint}:{decision}").hex[:16]
+    node_id = "N-" + uuid.uuid5(uuid.NAMESPACE_URL, f"{source_ref}:{range_hint}:{decision}").hex[:16]
     ring_id = "ring-" + uuid.uuid5(uuid.NAMESPACE_URL, f"ring:{source_ref}:{range_hint}:{anchor_hash}").hex[:16]
     community_key = _slugify_topic_key(str(payload.get("community") or payload.get("커뮤니티") or "openyggdrasil-memory"))
     community_id = f"community:{community_key}"
@@ -1099,7 +1123,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         "community": {
             "community_id": community_id,
             "placement_reason": str(payload.get("surface_reason") or "MemoryTicket provenance placement"),
-            "related_nodes": [],
+            "related_nodes": _as_list(payload.get("related_nodes") or payload.get("related_pages")),
         },
         "paragraph_intent_safety_belt": {
             "intent_field": str(payload.get("intent_field") or ""),
@@ -1125,6 +1149,34 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         resolved=resolved,
         ring_node=ring_node,
     )
+    quality_verdict = str(ring_node["quality_assessment"].get("verdict") or "")
+    if quality_verdict != "pass":
+        return {
+            "status": "typed_unavailable",
+            "nodes": [],
+            "ring_ids": [],
+            "source_ref_status": "resolved",
+            "reason": "quality_assessment_not_pass",
+            "quality_assessment": ring_node["quality_assessment"],
+            "support_bundle_seed": {
+                "ring_ids": [],
+                "source_paths": [],
+                "community_id": community_id,
+                "source_line_range": source_line_range,
+                "node_taxonomy": node_taxonomy,
+                "quality_assessment": ring_node["quality_assessment"],
+                "safe_index_cursor_sync": {
+                    "schema_version": "safe_index_cursor_sync.v1",
+                    "janitor_status": "blocked",
+                    "committed_paths": [],
+                    "reason_code": "quality_assessment_not_pass",
+                    "hard_nonclaims": [
+                        "candidate_node_not_safe_final_support",
+                        "needs_review_node_not_committed_to_safe_index_cursor",
+                    ],
+                },
+            },
+        }
     paths = _write_provenance_ring_artifacts(vault, ring_node=ring_node)
     safe_index_cursor_sync = _write_safe_index_cursor_sync(vault, ring_id=ring_id, paths=paths)
     return {
