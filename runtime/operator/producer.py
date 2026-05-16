@@ -43,6 +43,7 @@ from runtime.operator.prune import (
     _days_since,
     _run_hygiene_check,
 )
+from runtime.memory.domain_evidence import enrich_memory_ticket_payload
 
 from runtime.memory.wiki_node_taxonomy import (
     build_community_node_taxonomy,
@@ -105,12 +106,15 @@ def run_producer(mailbox: Path, vault: Path):
 
         if msg.get("intent") == "memory_ticket":
             result = _handle_memory_ticket(mailbox, vault, msg)
+            effective_payload = result.get("effective_payload")
+            if not isinstance(effective_payload, dict):
+                effective_payload = msg.get("payload", {}) or {}
             nodes = result.get("nodes", [])
             status = result.get("status", "acknowledged")
             ring_ids = result.get("ring_ids", [])
             tst_capability_supervisor = (
                 build_memory_ticket_tst_supervisor(
-                    payload=msg.get("payload", {}) or {},
+                    payload=effective_payload,
                     result=result,
                 )
                 if build_memory_ticket_tst_supervisor is not None
@@ -139,6 +143,8 @@ def run_producer(mailbox: Path, vault: Path):
                 support_bundle_seed=result.get("support_bundle_seed"),
                 source_ref_status=result.get("source_ref_status"),
                 reason=result.get("reason"),
+                domain_evidence_enrichment=result.get("domain_evidence_enrichment"),
+                quality_assessment=result.get("quality_assessment"),
                 tst_capability_supervisor=tst_capability_supervisor,
                 worker_judgment=worker_judgment,
                 producer_pid=os.getpid(),
@@ -157,6 +163,8 @@ def run_producer(mailbox: Path, vault: Path):
                     "ring_ids": ring_ids,
                     "canonical_topic_path": result.get("canonical_topic_path"),
                     "support_bundle_seed": result.get("support_bundle_seed"),
+                    "domain_evidence_enrichment": result.get("domain_evidence_enrichment"),
+                    "quality_assessment": result.get("quality_assessment"),
                     "tst_capability_supervisor": tst_capability_supervisor,
                     "worker_judgment": worker_judgment,
                 },
@@ -517,6 +525,7 @@ def _render_provenance_ring_page(*, ring_node: dict) -> str:
     retrieval = ring_node["retrieval_contract"]
     safety_belt = ring_node.get("paragraph_intent_safety_belt", {})
     quality = ring_node.get("quality_assessment", {})
+    domain_evidence = ring_node.get("domain_evidence_enrichment", {})
     retrieval_terms = retrieval.get("retrieval_terms") or retrieval.get("keywords") or []
     quality_verdict = str(quality.get("verdict") or "").lower()
     lifecycle_state = "ACTIVE" if quality_verdict == "pass" else "NEEDS_REPAIR"
@@ -562,10 +571,7 @@ Provider rejudges returned support; MS1 stores only admitted source-backed candi
 - If the page is still `NEEDS_REPAIR`, treat it as a candidate until janitor and recall gates admit it.
 
 ## Source Synthesis
-- source_ref: {ring['source_ref']}
-- origin_locator: {ring['origin_locator']}
-- community: {community['community_id']}
-- maturity: {lifecycle_state}
+{_render_source_synthesis(ring=ring, community=community, domain_evidence=domain_evidence, lifecycle_state=lifecycle_state)}
 
 ## Retrieval Surface
 - keyword_policy: {retrieval.get('keyword_policy', 'deterministic_diverse_terms_not_title_repeat')}
@@ -577,6 +583,7 @@ Provider rejudges returned support; MS1 stores only admitted source-backed candi
 ## Maintenance Notes
 - quality_verdict: {quality.get('verdict', 'unknown')}
 - reason_codes: {', '.join(str(item) for item in quality.get('reason_codes') or [])}
+- confidence_deductions: {', '.join(str(item) for item in quality.get('confidence_deductions') or [])}
 - confidence: {quality.get('confidence', 'unknown')}
 
 ## Machine Appendix
@@ -645,6 +652,27 @@ def _render_related_pages(community: dict) -> str:
     if not related_nodes:
         return "- related pages are not established yet; janitor must backfill or keep this candidate out of final support."
     return "\n".join(f"- {node_id}" for node_id in related_nodes)
+
+
+def _render_source_synthesis(*, ring: dict, community: dict, domain_evidence: dict, lifecycle_state: str) -> str:
+    lines = [
+        f"- provider_source_ref: {ring['source_ref']}",
+        f"- provider_origin_locator: {ring['origin_locator']}",
+        f"- community: {community['community_id']}",
+        f"- maturity: {lifecycle_state}",
+    ]
+    accepted = domain_evidence.get("accepted_evidence") if isinstance(domain_evidence, dict) else []
+    if isinstance(accepted, list) and accepted:
+        lines.append("- domain_evidence:")
+        for item in accepted[:6]:
+            if not isinstance(item, dict):
+                continue
+            ref = str(item.get("evidence_ref") or "").strip()
+            terms = ", ".join(str(term) for term in item.get("matched_terms") or [])
+            lines.append(f"  - {ref} (matched: {terms})")
+    else:
+        lines.append("- domain_evidence: unavailable; this page must stay candidate-only until MS enrichment resolves source pointers.")
+    return "\n".join(lines)
 
 
 def _retrieval_terms_from_payload(*, payload: dict, decision: str, topic_title: str, community_key: str) -> list[str]:
@@ -982,6 +1010,18 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
         if not str(ref).startswith("hermes-session-json://")
     ]
     related_nodes = _as_list(community.get("related_nodes"))
+    domain_evidence = payload.get("domain_evidence_enrichment")
+    domain_evidence_resolved = (
+        isinstance(domain_evidence, dict)
+        and domain_evidence.get("status") == "resolved"
+        and bool(domain_evidence.get("accepted_evidence"))
+    )
+    review_executed = str(
+        payload.get("quality_review_status")
+        or payload.get("automated_quality_review_status")
+        or payload.get("human_evaluator_status")
+        or ""
+    ).lower() == "executed"
     checks = {
         "decision_capsule_present": bool(capsule.get("decision")),
         "context_present": bool(str(capsule.get("context") or "").strip()),
@@ -996,23 +1036,30 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
         "node_taxonomy_valid": validate_node_taxonomy(ring_node.get("node_taxonomy", {}))["valid"],
         "raw_transcript_absent": True,
         "external_source_synthesis_present": bool(external_evidence_refs),
+        "domain_evidence_resolved": domain_evidence_resolved,
         "related_nodes_present": bool(related_nodes),
+        "quality_review_executed": review_executed,
     }
     failed = [name for name, passed in checks.items() if not passed]
     reason_codes = list(failed)
-    if str(payload.get("human_evaluator_status") or "").lower() != "executed":
-        reason_codes.append("human_evaluator_not_executed")
     if str(payload.get("graph_dedupe_status") or "").lower() != "executed":
         reason_codes.append("graph_dedupe_not_executed")
     verdict = "pass" if not reason_codes else "needs_review"
-    confidence = 0.91 if verdict == "pass" else 0.72
+    confidence_deductions = []
+    if str(payload.get("human_evaluator_status") or "").lower() != "executed":
+        confidence_deductions.append("human_evaluator_not_executed")
+    if verdict == "pass":
+        confidence = round(max(0.0, 1.0 - (0.03 * len(confidence_deductions))), 2)
+    else:
+        confidence = round(max(0.0, 0.72 - (0.03 * len(failed))), 2)
     return {
         "evaluator": "memory_ticket_producer_quality_gate.v1",
         "verdict": verdict,
         "confidence": confidence,
+        "confidence_deductions": confidence_deductions,
         "reason_codes": reason_codes,
         "ambiguity": "low" if verdict == "pass" else "medium",
-        "duplication_risk": "unknown_without_graph_dedupe",
+        "duplication_risk": "checked_bounded_graph_dedupe" if str(payload.get("graph_dedupe_status") or "").lower() == "executed" else "unknown_without_graph_dedupe",
         "misclassification_risk": "low" if checks["community_not_atomic"] else "high",
         "recallability": "community_and_source_path_retrievable" if verdict == "pass" else "candidate_only",
         "checks": checks,
@@ -1066,6 +1113,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         }
 
     decision = str(payload.get("decision") or payload.get("결정") or payload.get("surface_reason") or "MemoryTicket")
+    payload = enrich_memory_ticket_payload(payload, vault=vault)
     topic_title = str(payload.get("canonical_topic_title") or payload.get("topic_title") or decision)
     topic_key = _slugify_topic_key(str(payload.get("canonical_topic_key") or topic_title))
     node_id = "N-" + uuid.uuid5(uuid.NAMESPACE_URL, f"{source_ref}:{range_hint}:{decision}").hex[:16]
@@ -1142,6 +1190,8 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
             "support_lanes": ["origin", "recent", "source_paths", "community_edges", "semantic_edges"],
         },
     }
+    if isinstance(payload.get("domain_evidence_enrichment"), dict):
+        ring_node["domain_evidence_enrichment"] = dict(payload["domain_evidence_enrichment"])
     ring_node["category"] = node_taxonomy["node_type"]
     ring_node["node_taxonomy"] = node_taxonomy
     ring_node["quality_assessment"] = _build_memory_ticket_quality_assessment(
@@ -1157,6 +1207,8 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
             "ring_ids": [],
             "source_ref_status": "resolved",
             "reason": "quality_assessment_not_pass",
+            "effective_payload": payload,
+            "domain_evidence_enrichment": payload.get("domain_evidence_enrichment"),
             "quality_assessment": ring_node["quality_assessment"],
             "support_bundle_seed": {
                 "ring_ids": [],
@@ -1185,6 +1237,9 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         "ring_ids": [ring_id],
         "source_ref_status": "resolved",
         "reason": "provenance_ring_node_saved",
+        "effective_payload": payload,
+        "domain_evidence_enrichment": payload.get("domain_evidence_enrichment"),
+        "quality_assessment": ring_node["quality_assessment"],
         "canonical_topic_path": paths["canonical_topic_path"],
         "support_bundle_seed": {
             "ring_ids": [ring_id],

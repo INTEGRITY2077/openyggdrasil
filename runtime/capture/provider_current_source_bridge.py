@@ -10,6 +10,7 @@ from typing import Any, Mapping
 from harness_common import utc_now_iso
 from source_ref.hermes_session_json import _canonical_anchor_hash
 from runtime.capture.provider_salience_trigger import detect_provider_memory_salience
+from runtime.memory.domain_evidence import build_domain_evidence_request
 
 
 SCHEMA_VERSION = "provider_current_source_bridge.v1"
@@ -450,7 +451,7 @@ def _stable_signal_buckets(text: str) -> list[str]:
     return sorted(active)
 
 
-def _generic_provider_exchange_memory_fields(*, user_text: str, assistant_text: str) -> dict[str, str]:
+def _generic_provider_exchange_memory_fields(*, user_text: str, assistant_text: str) -> dict[str, Any]:
     combined = f"{user_text}\n{assistant_text}"
     buckets = _stable_signal_buckets(combined)
     topic_buckets = [
@@ -477,7 +478,36 @@ def _generic_provider_exchange_memory_fields(*, user_text: str, assistant_text: 
         ),
         "canonical_topic_title": "Provider durable reuse boundary",
         "canonical_topic_key": f"provider-durable-reuse-boundary-{digest}",
+        "signal_buckets": buckets,
     }
+
+
+def _should_request_domain_evidence(signal_buckets: list[str]) -> bool:
+    domain_buckets = {
+        "agent-taxonomy",
+        "extension-placement",
+        "execution-distribution",
+        "automation-timing",
+        "source-evidence",
+    }
+    return bool(domain_buckets.intersection(signal_buckets))
+
+
+def _attach_domain_evidence_request(
+    payload: dict[str, Any],
+    *,
+    user_text: str,
+    assistant_text: str,
+    signal_buckets: list[str],
+) -> None:
+    if not _should_request_domain_evidence(signal_buckets):
+        return
+    payload["domain_evidence_request"] = build_domain_evidence_request(
+        query_text=f"{user_text}\n{assistant_text}",
+        signal_buckets=signal_buckets,
+        minimum_external_sources=2,
+        minimum_related_pages=1,
+    )
 
 
 def build_memory_ticket_payload_from_provider_exchange(
@@ -533,6 +563,12 @@ def build_memory_ticket_payload_from_provider_exchange(
         "raw_provider_material_included": False,
         "postman_semantic_quality_owner": False,
     }
+    _attach_domain_evidence_request(
+        payload,
+        user_text=user_text,
+        assistant_text=assistant_text,
+        signal_buckets=list(fields.get("signal_buckets") or []),
+    )
     return payload
 
 
@@ -594,6 +630,12 @@ def build_memory_ticket_payload_from_existing_provider_exchange(
         "postman_semantic_quality_owner": False,
         "existing_provider_session_range": True,
     }
+    _attach_domain_evidence_request(
+        payload,
+        user_text=user_text,
+        assistant_text=assistant_text,
+        signal_buckets=list(fields.get("signal_buckets") or []),
+    )
     return payload
 
 
