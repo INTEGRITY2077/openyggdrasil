@@ -260,21 +260,29 @@ def _has_instruction_boundary_correction_signal(text: str, lowered: str) -> bool
         "trigger",
         "forced",
         "force",
-        "worker",
-        "provider",
     )
     korean_terms = (
         "\ud504\ub86c\ud504\ud2b8",
         "\uba85\ub839",
         "\uc9c0\uc2dc",
-        "\uc2a4\uc2a4\ub85c",
         "\ud2b8\ub9ac\uac70",
         "\ud2b8\ub9ac\uae45",
         "\uac15\uc81c",
-        "\uc6cc\ucee4",
-        "\ud504\ub85c\ubc14\uc774\ub354",
     )
-    return _contains_any(lowered, instruction_terms) or _contains_any(text, korean_terms)
+    autonomy_terms = (
+        "not the trigger",
+        "not a command",
+        "autonomous",
+        "self-detect",
+        "salience",
+        "\uc2a4\uc2a4\ub85c",
+        "\uc790\uc728",
+        "\ud544\uc694\uc131",
+        "\ubd84\ub9ac",
+    )
+    has_instruction = _contains_any(lowered, instruction_terms) or _contains_any(text, korean_terms)
+    has_autonomy_boundary = _contains_any(lowered, autonomy_terms) or _contains_any(text, autonomy_terms)
+    return has_instruction and has_autonomy_boundary
 
 
 def _has_verification_gated_claim_signal(text: str, lowered: str) -> bool:
