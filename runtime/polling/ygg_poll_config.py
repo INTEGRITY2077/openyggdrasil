@@ -42,6 +42,30 @@ def _is_relative_to(path: Path, base: Path) -> bool:
         return False
 
 
+def _normalized_path_text(path: str | Path) -> str:
+    value = str(path).replace("\\", "/").lower()
+    if len(value) >= 3 and value[1:3] == ":/":
+        value = f"/mnt/{value[0]}{value[2:]}"
+    return value.rstrip("/")
+
+
+def _is_public_runtime_vault(vault: str | Path, repo_root: Path) -> bool:
+    vault_text = _normalized_path_text(vault)
+    candidates = (
+        repo_root / "vault",
+        repo_root.parent / "openyggdrasil" / "vault",
+    )
+    for candidate in candidates:
+        candidate_text = _normalized_path_text(candidate)
+        if vault_text == candidate_text or vault_text.startswith(candidate_text + "/"):
+            return True
+    private_repo_marker = "openyggdrasil" + "-private-dev"
+    return (
+        "/0_project/openyggdrasil/vault" in vault_text
+        and f"/{private_repo_marker}/" not in vault_text
+    )
+
+
 def build_ygg_poll_config(
     *,
     mode: str,
@@ -52,10 +76,8 @@ def build_ygg_poll_config(
 ) -> YggPollConfig:
     normalized_mode = "produce" if str(mode or "").strip().lower() == "produce" else "consume"
     repo_root = Path(__file__).resolve().parents[2]
-    vault_path = Path(vault).expanduser().resolve(strict=False)
-    public_repo_vault = (repo_root / "vault").resolve(strict=False)
     if (
-        _is_relative_to(vault_path, public_repo_vault)
+        _is_public_runtime_vault(vault, repo_root)
         and not _env_flag(env, "OY_ALLOW_PUBLIC_RUNTIME_VAULT")
     ):
         raise ValueError("public_runtime_vault_forbidden")
