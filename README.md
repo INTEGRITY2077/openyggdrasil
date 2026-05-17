@@ -1430,14 +1430,13 @@ openyggdrasil/
 ├── runtime/
 │   ├── admission/      # Checkpoint, Seedkeeper, Amundsen handoff
 │   ├── capture/        # Signal capture, Decision Distiller
-│   ├── evaluation/     # Evaluator, promotion worthiness
+│   ├── evaluation/     # Runtime evaluator handoffs and promotion-worthiness helpers
 │   ├── cultivation/    # Nursery, Gardener, lifecycle
 │   ├── placement/      # Map Maker, topic/episode placement
 │   ├── provenance/     # Source tracking, temporal edges
 │   ├── retrieval/      # Pathfinder, PTC tools, Graphify adapters
 │   ├── delivery/       # Postman, mailbox work_order/history, Result Receipts, Evidence Packs
 │   ├── reasoning/      # Reasoning Lease, provider gates
-│   ├── runner/         # Orchestration, regression entrypoints
 │   ├── ptc/            # Programmatic Tool Calling engine
 │   └── governance/     # Phase automation
 ├── common/graphify/    # Derived graph/wiki/index views (non-SOT)

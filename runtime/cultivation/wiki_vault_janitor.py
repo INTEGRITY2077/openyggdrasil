@@ -16,6 +16,7 @@ MUTATION_LOG_RELATIVE_PATH = "_meta/mutation_log.jsonl"
 TOMBSTONES_RELATIVE_PATH = "_meta/tombstones.jsonl"
 REPAIR_QUEUE_RELATIVE_PATH = "_meta/repair_queue.jsonl"
 SOURCE_REF_RE = re.compile(r"hermes-session-json://[A-Za-z0-9_\-]+")
+PRIVATE_ABSOLUTE_PATH_RE = re.compile(r"(?<![A-Za-z])[A-Za-z]:[\\/]|/mnt/[a-z]/", re.IGNORECASE)
 
 
 def _now_iso() -> str:
@@ -264,6 +265,48 @@ def _community_source_ref_repair_decisions(candidates: list[dict[str, Any]]) -> 
     return [_community_source_ref_repair_decision(candidate) for candidate in candidates]
 
 
+def _scan_production_page_lineage(vault_root: Path) -> list[dict[str, Any]]:
+    category_root = vault_root / "categories"
+    if not category_root.exists():
+        return []
+    candidates: list[dict[str, Any]] = []
+    required_markers = {
+        "provider_source_event.v1": "provider_source_event_missing",
+        "decision_timeline_event.v1": "decision_timeline_missing",
+        "semantic_category_path.v1": "semantic_category_path_missing",
+        "community_growth_event.v1": "community_growth_event_missing",
+        "wiki_continent_page.v1": "wiki_continent_page_contract_missing",
+    }
+    for path in sorted(category_root.rglob("*.md")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        reason_codes = [
+            reason
+            for marker, reason in required_markers.items()
+            if marker not in text
+        ]
+        lowered = text.lower()
+        if re.search(r'"graphify_used_as_sot"\s*:\s*true', lowered) or "graphify as sot" in lowered:
+            reason_codes.append("graphify_as_sot")
+        if PRIVATE_ABSOLUTE_PATH_RE.search(text):
+            reason_codes.append("private_absolute_path_exposed")
+        if "oy-vault://categories/" not in text:
+            reason_codes.append("readable_oy_vault_page_ref_missing")
+        if reason_codes:
+            candidates.append(
+                {
+                    "schema_version": "wiki_production_page_lineage_issue.v1",
+                    "page_path": _relative_vault_path(path, vault_root=vault_root),
+                    "reason_codes": reason_codes,
+                    "suggested_action": "rerender_or_quarantine_before_final_support",
+                    "hard_nonclaims": [
+                        "category_page_issue_is_not_a_delete_event",
+                        "janitor_lineage_scan_is_not_provider_rejudgment",
+                    ],
+                }
+            )
+    return candidates
+
+
 def run_wiki_vault_janitor(
     *,
     vault_root: Path,
@@ -297,12 +340,22 @@ def run_wiki_vault_janitor(
     community_source_ref_repair_decisions = _community_source_ref_repair_decisions(
         community_source_ref_drift_candidates
     )
+    production_page_lineage_issues = _scan_production_page_lineage(vault_root)
     queued_repairs = [
         decision
-        for decision in [*duplicate_repair_decisions, *community_source_ref_repair_decisions]
+        for decision in [
+            *duplicate_repair_decisions,
+            *community_source_ref_repair_decisions,
+            *production_page_lineage_issues,
+        ]
         if decision.get("repair_queue_status") == "queued"
+        or decision.get("suggested_action") == "rerender_or_quarantine_before_final_support"
     ]
-    status = "pass" if cursor.get("status") == "configured" and not missing else "partial"
+    status = (
+        "pass"
+        if cursor.get("status") == "configured" and not missing and not production_page_lineage_issues
+        else "partial"
+    )
     now = _now_iso()
     maintenance_receipt = {
         "schema_version": "wiki_vault_janitor_receipt.v1",
@@ -320,12 +373,14 @@ def run_wiki_vault_janitor(
         "duplicate_repair_decisions": duplicate_repair_decisions,
         "community_source_ref_drift_candidates": community_source_ref_drift_candidates,
         "community_source_ref_repair_decisions": community_source_ref_repair_decisions,
+        "production_page_lineage_issues": production_page_lineage_issues,
         "queued_repair_count": len(queued_repairs),
         "mutation_log_checked": True,
         "safe_index_cursor_checked": True,
         "conflict_or_tombstone_policy_checked": True,
         "semantic_repair_decision_policy_checked": True,
         "community_source_ref_sync_checked": True,
+        "production_page_lineage_checked": True,
         "repair_queue_path": REPAIR_QUEUE_RELATIVE_PATH,
         "tombstone_policy": {
             "physical_delete_allowed": False,
@@ -348,6 +403,7 @@ def run_wiki_vault_janitor(
         "checked_paths": checked,
         "missing_committed_paths": missing,
         "community_source_ref_drift_count": len(community_source_ref_drift_candidates),
+        "production_page_lineage_issue_count": len(production_page_lineage_issues),
         "queued_repair_count": len(queued_repairs),
         "hard_nonclaims": [
             "hash_check_is_not_semantic_quality_review",

@@ -1631,14 +1631,13 @@ openyggdrasil/
 ├── runtime/
 │   ├── admission/      # Checkpoint, Seedkeeper, Amundsen 핸드오프
 │   ├── capture/        # Signal 캡처, Decision Distiller
-│   ├── evaluation/     # Evaluator, 승격 가치 평가
+│   ├── evaluation/     # 런타임 evaluator handoff와 승격 가치 판단 helper
 │   ├── cultivation/    # Nursery, Gardener, 생명주기
 │   ├── placement/      # Map Maker, 토픽/에피소드 배치
 │   ├── provenance/     # 출처 추적, 시간 엣지
 │   ├── retrieval/      # Pathfinder, PTC 도구, Graphify 어댑터
 │   ├── delivery/       # Postman, mailbox work_order/history, Result Receipt, Evidence Pack
 │   ├── reasoning/      # Reasoning Lease, 프로바이더 게이트
-│   ├── runner/         # 오케스트레이션, 회귀 진입점
 │   ├── ptc/            # Programmatic Tool Calling 엔진
 │   └── governance/     # 페이즈 자동화
 ├── common/graphify/    # 파생 그래프/위키/인덱스 뷰 (비SOT)

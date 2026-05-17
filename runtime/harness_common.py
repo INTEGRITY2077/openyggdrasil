@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional
 
 from runtime.common.jsonl_io import append_jsonl, read_jsonl
+from runtime.common.vault_root import resolve_vault_root
 
 
 OPENYGGDRASIL_ROOT = Path(
@@ -64,12 +65,7 @@ DEFAULT_GRAPHIFY_MANIFEST = (
         )
     )
 )
-DEFAULT_VAULT = Path(
-    os.getenv(
-        "OPENYGGDRASIL_VAULT_ROOT",
-        os.getenv("HERMES_VAULT_ROOT", str(OPENYGGDRASIL_ROOT / "vault")),
-    )
-)
+DEFAULT_VAULT = resolve_vault_root(workspace_root=OPENYGGDRASIL_ROOT)
 
 
 def utc_now_iso() -> str:

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/provider_source_event.v1.schema.json",
+  "title": "Provider Source Event v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "event_id",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "source_ref",
+    "source_range",
+    "anchor_hash",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {"const": "provider_source_event.v1"},
+    "event_id": {"type": "string", "minLength": 1},
+    "provider_id": {"type": "string", "minLength": 1},
+    "provider_profile": {"type": "string", "minLength": 1},
+    "provider_session_id": {"type": "string", "minLength": 1},
+    "source_ref": {"type": "string", "minLength": 1},
+    "source_range": {
+      "type": "object",
+      "additionalProperties": true,
+      "anyOf": [
+        {"required": ["message_index_range"]},
+        {"required": ["message_id_range"]},
+        {"required": ["source_line_range"]}
+      ]
+    },
+    "anchor_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "created_at": {"type": "string", "minLength": 1},
+    "hard_nonclaims": {"type": "array", "items": {"type": "string"}}
+  }
+}

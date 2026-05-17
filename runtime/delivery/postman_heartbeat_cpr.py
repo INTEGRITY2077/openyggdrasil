@@ -6,7 +6,7 @@ from typing import Any, Iterable, Mapping, Sequence
 from urllib.parse import quote
 
 from attachments.provider_inbox import inject_session_packet, read_session_inbox
-from delivery.consumer_receipt_ingress import build_typed_unavailable, validate_typed_unavailable
+from delivery.typed_unavailable_result import build_typed_unavailable, validate_typed_unavailable
 from runtime.common.portable_ref import looks_like_local_path
 from runtime.common.role_aliases import (
     LIVE_GROUP_ROLE_ALIASES,

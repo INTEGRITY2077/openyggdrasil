@@ -66,6 +66,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from runtime.delivery.postman_cpr_wakeup import provider_lane_monitor_summary, wake_provider_with_cpr
 from runtime.delivery.postman_native_activation import activate_native_lane
+from runtime.common.vault_root import resolve_vault_root
 from runtime.common.role_aliases import (
     DEFAULT_ACTIVE_WORKER_PAIR,
     LEGACY_OPERATOR_TMUX_SESSION_PATTERN,
@@ -76,7 +77,7 @@ REGISTRY_FILE = REGISTRY_DIR / "registry.json"
 SESSIONS_DIR = REGISTRY_DIR / "sessions"
 REPO = Path(os.environ.get("OPENYGGDRASIL_REPO", str(PRIVATE_DEV_ROOT)))
 PRIVATE_DEV = PRIVATE_DEV_ROOT
-DEFAULT_PRIVATE_VAULT = PRIVATE_DEV / "testbed" / ".yggdrasil" / "vault"
+DEFAULT_VAULT_ROOT = resolve_vault_root(workspace_root=PRIVATE_DEV)
 PROVIDER_LANE_DIR = REGISTRY_DIR / "provider_lanes"
 PROVIDER_PAIR_SESSION = "ygg-pro1"
 DEFAULT_PROVIDER_ID = "hermes"
@@ -110,8 +111,7 @@ def _decode_b64_text(value: str) -> str:
         sys.exit(2)
 
 def _default_vault() -> Path:
-    configured = _env_text("OY_VAULT")
-    return Path(configured).expanduser() if configured else DEFAULT_PRIVATE_VAULT
+    return resolve_vault_root(workspace_root=PRIVATE_DEV)
 
 def _shell_quote(value: str | Path) -> str:
     return shlex.quote(str(value))

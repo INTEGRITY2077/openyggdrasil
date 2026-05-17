@@ -160,7 +160,7 @@
             "approved_routing_fact",
             "ptc_code_execution_session",
             "ptc_egress_payload",
-            "worker4_verification",
+            "independent_verification",
             "support_bundle",
             "route_decision"
           ]

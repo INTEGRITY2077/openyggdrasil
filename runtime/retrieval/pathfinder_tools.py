@@ -7,6 +7,7 @@ import re
 from typing import Any, Callable, Mapping
 
 from harness_common import DEFAULT_VAULT, utc_now_iso
+from runtime.common.vault_root import to_vault_uri
 from common.map_identity import build_claim_id, build_page_id, build_topic_id
 from provenance.provenance_store import parse_provenance_records, provenance_page_path
 from placement.topic_episode_placement_engine import list_existing_topics
@@ -219,7 +220,7 @@ def read_source_paths(
             source_rel = str(row.get("promoted_from") or row.get("derived_from") or "").strip()
             if source_rel:
                 resolved.add(str((vault_root / source_rel).resolve()))
-    return sorted(resolved)
+    return sorted(to_vault_uri(item, vault_root=vault_root) for item in resolved)
 
 
 def get_raw_sources(
@@ -459,6 +460,23 @@ def _last_record_with(records: list[Mapping[str, Any]], *keys: str) -> Mapping[s
     return {}
 
 
+def _records_by_schema(records: list[Mapping[str, Any]], schema_version: str) -> list[dict[str, Any]]:
+    matched: list[dict[str, Any]] = []
+    for record in records:
+        if str(record.get("schema_version") or "") == schema_version:
+            matched.append(dict(record))
+        for value in record.values():
+            if isinstance(value, Mapping) and str(value.get("schema_version") or "") == schema_version:
+                matched.append(dict(value))
+            elif isinstance(value, list):
+                matched.extend(
+                    dict(item)
+                    for item in value
+                    if isinstance(item, Mapping) and str(item.get("schema_version") or "") == schema_version
+                )
+    return matched
+
+
 def _concept_node_path_for_topic(*, topic_text: str, vault_root: Path) -> Path | None:
     node_id = _yaml_scalar(topic_text, "id")
     if not node_id:
@@ -548,11 +566,7 @@ def _candidate_paths_from_matched_nodes(*, matched_nodes: list[Mapping[str, Any]
 
 
 def _vault_source_path(path: Path, *, vault_root: Path) -> str:
-    try:
-        relative = path.resolve().relative_to(vault_root.resolve())
-        return f"vault/{relative.as_posix()}"
-    except RECOVERABLE_RUNTIME_ERRORS:
-        return str(path).replace("\\", "/")
+    return to_vault_uri(path, vault_root=vault_root)
 
 
 def _topic_key_from_candidate_paths(
@@ -694,6 +708,19 @@ def build_ring_support_bundle(
     prn_records = _extract_json_objects_from_fenced_blocks(topic_text + "\n" + concept_text)
     all_records = list(records) + list(prn_records)
     all_text = topic_text + "\n" + prov_text + "\n" + concept_text
+    provider_source_events = _records_by_schema(all_records, "provider_source_event.v1")
+    decision_timeline = _records_by_schema(all_records, "decision_timeline_event.v1")
+    semantic_category_paths = _records_by_schema(all_records, "semantic_category_path.v1")
+    semantic_category_path = semantic_category_paths[-1] if semantic_category_paths else {}
+    community_growth_events = _records_by_schema(all_records, "community_growth_event.v1")
+    wiki_page_contracts = _records_by_schema(all_records, "wiki_continent_page.v1")
+    readable_wiki_page_refs = _unique_preserve_order(
+        [
+            str(record.get("page_ref") or record.get("readable_wiki_page_ref") or "")
+            for record in [*wiki_page_contracts, *all_records]
+            if str(record.get("page_ref") or record.get("readable_wiki_page_ref") or "").strip()
+        ]
+    )
     ring_ids = _extract_ring_ids(all_text, all_records)
     community_ids = _extract_community_ids(all_text, all_records)
     community_id = community_ids[0] if community_ids else ""
@@ -748,6 +775,7 @@ def build_ring_support_bundle(
         source_paths.append(_vault_source_path(concept_path, vault_root=vault_root))
     if community_path and community_path.exists():
         source_paths.append(_vault_source_path(community_path, vault_root=vault_root))
+    source_paths.extend(readable_wiki_page_refs)
     for row in records:
         rel = str(row.get("derived_from") or row.get("promoted_from") or "").strip()
         if rel:
@@ -806,6 +834,11 @@ def build_ring_support_bundle(
         unavailable["safe_index_cursor"] = safe_index_cursor
         unavailable["source_line_range"] = ring_record.get("source_line_range") if isinstance(ring_record, Mapping) else None
         unavailable["node_taxonomy"] = node_taxonomy
+        unavailable["readable_wiki_page_refs"] = readable_wiki_page_refs
+        unavailable["provider_source_events"] = provider_source_events
+        unavailable["decision_timeline"] = decision_timeline
+        unavailable["semantic_category_path"] = semantic_category_path
+        unavailable["community_growth_events"] = community_growth_events
         unavailable["continent"] = node_taxonomy["continent"]
         unavailable["node_type"] = node_taxonomy["node_type"]
         unavailable["topography_level"] = node_taxonomy["topography_level"]
@@ -839,6 +872,11 @@ def build_ring_support_bundle(
         "paragraph_intent_safety_belt": dict(paragraph_intent),
         "origin_claims": origin_claims,
         "recent_rings": recent_rings,
+        "readable_wiki_page_refs": readable_wiki_page_refs,
+        "provider_source_events": provider_source_events,
+        "decision_timeline": decision_timeline,
+        "semantic_category_path": semantic_category_path,
+        "community_growth_events": community_growth_events,
         "source_paths": unique_source_paths,
         "safe_index_cursor": safe_index_cursor,
         "support_facts": support_facts,

@@ -8,8 +8,8 @@
     "schema_version",
     "consumption_request_ref",
     "created_at",
-    "worker4_verdict_ref",
-    "worker4_verdict",
+    "independent_verification_ref",
+    "independent_verification_verdict",
     "source_production_receipt_ref",
     "approved_routing_fact_ref",
     "ptc_code_execution_session_ref",
@@ -34,10 +34,10 @@
       "type": "string",
       "format": "date-time"
     },
-    "worker4_verdict_ref": {
+    "independent_verification_ref": {
       "$ref": "#/$defs/safe_ref"
     },
-    "worker4_verdict": {
+    "independent_verification_verdict": {
       "const": "PASS"
     },
     "source_production_receipt_ref": {
@@ -145,7 +145,7 @@
             "approved_routing_fact",
             "ptc_code_execution_session",
             "ptc_egress_payload",
-            "worker4_verification",
+            "independent_verification",
             "support_bundle",
             "route_decision"
           ]

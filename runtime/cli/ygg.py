@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import sys
 
-from runtime.cli.ygg_config import DEFAULT_PRIVATE_VAULT, _decode_b64_text, _provider_id
+from runtime.cli.ygg_config import _decode_b64_text, _provider_id
 from runtime.cli.ygg_cpr import cmd_cpr
 from runtime.cli.ygg_flow import cmd_flow, cmd_live, cmd_receipt, cmd_watch
 from runtime.cli.ygg_memory_lanes import (
@@ -63,8 +63,8 @@ def main():
         print("  note: tmux names are internal evidence ids; use ygg pro1 / ygg ms1 / ygg mf1")
         print("  provider env: OY_PROVIDER_ID, OY_PROVIDER_PROFILE, OY_PROVIDER_COMMAND")
         print("  memory env: OY_MEMORY_SAVER_COMMAND/OY_MS_COMMAND, OY_MEMORY_FINDER_COMMAND/OY_MF_COMMAND")
-        print(f"  vault env: OY_VAULT (default: {DEFAULT_PRIVATE_VAULT})")
-        print("  templates may use: {provider_id}, {provider_profile}, {provider_session_id}, {workspace_root}, {op}, {role}, {mailbox}, {vault}")
+        print("  vault env: OY_VAULT (default: ~/.yggdrasil/vault)")
+        print("  templates may use: {provider_id}, {provider_profile}, {provider_session_id}, {workspace_root}, {role}, {mailbox}, {vault}")
         sys.exit(0 if len(sys.argv) >= 2 else 1)
 
     cmd = sys.argv[1]

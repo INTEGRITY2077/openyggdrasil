@@ -34,6 +34,14 @@ def _env_flag(env: Mapping[str, str], name: str, *, default: str = "0") -> bool:
     return str(env.get(name, default)).strip() == "1"
 
 
+def _is_relative_to(path: Path, base: Path) -> bool:
+    try:
+        path.relative_to(base)
+        return True
+    except ValueError:
+        return False
+
+
 def build_ygg_poll_config(
     *,
     mode: str,
@@ -43,10 +51,11 @@ def build_ygg_poll_config(
     poll_interval: int = 3,
 ) -> YggPollConfig:
     normalized_mode = "produce" if str(mode or "").strip().lower() == "produce" else "consume"
-    vault_text = str(vault).replace("\\", "/").lower()
+    repo_root = Path(__file__).resolve().parents[2]
+    vault_path = Path(vault).expanduser().resolve(strict=False)
+    public_repo_vault = (repo_root / "vault").resolve(strict=False)
     if (
-        "/0_project/openyggdrasil/vault" in vault_text
-        and "openyggdrasil-private-dev" not in vault_text
+        _is_relative_to(vault_path, public_repo_vault)
         and not _env_flag(env, "OY_ALLOW_PUBLIC_RUNTIME_VAULT")
     ):
         raise ValueError("public_runtime_vault_forbidden")

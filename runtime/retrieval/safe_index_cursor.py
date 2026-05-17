@@ -13,6 +13,8 @@ def _normalize_vault_path(value: object, *, vault_root: Path) -> str:
     text = str(value or "").strip().replace("\\", "/")
     if not text:
         return ""
+    if text.startswith("oy-vault://"):
+        return "vault/" + text.removeprefix("oy-vault://").strip("/")
     if text.startswith("vault/"):
         return text
     path = Path(text)
@@ -20,7 +22,7 @@ def _normalize_vault_path(value: object, *, vault_root: Path) -> str:
         try:
             return "vault/" + path.resolve().relative_to(vault_root.resolve()).as_posix()
         except ValueError:
-            return text
+            return "vault/typed_unavailable/outside-vault"
     return "vault/" + text.lstrip("/")
 
 

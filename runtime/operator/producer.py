@@ -44,12 +44,24 @@ from runtime.operator.prune import (
     _run_hygiene_check,
 )
 from runtime.memory.domain_evidence import enrich_memory_ticket_payload
+from runtime.memory.semantic_category_path import category_page_relative_path
 
 from runtime.memory.wiki_node_taxonomy import (
     build_community_node_taxonomy,
     build_node_taxonomy,
     validate_node_taxonomy,
 )
+from runtime.operator.community_growth_writer import build_community_growth_event
+from runtime.operator.decision_timeline_writer import build_memory_ticket_decision_timeline
+from runtime.operator.memory_ticket_admission import (
+    CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD,
+    admit_memory_ticket_payload,
+)
+from runtime.operator.node_quality_assessor import assess_lineage_quality
+from runtime.operator.provider_source_event_writer import build_provider_source_event
+from runtime.operator.safe_cursor_writer import as_vault_source_paths
+from runtime.operator.wiki_page_renderer import render_wiki_continent_page
+from runtime.placement.amundsen_continent_router import route_amundsen_continent
 from runtime.ptc.sandbox_executor import execute_ptc_code
 
 try:
@@ -612,6 +624,26 @@ Use this page to keep the rule stable without turning mailbox receipts, runtime 
 ## Source Synthesis
 {_render_source_synthesis(ring=ring, community=community, domain_evidence=domain_evidence, lifecycle_state=lifecycle_state)}
 
+## Category Placement
+```json
+{json.dumps(ring_node.get('semantic_category_path') or {}, ensure_ascii=False, indent=2)}
+```
+
+## Provider Source Events
+```json
+{json.dumps(ring_node.get('provider_source_events') or [], ensure_ascii=False, indent=2)}
+```
+
+## Decision Timeline
+```json
+{json.dumps(ring_node.get('decision_timeline') or [], ensure_ascii=False, indent=2)}
+```
+
+## Community Growth
+```json
+{json.dumps(ring_node.get('community_growth_events') or [], ensure_ascii=False, indent=2)}
+```
+
 ## Retrieval Surface
 - keyword_policy: {retrieval.get('keyword_policy', 'deterministic_diverse_terms_not_title_repeat')}
 - retrieval_terms: {', '.join(str(item) for item in retrieval_terms)}
@@ -669,9 +701,14 @@ Use this page to keep the rule stable without turning mailbox receipts, runtime 
 {json.dumps(retrieval, ensure_ascii=False, indent=2)}
 ```
 
-## 9. Quality Evaluation
+## 9. Quality Assessment
 ```json
 {json.dumps(quality, ensure_ascii=False, indent=2)}
+```
+
+## 9A. Lineage Quality Evaluation
+```json
+{json.dumps(ring_node.get('lineage_quality_assessment') or {}, ensure_ascii=False, indent=2)}
 ```
 
 ## 10. Raw Evidence Pointers
@@ -831,6 +868,14 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     concept_path.write_text(concept_rendered, encoding="utf-8")
 
     topic_key = topic["topic_id"].split(":", 1)[1]
+    semantic_category = ring_node.get("semantic_category_path") or {}
+    semantic_segments = list(semantic_category.get("segments") or [])
+    category_slug = semantic_segments[-1] if semantic_segments else topic_key
+    category_page_rel = category_page_relative_path(semantic_category, slug=category_slug)
+    category_page_path = vault / category_page_rel
+    category_page_path.parent.mkdir(parents=True, exist_ok=True)
+    category_page_path.write_text(render_wiki_continent_page(ring_node=ring_node), encoding="utf-8")
+
     prov_path = vault / "_meta" / "provenance" / f"{topic_key}.md"
     prov_path.parent.mkdir(parents=True, exist_ok=True)
     record = {
@@ -844,6 +889,11 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
         "origin_locator": ring["origin_locator"],
         "source_line_range": ring.get("source_line_range"),
         "node_taxonomy": ring_node.get("node_taxonomy", {}),
+        "provider_source_events": ring_node.get("provider_source_events", []),
+        "decision_timeline": ring_node.get("decision_timeline", []),
+        "semantic_category_path": ring_node.get("semantic_category_path", {}),
+        "community_growth_events": ring_node.get("community_growth_events", []),
+        "readable_wiki_page_ref": f"oy-vault://{category_page_rel}",
     }
     episode_block = (
         f"<!-- provenance:{record['episode_id']}:start -->\n"
@@ -874,6 +924,7 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
         ]
     )
     growth_events = _community_growth_events(ring_ids=ring_ids, source_refs=source_refs)
+    lineage_growth_events = list(ring_node.get("community_growth_events") or [])
     community_path.write_text(
         f"# {community_key}\n\n"
         f"- community_id: {community['community_id']}\n"
@@ -889,15 +940,16 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
         f"- topography_level: {community_taxonomy['topography_level']}\n"
         f"- community_role: {community_taxonomy['community_role']}\n"
         "\n```json\n"
-        f"{json.dumps({'schema_version': 'community_growth_history.v1', 'node_taxonomy': community_taxonomy, 'growth_events': growth_events}, ensure_ascii=False, indent=2)}\n"
+        f"{json.dumps({'schema_version': 'community_growth_history.v1', 'node_taxonomy': community_taxonomy, 'growth_events': growth_events, 'community_growth_events': lineage_growth_events}, ensure_ascii=False, indent=2)}\n"
         "```\n",
         encoding="utf-8",
     )
     return {
-        "canonical_topic_path": str(topic_path.relative_to(vault)),
-        "concept_path": str(concept_path.relative_to(vault)),
-        "provenance_path": str(prov_path.relative_to(vault)),
-        "community_path": str(community_path.relative_to(vault)),
+        "canonical_topic_path": topic_path.relative_to(vault).as_posix(),
+        "category_page_path": category_page_path.relative_to(vault).as_posix(),
+        "concept_path": concept_path.relative_to(vault).as_posix(),
+        "provenance_path": prov_path.relative_to(vault).as_posix(),
+        "community_path": community_path.relative_to(vault).as_posix(),
     }
 
 
@@ -941,9 +993,6 @@ def _write_safe_index_cursor_sync(vault: Path, *, ring_id: str, paths: dict) -> 
                 "failed_safe_cursor_sync_does_not_authorize_final_support",
             ],
         }
-
-
-CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD = "preserve_paragraph_intent_before_decision_atoms"
 
 
 def _metadata_values(text: str, key: str) -> list[str]:
@@ -1002,69 +1051,8 @@ def _is_atom_tag_hint(value: str) -> bool:
     return False
 
 
-def _is_nonempty_string(value) -> bool:
-    return isinstance(value, str) and bool(value.strip())
-
-
-def _valid_index_range(value) -> bool:
-    if not isinstance(value, dict):
-        return False
-    start = value.get("start")
-    end = value.get("end")
-    return isinstance(start, int) and isinstance(end, int) and start >= 0 and end >= start
-
-
-def _valid_source_line_range(value) -> bool:
-    if value is None:
-        return True
-    if not isinstance(value, dict):
-        return False
-    start = value.get("start")
-    end = value.get("end")
-    return isinstance(start, int) and isinstance(end, int) and start >= 1 and end >= start
-
-
-def _valid_id_range(value) -> bool:
-    if not isinstance(value, dict):
-        return False
-    start = value.get("start")
-    end = value.get("end")
-    return isinstance(start, (int, str)) and isinstance(end, (int, str)) and str(start) != "" and str(end) != ""
-
-
 def _admit_memory_ticket_payload(payload: dict) -> tuple[bool, str]:
-    if payload.get("schema_version") != "memory_ticket.v1":
-        return False, "invalid_schema_version"
-    for key in ("source_ref", "provider_session_id", "surface_reason", "commit_watermark"):
-        if not _is_nonempty_string(payload.get(key)):
-            return False, f"missing_{key}"
-    has_index_range = "message_index_range" in payload
-    has_id_range = "message_id_range" in payload
-    if has_index_range == has_id_range:
-        return False, "invalid_message_range_choice"
-    if has_index_range and not _valid_index_range(payload.get("message_index_range")):
-        return False, "invalid_message_index_range"
-    if has_id_range and not _valid_id_range(payload.get("message_id_range")):
-        return False, "invalid_message_id_range"
-    if not _valid_source_line_range(payload.get("source_line_range")):
-        return False, "invalid_source_line_range"
-    if not _is_nonempty_string(payload.get("anchor_hash")):
-        return False, "missing_anchor_hash"
-    if not re.fullmatch(r"[0-9a-f]{64}", str(payload.get("anchor_hash"))):
-        return False, "invalid_anchor_hash"
-    for key in ("intent_field", "decomposition_guard", "min_split_unit", "why_not_atomic", "topic_hint", "category_community_hint"):
-        if not _is_nonempty_string(payload.get(key)):
-            return False, f"missing_{key}"
-    if str(payload.get("decomposition_guard")) != CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD:
-        return False, "invalid_decomposition_guard"
-    if str(payload.get("min_split_unit")) not in {"paragraph_intent", "topic_decision_cluster"}:
-        return False, "invalid_min_split_unit"
-    if _is_atom_tag_hint(str(payload.get("category_community_hint") or "")):
-        return False, "category_community_hint_too_atomic"
-    for key in ("decision", "context", "conclusion", "reuse_condition"):
-        if not _is_nonempty_string(payload.get(key)):
-            return False, "missing_decision_capsule"
-    return True, "admitted"
+    return admit_memory_ticket_payload(payload)
 
 
 def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ring_node: dict) -> dict:
@@ -1109,12 +1097,38 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
         "related_nodes_present": bool(related_nodes),
         "quality_review_executed": review_executed,
     }
-    failed = [name for name, passed in checks.items() if not passed]
-    reason_codes = list(failed)
+    hard_check_names = {
+        "decision_capsule_present",
+        "context_present",
+        "conclusion_present",
+        "evidence_pointer_present",
+        "reuse_condition_present",
+        "source_ref_resolved",
+        "bounded_message_range_present",
+        "anchor_hash_verified",
+        "paragraph_intent_guard_present",
+        "community_not_atomic",
+        "node_taxonomy_valid",
+        "raw_transcript_absent",
+    }
+    hard_failed = [
+        name
+        for name in hard_check_names
+        if not checks.get(name)
+    ]
     if str(payload.get("graph_dedupe_status") or "").lower() != "executed":
-        reason_codes.append("graph_dedupe_not_executed")
-    verdict = "pass" if not reason_codes else "needs_review"
-    confidence_deductions = []
+        confidence_deductions = ["graph_dedupe_not_executed"]
+    else:
+        confidence_deductions = []
+    verdict = "pass" if not hard_failed else "needs_review"
+    if not checks["external_source_synthesis_present"]:
+        confidence_deductions.append("external_source_synthesis_not_present")
+    if not checks["domain_evidence_resolved"]:
+        confidence_deductions.append("domain_evidence_not_resolved")
+    if not checks["related_nodes_present"]:
+        confidence_deductions.append("related_nodes_not_present")
+    if not checks["quality_review_executed"]:
+        confidence_deductions.append("quality_review_not_executed")
     if str(payload.get("human_evaluator_status") or "").lower() != "executed":
         confidence_deductions.append("human_evaluator_not_executed")
     if related_nodes and not semantic_related_nodes:
@@ -1123,14 +1137,14 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
     if verdict == "pass":
         confidence = round(max(0.0, 0.94 - (0.06 * len(confidence_deductions))), 2)
     else:
-        confidence = round(max(0.0, 0.72 - (0.03 * len(failed))), 2)
+        confidence = round(max(0.0, 0.72 - (0.03 * len(hard_failed))), 2)
     return {
         "evaluator": "memory_ticket_producer_quality_gate.v1",
         "verdict": verdict,
         "confidence": confidence,
         "confidence_deductions": confidence_deductions,
-        "reason_codes": [*reason_codes, *confidence_reason_codes],
-        "quality_blocker_reason_codes": reason_codes,
+        "reason_codes": [*hard_failed, *confidence_reason_codes],
+        "quality_blocker_reason_codes": hard_failed,
         "confidence_reason_codes": confidence_reason_codes,
         "ambiguity": "low" if verdict == "pass" else "medium",
         "duplication_risk": "checked_bounded_graph_dedupe" if str(payload.get("graph_dedupe_status") or "").lower() == "executed" else "unknown_without_graph_dedupe",
@@ -1189,7 +1203,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
 
     decision = str(payload.get("decision") or payload.get("결정") or payload.get("surface_reason") or "MemoryTicket")
     payload = enrich_memory_ticket_payload(payload, vault=vault)
-    decision = str(payload.get("conclusion") or decision)
+    decision = str(payload.get("decision") or payload.get("conclusion") or decision)
     topic_title = str(payload.get("canonical_topic_title") or payload.get("topic_title") or decision)
     topic_key = _slugify_topic_key(str(payload.get("canonical_topic_key") or topic_title))
     node_id = "N-" + uuid.uuid5(uuid.NAMESPACE_URL, f"{source_ref}:{range_hint}:{decision}").hex[:16]
@@ -1197,6 +1211,40 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
     community_key = _slugify_topic_key(str(payload.get("community") or payload.get("커뮤니티") or "openyggdrasil-memory"))
     community_id = f"community:{community_key}"
     commit_watermark = str(payload.get("commit_watermark") or resolved.get("commit_watermark") or "")
+    provider_source_event = build_provider_source_event(
+        provider_id=str(payload.get("provider_id") or msg.get("provider_id") or resolved.get("provider_id") or "unknown"),
+        provider_profile=str(payload.get("provider_profile") or msg.get("provider_profile") or resolved.get("provider_profile") or "unknown"),
+        provider_session_id=str(payload.get("provider_session_id") or resolved.get("provider_session_id") or ""),
+        source_ref=source_ref,
+        message_index_range=resolved.get("message_index_range") or range_hint,
+        anchor_hash=anchor_hash,
+        event_role=str(payload.get("provider_event_role") or "provider_conversation_source"),
+        redaction_status=str(resolved.get("redaction_status") or "pointer_only"),
+    )
+    amundsen_route = route_amundsen_continent(
+        payload=payload,
+        topic_title=topic_title,
+        basis_refs=[source_ref, provider_source_event["event_id"]],
+        candidate_categories=payload.get("category_candidates") or [],
+    )
+    semantic_category_path = amundsen_route.get("semantic_category_path") or {}
+    decision_timeline = build_memory_ticket_decision_timeline(
+        provider_source_event=provider_source_event,
+        ring_id=ring_id,
+        node_id=node_id,
+        category_path=semantic_category_path,
+    )
+    community_growth_event = build_community_growth_event(
+        community_id=community_id,
+        event_kind="attached",
+        provider_source_event_ref=provider_source_event["event_id"],
+        decision_timeline_event_ref=str(decision_timeline[-1].get("timeline_event_id") or ""),
+        topic_key=topic_key,
+        reason_codes=[
+            "memory_ticket_attached_to_community",
+            "discontinuous_growth_event_recorded",
+        ],
+    )
     retrieval_terms = _retrieval_terms_from_payload(
         payload=payload,
         decision=decision,
@@ -1209,6 +1257,8 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         physical_continent="concepts",
         default_node_type="policy",
     )
+    node_taxonomy["semantic_category_path"] = semantic_category_path.get("path", "")
+    node_taxonomy["semantic_category_segments"] = list(semantic_category_path.get("segments") or [])
     initial_related_nodes = _as_list(payload.get("related_nodes") or payload.get("related_pages"))
     existing_community_path = vault / "communities" / f"{community_key}.md"
     if existing_community_path.exists():
@@ -1275,6 +1325,11 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
             "keyword_policy": "deterministic_diverse_terms_not_title_repeat",
             "support_lanes": ["origin", "recent", "source_paths", "community_edges", "semantic_edges"],
         },
+        "provider_source_events": [provider_source_event],
+        "decision_timeline": decision_timeline,
+        "semantic_category_path": semantic_category_path,
+        "amundsen_route": amundsen_route,
+        "community_growth_events": [community_growth_event],
     }
     if isinstance(payload.get("domain_evidence_enrichment"), dict):
         ring_node["domain_evidence_enrichment"] = dict(payload["domain_evidence_enrichment"])
@@ -1285,6 +1340,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         resolved=resolved,
         ring_node=ring_node,
     )
+    ring_node["lineage_quality_assessment"] = assess_lineage_quality(ring_node)
     quality_verdict = str(ring_node["quality_assessment"].get("verdict") or "")
     if quality_verdict != "pass":
         return {
@@ -1302,6 +1358,11 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
                 "community_id": community_id,
                 "source_line_range": source_line_range,
                 "node_taxonomy": node_taxonomy,
+                "provider_source_events": [provider_source_event],
+                "decision_timeline": decision_timeline,
+                "semantic_category_path": semantic_category_path,
+                "community_growth_events": [community_growth_event],
+                "lineage_quality_assessment": ring_node["lineage_quality_assessment"],
                 "quality_assessment": ring_node["quality_assessment"],
                 "safe_index_cursor_sync": {
                     "schema_version": "safe_index_cursor_sync.v1",
@@ -1329,10 +1390,17 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         "canonical_topic_path": paths["canonical_topic_path"],
         "support_bundle_seed": {
             "ring_ids": [ring_id],
-            "source_paths": list(paths.values()),
+            "source_paths": as_vault_source_paths(paths),
+            "readable_wiki_page_ref": f"oy-vault://{paths.get('category_page_path', paths['canonical_topic_path'])}",
+            "internal_node_id": node_id,
             "community_id": community_id,
             "source_line_range": source_line_range,
             "node_taxonomy": node_taxonomy,
+            "provider_source_events": [provider_source_event],
+            "decision_timeline": decision_timeline,
+            "semantic_category_path": semantic_category_path,
+            "community_growth_events": [community_growth_event],
+            "lineage_quality_assessment": ring_node["lineage_quality_assessment"],
             "quality_assessment": ring_node["quality_assessment"],
             "safe_index_cursor_sync": safe_index_cursor_sync,
         },
