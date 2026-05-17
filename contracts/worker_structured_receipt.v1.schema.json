@@ -56,7 +56,7 @@
       }
     },
     "retry_count": {"type": "integer", "minimum": 0},
-    "acceptance_gate": {"type": "string"},
+    "acceptance_gate": {"type": ["string", "null"]},
     "hard_nonclaims": {
       "type": "array",
       "items": {"type": "string", "minLength": 1},
