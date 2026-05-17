@@ -2,11 +2,17 @@ from __future__ import annotations
 
 import json
 import os
+from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import jsonschema
+
 from runtime.common.jsonl_io import append_jsonl
+
+OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
+CONTRACTS_ROOT = OPENYGGDRASIL_ROOT / "contracts"
 
 INTERNAL_PROOF_DIRECTIVE_MARKERS = (
     "TST/PTC 행동",
@@ -38,6 +44,15 @@ INTERNAL_PROOF_DIRECTIVE_MARKERS = (
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+@lru_cache(maxsize=8)
+def _load_contract_schema(filename: str) -> dict[str, Any]:
+    return json.loads((CONTRACTS_ROOT / filename).read_text(encoding="utf-8"))
+
+
+def _validate_contract(payload: dict[str, Any], filename: str) -> None:
+    jsonschema.validate(instance=payload, schema=_load_contract_schema(filename))
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -251,6 +266,8 @@ def append_postman_work_order(
         "next_expected_actor": _worker_role(message_type),
         "status": "ready_for_worker",
     }
+    _validate_contract(work_order, "postman_work_order.v1.schema.json")
+    _validate_contract(history, "worker_work_history.v1.schema.json")
 
     work_orders_file = mailbox / "work_orders.jsonl"
     work_history_file = mailbox / "work_history.jsonl"
@@ -296,6 +313,7 @@ def append_worker_history_event(
     }
     if evidence:
         row["evidence"] = evidence
+    _validate_contract(row, "worker_work_history.v1.schema.json")
     append_jsonl(mailbox / "work_history.jsonl", row)
     return row
 

@@ -1,0 +1,48 @@
+{
+  "schema_version": "contract_refinery_manifest.v1",
+  "purpose": "Classify public contracts by whether they actually circulate through the runtime refinery pipeline.",
+  "active_contract_rule": "A public active contract must have a schema file, a runtime producer or consumer, and a runtime schema-file validation/load path. Contracts that only appear as schema_version strings are declared interfaces, not active pressure-tested pipes.",
+  "pipeline_stages": [
+    "provider_intake",
+    "postman_delivery",
+    "memory_saver_storage",
+    "wiki_vault",
+    "memory_finder_retrieval",
+    "provider_rejudgment",
+    "janitor_maintenance",
+    "reasoning_or_ptc",
+    "compatibility"
+  ],
+  "owners": [
+    "Provider",
+    "Postman",
+    "MS1",
+    "MF1",
+    "Janitor",
+    "TST/PTC",
+    "Amundsen",
+    "Runtime"
+  ],
+  "declared_interface_allowlist": {
+    "amundsen_category_judgment.v1.schema.json": "Category judgment is produced by runtime reasoning but not yet schema-file validated in the hot path.",
+    "community_growth_event.v1.schema.json": "Community growth records are produced and consumed by vault lineage logic; hot-path schema validation is still pending.",
+    "decision_timeline_event.v1.schema.json": "Decision timeline records are produced and consumed by vault lineage logic; hot-path schema validation is still pending.",
+    "memory_ticket.v1.schema.json": "Memory tickets are admitted by an equivalent strict validator; schema-file validation is pending.",
+    "provenance_ring_node.v1.schema.json": "Provenance ring nodes are rendered by the producer and read by retrieval; hot-path schema validation is pending.",
+    "provider_skill_receipt_consumer.v1.schema.json": "Provider skill receipt consumer validates by module-local policy; manifest keeps it non-active until direct schema load is present.",
+    "provider_source_event.v1.schema.json": "Provider source events are produced and consumed by vault lineage logic; hot-path schema validation is still pending.",
+    "retrieval_candidate.v1.schema.json": "Retrieval candidates are produced inside the PTC retrieval orchestrator; direct schema validation is pending.",
+    "retrieval_candidate_set.v1.schema.json": "Retrieval candidate sets are produced inside the PTC retrieval orchestrator; direct schema validation is pending.",
+    "semantic_category_path.v1.schema.json": "Semantic category paths are produced and consumed by wiki placement; hot-path schema validation is still pending.",
+    "skill_metadata_reader.v1.schema.json": "Skill metadata reader validates by module-local policy; direct schema load is pending.",
+    "subagent_persona_manifest.v1.schema.json": "Persona manifests are loaded by reasoning runtime; direct schema load is pending.",
+    "tree_ring_snapshot.v1.schema.json": "Tree ring snapshots have module-local guard logic; direct schema validation is pending.",
+    "wiki_continent_page.v1.schema.json": "Wiki continent page contract is emitted into page machine appendix; direct schema validation is pending."
+  },
+  "demotion_rule": "A root-level public schema with no runtime file hit, no runtime schema_version hit, and no documented compatibility reason must be moved to private quarantine or a legacy/private-only area before production-ready can be claimed.",
+  "hard_nonclaims": [
+    "schema_parse_success_is_not_pipeline_circulation",
+    "schema_version_string_hit_is_not_runtime_validation",
+    "declared_interface_allowlist_is_not_active_pressure_test"
+  ]
+}

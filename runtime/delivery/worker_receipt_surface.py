@@ -12,17 +12,32 @@ import json
 import os
 import uuid
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
+
+import jsonschema
 
 from runtime.delivery.postman_work_order import (
     append_worker_history_event,
     mirror_worker_receipt_to_history,
 )
 
+OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
+CONTRACTS_ROOT = OPENYGGDRASIL_ROOT / "contracts"
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+@lru_cache(maxsize=4)
+def _load_contract_schema(filename: str) -> dict[str, Any]:
+    return json.loads((CONTRACTS_ROOT / filename).read_text(encoding="utf-8"))
+
+
+def _validate_contract(payload: Mapping[str, Any], filename: str) -> None:
+    jsonschema.validate(instance=dict(payload), schema=_load_contract_schema(filename))
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -351,6 +366,8 @@ def close_worker_work_order(
                 "missing_evidence": missing_evidence,
             },
         }
+
+    _validate_contract(receipt, "worker_structured_receipt.v1.schema.json")
 
     append_worker_history_event(
         mailbox=mailbox_path,

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/postman_work_order.v1.schema.json",
+  "title": "Postman Work Order v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "work_order_id",
+    "delivery_id",
+    "mail_id",
+    "sender",
+    "recipient",
+    "worker_role",
+    "message_type",
+    "provider_id",
+    "created_at",
+    "status",
+    "payload_ref",
+    "work_summary",
+    "work_anchor",
+    "provider_mail_surface",
+    "acceptance_gate",
+    "required_history",
+    "hard_nonclaims"
+  ],
+  "properties": {
+    "schema_version": {"const": "postman_work_order.v1"},
+    "work_order_id": {"type": "string", "pattern": "^work-.+"},
+    "delivery_id": {"type": "string", "minLength": 1},
+    "mail_id": {"type": "string", "minLength": 1},
+    "sender": {"const": "Provider"},
+    "recipient": {"type": "string", "minLength": 1},
+    "worker_role": {"enum": ["memory_saver", "memory_finder"]},
+    "message_type": {"type": "string", "minLength": 1},
+    "provider_id": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "minLength": 1},
+    "status": {"enum": ["ready_for_worker", "typed_unavailable", "rejected"]},
+    "payload_ref": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["kind", "mailbox_file", "mail_id"],
+      "properties": {
+        "kind": {"const": "mailbox_payload"},
+        "mailbox_file": {"type": "string", "minLength": 1},
+        "mail_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "work_summary": {"type": "string"},
+    "work_anchor": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["schema_version", "anchor_kind", "anchor_text"],
+      "properties": {
+        "schema_version": {"const": "provider_work_anchor.v1"},
+        "anchor_kind": {"enum": ["user_question", "provider_initiated_need", "missing_anchor"]},
+        "anchor_text": {"type": "string"}
+      }
+    },
+    "provider_mail_surface": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["schema_version", "surface_status", "production_proof_eligible"],
+      "properties": {
+        "schema_version": {"const": "provider_mail_surface_contract.v1"},
+        "surface_status": {"type": "string", "minLength": 1},
+        "production_proof_eligible": {"type": "boolean"}
+      }
+    },
+    "acceptance_gate": {"type": "string", "minLength": 1},
+    "required_history": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "minItems": 1
+    },
+    "hard_nonclaims": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "minItems": 1
+    }
+  }
+}
