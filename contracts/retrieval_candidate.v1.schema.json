@@ -3,7 +3,7 @@
   "$id": "https://openyggdrasil.local/contracts/retrieval_candidate.v1.schema.json",
   "title": "openyggdrasil Retrieval Candidate v1",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "required": [
     "schema_version",
     "candidate_id",

@@ -8,6 +8,9 @@ import re
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+import jsonschema
+
+from runtime.common.contract_validation import load_contract_schema_copy, validate_contract_payload
 from harness_common import DEFAULT_VAULT, utc_now_iso
 from ptc.primitives import (
     _boost_by_edges,
@@ -39,6 +42,8 @@ GENERATOR_ORDER = (
     "recent_episode",
     "source_ref_lookup",
 )
+RETRIEVAL_CANDIDATE_SCHEMA = "retrieval_candidate.v1.schema.json"
+RETRIEVAL_CANDIDATE_SET_SCHEMA = "retrieval_candidate_set.v1.schema.json"
 STRONG_EVIDENCE = {"source_path", "provenance"}
 DOMAIN_ROUTE_FRAGMENTS = {
     "hooks": ("hooks", "event-automation", "lifecycle-event"),
@@ -332,6 +337,17 @@ def _safe_ref_from_source_path(source_path: str | None) -> str | None:
     return f"oy-vault://{clean}"
 
 
+def validate_retrieval_candidate(payload: Mapping[str, Any]) -> None:
+    validate_contract_payload(payload, RETRIEVAL_CANDIDATE_SCHEMA)
+
+
+def validate_retrieval_candidate_set(payload: Mapping[str, Any]) -> None:
+    schema = load_contract_schema_copy(RETRIEVAL_CANDIDATE_SET_SCHEMA)
+    candidate_schema = load_contract_schema_copy(RETRIEVAL_CANDIDATE_SCHEMA)
+    schema["properties"]["candidates"]["items"] = candidate_schema
+    jsonschema.validate(instance=dict(payload), schema=schema)
+
+
 def _lifecycle_state(value: Any) -> str:
     raw = str(value or "").strip().upper()
     if raw in {"ACTIVE", "SUPERSEDED", "STALE"}:
@@ -385,6 +401,7 @@ def _candidate(
         "rejection_reason": rejection_reason,
     }
     candidate["candidate_id"] = f"cand:{_sha_token(query_text, candidate, length=20)}"
+    validate_retrieval_candidate(candidate)
     return candidate
 
 
@@ -1055,6 +1072,7 @@ def build_ptc_retrieval_orchestrator_result(
         "coverage_state": coverage_state,
         "retry_decision": retry_decision,
     }
+    validate_retrieval_candidate_set(candidate_set)
     matched_nodes = _matched_nodes_from_candidates(
         selected=selected,
         vault_nodes=vault_nodes,
@@ -1114,4 +1132,6 @@ def build_ptc_retrieval_orchestrator_result(
 __all__ = [
     "build_ptc_retrieval_orchestrator_result",
     "build_structured_recall_answer_frame",
+    "validate_retrieval_candidate",
+    "validate_retrieval_candidate_set",
 ]

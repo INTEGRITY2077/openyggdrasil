@@ -3,8 +3,11 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 
+from runtime.common.contract_validation import validate_contract_payload
+
 
 CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD = "preserve_paragraph_intent_before_decision_atoms"
+MEMORY_TICKET_SCHEMA = "memory_ticket.v1.schema.json"
 
 
 def _is_nonempty_string(value: object) -> bool:
@@ -49,6 +52,10 @@ def _is_atom_tag_hint(value: str) -> bool:
 
 
 def admit_memory_ticket_payload(payload: Mapping[str, Any]) -> tuple[bool, str]:
+    try:
+        validate_contract_payload(payload, MEMORY_TICKET_SCHEMA)
+    except Exception:  # noqa: BLE001 - admission returns a typed reason instead of raising.
+        return False, "schema_validation_failed"
     if payload.get("schema_version") != "memory_ticket.v1":
         return False, "invalid_schema_version"
     for key in ("source_ref", "provider_session_id", "surface_reason", "commit_watermark"):
@@ -85,5 +92,6 @@ def admit_memory_ticket_payload(payload: Mapping[str, Any]) -> tuple[bool, str]:
 
 __all__ = [
     "CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD",
+    "MEMORY_TICKET_SCHEMA",
     "admit_memory_ticket_payload",
 ]

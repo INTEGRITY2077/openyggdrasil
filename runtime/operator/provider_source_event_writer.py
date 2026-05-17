@@ -4,10 +4,12 @@ import hashlib
 import json
 from typing import Any, Mapping
 
+from runtime.common.contract_validation import validate_contract_payload
 from harness_common import utc_now_iso
 
 
 SCHEMA_VERSION = "provider_source_event.v1"
+PROVIDER_SOURCE_EVENT_SCHEMA = "provider_source_event.v1.schema.json"
 
 
 def _event_id(payload: Mapping[str, Any]) -> str:
@@ -43,7 +45,17 @@ def build_provider_source_event(
         "redaction_status": redaction_status,
     }
     event["event_id"] = _event_id(event)
+    validate_provider_source_event(event)
     return event
 
 
-__all__ = ["SCHEMA_VERSION", "build_provider_source_event"]
+def validate_provider_source_event(payload: Mapping[str, Any]) -> None:
+    validate_contract_payload(payload, PROVIDER_SOURCE_EVENT_SCHEMA)
+
+
+__all__ = [
+    "PROVIDER_SOURCE_EVENT_SCHEMA",
+    "SCHEMA_VERSION",
+    "build_provider_source_event",
+    "validate_provider_source_event",
+]

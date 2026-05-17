@@ -5,10 +5,12 @@ import uuid
 from collections.abc import Iterable
 from typing import Any, Mapping
 
+from runtime.common.contract_validation import validate_contract_payload
 from runtime.common.portable_ref import looks_like_local_path
 from harness_common import utc_now_iso
 
 
+SKILL_METADATA_READER_SCHEMA = "skill_metadata_reader.v1.schema.json"
 SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^\\\s]+$")
 METADATA_KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,63}$")
 UNSAFE_KEY_FRAGMENTS = (
@@ -182,6 +184,7 @@ def validate_skill_metadata_read(payload: Mapping[str, Any]) -> None:
             raise ValueError("safe_portable_refs must be safe refs")
     if payload.get("read_status") == "metadata_read" and not payload.get("metadata"):
         raise ValueError("metadata_read status requires metadata")
+    validate_contract_payload(payload, SKILL_METADATA_READER_SCHEMA)
 
 
 def build_skill_metadata_read(

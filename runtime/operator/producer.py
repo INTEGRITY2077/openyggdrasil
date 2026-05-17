@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from runtime.common.contract_validation import validate_contract_payload
 from runtime.log_event import log_event
 
 from runtime.ptc.primitives import (
@@ -63,6 +64,8 @@ from runtime.operator.safe_cursor_writer import as_vault_source_paths
 from runtime.operator.wiki_page_renderer import render_wiki_continent_page
 from runtime.placement.amundsen_continent_router import route_amundsen_continent
 from runtime.ptc.sandbox_executor import execute_ptc_code
+
+PROVENANCE_RING_NODE_SCHEMA = "provenance_ring_node.v1.schema.json"
 
 try:
     from runtime.ptc.tool_search_supervisor import (
@@ -1333,6 +1336,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
     }
     if isinstance(payload.get("domain_evidence_enrichment"), dict):
         ring_node["domain_evidence_enrichment"] = dict(payload["domain_evidence_enrichment"])
+    validate_contract_payload(ring_node, PROVENANCE_RING_NODE_SCHEMA)
     ring_node["category"] = node_taxonomy["node_type"]
     ring_node["node_taxonomy"] = node_taxonomy
     ring_node["quality_assessment"] = _build_memory_ticket_quality_assessment(

@@ -4,10 +4,12 @@ import hashlib
 import json
 from typing import Any, Mapping, Sequence
 
+from runtime.common.contract_validation import validate_contract_payload
 from harness_common import utc_now_iso
 
 
 SCHEMA_VERSION = "community_growth_event.v1"
+COMMUNITY_GROWTH_EVENT_SCHEMA = "community_growth_event.v1.schema.json"
 
 
 def _growth_id(payload: Mapping[str, Any]) -> str:
@@ -36,7 +38,17 @@ def build_community_growth_event(
         "created_at": created_at or utc_now_iso(),
     }
     event["growth_event_id"] = _growth_id(event)
+    validate_community_growth_event(event)
     return event
 
 
-__all__ = ["SCHEMA_VERSION", "build_community_growth_event"]
+def validate_community_growth_event(payload: Mapping[str, Any]) -> None:
+    validate_contract_payload(payload, COMMUNITY_GROWTH_EVENT_SCHEMA)
+
+
+__all__ = [
+    "COMMUNITY_GROWTH_EVENT_SCHEMA",
+    "SCHEMA_VERSION",
+    "build_community_growth_event",
+    "validate_community_growth_event",
+]

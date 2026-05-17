@@ -56,3 +56,10 @@ The refinery audit checks whether public contracts actually circulate:
 ```powershell
 py -3 scripts/contract_refinery_audit.py --out contracts/refinery_audit.current.json
 ```
+
+The pressure test exercises the formerly signboard-only contracts with sample
+payloads that must load schema files and validate:
+
+```powershell
+py -3 scripts/contract_pressure_test.py --out contracts/contract_pressure_test.current.json
+```

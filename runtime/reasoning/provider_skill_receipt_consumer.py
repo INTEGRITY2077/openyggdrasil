@@ -4,10 +4,12 @@ import re
 import uuid
 from typing import Any, Mapping, Sequence
 
+from runtime.common.contract_validation import validate_contract_payload
 from runtime.common.portable_ref import looks_like_local_path
 from harness_common import utc_now_iso
 
 
+PROVIDER_SKILL_RECEIPT_CONSUMER_SCHEMA = "provider_skill_receipt_consumer.v1.schema.json"
 SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^\s\\]+$")
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 RAW_SKILL_BODY_RE = re.compile(r"(?s)^---\s*\n.*\bname\s*:")
@@ -276,6 +278,7 @@ def validate_provider_skill_receipt_menu(payload: Mapping[str, Any]) -> None:
             raise ValueError("typed_unavailable requires unavailable_condition")
     if not payload.get("reason_codes"):
         raise ValueError("reason_codes are required")
+    validate_contract_payload(payload, PROVIDER_SKILL_RECEIPT_CONSUMER_SCHEMA)
 
 
 def build_provider_skill_receipt_menu(

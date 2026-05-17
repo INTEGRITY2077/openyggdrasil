@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping
 
+from runtime.common.contract_validation import validate_contract_payload
 from runtime.memory.semantic_category_path import category_page_relative_path
+
+
+WIKI_CONTINENT_PAGE_SCHEMA = "wiki_continent_page.v1.schema.json"
 
 
 def render_wiki_continent_page(*, ring_node: Mapping[str, Any]) -> str:
@@ -34,6 +38,7 @@ def render_wiki_continent_page(*, ring_node: Mapping[str, Any]) -> str:
             "concept_mirror_is_internal_stable_id",
         ],
     }
+    validate_wiki_continent_page_contract(page_contract)
     ring_summary = {
         "schema_version": "wiki_ring_machine_summary.v1",
         "internal_node_id": ring_node.get("node_id"),
@@ -133,4 +138,12 @@ def _bullets(rows: list[Any], *, key: str, fallback: str) -> str:
     return "\n".join(lines) if lines else f"- {fallback}"
 
 
-__all__ = ["render_wiki_continent_page"]
+def validate_wiki_continent_page_contract(payload: Mapping[str, Any]) -> None:
+    validate_contract_payload(payload, WIKI_CONTINENT_PAGE_SCHEMA)
+
+
+__all__ = [
+    "WIKI_CONTINENT_PAGE_SCHEMA",
+    "render_wiki_continent_page",
+    "validate_wiki_continent_page_contract",
+]

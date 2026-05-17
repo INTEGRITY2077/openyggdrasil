@@ -4,10 +4,12 @@ import hashlib
 import re
 from typing import Any, Mapping, Sequence
 
+from runtime.common.contract_validation import validate_contract_payload
 from runtime.common.portable_ref import looks_like_local_path
 from harness_common import utc_now_iso
 
 
+TREE_RING_SNAPSHOT_SCHEMA = "tree_ring_snapshot.v1.schema.json"
 SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^\s\\]+$")
 RING_ID_RE = re.compile(r"^[A-Za-z][A-Za-z0-9._:-]{1,127}$")
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
@@ -223,6 +225,7 @@ def validate_tree_ring_snapshot(payload: Mapping[str, Any]) -> None:
         raise ValueError("typed_unavailable requires unavailable_condition")
     if not payload.get("reason_codes"):
         raise ValueError("reason_codes are required")
+    validate_contract_payload(payload, TREE_RING_SNAPSHOT_SCHEMA)
 
 
 def build_tree_ring_snapshot(

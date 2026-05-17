@@ -4,10 +4,12 @@ import hashlib
 import json
 from typing import Any, Mapping, Sequence
 
+from runtime.common.contract_validation import validate_contract_payload
 from harness_common import utc_now_iso
 
 
 SCHEMA_VERSION = "decision_timeline_event.v1"
+DECISION_TIMELINE_EVENT_SCHEMA = "decision_timeline_event.v1.schema.json"
 
 
 def _timeline_id(payload: Mapping[str, Any]) -> str:
@@ -37,7 +39,12 @@ def build_decision_timeline_event(
         "created_at": created_at or utc_now_iso(),
     }
     event["timeline_event_id"] = _timeline_id(event)
+    validate_decision_timeline_event(event)
     return event
+
+
+def validate_decision_timeline_event(payload: Mapping[str, Any]) -> None:
+    validate_contract_payload(payload, DECISION_TIMELINE_EVENT_SCHEMA)
 
 
 def build_memory_ticket_decision_timeline(
@@ -81,7 +88,9 @@ def build_memory_ticket_decision_timeline(
 
 
 __all__ = [
+    "DECISION_TIMELINE_EVENT_SCHEMA",
     "SCHEMA_VERSION",
     "build_decision_timeline_event",
     "build_memory_ticket_decision_timeline",
+    "validate_decision_timeline_event",
 ]

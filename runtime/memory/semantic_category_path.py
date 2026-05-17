@@ -3,8 +3,11 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping, Sequence
 
+from runtime.common.contract_validation import validate_contract_payload
+
 
 SCHEMA_VERSION = "semantic_category_path.v1"
+SEMANTIC_CATEGORY_PATH_SCHEMA = "semantic_category_path.v1.schema.json"
 SAFE_SEGMENT_RE = re.compile(r"[^\w-]+", re.UNICODE)
 
 
@@ -68,14 +71,17 @@ def build_semantic_category_path(
     basis_refs: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     segments = infer_semantic_category_segments(payload, topic_title=topic_title)
-    return {
+    basis = [str(item) for item in (basis_refs or []) if str(item).strip()]
+    if not basis:
+        basis = [str(decision_ref or "category-basis://openyggdrasil/inferred-from-topic")]
+    result = {
         "schema_version": SCHEMA_VERSION,
         "segments": segments,
         "path": "/".join(segments),
         "category_authority": {
             "owner": authority_owner,
             "decision_ref": decision_ref,
-            "basis_refs": [str(item) for item in (basis_refs or []) if str(item).strip()],
+            "basis_refs": basis,
         },
         "physical_storage_is_not_semantic_category": True,
         "reason_codes": [
@@ -83,6 +89,12 @@ def build_semantic_category_path(
             f"category_authority:{authority_owner}",
         ],
     }
+    validate_semantic_category_path(result)
+    return result
+
+
+def validate_semantic_category_path(payload: Mapping[str, Any]) -> None:
+    validate_contract_payload(payload, SEMANTIC_CATEGORY_PATH_SCHEMA)
 
 
 def category_page_relative_path(category_path: Mapping[str, Any], *, slug: str) -> str:
@@ -96,9 +108,11 @@ def category_page_relative_path(category_path: Mapping[str, Any], *, slug: str) 
 
 
 __all__ = [
+    "SEMANTIC_CATEGORY_PATH_SCHEMA",
     "SCHEMA_VERSION",
     "build_semantic_category_path",
     "category_page_relative_path",
     "infer_semantic_category_segments",
     "normalize_category_segment",
+    "validate_semantic_category_path",
 ]

@@ -4,9 +4,11 @@ import re
 import uuid
 from typing import Any, Mapping, Sequence
 
+from runtime.common.contract_validation import validate_contract_payload
 from harness_common import utc_now_iso
 
 
+AMUNDSEN_CATEGORY_JUDGMENT_SCHEMA = "amundsen_category_judgment.v1.schema.json"
 SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
 
 UNSAFE_REASON_CODES = {
@@ -113,6 +115,7 @@ def validate_amundsen_category_judgment(payload: Mapping[str, Any]) -> None:
     basis_refs = _as_string_list(payload.get("basis_refs"))
     if any(not _is_safe_ref(ref) for ref in basis_refs):
         raise ValueError("basis_refs must be safe refs")
+    validate_contract_payload(payload, AMUNDSEN_CATEGORY_JUDGMENT_SCHEMA)
 
 
 def build_amundsen_category_judgment(

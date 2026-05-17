@@ -3,7 +3,7 @@
   "$id": "https://openyggdrasil.local/contracts/retrieval_candidate_set.v1.schema.json",
   "title": "openyggdrasil Retrieval Candidate Set v1",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "required": [
     "schema_version",
     "query_text",
@@ -59,8 +59,19 @@
         }
       }
     },
+    "domain_hints": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
     "merge_strategy": {
-      "const": "dedupe_by_ring_node_source_then_rank"
+      "enum": [
+        "dedupe_by_ring_node_source_then_rank",
+        "dedupe_by_ring_node_source_then_feature_rerank"
+      ]
+    },
+    "reranker_policy": {
+      "type": "object"
     },
     "candidates": {
       "type": "array",
