@@ -1,0 +1,84 @@
+{
+  "failed_count": 0,
+  "hard_nonclaims": [
+    "sample_pressure_test_is_not_full_live_provider_ux",
+    "sample_pressure_test_is_not_domain_semantic_review",
+    "sample_pressure_test_only_proves_schema_file_validation_paths_are_callable"
+  ],
+  "passed_count": 14,
+  "rows": [
+    {
+      "schema": "amundsen_category_judgment.v1.schema.json",
+      "schema_version": "amundsen_category_judgment.v1",
+      "status": "pass"
+    },
+    {
+      "schema": "community_growth_event.v1.schema.json",
+      "schema_version": "community_growth_event.v1",
+      "status": "pass"
+    },
+    {
+      "schema": "decision_timeline_event.v1.schema.json",
+      "schema_version": "decision_timeline_event.v1",
+      "status": "pass"
+    },
+    {
+      "schema": "memory_ticket.v1.schema.json",
+      "schema_version": "memory_ticket.v1",
+      "status": "pass"
+    },
+    {
+      "schema": "provenance_ring_node.v1.schema.json",
+      "schema_version": "provenance_ring_node.v1",
+      "status": "pass"
+    },
+    {
+      "schema": "provider_skill_receipt_consumer.v1.schema.json",
+      "schema_version": "provider_skill_receipt_consumer.v1",
+      "status": "pass"
+    },
+    {
+      "schema": "provider_source_event.v1.schema.json",
+      "schema_version": "provider_source_event.v1",
+      "status": "pass"
+    },
+    {
+      "schema": "retrieval_candidate.v1.schema.json",
+      "schema_version": "retrieval_candidate.v1",
+      "status": "pass"
+    },
+    {
+      "schema": "retrieval_candidate_set.v1.schema.json",
+      "schema_version": "retrieval_candidate_set.v1",
+      "status": "pass"
+    },
+    {
+      "schema": "semantic_category_path.v1.schema.json",
+      "schema_version": "semantic_category_path.v1",
+      "status": "pass"
+    },
+    {
+      "schema": "skill_metadata_reader.v1.schema.json",
+      "schema_version": "skill_metadata_reader.v1",
+      "status": "pass"
+    },
+    {
+      "schema": "subagent_persona_manifest.v1.schema.json",
+      "schema_version": "subagent_persona_manifest.v1",
+      "status": "pass"
+    },
+    {
+      "schema": "tree_ring_snapshot.v1.schema.json",
+      "schema_version": "tree_ring_snapshot.v1",
+      "status": "pass"
+    },
+    {
+      "schema": "wiki_continent_page.v1.schema.json",
+      "schema_version": "wiki_continent_page.v1",
+      "status": "pass"
+    }
+  ],
+  "schema_version": "contract_pressure_test.v1",
+  "status": "pass",
+  "tested_count": 14
+}

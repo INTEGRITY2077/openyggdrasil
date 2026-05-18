@@ -46,6 +46,19 @@ from .engine import (
     validate_provider_subagent_ptc_same_run_typed_ref_source,
     validate_query_adaptive_pathfinder_plan,
 )
+from .tool_search_supervisor import (
+    build_memory_ticket_tst_supervisor,
+    build_memory_finder_tst_result,
+    load_tst_capability_catalog,
+    run_memory_saver_tst,
+)
+from .worker_program_contracts import (
+    build_observation_delta_gate,
+    build_ptc_program_observation,
+    build_tst_capability_allowlist,
+    build_worker_authored_ptc_program,
+    review_ptc_program,
+)
 
 __all__ = [
     "CLAIM_SCOPE",
@@ -83,4 +96,13 @@ __all__ = [
     "validate_provider_subagent_ptc_runner_source_boundary",
     "validate_provider_subagent_ptc_same_run_typed_ref_source",
     "validate_query_adaptive_pathfinder_plan",
+    "build_memory_ticket_tst_supervisor",
+    "build_memory_finder_tst_result",
+    "load_tst_capability_catalog",
+    "run_memory_saver_tst",
+    "build_observation_delta_gate",
+    "build_ptc_program_observation",
+    "build_tst_capability_allowlist",
+    "build_worker_authored_ptc_program",
+    "review_ptc_program",
 ]

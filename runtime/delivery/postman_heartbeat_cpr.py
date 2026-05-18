@@ -3,33 +3,29 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
+from urllib.parse import quote
 
 from attachments.provider_inbox import inject_session_packet, read_session_inbox
-from delivery.consumer_receipt_ingress import build_typed_unavailable, validate_typed_unavailable
+from delivery.typed_unavailable_result import build_typed_unavailable, validate_typed_unavailable
+from runtime.common.portable_ref import looks_like_local_path
+from runtime.common.role_aliases import (
+    LIVE_GROUP_ROLE_ALIASES,
+    LIVE_GROUP_ROLE_COMMAND_TARGETS,
+    LIVE_GROUP_ROLE_DISPLAY_NAMES,
+    scrub_live_group_legacy_alias,
+)
 from harness_common import utc_now_iso
 
 
 POSTMAN_HEARTBEAT_CPR_SCHEMA_VERSION = "postman_heartbeat_cpr.v1"
 POSTMAN_HEARTBEAT_CPR_DELIVERY_SCHEMA_VERSION = "postman_heartbeat_cpr_inbox_delivery.v1"
-POSTMAN_CPR_PACKET_TYPE = "operator_brief"
-REQUIRED_LIVE_GROUP_ROLES = ("provider", "op1", "op2")
-REQUIRED_ENGINE_COMPONENTS = ("tmux", "watcher", "mailbox", "receipt_registry")
+POSTMAN_CPR_PACKET_TYPE = "worker_brief"
+REQUIRED_LIVE_GROUP_ROLES = ("provider", "ms1", "mf1")
+REQUIRED_ENGINE_COMPONENTS = ("tmux", "postman_helper", "mailbox", "receipt_registry")
 READY_STATES = {"active", "available", "healthy", "ok", "present", "ready", "running"}
-ROLE_ALIASES = {
-    "provider": ("provider", "pro1", "ygg-pro1", "hermes"),
-    "op1": ("op1", "ms1", "memory_saver_1", "producer", "ygg-op1", "ygg-ms1"),
-    "op2": ("op2", "mf1", "memory_finder_1", "consumer", "ygg-op2", "ygg-mf1"),
-}
-ROLE_DISPLAY_NAMES = {
-    "provider": "Provider Lane",
-    "op1": "MS1 Memory Saver",
-    "op2": "MF1 Memory Finder",
-}
-ROLE_COMMAND_TARGETS = {
-    "provider": "ygg pro1",
-    "op1": "ygg ms1",
-    "op2": "ygg mf1",
-}
+ROLE_ALIASES = LIVE_GROUP_ROLE_ALIASES
+ROLE_DISPLAY_NAMES = LIVE_GROUP_ROLE_DISPLAY_NAMES
+ROLE_COMMAND_TARGETS = LIVE_GROUP_ROLE_COMMAND_TARGETS
 FORBIDDEN_TEXT_TOKENS = (
     "---\nname:",
     "```",
@@ -38,16 +34,15 @@ FORBIDDEN_TEXT_TOKENS = (
     "raw provider transcript",
     "transcript.txt",
 )
-LOCAL_PATH_RE = re.compile(r"^(?:[A-Za-z]:[\\/]|file://|/[A-Za-z0-9_.-])")
 
 
 POSTMAN_ROLE = {
-    "display_name": "Engine Heartbeat Coordinator",
+    "display_name": "Postman Heartbeat Coordinator",
     "legacy_internal_role_id": "postman",
     "owns": [
         "heartbeat_cpr",
         "engine_bootstrap_presence_check",
-        "watcher_mailbox_receipt_health_surface",
+        "postman_helper_mailbox_receipt_health_surface",
         "delivery_receipt_correlation",
         "provider_inbox_handoff",
     ],
@@ -145,6 +140,16 @@ def _safe_detail(record: Any, allowed_keys: Sequence[str]) -> dict[str, Any]:
     return detail
 
 
+def _surface_safe_detail(role: str, record: Any, allowed_keys: Sequence[str]) -> dict[str, Any]:
+    detail = _safe_detail(record, allowed_keys)
+    for key in ("session_name", "target"):
+        value = detail.get(key)
+        if not isinstance(value, str):
+            continue
+        detail[key] = scrub_live_group_legacy_alias(role, value)
+    return detail
+
+
 def _live_role_record(live_group: Mapping[str, Any], role: str) -> Any:
     for alias in ROLE_ALIASES[role]:
         if alias in live_group:
@@ -163,7 +168,7 @@ def _live_group_report(live_group: Mapping[str, Any]) -> tuple[dict[str, Any], l
             "command_target": ROLE_COMMAND_TARGETS[role],
             "ready": ready,
             "status": status,
-            "detail": _safe_detail(record, ("session_name", "pane_id", "target", "evidence_ref")),
+            "detail": _surface_safe_detail(role, record, ("session_name", "pane_id", "target", "evidence_ref")),
         }
         if not ready:
             missing.append(f"live_group_{role}")
@@ -178,12 +183,12 @@ def _component_record(
     component: str,
     *,
     engine_status: Mapping[str, Any],
-    watcher_status: Mapping[str, Any] | None,
+    postman_helper_status: Mapping[str, Any] | None,
     mailbox_status: Mapping[str, Any] | None,
     receipt_registry: Mapping[str, Any] | None,
 ) -> Any:
-    if component == "watcher" and watcher_status is not None:
-        return watcher_status
+    if component == "postman_helper" and postman_helper_status is not None:
+        return postman_helper_status
     if component == "mailbox" and mailbox_status is not None:
         return mailbox_status
     if component == "receipt_registry" and receipt_registry is not None:
@@ -194,7 +199,7 @@ def _component_record(
 def _engine_bootstrap_report(
     *,
     engine_status: Mapping[str, Any] | None,
-    watcher_status: Mapping[str, Any] | None,
+    postman_helper_status: Mapping[str, Any] | None,
     mailbox_status: Mapping[str, Any] | None,
     receipt_registry: Mapping[str, Any] | None,
 ) -> tuple[dict[str, Any], list[str]]:
@@ -205,7 +210,7 @@ def _engine_bootstrap_report(
         record = _component_record(
             component,
             engine_status=status_source,
-            watcher_status=watcher_status,
+            postman_helper_status=postman_helper_status,
             mailbox_status=mailbox_status,
             receipt_registry=receipt_registry,
         )
@@ -231,18 +236,47 @@ def _engine_bootstrap_report(
 def _safe_source_paths(values: Iterable[Any]) -> list[str]:
     source_paths: list[str] = []
     for value in values:
+        if isinstance(value, Mapping):
+            path_text = _clean_string(value.get("path"), max_length=512).replace("\\", "/")
+            lines = _clean_string(value.get("lines"), max_length=80)
+            match = re.search(r"/\.yggdrasil/sessions/([^/]+)/(receipts|query_receipts|work_history)\.jsonl$", path_text)
+            if match:
+                suffix = f"#L{lines}" if lines else ""
+                source_paths.append(f"worker-ledger://{match.group(1)}/{match.group(2)}.jsonl{suffix}")
+                continue
         text = _clean_string(value, max_length=512).replace("\\", "/")
         if not text:
             continue
-        if LOCAL_PATH_RE.match(text):
+        portable_text = _portable_reference_repo_source_path(text)
+        if portable_text:
+            source_paths.append(portable_text)
+            continue
+        if looks_like_local_path(text):
             raise ValueError("Engine Heartbeat CPR source_paths must be portable relative pointers")
         source_paths.append(text)
     return _non_empty_strings(source_paths, limit=16)
 
 
+def _portable_reference_repo_source_path(text: str) -> str:
+    normalized = str(text or "").strip().replace("\\", "/")
+    if not normalized:
+        return ""
+    match = re.match(
+        r"^(?:[A-Za-z]:)?/?(?:mnt/[A-Za-z]/)?0_PROJECT/0_reference-repo/([^/]+)/(.+?)(?::(\d+))?$",
+        normalized,
+    )
+    if not match:
+        return ""
+    repo, rel, line = match.groups()
+    safe_repo = quote(repo.strip("/"), safe="-._~")
+    safe_rel = "/".join(quote(part, safe="-._~") for part in rel.strip("/").split("/"))
+    suffix = f"#L{line}" if line else ""
+    return f"reference-repo://{safe_repo}/{safe_rel}{suffix}"
+
+
 def _safe_portable_text(value: Any, *, max_length: int = 240) -> str:
     text = _clean_string(value, max_length=max_length).replace("\\", "/")
-    if not text or LOCAL_PATH_RE.match(text):
+    if not text or looks_like_local_path(text):
         return ""
     return text
 
@@ -260,7 +294,22 @@ def _typed_unavailable_from(source: Mapping[str, Any]) -> dict[str, Any] | None:
         return None
     payload = dict(value)
     if payload.get("schema_version") == "typed_unavailable.v1":
-        validate_typed_unavailable(payload)
+        try:
+            validate_typed_unavailable(payload)
+        except Exception:
+            raw_reason = _clean_string(payload.get("reason_code"), max_length=96) or "worker_typed_unavailable"
+            payload = build_typed_unavailable(
+                reason_code="consumer_ingress_blocked",
+                blocked_stage="recall_support_bundle",
+                unavailable_ref=f"typed-unavailable-ref://openyggdrasil/postman-cpr/{raw_reason}",
+                missing_or_rejected_refs=[
+                    {
+                        "ref": f"typed-unavailable-ref://openyggdrasil/postman-cpr/raw/{raw_reason}",
+                        "reason_code": raw_reason,
+                        "rejection_kind": "unresolved",
+                    }
+                ],
+            )
     return payload
 
 
@@ -296,6 +345,65 @@ def _safe_korean_query_expansion(value: Any) -> dict[str, Any] | None:
     typed_unavailable = _typed_unavailable_from(value)
     if typed_unavailable:
         metadata["typed_unavailable"] = typed_unavailable
+    return metadata
+
+
+def _safe_node_taxonomy(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    schema_version = _safe_portable_text(value.get("schema_version"))
+    if schema_version != "wiki_node_taxonomy.v1":
+        return None
+    return {
+        "schema_version": schema_version,
+        "continent": _safe_portable_text(value.get("continent")),
+        "physical_continent": _safe_portable_text(value.get("physical_continent")),
+        "node_type": _safe_portable_text(value.get("node_type")),
+        "topography_level": _safe_portable_text(value.get("topography_level")),
+        "community_role": _safe_portable_text(value.get("community_role")),
+        "classification_source": _safe_portable_text(value.get("classification_source")),
+        "taxonomy_status": _safe_portable_text(value.get("taxonomy_status")),
+    }
+
+
+def _safe_recall_digest_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            str(key): _safe_recall_digest_value(item)
+            for key, item in value.items()
+            if str(key)
+            not in {
+                "messages",
+                "raw_messages",
+                "raw_transcript",
+                "session_path",
+                "local_path",
+                "computed_anchor_hash",
+            }
+        }
+    if isinstance(value, list):
+        return [_safe_recall_digest_value(item) for item in value[:12]]
+    if isinstance(value, tuple):
+        return [_safe_recall_digest_value(item) for item in list(value)[:12]]
+    if isinstance(value, str):
+        return _safe_portable_text(value, max_length=800)
+    if isinstance(value, (bool, int, float)) or value is None:
+        return value
+    return _safe_portable_text(value, max_length=240)
+
+
+def _safe_recall_digest(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    schema_version = _safe_portable_text(value.get("schema_version"))
+    if schema_version != "recall_digest.v1":
+        return None
+    metadata = _safe_recall_digest_value(value)
+    if not isinstance(metadata, dict):
+        return None
+    metadata["schema_version"] = schema_version
+    metadata["raw_transcript_included"] = False
+    metadata["digest_only"] = True
     return metadata
 
 
@@ -343,7 +451,7 @@ def _support_candidates(receipt: Mapping[str, Any]) -> list[dict[str, Any]]:
     return candidates
 
 
-def _support_score(candidate: Mapping[str, Any]) -> tuple[int, int, int, int]:
+def _support_score(candidate: Mapping[str, Any]) -> tuple[int, int, int, int, int]:
     schema = str(candidate.get("schema_version") or "")
     has_ring = int(
         schema == "ring_support_bundle.v1"
@@ -357,7 +465,9 @@ def _support_score(candidate: Mapping[str, Any]) -> tuple[int, int, int, int]:
         or bool(candidate.get("semantic_edges"))
         or bool(candidate.get("origin_locator"))
     )
-    return has_ring, has_sources, has_facts, has_topology
+    is_typed_unavailable = int(bool(candidate.get("typed_unavailable")))
+    is_answer_usable = int(bool(has_sources and has_facts and not is_typed_unavailable))
+    return is_answer_usable, has_sources, has_facts, has_topology, has_ring
 
 
 def _select_support(receipt: Mapping[str, Any]) -> dict[str, Any]:
@@ -378,13 +488,14 @@ def _support_fact_texts(support: Mapping[str, Any], receipt: Mapping[str, Any]) 
     return _non_empty_strings(origin_facts, limit=12)
 
 
-def _support_metadata(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
-    receipt = dict(op2_receipt or {})
+def _support_metadata(mf1_receipt: Mapping[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
+    receipt = dict(mf1_receipt or {})
     support = _select_support(receipt)
     typed_unavailable = _typed_unavailable_from(support) or _typed_unavailable_from(receipt)
     facts = _support_fact_texts(support, receipt)
     source_paths = _safe_source_paths(support.get("source_paths") or receipt.get("source_paths") or ())
     support_status = "available" if source_paths and facts else "typed_unavailable" if typed_unavailable else "missing"
+    node_taxonomy = _safe_node_taxonomy(support.get("node_taxonomy"))
     metadata = {
         "status": support_status,
         "support_schema_version": _first_text(support, ("schema_version",)),
@@ -392,12 +503,18 @@ def _support_metadata(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, 
         "source_paths": source_paths,
         "source_ref": _first_text(support, ("source_ref", "support_bundle_ref", "canonical_note")),
         "community_id": _first_text(support, ("community_id", "ring_id", "topic_id")),
+        "node_taxonomy": node_taxonomy,
+        "continent": _first_text(support, ("continent",)) or (node_taxonomy or {}).get("continent"),
+        "node_type": _first_text(support, ("node_type",)) or (node_taxonomy or {}).get("node_type"),
+        "topography_level": _first_text(support, ("topography_level",)) or (node_taxonomy or {}).get("topography_level"),
+        "community_role": _first_text(support, ("community_role",)) or (node_taxonomy or {}).get("community_role"),
         "currentness": _first_text(support, ("currentness", "current_authority", "lifecycle_state")),
         "topic_key": _first_text(support, ("topic_key",)),
         "ring_id": _first_text(support, ("ring_id",)),
         "origin_locator": _first_text(support, ("origin_locator",)),
         "provider_session_id": _first_text(support, ("provider_session_id",)),
         "message_index_range": support.get("message_index_range") if isinstance(support.get("message_index_range"), Mapping) else None,
+        "source_line_range": support.get("source_line_range") if isinstance(support.get("source_line_range"), Mapping) else None,
         "anchor_hash_present": bool(support.get("anchor_hash")),
         "commit_watermark": _first_text(support, ("commit_watermark",)),
         "origin_claims_count": len(support.get("origin_claims") or []) if isinstance(support.get("origin_claims"), list) else 0,
@@ -409,23 +526,26 @@ def _support_metadata(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, 
     korean_query_expansion = _korean_query_expansion_from(receipt, support)
     if korean_query_expansion:
         metadata["korean_query_expansion"] = korean_query_expansion
+    recall_digest = _safe_recall_digest(support.get("recall_digest"))
+    if recall_digest:
+        metadata["recall_digest"] = recall_digest
     missing: list[str] = []
     if not receipt:
-        missing.append("op2_receipt")
+        missing.append("mf1_receipt")
     elif support_status == "missing":
-        missing.append("op2_support_metadata")
+        missing.append("mf1_support_metadata")
     return metadata, missing
 
 
-def _mailbox_correlation(op2_receipt: Mapping[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
-    receipt = dict(op2_receipt or {})
+def _mailbox_correlation(mf1_receipt: Mapping[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
+    receipt = dict(mf1_receipt or {})
     correlation = {
         "mail_id": _first_text(receipt, ("mail_id", "query_mail_id", "source_mail_id", "message_id", "in_reply_to")),
         "delivery_id": _first_text(receipt, ("delivery_id", "postman_delivery_id")),
-        "receipt_id": _first_text(receipt, ("receipt_id", "op2_receipt_id", "consumer_receipt_id")),
-        "op2_query_receipt_id": _first_text(receipt, ("op2_query_receipt_id", "query_receipt_id", "receipt_id")),
+        "receipt_id": _first_text(receipt, ("receipt_id", "mf1_receipt_id", "consumer_receipt_id")),
+        "mf1_query_receipt_id": _first_text(receipt, ("mf1_query_receipt_id", "query_receipt_id", "receipt_id")),
     }
-    missing = [key for key, value in correlation.items() if not value]
+    missing = [key for key, value in correlation.items() if not value and key != "delivery_id"]
     return correlation, [f"correlation_{key}" for key in missing]
 
 
@@ -451,8 +571,9 @@ def _unavailable_for_missing(missing_refs: Sequence[str], *, created_at: str) ->
 def build_postman_heartbeat_cpr_payload(
     *,
     live_group: Mapping[str, Any],
-    op2_receipt: Mapping[str, Any] | None,
+    mf1_receipt: Mapping[str, Any] | None,
     engine_status: Mapping[str, Any] | None = None,
+    postman_helper_status: Mapping[str, Any] | None = None,
     watcher_status: Mapping[str, Any] | None = None,
     mailbox_status: Mapping[str, Any] | None = None,
     receipt_registry: Mapping[str, Any] | None = None,
@@ -460,21 +581,22 @@ def build_postman_heartbeat_cpr_payload(
 ) -> dict[str, Any]:
     """Build the Engine Heartbeat CPR handoff for provider current-dialogue use.
 
-    The Engine Heartbeat Coordinator owns liveness, delivery, Result Receipt,
+    The Postman Heartbeat Coordinator owns liveness, delivery, Result Receipt,
     and inbox handoff surfaces. It does not validate the semantic quality of
     MS1/MF1 memory content.
     """
 
     generated_at = created_at or utc_now_iso()
+    helper_status = postman_helper_status if postman_helper_status is not None else watcher_status
     live_report, live_missing = _live_group_report(dict(live_group))
     engine_report, engine_missing = _engine_bootstrap_report(
         engine_status=engine_status,
-        watcher_status=watcher_status,
+        postman_helper_status=helper_status,
         mailbox_status=mailbox_status,
         receipt_registry=receipt_registry,
     )
-    correlation, correlation_missing = _mailbox_correlation(op2_receipt)
-    support_metadata, support_missing = _support_metadata(op2_receipt)
+    correlation, correlation_missing = _mailbox_correlation(mf1_receipt)
+    support_metadata, support_missing = _support_metadata(mf1_receipt)
     missing = live_missing + engine_missing + correlation_missing + support_missing
     typed_unavailable = _unavailable_for_missing(missing, created_at=generated_at) if missing else None
     status = "typed_unavailable" if typed_unavailable else "ready"
@@ -491,22 +613,18 @@ def build_postman_heartbeat_cpr_payload(
         "provider_role": "current_dialogue_judgment_owner",
         "display_roles": {
             "provider": ROLE_DISPLAY_NAMES["provider"],
-            "ms1": ROLE_DISPLAY_NAMES["op1"],
-            "mf1": ROLE_DISPLAY_NAMES["op2"],
+            "ms1": ROLE_DISPLAY_NAMES["ms1"],
+            "mf1": ROLE_DISPLAY_NAMES["mf1"],
             "delivery": POSTMAN_ROLE["display_name"],
         },
         "memory_worker_roles": {
             "ms1": "structured_long_term_memory_saver",
             "mf1": "evidence_backed_memory_finder",
         },
-        "operator_roles": {
-            "op1": "structured_long_term_memory_supplier",
-            "op2": "evidence_backed_evidence_pack_supplier",
-        },
         "live_group": live_report,
         "engine_bootstrap": engine_report,
         "mailbox_correlation": correlation,
-        "op2_support_metadata": support_metadata,
+        "mf1_support_metadata": support_metadata,
         "provider_inbox_handoff": {
             "handoff_status": handoff_status,
             "packet_type": POSTMAN_CPR_PACKET_TYPE,
@@ -526,8 +644,9 @@ def inject_postman_heartbeat_cpr_to_provider_inbox(
     provider_profile: str,
     provider_session_id: str,
     live_group: Mapping[str, Any],
-    op2_receipt: Mapping[str, Any] | None,
+    mf1_receipt: Mapping[str, Any] | None,
     engine_status: Mapping[str, Any] | None = None,
+    postman_helper_status: Mapping[str, Any] | None = None,
     watcher_status: Mapping[str, Any] | None = None,
     mailbox_status: Mapping[str, Any] | None = None,
     receipt_registry: Mapping[str, Any] | None = None,
@@ -535,8 +654,9 @@ def inject_postman_heartbeat_cpr_to_provider_inbox(
 ) -> dict[str, Any]:
     payload = build_postman_heartbeat_cpr_payload(
         live_group=live_group,
-        op2_receipt=op2_receipt,
+        mf1_receipt=mf1_receipt,
         engine_status=engine_status,
+        postman_helper_status=postman_helper_status,
         watcher_status=watcher_status,
         mailbox_status=mailbox_status,
         receipt_registry=receipt_registry,

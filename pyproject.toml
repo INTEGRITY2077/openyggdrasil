@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openyggdrasil"
+version = "0.1.0"
+description = "Provider-controlled memory production and retrieval runtime."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = [
+    "graphifyy>=0.7.7",
+    "jsonschema>=4.0.0",
+    "pyyaml>=6.0.0",
+    "networkx>=3.0.0",
+    "rank-bm25>=0.2.2",
+    "kiwipiepy>=0.23",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[project.scripts]
+ygg = "runtime.cli.ygg:main"
+
+[tool.setuptools.packages.find]
+include = ["runtime*", "common*"]
+namespaces = true

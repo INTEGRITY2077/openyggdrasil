@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import json
 from pathlib import Path
 from typing import Any, Mapping
@@ -125,7 +126,7 @@ def adapt_graphify_snapshot(
 ) -> dict[str, Any]:
     try:
         summary = read_graphify_summary(summary_path)
-    except Exception as exc:
+    except RECOVERABLE_RUNTIME_ERRORS as exc:
         return build_graphify_snapshot_failure_payload(
             graph_path=graph_path,
             summary_path=summary_path,

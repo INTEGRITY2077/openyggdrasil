@@ -16,5 +16,5 @@ def register(registry: dict, *, vault_root, anchor_evaluator=None) -> None:
         required_inputs={"query_text": "string"},
         read_only=True,
         output_kind="pathfinder_bundle",
-        handler=build_unanchored_bundle,
+        handler=assemble_unanchored_bundle,
     )

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/worker_structured_receipt.v1.schema.json",
+  "title": "Worker Structured Receipt v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "created_at",
+    "recorded_by",
+    "in_reply_to",
+    "mail_id",
+    "work_order_id",
+    "worker_role",
+    "status",
+    "reason_code",
+    "public_summary",
+    "produced_count",
+    "nodes",
+    "node_ids",
+    "support_facts",
+    "source_paths",
+    "observed_missing_evidence",
+    "evidence_gate",
+    "retry_count",
+    "acceptance_gate",
+    "hard_nonclaims"
+  ],
+  "properties": {
+    "schema_version": {"const": "worker_structured_receipt.v1"},
+    "receipt_id": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "minLength": 1},
+    "recorded_by": {"type": "string", "minLength": 1},
+    "in_reply_to": {"type": "string", "pattern": "^work-.+"},
+    "mail_id": {"type": "string", "minLength": 1},
+    "work_order_id": {"type": "string", "pattern": "^work-.+"},
+    "worker_role": {"enum": ["memory_saver", "memory_finder"]},
+    "status": {"type": "string", "minLength": 1},
+    "reason_code": {"type": "string", "minLength": 1},
+    "public_summary": {"type": "string"},
+    "produced_count": {"type": "integer", "minimum": 0},
+    "nodes": {"type": "array", "items": {"type": "string"}},
+    "node_ids": {"type": "array", "items": {"type": "string"}},
+    "support_facts": {"type": "array", "items": {"type": "string"}},
+    "source_paths": {"type": "array", "items": {"type": "string"}},
+    "observed_missing_evidence": {"type": "array", "items": {"type": "string"}},
+    "evidence_gate": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["schema_version", "satisfied", "missing_evidence"],
+      "properties": {
+        "schema_version": {"const": "worker_semantic_success_gate.v1"},
+        "satisfied": {"type": "boolean"},
+        "missing_evidence": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "retry_count": {"type": "integer", "minimum": 0},
+    "acceptance_gate": {"type": ["string", "null"]},
+    "hard_nonclaims": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "minItems": 1
+    }
+  }
+}

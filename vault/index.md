@@ -2,7 +2,7 @@
 
 Content catalog for the public openyggdrasil vault.
 
-Last updated: 2026-04-26
+Last updated: 2026-05-13
 
 ## Root Docs
 
@@ -21,12 +21,6 @@ Last updated: 2026-04-26
 
 - [[queries/read-schema-md-index-md-and-recent-log-md-from-the-canonical-wiki]] -
   public query contract example.
-- [[queries/what-does-automatic-session-discovery-do-in-the-external-harness-answer-in-exactly-two-concise-s]] -
-  session discovery summary.
-- [[queries/what-is-the-role-of-an-external-single-writer-harness-in-the-hermes-architecture-answer-in-exact]] -
-  single-writer harness boundary summary.
-- [[queries/without-using-tools-answer-in-exactly-two-concise-sentences-why-should-the-external-harness-own-]] -
-  external harness ownership rationale.
 
 ## Meta
 

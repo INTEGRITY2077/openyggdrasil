@@ -68,14 +68,6 @@ def classify_provider_tooling_path(path: str) -> ProviderToolingDecision:
             release_smoke_policy="do_not_execute_as_openyggdrasil_runtime",
             next_action=None,
         )
-    if normalized.startswith("providers/hermes/projects/harness/"):
-        return ProviderToolingDecision(
-            path=normalized,
-            classification="provider_harness_reference_tooling",
-            runtime_status=NON_RUNTIME_STATUS,
-            release_smoke_policy="do_not_treat_provider_harness_as_deploy_runtime",
-            next_action=None,
-        )
     if normalized.startswith("common/graphify/"):
         return ProviderToolingDecision(
             path=normalized,

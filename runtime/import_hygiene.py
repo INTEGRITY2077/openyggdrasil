@@ -12,16 +12,13 @@ MIGRATION_STRATEGY = "bounded_no_broad_package_churn"
 RUNTIME_ENTRYPOINT_PATHS = {
     "runtime/attachments/repair_attachment.py",
     "runtime/attachments/validate_attachment.py",
-    "runtime/runner/hermes_live_replay_regression.py",
-    "runtime/runner/real_ux_regression.py",
-    "runtime/runner/real_ux_regression_summary.py",
 }
 
 
 MIGRATION_PLAN = (
     "keep runtime import smoke green before each import migration",
     "retain top-level compatibility shims until provider imports migrate",
-    "move runtime entrypoints toward package/module invocation in bounded follow-up commits",
+    "keep public runtime entrypoints limited to deployment surfaces",
     "keep test bootstraps local until pytest path configuration is introduced once",
     "classify provider harness and provider skill references before touching vendored/provider surfaces",
 )

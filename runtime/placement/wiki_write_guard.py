@@ -6,12 +6,8 @@ from hashlib import sha256
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from runtime.common.portable_ref import looks_like_local_path
 from harness_common import utc_now_iso
-
-
-LOCAL_PATH_PATTERN = re.compile(
-    r"(?i)(?:\b[A-Za-z]:[\\/]|\\\\|file://|/(?:Users|home|mnt|tmp|var|etc)/)"
-)
 
 
 def stable_content_hash(text: str) -> str:
@@ -22,7 +18,7 @@ def normalize_wiki_relative_path(value: str) -> str:
     raw = str(value or "").strip()
     if not raw:
         raise ValueError("target_relative_path is required")
-    if LOCAL_PATH_PATTERN.search(raw):
+    if looks_like_local_path(raw):
         raise ValueError("target_relative_path must not contain a local filesystem path")
     normalized = raw.replace("\\", "/")
     path = PurePosixPath(normalized)

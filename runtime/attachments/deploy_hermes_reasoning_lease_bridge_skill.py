@@ -1,19 +1,47 @@
 from __future__ import annotations
 
+import os
+import sys
+
+
+def _bootstrap_runtime_package_for_direct_script() -> None:
+    if __package__:
+        return
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    runtime_dir = script_dir
+    while os.path.basename(runtime_dir) != "runtime":
+        parent = os.path.dirname(runtime_dir)
+        if parent == runtime_dir:
+            return
+        runtime_dir = parent
+    project_root = os.path.dirname(runtime_dir)
+    normalized_runtime_dir = os.path.normcase(os.path.abspath(runtime_dir))
+    normalized_project_root = os.path.normcase(os.path.abspath(project_root))
+    sys.path[:] = [
+        entry
+        for entry in sys.path
+        if os.path.normcase(os.path.abspath(entry or os.curdir)) != normalized_runtime_dir
+    ]
+    if all(
+        os.path.normcase(os.path.abspath(entry or os.curdir)) != normalized_project_root
+        for entry in sys.path
+    ):
+        sys.path[:0] = [project_root]
+
+
+_bootstrap_runtime_package_for_direct_script()
+
 import argparse
 import hashlib
 import json
 import re
-import sys
 import uuid
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-RUNTIME_ROOT = Path(__file__).resolve().parents[1]
-if str(RUNTIME_ROOT) not in sys.path:
-    sys.path.insert(0, str(RUNTIME_ROOT))
-
-from harness_common import utc_now_iso
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
+from runtime.common.portable_ref import looks_like_local_path
+from runtime.harness_common import utc_now_iso
 
 
 DEFAULT_SKILL_NAME = "openyggdrasil-reasoning-lease-bridge"
@@ -58,13 +86,12 @@ STATUS_REJECT_UNSAFE = "reject_unsafe_provider_skill_binding"
 
 SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]{1,96}$")
 SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^\s\\]+$")
-LOCAL_PATH_RE = re.compile(r"(^[A-Za-z]:|\\\\|/Users/|/home/|/tmp/|file://)", re.IGNORECASE)
 UNSAFE_REF_FRAGMENTS = (
     ".env",
     ".skill.md",
     "auth.json",
     "credential",
-    "openyggdrasil-private-dev",
+    "local-private-workspace",
     "private",
     "profile",
     "prompt",
@@ -125,7 +152,7 @@ def _is_safe_ref(value: str) -> bool:
     stripped = str(value).strip()
     if not SAFE_REF_RE.match(stripped):
         return False
-    if LOCAL_PATH_RE.search(stripped):
+    if looks_like_local_path(stripped):
         return False
     lowered = stripped.lower()
     return not any(fragment in lowered for fragment in UNSAFE_REF_FRAGMENTS)
@@ -181,7 +208,7 @@ def _unsafe_name_reason(field: str, value: str | None) -> str | None:
 
 def _unsafe_workspace_reason(workspace_root: Path) -> str | None:
     normalized = str(workspace_root.resolve(strict=False)).replace("\\", "/").lower()
-    if "openyggdrasil-private-dev" in normalized:
+    if "local-private-workspace" in normalized:
         return "private_workspace_root_not_allowed"
     if not workspace_root.exists():
         return "workspace_root_absent"
@@ -201,7 +228,7 @@ def _unsafe_skill_dir_reason(profile_skill_dir: Path | None) -> str | None:
     if profile_skill_dir is None:
         return "hermes_profile_skill_dir_absent"
     normalized = str(profile_skill_dir.resolve(strict=False)).replace("\\", "/").lower()
-    if "openyggdrasil-private-dev" in normalized:
+    if "local-private-workspace" in normalized:
         return "private_profile_skill_dir_not_allowed"
     if not profile_skill_dir.exists():
         return "hermes_profile_skill_dir_absent"
@@ -214,7 +241,7 @@ def _unsafe_skill_dir_parent_reason(profile_skill_dir: Path | None) -> str | Non
     if profile_skill_dir is None:
         return "hermes_profile_skill_dir_absent"
     normalized = str(profile_skill_dir.resolve(strict=False)).replace("\\", "/").lower()
-    if "openyggdrasil-private-dev" in normalized:
+    if "local-private-workspace" in normalized:
         return "private_profile_skill_dir_not_allowed"
     if profile_skill_dir.exists() and not profile_skill_dir.is_dir():
         return "hermes_profile_skill_dir_not_directory"
@@ -979,7 +1006,7 @@ def warm_start_check_hermes_reasoning_lease_bridge_skill(
         skill_markdown = skill_path.read_text(encoding="utf-8")
         environment_contract = _read_json_mapping(environment_path)
         binding_artifact = _read_json_mapping(binding_path)
-    except Exception as exc:  # noqa: BLE001
+    except RECOVERABLE_RUNTIME_ERRORS as exc:  # noqa: BLE001
         result = _result_base(
             status=STATUS_TYPED_UNAVAILABLE,
             package_artifact=package_artifact,
@@ -1012,7 +1039,7 @@ def warm_start_check_hermes_reasoning_lease_bridge_skill(
         ("binding_artifact", binding_artifact),
     ):
         encoded = json.dumps(artifact, ensure_ascii=False, sort_keys=True)
-        if LOCAL_PATH_RE.search(encoded):
+        if looks_like_local_path(encoded):
             unsafe_reasons.append(f"{artifact_name}_contains_local_path_material")
         if _contains_unsafe_string_value(artifact):
             unsafe_reasons.append(f"{artifact_name}_contains_unsafe_fragment")
@@ -1130,7 +1157,7 @@ def validate_hermes_reasoning_lease_bridge_deploy_result(result: Mapping[str, An
         artifact = result.get(artifact_key)
         if isinstance(artifact, Mapping):
             for value in artifact.values():
-                if isinstance(value, str) and LOCAL_PATH_RE.search(value):
+                if isinstance(value, str) and looks_like_local_path(value):
                     raise ValueError(f"{artifact_key} contains local path material")
             for key in (
                 "provider_skill_ref",

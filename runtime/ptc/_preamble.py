@@ -1,11 +1,40 @@
-# PTC Preamble — LLM code injection with affordance-based tool descriptions
+# PTC Preamble - LLM code injection with affordance-based tool descriptions
 # This is injected into LLM sandbox code by stub_generator.py
 
-PREAMBLE = """import socket, json, os, sys
+from __future__ import annotations
+
+from runtime.ptc.preamble_facades import (
+    PATHFINDER_FACADE_IMPLEMENTATION_MAP,
+    PATHFINDER_FACADE_METHOD_MAP,
+    PATHFINDER_IMPLEMENTATION_MODULE,
+    render_pathfinder_preamble_facades,
+)
+
+
+def pathfinder_facade_implementation_map() -> dict[str, str]:
+    return dict(PATHFINDER_FACADE_IMPLEMENTATION_MAP)
+
+
+def pathfinder_facade_method_map() -> dict[str, str]:
+    return dict(PATHFINDER_FACADE_METHOD_MAP)
+
+
+_PREAMBLE_PREFIX = r"""import socket, json, os, sys
 from pathlib import Path
 
 _PTC_SOCK = "/tmp/ptc.sock"
 _call_id = 0
+_PTC_RECOVERABLE_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    RuntimeError,
+    ImportError,
+    TimeoutError,
+    UnicodeError,
+    json.JSONDecodeError,
+)
 
 
 def _ptc_call(method, **kwargs):
@@ -16,9 +45,9 @@ def _ptc_call(method, **kwargs):
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.settimeout(30)
         sock.connect(_PTC_SOCK)
-        sock.sendall(request.encode("utf-8") + b"\\n")
+        sock.sendall(request.encode("utf-8") + b"\n")
         buf = b""
-        while b"\\n" not in buf:
+        while b"\n" not in buf:
             chunk = sock.recv(4096)
             if not chunk: break
             buf += chunk
@@ -28,7 +57,7 @@ def _ptc_call(method, **kwargs):
         return response.get("result", {})
     except FileNotFoundError:
         return {"error": "socket_unavailable"}
-    except Exception as e:
+    except _PTC_RECOVERABLE_ERRORS as e:
         return {"error": str(e)}
 
 # ═══════════════════════════════════════════════════════════
@@ -58,63 +87,9 @@ def search_vault(keyword):
     Do NOT use when: you need semantic or graph-based search -> use deep_search.'''
     r = _ptc_call("search_vault_by_keyword", keyword=keyword)
     return r.get("nodes", [])
+"""
 
-# === PROVENANCE TRACE ===
-
-def locate_region(query_text):
-    '''Discover which Vault region the query belongs to.
-    Use this when: starting a new provenance trace.
-    Do NOT use when: you already have a topic_id -> skip to read_source_paths.
-    If ambiguous: always call this first before select_topic_anchor.'''
-    return _ptc_call("locate_region", query_text=query_text)
-
-def select_topic_anchor(query_text, region_id=None):
-    '''Connect query to an existing Vault topic.
-    Use this when: you have a region and need to find the specific topic.
-    Do NOT use when: you already know the topic_id.
-    If ambiguous: call locate_region first, then this.'''
-    return _ptc_call("select_topic_anchor", query_text=query_text, region_id=region_id)
-
-def read_origin_claims(topic_id, limit=1):
-    '''Read the original claims that established this topic.
-    Use this when: you need the earliest provenance records.
-    Do NOT use when: you only need recent updates -> use read_recent_claims.
-    Can be called in PARALLEL with read_recent_claims (no dependency).'''
-    return _ptc_call("read_origin_claims", topic_id=topic_id, limit=limit)
-
-def read_recent_claims(topic_id, limit=3):
-    '''Read the most recent claims/updates for this topic.
-    Use this when: you need to see how knowledge evolved.
-    Do NOT use when: you only need origin -> use read_origin_claims.
-    Can be called in PARALLEL with read_origin_claims (no dependency).'''
-    return _ptc_call("read_recent_claims", topic_id=topic_id, limit=limit)
-
-def collect_claim_ids(origin_rows=None, recent_rows=None):
-    '''Collect unique claim IDs from origin and recent rows.
-    Use this when: you have both origin and recent rows and need deduped IDs.'''
-    return _ptc_call("collect_claim_ids", origin_rows=origin_rows or [], recent_rows=recent_rows or [])
-
-def read_source_paths(topic_id, claim_ids=None):
-    '''Get absolute source file paths for given claim IDs.
-    Use this when: you need to trace where knowledge came from.
-    Do NOT use when: you only need claim content -> use read_origin_claims.'''
-    return _ptc_call("read_source_paths", topic_id=topic_id, claim_ids=claim_ids)
-
-def assemble_support_bundle(query_text, anchor, origin_rows=None, recent_rows=None, source_paths=None):
-    '''Assemble a bounded support bundle with full provenance.
-    Use this when: you have anchor + claims + sources and need final output.
-    This should be the LAST provenance call before result().'''
-    return _ptc_call("assemble_support_bundle", query_text=query_text, anchor=anchor,
-                     origin_rows=origin_rows or [], recent_rows=recent_rows or [],
-                     source_paths=source_paths or [])
-
-def assemble_unanchored_bundle(query_text):
-    '''Return an honest "nothing found" bundle.
-    Use this when: select_topic_anchor returned anchor_type="none".
-    Do NOT use when: you have a valid anchor -> use assemble_support_bundle.'''
-    return _ptc_call("assemble_unanchored_bundle", query_text=query_text)
-
-# === PRODUCTION ===
+_PREAMBLE_SUFFIX = r"""# === PRODUCTION ===
 
 def find_similar(subject, limit=10):
     '''Find nodes similar to given subject.
@@ -207,3 +182,25 @@ def get_edges():
 
 # === LLM CODE BELOW ===
 """
+
+
+def build_preamble() -> str:
+    return (
+        _PREAMBLE_PREFIX
+        + "\n# === PROVENANCE TRACE ===\n\n"
+        + render_pathfinder_preamble_facades()
+        + "\n\n"
+        + _PREAMBLE_SUFFIX
+    )
+
+
+PREAMBLE = build_preamble()
+
+
+__all__ = [
+    "PATHFINDER_IMPLEMENTATION_MODULE",
+    "PREAMBLE",
+    "build_preamble",
+    "pathfinder_facade_implementation_map",
+    "pathfinder_facade_method_map",
+]

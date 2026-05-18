@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 from pathlib import Path
 import json
 import re
 from typing import Any, Callable, Mapping
 
 from harness_common import DEFAULT_VAULT, utc_now_iso
+from runtime.common.vault_root import to_vault_uri
 from common.map_identity import build_claim_id, build_page_id, build_topic_id
 from provenance.provenance_store import parse_provenance_records, provenance_page_path
 from placement.topic_episode_placement_engine import list_existing_topics
@@ -16,6 +18,9 @@ from retrieval.pathfinder import (
     render_pathfinder_anchor_via_hermes,
     validate_pathfinder_bundle,
 )
+from retrieval.recall_digest import build_recall_digest_from_support_bundle
+from retrieval.safe_index_cursor import evaluate_safe_index_cursor
+from memory.wiki_node_taxonomy import coerce_node_taxonomy
 
 
 def _topic_key_from_topic_id(topic_id: str) -> str:
@@ -45,7 +50,7 @@ def _normalize_provenance_row(row: Mapping[str, Any], *, lane: str) -> dict[str,
         "topic_id": str(row.get("topic_id") or ""),
         "episode_id": str(row.get("episode_id") or ""),
         "claim_id": str(row.get("claim_id") or ""),
-        "support_fact": str(row.get("answer_summary") or row.get("question_summary") or "").strip(),
+        "support_fact": str(row.get("support_fact") or row.get("answer_summary") or row.get("question_summary") or "").strip(),
         "source_rel": str(row.get("promoted_from") or row.get("derived_from") or "").strip(),
         "lane": lane,
     }
@@ -215,7 +220,7 @@ def read_source_paths(
             source_rel = str(row.get("promoted_from") or row.get("derived_from") or "").strip()
             if source_rel:
                 resolved.add(str((vault_root / source_rel).resolve()))
-    return sorted(resolved)
+    return sorted(to_vault_uri(item, vault_root=vault_root) for item in resolved)
 
 
 def get_raw_sources(
@@ -315,6 +320,112 @@ def _unique_preserve_order(values: list[str]) -> list[str]:
     return out
 
 
+_SEARCH_TOKEN_RE = re.compile(r"[0-9A-Za-z_:+.-]+|[\uac00-\ud7a3]+")
+_KOREAN_SUFFIXES = (
+    "으로부터",
+    "로부터",
+    "에게서",
+    "께서",
+    "에서",
+    "으로",
+    "에게",
+    "까지",
+    "부터",
+    "처럼",
+    "보다",
+    "이다",
+    "였다",
+    "였지",
+    "이지",
+    "인가",
+    "하고",
+    "라는",
+    "의",
+    "가",
+    "이",
+    "은",
+    "는",
+    "을",
+    "를",
+    "와",
+    "과",
+    "도",
+    "만",
+    "에",
+    "로",
+)
+
+
+def _strip_korean_suffix(term: str) -> str:
+    for suffix in _KOREAN_SUFFIXES:
+        if term.endswith(suffix) and len(term) > len(suffix) + 1:
+            return term[: -len(suffix)]
+    return term
+
+
+def _search_units(text: str) -> list[str]:
+    units: list[str] = []
+    for raw in _SEARCH_TOKEN_RE.findall((text or "").lower()):
+        token = raw.strip("._:-")
+        if not token:
+            continue
+        units.append(token)
+        stripped = _strip_korean_suffix(token)
+        if stripped != token:
+            units.append(stripped)
+    return _unique_preserve_order(units)
+
+
+def _query_text_score(query_text: str, candidate_text: str) -> int:
+    query_units = _search_units(query_text)
+    if not query_units:
+        return 0
+    candidate_units = set(_search_units(candidate_text))
+    candidate_lower = (candidate_text or "").lower()
+    score = 0
+    for unit in query_units:
+        exact_or_substring_safe = "_" not in unit and not any(ch.isdigit() for ch in unit)
+        if unit in candidate_units:
+            score += 3
+        elif len(unit) >= 3 and unit in candidate_lower:
+            score += 2
+        elif (
+            exact_or_substring_safe
+            and len(unit) >= 3
+            and any(unit in candidate or candidate in unit for candidate in candidate_units if len(candidate) >= 3)
+        ):
+            score += 1
+    return score
+
+
+def _decision_capsules(records: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    return [
+        record
+        for record in records
+        if str(record.get("decision") or "").strip()
+        or str(record.get("conclusion") or "").strip()
+        or str(record.get("context") or "").strip()
+    ]
+
+
+def _answer_sufficient_support_facts(
+    *,
+    origin_claims: list[Mapping[str, Any]],
+    all_records: list[Mapping[str, Any]],
+) -> list[str]:
+    facts: list[str] = []
+    for capsule in _decision_capsules(all_records):
+        for key in ("decision", "conclusion", "context", "reuse_condition"):
+            value = str(capsule.get(key) or "").strip()
+            if value:
+                facts.append(value)
+    for row in origin_claims:
+        value = str(row.get("support_fact") or "").strip()
+        if value:
+            facts.append(value)
+    return _unique_preserve_order(facts)
+
+
 def _extract_ring_ids(text: str, records: list[Mapping[str, Any]]) -> list[str]:
     ring_ids = [str(row.get("ring_id") or "") for row in records]
     for line in text.splitlines():
@@ -342,6 +453,30 @@ def _first_record_with(records: list[Mapping[str, Any]], *keys: str) -> Mapping[
     return {}
 
 
+def _last_record_with(records: list[Mapping[str, Any]], *keys: str) -> Mapping[str, Any]:
+    for record in reversed(records):
+        if all(str(record.get(key) or "").strip() for key in keys):
+            return record
+    return {}
+
+
+def _records_by_schema(records: list[Mapping[str, Any]], schema_version: str) -> list[dict[str, Any]]:
+    matched: list[dict[str, Any]] = []
+    for record in records:
+        if str(record.get("schema_version") or "") == schema_version:
+            matched.append(dict(record))
+        for value in record.values():
+            if isinstance(value, Mapping) and str(value.get("schema_version") or "") == schema_version:
+                matched.append(dict(value))
+            elif isinstance(value, list):
+                matched.extend(
+                    dict(item)
+                    for item in value
+                    if isinstance(item, Mapping) and str(item.get("schema_version") or "") == schema_version
+                )
+    return matched
+
+
 def _concept_node_path_for_topic(*, topic_text: str, vault_root: Path) -> Path | None:
     node_id = _yaml_scalar(topic_text, "id")
     if not node_id:
@@ -356,6 +491,36 @@ def _community_path_for_id(*, community_id: str, vault_root: Path) -> Path | Non
     key = community_id.split(":", 1)[1]
     candidate = vault_root / "communities" / f"{key}.md"
     return candidate if candidate.exists() else None
+
+
+def _extract_node_taxonomy(
+    *,
+    topic_text: str,
+    concept_text: str,
+    all_records: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    for record in all_records:
+        value = record.get("node_taxonomy")
+        if isinstance(value, Mapping):
+            return coerce_node_taxonomy(value)
+    fallback_payload = {
+        "continent": _yaml_scalar(topic_text, "continent") or _yaml_scalar(concept_text, "continent") or "concepts",
+        "node_type": (
+            _yaml_scalar(topic_text, "node_type")
+            or _yaml_scalar(concept_text, "node_type")
+            or _yaml_scalar(topic_text, "type")
+            or _yaml_scalar(concept_text, "type")
+            or "concept"
+        ),
+        "topography_level": _yaml_scalar(topic_text, "topography_level") or _yaml_scalar(concept_text, "topography_level"),
+        "community_role": _yaml_scalar(topic_text, "community_role") or _yaml_scalar(concept_text, "community_role"),
+    }
+    return coerce_node_taxonomy(
+        None,
+        fallback_payload=fallback_payload,
+        physical_continent=str(fallback_payload["continent"] or "concepts"),
+        default_node_type=str(fallback_payload["node_type"] or "concept"),
+    )
 
 
 def _candidate_paths_from_matched_nodes(*, matched_nodes: list[Mapping[str, Any]], vault_root: Path) -> list[Path]:
@@ -401,19 +566,22 @@ def _candidate_paths_from_matched_nodes(*, matched_nodes: list[Mapping[str, Any]
 
 
 def _vault_source_path(path: Path, *, vault_root: Path) -> str:
-    try:
-        relative = path.resolve().relative_to(vault_root.resolve())
-        return f"vault/{relative.as_posix()}"
-    except Exception:
-        return str(path).replace("\\", "/")
+    return to_vault_uri(path, vault_root=vault_root)
 
 
-def _topic_key_from_candidate_paths(*, candidate_paths: list[Path], vault_root: Path) -> str | None:
+def _topic_key_from_candidate_paths(
+    *,
+    candidate_paths: list[Path],
+    vault_root: Path,
+    query_text: str = "",
+) -> str | None:
     tokens: set[str] = set()
+    direct_topic_stems: set[str] = set()
     for path in candidate_paths:
-        if path.parent.name == "queries":
-            return path.stem
         text = path.read_text(encoding="utf-8", errors="ignore")
+        if path.parent.name == "queries":
+            direct_topic_stems.add(path.stem)
+            tokens.add(path.stem)
         tokens.update(_extract_ring_ids(text, _extract_json_objects_from_fenced_blocks(text)))
         tokens.update(_extract_community_ids(text, _extract_json_objects_from_fenced_blocks(text)))
         for key in ("id", "canonical_node_id", "node_id"):
@@ -424,17 +592,22 @@ def _topic_key_from_candidate_paths(*, candidate_paths: list[Path], vault_root: 
         if source_ref:
             tokens.add(source_ref)
 
-    if not tokens:
+    if not tokens and not direct_topic_stems:
         return None
-    best: tuple[int, str] | None = None
+    best: tuple[int, int, str] | None = None
     for query_path in (vault_root / "queries").glob("*.md"):
         text = query_path.read_text(encoding="utf-8", errors="ignore")
-        score = sum(1 for token in tokens if token and token in text)
-        if score <= 0:
+        token_score = sum(1 for token in tokens if token and token in text)
+        if query_path.stem in direct_topic_stems:
+            token_score += 1
+        title = _topic_page_title(text, fallback=query_path.stem.replace("-", " "))
+        query_score = _query_text_score(query_text, f"{query_path.stem}\n{title}\n{text}") if query_text else 0
+        if token_score <= 0 and query_score <= 0:
             continue
-        if best is None or score > best[0]:
-            best = (score, query_path.stem)
-    return best[1] if best else None
+        rank = (query_score, token_score, query_path.stem)
+        if best is None or rank > best:
+            best = rank
+    return best[2] if best else None
 
 
 def _typed_unavailable_bundle(*, query_text: str, missing_refs: list[str]) -> dict[str, Any]:
@@ -450,7 +623,7 @@ def _typed_unavailable_bundle(*, query_text: str, missing_refs: list[str]) -> di
         "semantic_edges": [],
         "typed_unavailable": {
             "schema_version": "typed_unavailable.v1",
-            "unavailable_ref": f"oy-vault://op2-support-bundle/{build_page_id(query_text)[:32]}",
+            "unavailable_ref": f"oy-vault://mf-support-bundle/{build_page_id(query_text)[:32]}",
             "created_at": utc_now_iso(),
             "reason_code": "unresolved_evidence_ref",
             "blocked_stage": "recall_support_bundle",
@@ -478,14 +651,13 @@ def _typed_unavailable_bundle(*, query_text: str, missing_refs: list[str]) -> di
 
 
 def _select_ring_topic_key(*, query_text: str, vault_root: Path) -> str | None:
-    query_words = {w for w in re.split(r"\s+", query_text.lower()) if w}
     best: tuple[int, str] | None = None
     for path in (vault_root / "queries").glob("*.md"):
         text = path.read_text(encoding="utf-8", errors="ignore")
         if "ring_id" not in text and "Provenance Rings" not in text and "community_id" not in text:
             continue
-        hay = text.lower()
-        score = sum(1 for word in query_words if word and word in hay)
+        title = _topic_page_title(text, fallback=path.stem.replace("-", " "))
+        score = _query_text_score(query_text, f"{path.stem}\n{title}\n{text}")
         if score <= 0:
             continue
         key = path.stem
@@ -504,12 +676,18 @@ def build_ring_support_bundle(
     """나이테 기억 노드용 origin/recent/source/community/edge 혼합 support bundle을 구성한다.
 
     POC용 고정 경로다. 기존 Pathfinder bundle을 대체하지 않고 provenance ring node가
-    감지될 때 OP2 receipt 안에 추가로 싣는다.
+    감지될 때 MF receipt 안에 추가로 싣는다.
     """
-    selected_topic_key = topic_key or _select_ring_topic_key(query_text=query_text, vault_root=vault_root)
+    selected_topic_key = topic_key
     if not selected_topic_key and matched_nodes:
         candidate_paths = _candidate_paths_from_matched_nodes(matched_nodes=matched_nodes, vault_root=vault_root)
-        selected_topic_key = _topic_key_from_candidate_paths(candidate_paths=candidate_paths, vault_root=vault_root)
+        selected_topic_key = _topic_key_from_candidate_paths(
+            candidate_paths=candidate_paths,
+            vault_root=vault_root,
+            query_text=query_text,
+        )
+    if not selected_topic_key:
+        selected_topic_key = _select_ring_topic_key(query_text=query_text, vault_root=vault_root)
     if not selected_topic_key:
         return _typed_unavailable_bundle(query_text=query_text, missing_refs=["queries/*", "concepts/PRN-*.md"])
 
@@ -525,15 +703,28 @@ def build_ring_support_bundle(
         # 기존 parser가 이해하는 페이지면 그 결과도 보조로 사용한다.
         try:
             records = list(parse_provenance_records(prov_text))
-        except Exception:
+        except RECOVERABLE_RUNTIME_ERRORS:
             records = []
     prn_records = _extract_json_objects_from_fenced_blocks(topic_text + "\n" + concept_text)
     all_records = list(records) + list(prn_records)
     all_text = topic_text + "\n" + prov_text + "\n" + concept_text
+    provider_source_events = _records_by_schema(all_records, "provider_source_event.v1")
+    decision_timeline = _records_by_schema(all_records, "decision_timeline_event.v1")
+    semantic_category_paths = _records_by_schema(all_records, "semantic_category_path.v1")
+    semantic_category_path = semantic_category_paths[-1] if semantic_category_paths else {}
+    community_growth_events = _records_by_schema(all_records, "community_growth_event.v1")
+    wiki_page_contracts = _records_by_schema(all_records, "wiki_continent_page.v1")
+    readable_wiki_page_refs = _unique_preserve_order(
+        [
+            str(record.get("page_ref") or record.get("readable_wiki_page_ref") or "")
+            for record in [*wiki_page_contracts, *all_records]
+            if str(record.get("page_ref") or record.get("readable_wiki_page_ref") or "").strip()
+        ]
+    )
     ring_ids = _extract_ring_ids(all_text, all_records)
     community_ids = _extract_community_ids(all_text, all_records)
     community_id = community_ids[0] if community_ids else ""
-    ring_record = _first_record_with(all_records, "ring_id", "source_ref", "origin_locator", "provider_session_id") or _first_record_with(all_records, "ring_id", "source_ref", "origin_locator")
+    ring_record = _last_record_with(all_records, "ring_id", "source_ref", "origin_locator", "provider_session_id") or _last_record_with(all_records, "ring_id", "source_ref", "origin_locator")
     paragraph_intent = _first_record_with(
         all_records,
         "intent_field",
@@ -542,6 +733,7 @@ def build_ring_support_bundle(
         "why_not_atomic",
     )
     lifecycle_record = _first_record_with(all_records, "state")
+    node_taxonomy = _extract_node_taxonomy(topic_text=topic_text, concept_text=concept_text, all_records=all_records)
     community_path = _community_path_for_id(community_id=community_id, vault_root=vault_root) if community_id else None
 
     origin_claims = [
@@ -556,6 +748,7 @@ def build_ring_support_bundle(
         }
         for row in records
     ]
+    support_facts = _answer_sufficient_support_facts(origin_claims=origin_claims, all_records=all_records)
     recent_rings = [
         {
             "ring_id": str(row.get("ring_id") or ring_id),
@@ -564,6 +757,7 @@ def build_ring_support_bundle(
             "origin_locator": str(row.get("origin_locator") or ""),
             "provider_session_id": str(row.get("provider_session_id") or ""),
             "message_index_range": row.get("message_index_range") or None,
+            "source_line_range": row.get("source_line_range") or None,
             "anchor_hash": str(row.get("anchor_hash") or ""),
             "commit_watermark": str(row.get("commit_watermark") or ""),
             "lane": "recent",
@@ -581,10 +775,16 @@ def build_ring_support_bundle(
         source_paths.append(_vault_source_path(concept_path, vault_root=vault_root))
     if community_path and community_path.exists():
         source_paths.append(_vault_source_path(community_path, vault_root=vault_root))
+    source_paths.extend(readable_wiki_page_refs)
     for row in records:
         rel = str(row.get("derived_from") or row.get("promoted_from") or "").strip()
         if rel:
             source_paths.append(_vault_source_path(vault_root / rel, vault_root=vault_root))
+    unique_source_paths = _unique_preserve_order(source_paths)
+    safe_index_cursor = evaluate_safe_index_cursor(
+        vault_root=vault_root,
+        source_paths=unique_source_paths,
+    )
     community_edges = [
         {
             "community_id": cid,
@@ -618,6 +818,8 @@ def build_ring_support_bundle(
         missing_refs.append("lifecycle_state")
     if not source_paths:
         missing_refs.append("source_paths")
+    if safe_index_cursor.get("status") == "outside":
+        missing_refs.append("safe_index_cursor")
     if missing_refs:
         unavailable = _typed_unavailable_bundle(query_text=query_text, missing_refs=missing_refs)
         unavailable["topic_key"] = selected_topic_key
@@ -628,10 +830,22 @@ def build_ring_support_bundle(
         unavailable["semantic_edges"] = semantic_edges
         unavailable["origin_claims"] = origin_claims
         unavailable["recent_rings"] = recent_rings
-        unavailable["source_paths"] = _unique_preserve_order(source_paths)
+        unavailable["source_paths"] = unique_source_paths
+        unavailable["safe_index_cursor"] = safe_index_cursor
+        unavailable["source_line_range"] = ring_record.get("source_line_range") if isinstance(ring_record, Mapping) else None
+        unavailable["node_taxonomy"] = node_taxonomy
+        unavailable["readable_wiki_page_refs"] = readable_wiki_page_refs
+        unavailable["provider_source_events"] = provider_source_events
+        unavailable["decision_timeline"] = decision_timeline
+        unavailable["semantic_category_path"] = semantic_category_path
+        unavailable["community_growth_events"] = community_growth_events
+        unavailable["continent"] = node_taxonomy["continent"]
+        unavailable["node_type"] = node_taxonomy["node_type"]
+        unavailable["topography_level"] = node_taxonomy["topography_level"]
+        unavailable["community_role"] = node_taxonomy["community_role"]
         return unavailable
 
-    return {
+    bundle = {
         "schema_version": "ring_support_bundle.v1",
         "bundle_mode": "provenance-ring-mixed",
         "query_text": query_text,
@@ -645,15 +859,29 @@ def build_ring_support_bundle(
         "origin_locator": str(ring_record.get("origin_locator") or ""),
         "provider_session_id": str(ring_record.get("provider_session_id") or ""),
         "message_index_range": ring_record.get("message_index_range") or None,
+        "source_line_range": ring_record.get("source_line_range") or None,
         "anchor_hash": str(ring_record.get("anchor_hash") or ""),
         "commit_watermark": str(ring_record.get("commit_watermark") or ""),
         "lifecycle_state": lifecycle_state,
         "current_authority": _yaml_scalar(topic_text, "current_authority") or _yaml_scalar(concept_text, "current_authority") or None,
+        "node_taxonomy": node_taxonomy,
+        "continent": node_taxonomy["continent"],
+        "node_type": node_taxonomy["node_type"],
+        "topography_level": node_taxonomy["topography_level"],
+        "community_role": node_taxonomy["community_role"],
         "paragraph_intent_safety_belt": dict(paragraph_intent),
         "origin_claims": origin_claims,
         "recent_rings": recent_rings,
-        "source_paths": _unique_preserve_order(source_paths),
-        "support_facts": _unique_preserve_order([str(row.get("support_fact") or "") for row in origin_claims]),
+        "readable_wiki_page_refs": readable_wiki_page_refs,
+        "provider_source_events": provider_source_events,
+        "decision_timeline": decision_timeline,
+        "semantic_category_path": semantic_category_path,
+        "community_growth_events": community_growth_events,
+        "source_paths": unique_source_paths,
+        "safe_index_cursor": safe_index_cursor,
+        "support_facts": support_facts,
         "community_edges": community_edges,
         "semantic_edges": semantic_edges,
     }
+    bundle["recall_digest"] = build_recall_digest_from_support_bundle(query_text=query_text, support_bundle=bundle)
+    return bundle

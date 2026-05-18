@@ -38,6 +38,7 @@
       "type": "string",
       "enum": [
         "support_bundle",
+        "worker_brief",
         "operator_brief",
         "graph_hint",
         "retrieval_hint",

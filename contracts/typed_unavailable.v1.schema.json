@@ -31,7 +31,7 @@
     "reason_code": {
       "type": "string",
       "enum": [
-        "missing_worker4_pass",
+        "missing_independent_verification",
         "unresolved_evidence_ref",
         "stale_or_decoy_evidence",
         "raw_provider_material_detected",
@@ -45,7 +45,7 @@
     "blocked_stage": {
       "type": "string",
       "enum": [
-        "worker4_gate",
+        "independent_verification_gate",
         "evidence_resolution",
         "recall_support_bundle",
         "answer_receipt",

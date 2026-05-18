@@ -33,10 +33,13 @@ Canonical terminology used by this README:
 ```text
 Provider Unit N = PRO N + MS N + MF N
 PRO N = Provider Lane N
-MS N  = Memory Saver N  = legacy OP(2N - 1)
-MF N  = Memory Finder N = legacy OP(2N)
-Delivery Monitor = internal Postman
-Status Brief = internal CPR/operator_brief
+MS N  = Memory Saver N
+MF N  = Memory Finder N
+Postman = delivery admission / work order / heartbeat / receipt mirror owner
+Work Order = postman_work_order.v1
+Work History = worker_work_history.v1
+Worker Structured Receipt = worker_structured_receipt.v1
+Status Brief = internal CPR/worker_brief
 Evidence Pack = internal support_bundle
 Result Receipt = internal receipt/query_receipt
 Save Request = internal MemoryTicket/save intent
@@ -44,7 +47,7 @@ Find Request = internal recall query
 Checkpoint = internal gate/proof/POC
 ```
 
-Legacy `OP`, `producer`, `consumer`, `operator`, `receipt`, `support_bundle`, and `Postman` names can still appear where the README references runtime schemas, file paths, code modules, or historical compatibility ids. They are not the primary user-facing role names.
+Older runtime compatibility names can still appear in schemas, file paths, or code modules. They are not the primary user-facing role names. Postman is not the semantic quality owner; it owns delivery admission, work orders, heartbeat/CPR, and receipt/history coordination.
 
 Use this when:
 - You are seeing this repository for the first time.
@@ -86,7 +89,23 @@ Hard nonclaims:
 - The top README is not a PASS certificate.
 - A completion table, plan, test count, or Result Receipt does not by itself prove Full UX PASS.
 - Hermes-specific evidence does not automatically prove provider-neutral behavior.
-- `ygg`, MS1/MF1 (legacy OP1/OP2), attach, and talk commands must not be assumed to exist before setup verifies them.
+- `ygg`, MS1/MF1, attach, and talk commands must not be assumed to exist before setup verifies them.
+
+Skill/MCP capability management:
+
+- Repo-managed Skill, MCP, tool, and TST worker-manual source belongs under
+  [`capabilities/`](capabilities/README.md).
+- Provider-local skill files, including Hermes `~/.hermes/skills/openyggdrasil-*`,
+  are user-local projection/install artifacts. They are not the release source
+  for other users.
+- A managed install must be traceable from repo capability source to validated
+  snapshot, provider projection, user-local install, deployment receipt, drift
+  check, and rollback target.
+- Default setup should be automatic through the setup skill or installer. A
+  user may later switch the active capability root to a local or external root,
+  but that root must still validate and produce receipts.
+- Current `capabilities/` documentation is a management contract, not proof
+  that all-user install/update/rollback commands already exist.
 
 <a id="why"></a>
 
@@ -330,7 +349,7 @@ sources: [source refs or public paths]
 
 ## System Requirements & Setup
 
-openyggdrasil is designed to operate as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). The target operating model does not require an always-on system-level server or separate server management. It may create session-scoped MS/MF workers/watchers around the active Provider Lane; those workers must be lifecycle-bound and cleanup-verifiable. This is not a production-ready guarantee yet.
+openyggdrasil is designed to operate as a session-scoped skill attached to your AI provider (e.g., Hermes, Claude Code, Cursor). The target operating model does not require an always-on system-level server or separate server management. It may create session-scoped Postman helpers and MS/MF workers around the active Provider Lane. Postman owns delivery admission, work orders, wakeup routing, and receipt/history coordination; optional debug lenses must not become product owners. This is not a production-ready guarantee yet.
 
 > **⚠️ Reasoning Lease Model (Asynchronous Multiplexing):**
 > openyggdrasil does not have its own API keys, and it must not extract provider credentials.
@@ -342,26 +361,39 @@ Providers attach to openyggdrasil by reading the **`SKILL.md`** manifest at the 
 - Point your agent's skill configuration to the absolute path of `SKILL.md`.
 - The agent reads this contract, which defines the declared entrypoints, command shapes, and boundaries for memory retrieval and capture.
 
+`SKILL.md` is the provider bootstrap/attachment contract. It is not the
+repo-managed lifecycle source for all Skill, MCP, tool, or TST worker-manual
+capabilities. Capability lifecycle source belongs under
+[`capabilities/`](capabilities/README.md); provider-installed skill files are
+projections derived from that source when the deployment path is implemented.
+
 Provider-first cold-start rule:
 
 - The user first opens a normal provider session through that provider's native UX.
 - The provider then receives the openyggdrasil repository path, URL, or skill reference and reads `SKILL.md`.
-- A first-install environment must not assume a global `ygg` command or attach commands such as `ygg pro1`, `ygg ms1`, or `ygg mf1` already exist.
-- If a `ygg-*` attach wrapper, legacy `oy-*` wrapper, or preinstalled `ygg` command is already globally visible before bootstrap, treat it as local/dev residue unless it is validated against a session-group health record.
-- Repository-local tooling, if present, is a bootstrap asset discovered after the provider recognizes the repository. It is not evidence that a provider session is already attached.
-- `ygg pro1` is not a universal first entrypoint and not a provider identity. It is an optional local Provider Lane attach/witness command after openyggdrasil has been recognized. Its internal tmux session name may be `ygg-pro1`.
+- A first-install environment must not assume a global `ygg` command already exists. The repository-local CLI is `./scripts/ygg` after checkout.
+- If a preinstalled `ygg` command is already globally visible before bootstrap,
+  validate it against a session-group health record before treating it as this
+  checkout's CLI.
+- Repository-local tooling is a bootstrap asset discovered after the provider recognizes the repository. It is not evidence that a provider session is already attached.
+- `ygg pro1` is not a universal first entrypoint and not a provider identity. It
+  is a local Provider lane attach/witness command after openyggdrasil has been
+  recognized.
 
 Active session health is group-based, not lane-based:
 
 ```text
-User command   Internal tmux   Runtime evidence
-ygg pro1       ygg-pro1            provider_lane.v1
-ygg ms1        ygg-op1          MS1 Memory Saver registry/mailbox/live watcher (legacy OP1)
-ygg mf1        ygg-op2          MF1 Memory Finder registry/mailbox/live watcher (legacy OP2)
-Canonical evidence            mailbox / Result Receipts / event logs / attachment artifacts
+User command   Runtime evidence
+ygg pro1       Provider lane record
+ygg ms1        Memory Saver mailbox/work_order/native worker receipt
+ygg mf1        Memory Finder query receipt/support bundle/event log
+Canonical evidence: mailbox work_order/history, receipts, event logs, attachment artifacts
 ```
 
-If any side of that group is stale, the whole group is degraded. Implementations must not create fallback lanes such as `oy-2`, `oy-3`, or extra MS/MF pairs as an automatic response to uncertainty. A new Provider Unit MS/MF pair must be explicitly created and rebound.
+If any side of that group is stale, the whole group is degraded. Implementations
+must not create extra Memory Saver/Finder pairs as an automatic response to
+uncertainty. A new Provider Unit worker pair must be explicitly created and
+rebound.
 
 ### 2. System Requirements & Dependency Installation
 
@@ -412,15 +444,16 @@ A clean cold start means:
 
 openyggdrasil uses a **satellite model**, not a server model.
 
-The active Provider Session is the center. The Memory Saver, Memory Finder, mailbox, watcher, and optional TMUX panes are satellites that orbit that session. They exist to support the active Provider Session and must not become independent always-on services.
+The active Provider Session is the center. Postman, Mailbox, Memory Saver, Memory Finder, and optional TMUX/debug panes are satellites that orbit that session. They exist to support the active Provider Session and must not become independent always-on services. Postman is a delivery owner, not a separate semantic judge.
 
 ```text
 Provider Unit
   ├─ PRO Provider Lane            active user-facing provider session
-  ├─ MS1 Memory Saver satellite   session-scoped background save worker (legacy OP1)
-  ├─ MF1 Memory Finder satellite  session-scoped background find worker (legacy OP2)
-  ├─ Mailbox satellite            local file queue / Result Receipt ledger
-  ├─ Watcher satellite            local polling process for that mailbox
+  ├─ MS1 Memory Saver satellite   session-scoped background save worker
+  ├─ MF1 Memory Finder satellite  session-scoped background find worker
+  ├─ Postman satellite            delivery admission / work_order / CPR / receipt mirror owner
+  ├─ Mailbox satellite            local file queue / work_history / Result Receipt ledger
+  ├─ Postman helper               poll/wakeup implementation detail under Postman ownership
   └─ TMUX witness satellite       optional human visual surface
 ```
 
@@ -428,10 +461,11 @@ What each satellite is:
 
 | Satellite | What it is | What it is not |
 |---|---|---|
+| Postman | Delivery admission, work orders/history, MS/MF heartbeat/CPR, receipt mirroring | Semantic quality owner, independent reasoning worker |
 | Mailbox | Local file-based queue and Result Receipt ledger | Server, socket API, public service |
-| Watcher | Session-scoped local polling worker | Always-on daemon, global server |
-| MS1 Memory Saver | Background save worker bound to a Provider Unit (legacy OP1) | Standalone memory server |
-| MF1 Memory Finder | Background find worker bound to a Provider Unit (legacy OP2) | Standalone search server |
+| Postman helper | Implementation detail that polls the mailbox or wakes the native pane under Postman ownership | Product owner, canonical input lane, global server |
+| MS1 Memory Saver | Background save worker bound to a Provider Unit | Standalone memory server |
+| MF1 Memory Finder | Background find worker bound to a Provider Unit | Standalone search server |
 | TMUX witness | Optional human inspection surface | SOT, execution Checkpoint, canonical input lane |
 
 Satellite lifecycle rules:
@@ -441,25 +475,27 @@ Satellite lifecycle rules:
 - stale satellites degrade the whole group;
 - cleanup must be explicit and backup-first;
 - uncertainty must not create fallback satellites such as `oy-2`, `oy-3`, or extra MS/MF pairs;
-- canonical evidence remains mailbox Result Receipts, event logs, schema traces, and attachment artifacts.
+- canonical evidence remains mailbox work_order/history, Result Receipts, event logs, schema traces, and attachment artifacts.
 
 ```mermaid
 flowchart LR
   P["Active Provider Lane<br/>(PRO)"]
-  MS1["MS1 Memory Saver<br/>legacy OP1"]
-  MF1["MF1 Memory Finder<br/>legacy OP2"]
-  MB["Mailbox<br/>local file queue + Result Receipts"]
-  W["Watcher<br/>session-scoped polling"]
+  MS1["MS1 Memory Saver"]
+  MF1["MF1 Memory Finder"]
+  PM["Postman<br/>admission + work order + CPR"]
+  MB["Mailbox<br/>work_order + work_history + Result Receipts"]
+  H["Postman helper<br/>poll/wakeup implementation detail"]
   T["TMUX Witness<br/>optional visual satellite"]
   V["Vault / Evidence Pack"]
   E["Canonical evidence<br/>Result Receipts / logs / schemas"]
 
-  P --> MB
+  P --> PM --> MB
   MB --> MS1 --> V
   MB --> MF1 --> V
-  W -. "polls active mailbox" .-> MB
-  T -. "observes only" .-> W
+  H -. "polls/wakes under Postman ownership" .-> MB
+  T -. "observes only" .-> H
   MB --> E
+  PM --> E
   MS1 --> E
   MF1 --> E
 ```
@@ -522,9 +558,9 @@ sudo apt-get update
 sudo apt-get install -y tmux
 
 # Point tmux at the openyggdrasil project and one Memory Saver mailbox
-PROJECT=/mnt/d/0_PROJECT/openyggdrasil
+PROJECT=/path/to/openyggdrasil
 LANE=MS1
-OP=OP1  # internal legacy mailbox id for MS1
+LANE=ms1
 SESSION=openyggdrasil-witness
 MAILBOX="$HOME/.yggdrasil/sessions/$OP"
 VAULT="$PROJECT/vault"
@@ -563,21 +599,22 @@ tmux detach-client -s openyggdrasil-witness  # or Ctrl-b d from the attached scr
 tmux kill-session -t openyggdrasil-witness
 ```
 
-Target attach/witness UX is not production-ready yet. In the public repository,
-do not assume global `ygg`, `ygg-*`, or legacy `oy-*` commands are preinstalled. The intended
-user-facing command surface is `ygg`; `ygg-*` names are internal tmux lane names,
-not first-install requirements:
+Repository-local attach/witness UX is now implemented for the Provider Unit 1
+lifecycle surface. In the public repository, run it as `./scripts/ygg` unless a
+separate install gate has validated a global `ygg` shim. Do not assume global
+`ygg` is preinstalled. The user-facing command surface is `ygg`:
 
 ```text
-ygg pro1    # target/dev Provider attach/witness command; internal tmux: ygg-pro1
-ygg ms1     # target/dev Memory Saver MS1 attach/witness command; internal tmux: ygg-op1
-ygg mf1     # target/dev Memory Finder MF1 attach/witness command; internal tmux: ygg-op2
-ygg doctor  # target/dev session-group healthcheck; production lifecycle proof is NOT PASS
-ygg status  # target/dev status surface
-ygg talk MS1 # target, NOT PASS; must become a typed event, not raw tmux/stdin input
+./scripts/ygg doctor  # repo-local session-group healthcheck
+./scripts/ygg status  # repo-local live witness status
+./scripts/ygg pro1    # Provider attach/witness command
+./scripts/ygg ms1     # Memory Saver attach/witness command
+./scripts/ygg mf1     # Memory Finder attach/witness command
 ```
 
-Note: the manual tmux commands above only launch observer panes. Sending user judgment requests or Memory Lane Talk payloads through `tmux send-keys` is not canonical input and cannot be marked PASS evidence.
+Note: the manual tmux commands above only launch observer panes. Sending user
+judgment requests through `tmux send-keys` is not canonical input and cannot be
+marked PASS evidence.
 
 Status terms must stay precise:
 
@@ -722,13 +759,13 @@ The Memory Worker Session runs in **physically separated independent background 
               │                              │
               ▼                              ▼
   ┌───────────────────────────┐  ┌───────────────────────────┐
-  │     VAULT (SOT)           │  │  Result Result Result Receipt → Mailbox        │
-  │  Saved nodes stored    │  │  → Provider Lane receives      │
+  │     VAULT (SOT)           │  │  Result Receipt / Evidence    │
+  │  Saved nodes stored       │  │  → Mailbox → Provider Lane    │
   └───────────────────────────┘  └───────────────────────────┘
 ```
 
-**Key constraint:** Memory Worker Sessions (Memory Saver/Finder; legacy Producer/Consumer) run in physically separate context windows (PIDs) from the Provider Session, with no shared memory.
-The Mailbox (JSONL filesystem) is the only communication channel. Existing Mock/Mailbox POC evidence is bounded proof; it does not prove all-provider same UX or production readiness.
+**Key constraint:** Memory Worker Sessions (Memory Saver/Finder; some runtime file names remain legacy producer/consumer compatibility paths) run in physically separate context windows (PIDs) from the Provider Session, with no shared memory.
+Postman/Mailbox (JSONL filesystem) is the canonical work channel. Postman accepts, wakes, and records work, but it does not own semantic storage or recall quality. Existing Mock/Mailbox POC evidence is bounded proof; it does not prove all-provider same UX or production readiness.
 
 #### Session Definitions
 
@@ -752,11 +789,16 @@ The Mailbox (JSONL filesystem) is the only communication channel. Existing Mock/
 |---|---|---|
 | Nature | **Static** reminder | **Dynamic** state awareness channel |
 | Role | Announces the memory worker's existence | Conveys the operator's current state |
-| Limitation | Cannot tell current state | — |
+| Limitation | Cannot tell current state and is not the capability lifecycle SOT | — |
 
 SKILL alone cannot tell a provider "Is my operator alive? What has it processed?"
 The **only channel** for a provider to be aware of its loosely-coupled memory worker's state is the Mailbox.
 **Therefore, Mailbox Hygiene determines overall system health.**
+
+Capability selection and skill evolution must be governed by repo-managed
+capability records and snapshots, not by editing the Provider-facing bootstrap
+skill in place.
+
 ### Production Side — "What to remember"
 
 The production pipeline doesn't blindly store everything. It **distills**
@@ -774,7 +816,7 @@ Rather than just raw text summaries, these bundles (governed by the `support_bun
 2. **Topology IDs (`episode_ids`, `claim_ids`)**: The contextual topological coordinates within Vault/Graphify where this knowledge was generated.
 3. **Evidence Refs (`safe_ref`)**: Safe pointers to supporting logs or terminal execution evidence when available, allowing the agent to inspect the less-compressed source context if needed.
 
-Consequently, the agent receives both the distilled summary and bounded evidence addresses for origin inspection, securely delivered via the typed **Mailbox** contract by **Delivery Monitor** (internal Postman).
+Consequently, the agent receives both the distilled summary and bounded evidence addresses for origin inspection through **Postman-managed Mailbox / work_history / Result Receipt** contracts.
 
 
 ## PTC (Programmatic Tool Calling) Concept & Architecture
@@ -818,7 +860,7 @@ The standard PTC paradigm allows the agent to freely write Python code within a 
   ┌──────────────────────────────────────────────────────────────┐
   │               openyggdrasil (PTC Palette)                    │
   │                                                              │
-  │  1. Provider: ygg generates LLM code templates for MS1/MF1 (legacy OP1/OP2)   │
+  │  1. Provider: ygg generates LLM code templates for MS1/MF1                    │
   │  2. Stub Generator: injects IPC preamble + 26 tool functions │
   │  3. Sandbox Executor: runs Python script in bwrap sandbox    │
   │  4. IPC Server: calls host primitives via Unix Domain Socket │
@@ -918,7 +960,7 @@ there only inside the user's active, authorized provider session.
        │
        ▼
   Agent runs Python entrypoints via its own shell/tool-use
-  → producer/consumer runs fixed chain (no reasoning needed) through pipeline
+  → Memory Saver/Finder runs the fixed chain through the worker pipeline
   → or PTC chain (`--ptc`) executes code from the 26-tool palette
 ```
 
@@ -956,7 +998,7 @@ There are two distinct invocation paths — one for **writing** knowledge
   │     with structured signal                   entrypoint with query     │
   │  ④ Signal → 12-module chain               ④ Pathfinder → Vault scan   │
   │  ⑤ Vault updated                          ⑤ Evidence Pack assembled  │
-  │  ⑥ Delivery Monitor → Mailbox Result Receipt     ⑥ Mailbox → Agent receives  │
+  │  ⑥ Postman → Mailbox work_history/Result Receipt ⑥ Mailbox → Agent receives  │
   │                                              bounded retrieval result  │
   └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1004,7 +1046,7 @@ When this need is explicitly detected or routed, the Provider Lane should avoid 
 
 When a capture signal enters the system, it is not blindly handed off to an automated black box. This process is divided between the Provider Session and a dynamically leased Memory Worker Session:
 
-1. **Initial Context Recognition (Provider Adapter / Worker)**: The provider adapter or worker reads `SKILL.md` to route contexts worth remembering. It should construct an initial signal (`Session Structure Signal` containing `surface_reason` and `source_ref`) and inject it into the OpenYggdrasil runtime only when evidence is available.
+1. **Initial Context Recognition (Provider Adapter / Worker)**: The provider adapter or worker reads the bootstrap `SKILL.md` to route contexts worth remembering. It should construct an initial signal (`Session Structure Signal` containing `surface_reason` and `source_ref`) and inject it into the OpenYggdrasil runtime only when evidence is available. Role-specific worker manuals and Tool Search / PTC capability selection are governed by repo-managed capability records, not by expanding the Provider bootstrap skill in place.
 2. **Deep Structuring (Memory Worker Session)**: In the target flow, the runtime receives this request through the provider adapter's Reasoning Lease boundary and spawns a Memory Worker Session. This Memory Worker Session is **not** meant to be a fixed pipeline sequence. It is a **Role-Polymorphic Leased Executor** concept assigned specifically to knowledge production roles (Distiller, Evaluator, Amundsen, Gardener).
 
 True to the nature of PTC, the Memory Worker Session can **execute template code inside a bwrap sandbox** for its Memory Saver/Finder role. The safe target is not to mix all 26 tools into one surface, but to split production and consumption kitchens and enforce role-specific allowlists plus typed egress.
@@ -1261,7 +1303,7 @@ Pathfinder returns an honest `anchor_type: "none"` result. If provenance
 can't be verified, it stops with `origin_shortcut_missing`. The agent
 receives enough evidence to inspect what it is getting and why.
 
-Until the P1 kitchen split is complete, do not claim “LLM free composition PASS” or “Consumer kitchen PASS.”
+Until the P1 kitchen split is complete, do not claim “LLM free composition PASS” or “MF consumption kitchen PASS.”
 
 
 ### PTC Tool Design Principles (Affordance-Based)
@@ -1312,8 +1354,8 @@ The original 12 modules are the base knowledge production/consumption chain. As 
 | ⑦ | **Nursery** | Cultivates accepted candidates | New knowledge needs incubation before promotion |
 | ⑧ | **Map Maker** | Places memory in topic/community structures | Navigable structure, not flat dumps |
 | ⑨ | **Gardener** | Lifecycle transitions: ACTIVE → SUPERSEDED → STALE | Knowledge must be pruned, not just accumulated |
-| ⑩ | **Delivery Monitor** | Routes bounded Evidence Packs (internal Postman transport) | Delivery is a contract, not a side effect |
-| ⑪ | **Mailbox** | Provider session inbox | Type-safe consumption surface |
+| ⑩ | **Postman** | Accepts letters, writes work order/history, wakes MS/MF, mirrors receipts | Delivery is a recordable contract, not a side effect |
+| ⑪ | **Mailbox / Work History** | Work ledger between Provider and MS/MF | Type-safe work admission and result recovery surface |
 | ⑫ | **Pathfinder** | Retrieves explainable support material | Retrieval results should carry provenance and lifecycle proof, or typed unavailable |
 
 15th required promotion group:
@@ -1328,8 +1370,8 @@ The original 12 modules are the base knowledge production/consumption chain. As 
 | 25 | **PTC Egress / Sandbox Checkpoint** | NOT PASS | Raw stdout is debug-only; provider-facing results require typed egress and production sandbox fail-closed |
 | 26 | **Provenance Ring Lineage** | PARTIAL | Engrave `source_ref`, `anchor_hash`, and message range into append-only Tree Rings |
 | 27 | **Graphify Support Verifier** | PARTIAL | Reverify Graphify hints against Vault/provenance before using them as Evidence Pack candidates |
-| 28 | **TMUX Live Witness** | POLICY ONLY | Human visual observation surface; not SOT and not execution proof |
-| 29 | **Session Attach Gateway** | NOT PASS | Target `ygg status/attach/tmux` UX that attaches to active project/session registry |
+| 28 | **TMUX Live Witness** | SCOPED PASS | Repo-local `./scripts/ygg status/pro1/ms1/mf1` can observe/attach the live witness field; TMUX is still not SOT |
+| 29 | **Session Attach Gateway** | SCOPED PASS | Repo-local `./scripts/ygg doctor/status/pro1/ms1/mf1` maps user commands to active `ygg-pro1/ygg-ms1/ygg-mf1` witness sessions |
 | 30 | **Interactive Memory Lane Talk** | NOT PASS | Target `ygg talk MS1/MF1` through typed mailbox/event input, not raw tmux/stdin |
 
 15th promotion candidate group:
@@ -1383,18 +1425,18 @@ The Reasoning Lease should run in an unprivileged sandbox via the mandatory depe
 
 ```
 openyggdrasil/
+├── capabilities/       # Planned Skill/MCP/tool/TST lifecycle source and projections
 ├── contracts/          # JSON schemas — the API between modules
 ├── runtime/
 │   ├── admission/      # Checkpoint, Seedkeeper, Amundsen handoff
 │   ├── capture/        # Signal capture, Decision Distiller
-│   ├── evaluation/     # Evaluator, promotion worthiness
+│   ├── evaluation/     # Runtime evaluator handoffs and promotion-worthiness helpers
 │   ├── cultivation/    # Nursery, Gardener, lifecycle
 │   ├── placement/      # Map Maker, topic/episode placement
 │   ├── provenance/     # Source tracking, temporal edges
 │   ├── retrieval/      # Pathfinder, PTC tools, Graphify adapters
-│   ├── delivery/       # Delivery Monitor (internal Postman), Mailbox, Evidence Packs
+│   ├── delivery/       # Postman, mailbox work_order/history, Result Receipts, Evidence Packs
 │   ├── reasoning/      # Reasoning Lease, provider gates
-│   ├── runner/         # Orchestration, regression entrypoints
 │   ├── ptc/            # Programmatic Tool Calling engine
 │   └── governance/     # Phase automation
 ├── common/graphify/    # Derived graph/wiki/index views (non-SOT)

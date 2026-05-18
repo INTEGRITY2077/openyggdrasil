@@ -30,7 +30,11 @@
 
 openyggdrasil은 AI 코딩 에이전트가 세션과 프로바이더를 넘어 오래 남겨야 할 프로젝트 지식을 저장, 회상, 개정하도록 돕는 로컬 프로바이더 중립 메모리 계층입니다. 원본 대화 전체를 기억으로 덤프하지 않고, 나중에 다시 찾을 수 있는 주제와 근거를 Vault / LLM Wiki에 정리하는 방향을 지향합니다.
 
-현재 미션은 좁습니다:
+문제는 단순합니다. 코딩 에이전트와 긴 대화를 이어가다 보면 중요한 결정, 예외, 운영 규칙이 세션 안에서만 살아 있다가 사라집니다. 일반 채팅 메모리는 말투나 선호를 잘 다루지만, 출처와 변경 이력까지 필요한 프로젝트 지식에는 약합니다. 반대로 RAG는 자료를 다시 넣어 주지만, 대화 중 생긴 결정을 살아 있는 위키로 다듬어 주지는 않습니다.
+
+openyggdrasil은 그 사이를 맡습니다. 대화에서 재사용할 만한 판단을 골라 source-backed Wiki Ring page로 남기고, 나중에 사용자가 자연어로 물으면 관련 근거를 찾아 Provider가 현재 질문과 다시 비교하게 합니다.
+
+현재 미션은 좁게 잡습니다:
 
 ```text
 사용자 / Provider 대화에서 오래 남길 주제를 LLM Wiki에 축적한다.
@@ -38,24 +42,37 @@ openyggdrasil은 AI 코딩 에이전트가 세션과 프로바이더를 넘어 �
 회상 결과를 현재 Provider 대화에 Evidence Pack과 함께 되돌린다.
 ```
 
-현재 상태는 이렇게 낮춰 읽어야 합니다:
+실제 흐름은 이렇게 읽으면 됩니다:
 
-- 이 프로젝트는 아직 production-ready 제품이 아닙니다.
-- Full UX, multi-provider parity, Graphify full topology, Hermes true hot reload는 이 README만으로 주장하지 않습니다.
-- `ygg pro1`, `ygg ms1`, `ygg mf1`은 목표/개발 중인 관찰 명령면입니다. 첫 설치 환경에 이미 존재한다고 가정하지 않습니다.
-- Hermes 기반 POC는 중요한 근거일 수 있지만, 그 자체로 provider-neutral 동작 증명은 아닙니다.
+```text
+Provider가 사용자와 자연스럽게 대화한다.
+필요하면 Provider가 저장/회상 후보를 짧은 편지로 보낸다.
+Postman은 편지를 전달하고 기록한다.
+MS는 장기 지식 후보인지 판단해 Wiki Ring에 남긴다.
+MF는 나중에 안전한 근거만 찾아 Evidence Pack으로 돌려준다.
+Provider는 그 근거를 현재 질문과 다시 비교한 뒤 답한다.
+```
 
-품질 판단은 두 축으로 나눕니다:
+역할은 분리되어 있습니다. Provider는 사용자와 대화하고, 가벼운 저장/회상 신호를 감지하며, 마지막 답변에 쓸지 재판단합니다. Postman은 의미를 보태지 않고 편지와 결과를 라우팅합니다. MS는 저장 판단과 Wiki Ring 승격을 맡고, MF는 안전하게 색인된 근거만 찾아 돌려줍니다. TMUX pane은 이 과정을 사람이 보는 관찰 화면일 뿐, 저장이나 회상 성공의 정본 근거는 아닙니다.
+
+현재 범위:
+
+- 이 프로젝트는 아직 정식 제품이 아니라 개발 중인 로컬 메모리 엔진입니다.
+- 여러 프로바이더에서 같은 UX를 보장하는 일, Graphify 전체 위상, Hermes hot reload는 별도 검증 대상입니다.
+- 이 README가 안내하는 실행 표면은 레포지토리 안의 `./scripts/ygg`입니다. 첫 설치에서 전역 `ygg` 명령이 준비되어 있다고 보지 않습니다.
+- Hermes 기반 POC는 중요한 참고 근거이지만, 모든 프로바이더에서 같은 방식으로 동작한다는 뜻은 아닙니다.
+
+좋은 결과는 두 축으로 봅니다:
 
 | 축 | 질문 |
 |---|---|
-| 생산 품질 | 지식이 의도한 체인으로 저장됐고, 출처와 배치와 Result Receipt가 남았는가? |
-| 소비 품질 | Provider가 나중에 올바른 지식을 찾고, 신뢰하고, 현재 답변에 자연스럽게 썼는가? |
+| 생산 품질 | 중요한 대화가 출처, 범위, 이력과 함께 Wiki Ring에 정리됐는가? |
+| 소비 품질 | 나중에 Provider가 올바른 근거를 찾아 현재 질문에 맞게 다시 판단했는가? |
 
-충돌하는 주장이 있을 때는 다음 순서로 판단합니다:
+근거가 충돌하면 다음 순서로 봅니다:
 
 1. 사용자 승인 교정
-2. 명시적 SOT 문서
+2. 명시적 정본 문서
 3. Vault / LLM Wiki canonical page
 4. Source, provenance, evidence pointer
 5. PTC trace와 평가 결과
@@ -63,44 +80,39 @@ openyggdrasil은 AI 코딩 에이전트가 세션과 프로바이더를 넘어 �
 7. Graphify community signal
 8. Worker summary
 
-Worker summary, mailbox receipt, Graphify community signal은 도움이 되는 근거지만 단독 SOT가 아닙니다. POC PASS도 그 POC가 검증한 범위만 승격합니다.
+Worker summary, mailbox receipt, Graphify community signal은 도움이 되는 근거지만 단독 결정권을 갖지 않습니다. POC는 그 실험이 확인한 범위만 인정합니다.
 
-이 README에서 사용자에게 먼저 노출하는 표준 용어:
+### 설치와 스킬 경계
 
-| 용어 | 의미 | 내부/호환 이름 |
+- SKILL, MCP, tool, TST worker manual의 원본 관리는 [`capabilities/`](capabilities/README.md) 아래에 둡니다.
+- Hermes `~/.hermes/skills/openyggdrasil-*` 같은 Provider 로컬 파일은 사용자 환경에 설치된 결과물입니다. 다른 사용자에게 배포할 원본이 아닙니다.
+- 관리되는 설치는 레포지토리의 capability source, 검증된 snapshot, provider별 설치 결과, 사용자 로컬 설치, 배포 기록, drift check, rollback target으로 추적되어야 합니다.
+- 기본 설정은 setup skill 또는 installer가 자동으로 구성해야 합니다. 사용자가 원하면 active capability root를 local/external root로 바꿀 수 있지만, 그 root도 검증과 receipt를 통과해야 합니다.
+- 현재 `capabilities/` 문서는 관리 계약입니다. all-user install/update/rollback 명령이 이미 구현되었다는 뜻은 아닙니다.
+
+### 용어
+
+| 용어 | 의미 | 런타임에서 보이는 이름 |
 |---|---|---|
 | Provider Unit N | 하나의 Provider lane과 그 주변 memory 위성 묶음 | PRO N + MS N + MF N |
 | PRO N | 사용자와 직접 대화하는 Provider lane | Provider Lane N |
-| MS N | 기억 저장 담당 | Memory Saver, legacy OP(2N - 1) |
-| MF N | 기억 회상 담당 | Memory Finder, legacy OP(2N) |
-| Delivery Monitor | 전달과 receipt 조율 | internal Postman |
-| Status Brief | 상태 요약 | internal CPR/operator_brief |
-| Evidence Pack | 근거 묶음 | internal support_bundle |
-| Result Receipt | 처리 결과 영수증 | internal receipt/query_receipt |
-| Save Request | 기억 저장 요청 | internal MemoryTicket/Save Request |
-| Find Request | 기억 회상 요청 | internal recall query |
-| Checkpoint | 검증 관문 | internal gate/proof/POC |
+| MS N | 기억 저장 담당 | Memory Saver |
+| MF N | 기억 회상 담당 | Memory Finder |
+| Postman | 편지 접수, work order/history 작성, MS/MF CPR, receipt mirror 조율 | delivery/admission/heartbeat owner |
+| Work Order | MS/MF가 실제로 읽어야 하는 작업 명세서 | `postman_work_order.v1` |
+| Work History | 작업 진행과 결과의 append-only 히스토리 | `worker_work_history.v1` |
+| Worker Structured Receipt | MS/MF가 작업을 닫을 때 남기는 구조화 결과 | `worker_structured_receipt.v1` |
+| Status Brief | 상태 요약 | CPR/worker_brief |
+| Evidence Pack | 근거 묶음 | support_bundle |
+| Result Receipt | 처리 결과 영수증 | receipt/query_receipt |
+| Save Request | 기억 저장 요청 | MemoryTicket/Save Request |
+| Find Request | 기억 회상 요청 | recall query |
+| Checkpoint | 검증 관문 | gate/proof/POC |
 
-`OP`, `producer`, `consumer`, `operator`, `receipt`, `support_bundle`, `Postman` 이름은 런타임 스키마, 파일 경로, 코드 모듈, 과거 호환 id를 설명할 때만 남깁니다. 사용자가 먼저 읽는 역할명은 Provider, MS, MF입니다.
+코드와 스키마를 설명할 때만 런타임 이름을 함께 씁니다. 사용자가 먼저 읽는 역할명은 Provider, Postman, MS, MF입니다. Postman은 의미 품질을 판단하지 않고 메일 접수, work order, CPR, receipt/history 조율만 맡습니다.
 
-Use this when:
-- 이 레포지토리를 처음 봅니다.
-- 사용자가 레포지토리 URL이나 경로만 제공합니다.
-- 사용자가 로컬 설치 또는 실행 가능 여부를 묻습니다.
-- 명령을 실행하기 전에 무엇을 먼저 읽어야 할지 판단해야 합니다.
+### 이 README를 읽는 순서
 
-Do not use this when:
-- production-ready, Full UX PASS, multi-provider parity, 완료도 수치를 주장하려 합니다.
-- 파일, 테스트, Result Receipt, README 문구만 보고 MS1/MF1 live 동작을 추정하려 합니다.
-- 사용자 승인 없이 추가 memory worker, background session, global command를 만들려 합니다.
-
-If ambiguous:
-- URL만 받은 요청은 코드 리뷰가 아니라 레포지토리 orientation으로 취급합니다.
-- 먼저 이 레포지토리가 무엇인지 몇 문장으로 설명합니다.
-- 설치 가능성 요청이면 local prerequisite, 문서화된 설치 표면, dependency resolver, 가장 작은 smoke 또는 healthcheck만 확인합니다.
-- 사용자가 요청하지 않은 과거 기록 뒤지기, LOC inventory, 전체 아키텍처 리뷰, 완료 상태 승격을 하지 않습니다.
-
-읽는 순서:
 1. 설정 섹션에서 지원 환경과 콜드스타트 규칙을 확인합니다.
 2. 설치 전에 로컬 선행 요건을 확인합니다.
 3. 패키지나 시스템 의존성을 설치하기 전에는 사용자 허가를 받습니다.
@@ -108,24 +120,14 @@ If ambiguous:
 5. 시스템 아키텍처, PTC, 모듈, Reasoning Lease를 순서대로 읽습니다.
 6. 설정 후에는 이전 로컬 환경의 가정이 아니라 이 레포지토리의 계약과 런타임 근거를 기준으로 판단합니다.
 
-Typed unavailable when:
-- 레포지토리가 아직 clone되지 않았거나 작업 디렉토리가 불명확합니다.
-- 필요한 로컬 선행 요건이 없고 사용자가 설치를 승인하지 않았습니다.
-- 요청된 Provider Unit live claim을 사용자가 볼 수 있는 live lane에서 관측할 수 없습니다.
-- 요청된 source, Result Receipt, Vault node를 구체적 근거로 해소할 수 없습니다.
+### 증거를 말할 때의 기준
 
-Required evidence refs:
 - 정적 문서 주장은 파일 경로와 행 번호가 필요합니다.
 - 런타임 주장은 명령 출력 또는 테스트 결과가 필요합니다.
 - Provider Unit workflow 주장은 mailbox, Result Receipt, event log 근거가 필요합니다.
-- Live UX 주장은 machine-readable evidence에 더해 사용자가 관측 가능한 tmux/live-lane 근거가 필요합니다.
-
-Hard nonclaims:
-- 이 최상단 문구는 production-ready 선언이 아닙니다.
-- README 최상단은 PASS 인증서가 아닙니다.
-- 완료도 표, plan, test count, Result Receipt만으로 Full UX PASS를 증명하지 않습니다.
+- Live UX 주장은 machine-readable evidence에 더해 사용자가 관측 가능한 live lane 근거가 필요합니다.
+- 완료도 표, 계획, 테스트 개수, Result Receipt 하나만으로 Full UX PASS를 주장하지 않습니다.
 - Hermes 전용 근거는 provider-neutral 동작 증명이 아닙니다.
-- `ygg`, MS1/MF1(legacy OP1/OP2), attach, talk 명령은 setup 검증 전 존재한다고 가정하지 않습니다.
 
 ---
 
@@ -136,7 +138,7 @@ Hard nonclaims:
 openyggdrasil은 Hermes, Claude Code, Cursor 같은 AI 프로바이더에 붙는
 세션 단위 콜드스타트 스킬을 지향합니다. 목표 운영 모델은 상시 실행 시스템
 서버나 별도 서버 관리를 요구하지 않습니다. 다만 active Provider Lane 주변에
-세션 단위 MS/MF worker/watcher가 생길 수 있고, 이들은 반드시 수명주기와
+세션 단위 Postman helper와 MS/MF worker가 생길 수 있고, 이들은 반드시 수명주기와
 cleanup 검증에 묶여야 합니다. 이는 아직 production-ready 보장이 아닙니다.
 
 > **⚠️ 추론 토큰 임대 모델 (비동기 다중화 / Asynchronous Multiplexing):**
@@ -151,26 +153,31 @@ cleanup 검증에 묶여야 합니다. 이는 아직 production-ready 보장이 
 - 에이전트가 이 계약을 읽으면, 메모리 검색 및 캡처를 위한 정확한 진입점,
   명령 형태, 경계를 파악합니다.
 
+`SKILL.md`는 provider bootstrap/attachment 계약입니다. 모든 SKILL, MCP,
+tool, TST worker manual의 생명주기 원본은 아닙니다. capability 생명주기
+원본은 [`capabilities/`](capabilities/README.md) 아래에 두며, provider에
+설치되는 skill 파일은 해당 원본에서 파생되는 projection이어야 합니다.
+
 Provider-first 콜드스타트 규칙:
 
 - 사용자는 먼저 Hermes, Claude Code, Codex, Cursor 같은 정상 프로바이더 UX로 세션을 엽니다.
 - 그다음 프로바이더가 openyggdrasil 레포지토리 경로, URL, 또는 스킬 참조를 받고 `SKILL.md`를 읽습니다.
-- 첫 설치 환경은 전역 `ygg` 명령이나 `ygg pro1`, `ygg ms1`, `ygg mf1` 같은 attach 명령이 이미 존재한다고 가정하면 안 됩니다.
-- bootstrap 전에 `ygg-*` attach wrapper, legacy `oy-*` wrapper, 또는 사전 설치된 `ygg` 명령이 전역에 보이면, session-group health record로 검증되기 전까지는 로컬/개발 잔존물로 취급합니다.
-- 레포지토리 안의 로컬 도구는 프로바이더가 레포지토리를 인식한 뒤 발견하는 bootstrap 자산입니다. 프로바이더 세션이 이미 붙었다는 근거가 아닙니다.
-- `ygg pro1`은 보편적인 첫 진입점도, provider identity도 아닙니다. openyggdrasil을 인식한 뒤 사용할 수 있는 선택적 Provider attach/witness 명령입니다. 내부 tmux 세션명은 `ygg-pro1`일 수 있습니다.
+- 첫 설치 환경은 전역 `ygg` 명령을 전제로 하지 않습니다. 문서와 스모크는 레포지토리 안의 `./scripts/ygg`를 기준으로 설명합니다.
+- 이미 PATH에 `ygg` 계열 명령이 있어도 그것만으로 정상 연결을 믿지 않습니다. `./scripts/ygg doctor`와 `./scripts/ygg status`가 현재 작업공간과 live lane을 확인해야 합니다.
+- 레포지토리 안의 로컬 도구는 프로바이더가 이 workspace를 읽은 뒤 사용하는 bootstrap 자산입니다. 도구가 있다는 사실만으로 Provider/MS/MF가 연결됐다고 보지 않습니다.
+- `./scripts/ygg pro1`은 선택적 live witness 진입점입니다. Provider의 정체성이나 첫 진입 절차가 아니라, 이미 준비된 Provider lane을 사용자가 관찰하거나 붙기 위한 표면입니다.
 
 활성 세션 health는 lane 단독이 아니라 그룹 단위로 봅니다:
 
 ```text
-사용자 명령   내부 tmux   Runtime evidence
-ygg pro1      ygg-pro1        provider_lane.v1
-ygg ms1       ygg-op1      MS1 Memory Saver registry/mailbox/live watcher (legacy OP1)
-ygg mf1       ygg-op2      MF1 Memory Finder registry/mailbox/live watcher (legacy OP2)
-정본 근거                  mailbox / Result Receipts / event logs / attachment artifacts
+사용자 실행                 확인하는 대상                         정본 근거
+./scripts/ygg pro1           Provider live lane                    provider lane record
+./scripts/ygg ms1            Memory Saver lane                     mailbox work_order/history, worker receipt
+./scripts/ygg mf1            Memory Finder lane                    query receipt, support bundle, event log
+./scripts/ygg doctor/status  lane group health                     attachment artifact, schema-valid trace
 ```
 
-이 그룹 중 한쪽이라도 stale이면 전체 그룹은 degraded입니다. 불확실하다고 해서 `oy-2`, `oy-3` 또는 추가 MS/MF pair를 자동 fallback으로 만들면 안 됩니다. 새 Provider Unit MS/MF pair는 명시적으로 만들고 다시 bind해야 합니다.
+이 그룹 중 한쪽이라도 stale이면 전체 그룹은 degraded입니다. 불확실하다고 해서 새 MS/MF pair를 자동으로 만들면 안 됩니다. 새 Provider Unit은 명시적으로 만들고 다시 bind해야 합니다.
 
 ### 2. 시스템 요구사항 & 의존성 설치
 
@@ -212,13 +219,13 @@ openyggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python
 의존성이 승인되고 설치되면, 프로바이더는 `SKILL.md`에 정의된 스킬 진입점을
 실행할 수 있습니다. openyggdrasil 런타임은 **프로바이더 세션 단위로 콜드스타트**됩니다.
 시스템 레벨 백그라운드 데몬은 없지만, 프로바이더 세션에 바인딩된 Memory Worker Session이
-세션 수명 동안 메일박스로 상주할 수 있습니다. 작업이 끝나거나 타임아웃되면
+세션 수명 동안 Postman/Mailbox 작업 원장에 묶여 상주할 수 있습니다. 작업이 끝나거나 타임아웃되면
 정리되어야 합니다.
 
 깨끗한 콜드스타트의 의미:
 
 - 이미 attach된 Provider lane을 가정하지 않습니다.
-- 전역 `ygg-*` attach wrapper 또는 legacy `oy-*` 명령을 요구하지 않습니다.
+- 레포지토리 밖의 attach wrapper 명령을 요구하지 않습니다.
 - 이전 MS/MF registry pair를 health 근거 없이 신뢰하지 않습니다.
 - 이전 Vault proof artifact를 현재 runtime state로 취급하지 않습니다.
 - 프로바이더가 workspace를 발견하고 검증한 뒤에만 attach/witness lane을 안내합니다.
@@ -227,17 +234,20 @@ openyggdrasil은 순수 로컬에서 실행됩니다. 코어 런타임은 Python
 
 openyggdrasil은 **서버 모델**이 아니라 **위성 모델**입니다.
 
-중심에는 active Provider Session이 있습니다. Memory Saver, Memory Finder, mailbox,
-watcher, 선택적 TMUX pane은 그 세션 주위를 도는 위성입니다. 이들은 active
+중심에는 active Provider Session이 있습니다. Postman, Mailbox, Memory Saver,
+Memory Finder, 선택적 TMUX pane은 그 세션 주위를 도는 위성입니다. 이들은 active
 Provider Session을 보조하기 위해 존재하며, 독립적인 상시 서버가 되면 안 됩니다.
+Postman은 별도 의미 판단자가 아니라 메일 접수, work order/history 작성, MS/MF
+CPR, receipt mirror를 맡는 delivery owner입니다. mailbox polling이나 native pane
+wakeup helper가 있더라도 제품 책임은 Postman 아래에 묶어 읽습니다.
 
 ```text
 Provider Unit
   ├─ PRO Provider Lane       사용자가 대화하는 provider session
-  ├─ MS1 Memory Saver 위성   세션 스코프 background save worker (legacy OP1)
-  ├─ MF1 Memory Finder 위성  세션 스코프 background find worker (legacy OP2)
-  ├─ Mailbox 위성            로컬 파일 큐 / Result Receipt 원장
-  ├─ Watcher 위성            해당 mailbox를 보는 로컬 polling 프로세스
+  ├─ MS1 Memory Saver 위성   세션 스코프 background save worker
+  ├─ MF1 Memory Finder 위성  세션 스코프 background find worker
+  ├─ Postman 위성            편지 접수 / work_order / CPR / receipt mirror owner
+  ├─ Mailbox 위성            로컬 파일 큐 / work_history / Result Receipt 원장
   └─ TMUX witness 위성       사람이 보는 선택적 시각 표면
 ```
 
@@ -245,10 +255,11 @@ Provider Unit
 
 | 위성 | 정체 | 정체가 아닌 것 |
 |---|---|---|
+| Postman | 메일 접수, work order/history, MS/MF CPR, receipt mirror owner | 의미 품질 평가자, 독립 reasoning worker |
 | Mailbox | 로컬 파일 기반 큐와 Result Receipt 원장 | 서버, socket API, public service |
-| Watcher | 세션 스코프 로컬 polling worker | always-on daemon, global server |
-| MS1 Memory Saver | Provider Unit에 묶인 background save worker (legacy OP1) | 독립 memory server |
-| MF1 Memory Finder | Provider Unit에 묶인 background find worker (legacy OP2) | 독립 search server |
+| Postman helper | Postman 아래에서 mailbox를 폴링하거나 pane wakeup을 돕는 구현 세부 | 독립 책임자, always-on daemon, global server |
+| MS1 Memory Saver | Provider Unit에 묶인 background save worker | 독립 memory server |
+| MF1 Memory Finder | Provider Unit에 묶인 background find worker | 독립 search server |
 | TMUX witness | 사람이 보는 선택적 관찰 표면 | SOT, 실행 Checkpoint, 정본 입력 lane |
 
 위성 수명주기 규칙:
@@ -257,26 +268,28 @@ Provider Unit
 - 위성은 하나의 active Provider Unit session group에 붙어야 합니다.
 - stale 위성이 하나라도 있으면 전체 그룹은 degraded입니다.
 - cleanup은 명시적이고 backup-first여야 합니다.
-- 불확실하다고 해서 `oy-2`, `oy-3`, 추가 MS/MF pair 같은 fallback 위성을 자동 생성하면 안 됩니다.
-- 정본 근거는 mailbox Result Receipt, event log, schema trace, attachment artifact입니다.
+- 불확실하다고 해서 추가 MS/MF pair를 자동 생성하면 안 됩니다.
+- 정본 근거는 mailbox work_order/history, Result Receipt, event log, schema trace, attachment artifact입니다.
 
 ```mermaid
 flowchart LR
   P["Active Provider Lane<br/>(PRO)"]
-  MS1["MS1 Memory Saver<br/>legacy OP1"]
-  MF1["MF1 Memory Finder<br/>legacy OP2"]
-  MB["Mailbox<br/>local file queue + Result Receipts"]
-  W["Watcher<br/>session-scoped polling"]
+  MS1["MS1 Memory Saver"]
+  MF1["MF1 Memory Finder"]
+  PM["Postman<br/>admission + work order + CPR"]
+  MB["Mailbox<br/>work_order + work_history + Result Receipts"]
+  H["Postman helper<br/>poll/wakeup implementation detail"]
   T["TMUX Witness<br/>optional visual satellite"]
   V["Vault / Evidence Pack"]
   E["Canonical evidence<br/>Result Receipts / logs / schemas"]
 
-  P --> MB
+  P --> PM --> MB
   MB --> MS1 --> V
   MB --> MF1 --> V
-  W -. "polls active mailbox" .-> MB
-  T -. "observes only" .-> W
+  H -. "polls/wakes under Postman ownership" .-> MB
+  T -. "observes only" .-> H
   MB --> E
+  PM --> E
   MS1 --> E
   MF1 --> E
 ```
@@ -294,7 +307,7 @@ TMUX는 **core execution path가 아닙니다.** 기본 운영 모드는 backgro
 
 - Provider Lane과 Memory Saver/Finder session은 Mailbox, Result Receipt, event log, provider-owned background task로 실행됩니다.
 - Memory Saver/Finder 작업은 TMUX pane이 붙어 있지 않아도 계속되어야 합니다.
-- TMUX pane은 background runtime이 이미 생산하는 log, inbox, Result Receipt, status snapshot을 tail하거나 관찰할 수 있습니다.
+- TMUX pane은 Postman과 MS/MF가 이미 생산하는 work_order, work_history, Result Receipt, status snapshot을 tail하거나 관찰할 수 있습니다.
 - TMUX pane이 닫히거나 실패하는 것은 관측성 손실이지 memory engine 실패가 아닙니다.
 - TMUX capture는 사람이 읽는 보조 근거로 쓸 수 있지만, machine-readable Result Receipt, schema-valid trace, test result를 대체할 수 없습니다.
 
@@ -302,7 +315,8 @@ TMUX는 **core execution path가 아닙니다.** 기본 운영 모드는 backgro
 flowchart LR
   U["User"]
   P["Provider Session"]
-  M["Mailbox / Event Log / Result Receipt"]
+  M["Mailbox / Work History / Result Receipt"]
+  PM["Postman<br/>(admission + CPR + mirror)"]
   O["MS/MF Session"]
   V["Vault / Evidence Pack"]
   T["TMUX Live Witness<br/>(visual only)"]
@@ -311,7 +325,7 @@ flowchart LR
   E["typed memory_lane_user_input event"]
   R["Machine-readable evidence<br/>Result Receipts / schema traces / tests"]
 
-  P --> M --> O --> V
+  P --> PM --> M --> O --> V
   U --> G --> T
   T -. "tail / observe only" .-> M
   T -. "tail / observe only" .-> O
@@ -327,42 +341,42 @@ Use this when: 사람이 live 검증 중 Provider Unit 흐름을 눈으로 따�
 Do not use this when: background 작업 성공, 기억 저장 성공, 검색 성공의 정본 근거가 필요할 때.
 If ambiguous: Result Receipt/event log/schema trace를 먼저 보고, TMUX는 보조 화면으로만 취급한다.
 Typed unavailable when: tmux가 없거나 pane attach가 실패했지만 background Result Receipt가 정상인 경우 `tmux_visual_witness_unavailable`.
-Required evidence refs: Mailbox Result Receipt, event log, schema-valid trace, test result.
+Required evidence refs: Mailbox work_order/history, Result Receipt, event log, schema-valid trace, test result.
 Hard nonclaims: TMUX 화면은 SOT가 아니며, raw stdin/tmux 주입은 Memory Lane Talk의 정본 입력이 아니다.
 ```
 
-현재 공개 README에서 안전하게 말할 수 있는 명령면:
+이 README가 안내하는 로컬 명령:
 
 ```text
-ygg pro1     목표/개발 중인 Provider 관찰 명령. 내부 tmux 세션명은 ygg-pro1일 수 있음.
-ygg ms1      목표/개발 중인 MS1 Memory Saver 관찰 명령. 내부 tmux 세션명은 ygg-op1일 수 있음.
-ygg mf1      목표/개발 중인 MF1 Memory Finder 관찰 명령. 내부 tmux 세션명은 ygg-op2일 수 있음.
-ygg doctor   목표/개발 중인 세션 그룹 헬스체크. production lifecycle proof는 NOT PASS.
-ygg status   목표/개발 중인 상태 표면.
-ygg talk MS1 목표 기능, NOT PASS. raw tmux/stdin 입력이 아니라 typed event여야 함.
+./scripts/ygg doctor   레포지토리 안에서 세션 그룹 상태를 확인합니다.
+./scripts/ygg status   레포지토리 안에서 live lane 상태를 봅니다.
+./scripts/ygg pro1     Provider live lane을 관찰하거나 붙는 명령.
+./scripts/ygg ms1      Memory Saver live lane을 관찰하거나 붙는 명령.
+./scripts/ygg mf1      Memory Finder live lane을 관찰하거나 붙는 명령.
+ygg talk MS1           목표 기능, NOT PASS. raw tmux/stdin 입력이 아니라 typed event여야 함.
 ```
 
-중요한 구분:
+이 README에서 말하는 실행 표면:
 
-- `ygg pro1`, `ygg ms1`, `ygg mf1`은 사용자가 입력하는 목표/개발 명령면입니다.
-- `ygg-pro1`, `ygg-op1`, `ygg-op2`는 내부 tmux 세션명 또는 증거 id로 남을 수 있습니다.
-- public repo에서는 전역 `ygg`, `ygg-*`, legacy `oy-*` 명령이 이미 설치되어 있다고 가정하지 않습니다.
-- 프로바이더가 먼저 정상 Provider UX로 들어온 뒤, `SKILL.md`와 workspace를 인식하고 나서 attach/witness 명령을 안내해야 합니다.
+- 사용자는 레포지토리 안에서 `./scripts/ygg doctor`, `./scripts/ygg status`, `./scripts/ygg pro1/ms1/mf1`를 실행합니다.
+- 이 명령들은 live lane을 관찰하거나 붙기 위한 보조 표면입니다. 저장 성공, 회상 성공, Full UX PASS의 정본 근거는 아닙니다.
+- 첫 설치 문서는 전역 `ygg`나 별도 wrapper가 이미 있다고 가정하지 않습니다. 전역 설치는 별도 install gate를 통과한 뒤에만 안내합니다.
+- 프로바이더가 먼저 정상 Provider UX로 들어오고, `SKILL.md`와 workspace를 인식한 뒤에만 관찰 명령을 안내합니다.
 
 WSL 일반 셸에서 관찰할 때의 목표 UX:
 
 ```bash
-ygg doctor
-ygg status
-ygg pro1
-ygg ms1
-ygg mf1
+./scripts/ygg doctor
+./scripts/ygg status
+./scripts/ygg pro1
+./scripts/ygg ms1
+./scripts/ygg mf1
 ```
 
 이미 tmux 내부에 들어와 있을 때:
 
 - 같은 pane 안에서 다시 attach하면 nested tmux가 됩니다.
-- 먼저 detach한 뒤 WSL 일반 셸에서 `ygg pro1`, `ygg ms1`, `ygg mf1`을 실행하는 편이 안전합니다.
+- 먼저 detach한 뒤 WSL 일반 셸에서 `./scripts/ygg pro1`, `./scripts/ygg ms1`, `./scripts/ygg mf1`을 실행하는 편이 안전합니다.
 - 정말 nested attach를 의도할 때만 tmux의 경고를 이해한 상태에서 별도 shell로 실행합니다. 이것은 일반 사용자 UX가 아닙니다.
 
 저수준 대체 진단:
@@ -467,8 +481,8 @@ Andrej Karpathy의 [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e
 | Raw 입력 | 코드 진입점 | 구조화 역할 |
 |---|---|---|
 | provider가 만든 얕은 신호 | `runtime/capture/session_structure_signal.py::build_session_structure_signal` | `provider_id`, `provider_session_id`, `turn_range`, `surface_reason`, `source_ref`만 담는다. 원문 transcript를 통째로 넣지 않는다. |
-| Mailbox 저장 의뢰 | `runtime/operator/producer.py::run_producer` | `mailbox/intents.jsonl` 또는 legacy `messages.jsonl`에서 `save`, `memory_ticket`, `prune`, `curate`, `sandbox-exec`, `promote` intent를 읽는다. |
-| Mailbox 검색 의뢰 | `runtime/operator/consumer.py::run_consumer` | `mailbox/queries.jsonl`의 `query_text`를 읽고 Vault에서 Evidence Pack을 만든다. |
+| Postman 저장 의뢰 | `runtime/operator/producer.py::run_producer` | `mailbox/intents.jsonl` 또는 호환 입력에서 `save`, `memory_ticket`, `prune`, `curate`, `sandbox-exec`, `promote` intent를 읽는다. |
+| Postman 검색 의뢰 | `runtime/operator/consumer.py::run_consumer` | `mailbox/queries.jsonl`의 `query_text`를 읽고 Vault에서 Evidence Pack을 만든다. |
 
 일반 저장 경로는 `payload.context_snapshot`을 원천으로 삼습니다. 이 텍스트는 `extract_decisions()`에서 결정/정책/사실/아키텍처 마커가 있는 문장 후보로 나뉘고, `build_spo_triples()`에서 `Subject / Predicate / Object` 트리플로 바뀐 뒤, `build_vault_node()`에서 `N-<content_hash>` 노드가 됩니다. Admission Checkpoint가 최소 품질을 통과시킨 노드만 `save_to_vault()`를 거쳐 Markdown 파일이 됩니다.
 
@@ -546,7 +560,7 @@ RELATED_TO
 ```text
 vault/queries/<topic>.md
 vault/concepts/PRN-<hash>.md
-vault/concepts/N-<hash>.md        # legacy 검색 호환 mirror
+vault/concepts/N-<hash>.md        # 검색용 mirror
 vault/_meta/provenance/<topic>.md
 vault/communities/<community>.md
 ```
@@ -775,7 +789,7 @@ Graphify가 제안한 관계가 Vault에서 확인되지 않으면 SOT가 아니
 이 철학을 바탕으로 openyggdrasil은 메모리를 포착하고 큐레이션하는 **생산면(Production Side)** 과 지식을 검색하고 전달하는 **소비면(Consumption Side)** 이라는 양면 엔진으로 작동합니다.
 
 백그라운드 실행 주체는 **Memory Worker Session**으로 정리합니다. 이 주체는 명확한 시작/종료 수명과 Provider Lane과의 1:1 페어링 관계를 가집니다.
-Memory Worker Session은 **CQRS(Command Query Responsibility Segregation)** 원칙에 따라 물리적으로 분리된 독립 백그라운드 프로세스에서 실행되며, Provider Lane과는 오직 **Mailbox**로만 통신합니다.
+Memory Worker Session은 **CQRS(Command Query Responsibility Segregation)** 원칙에 따라 물리적으로 분리된 독립 백그라운드 프로세스에서 실행됩니다. Provider Lane은 직접 MS/MF를 조종하지 않고, Postman이 접수한 Mailbox work order를 통해서만 작업을 넘깁니다.
 
 ```text
   [ Front-stage ]
@@ -784,8 +798,14 @@ Memory Worker Session은 **CQRS(Command Query Responsibility Segregation)** 원�
                  │ Save Request / Find Request 발행
                  ▼
   ┌─────────────────────────────────────────────────────────┐
+  │                    POSTMAN                              │
+  │  편지 접수 / work_order / CPR / receipt mirror          │
+  └────────────────┬───────────────────┬────────────────────┘
+                   │                   │
+                   ▼                   ▼
+  ┌─────────────────────────────────────────────────────────┐
   │                    MAILBOX (JSONL)                       │
-  │  (Provider Lane과 Memory Worker Session 간의 유일한 통신 채널)     │
+  │  work_order / work_history / Result Receipt ledger       │
   └────────────────┬───────────────────┬────────────────────┘
                    │  Save Request     │  Find Request
                    ▼                   ▼
@@ -800,13 +820,13 @@ Memory Worker Session은 **CQRS(Command Query Responsibility Segregation)** 원�
               │                              │
               ▼                              ▼
   ┌───────────────────────────┐  ┌───────────────────────────┐
-  │     VAULT (SOT)           │  │  영수증 → Mailbox         │
-  │  생산된 노드 및 위상 저장  │  │  → Provider Lane 수신│
+  │     VAULT (SOT)           │  │  Result Receipt / Evidence│
+  │  생산된 노드 및 위상 저장  │  │  → Mailbox → Provider Lane│
   └───────────────────────────┘  └───────────────────────────┘
 ```
 
-**핵심 제약:** Memory Worker Session(Memory Saver/Finder; legacy Producer/Consumer)은 프로바이더 세션과 물리적으로 다른 컨텍스트 윈도우(PID)에서 실행되며, 메모리를 공유하지 않습니다.
-Mailbox(JSONL 파일시스템)만이 유일한 통신 채널입니다. 기존 Mock/Mailbox POC 근거는 bounded proof로 취급하며, 이것만으로 모든 provider 동일 UX나 production-ready를 주장하지 않습니다.
+**핵심 제약:** Memory Worker Session(Memory Saver/Finder)은 프로바이더 세션과 물리적으로 다른 컨텍스트 윈도우(PID)에서 실행되며, 메모리를 공유하지 않습니다.
+Postman/Mailbox(JSONL 파일시스템)만이 정본 작업 채널입니다. Postman은 작업을 접수하고 깨우고 기록하지만, 저장 의미 품질과 회상 의미 품질을 대신 판정하지 않습니다. 기존 Mock/Mailbox POC 근거는 bounded proof로 취급하며, 이것만으로 모든 provider 동일 UX나 production-ready를 주장하지 않습니다.
 
 #### 세션 정의 (Session Definitions)
 
@@ -826,15 +846,18 @@ Mailbox(JSONL 파일시스템)만이 유일한 통신 채널입니다. 기존 Mo
 
 **SKILL.md와 Mailbox의 역할 구분:**
 
-| | SKILL.md | Mailbox |
+| | SKILL.md | Postman / Mailbox |
 |---|---|---|
-| 성격 | **정적** 리마인더 | **동적** 상태 인지 채널 |
-| 역할 | Memory Worker의 존재를 알려줌 | Memory Worker의 현재 상태를 전달 |
-| 한계 | 최신 상태를 알 수 없음 | — |
+| 성격 | **정적** 리마인더 | **동적** 작업 접수와 상태 원장 |
+| 역할 | Memory Worker의 존재와 경계를 알려줌 | work order, work history, Result Receipt를 통해 현재 상태를 전달 |
+| 한계 | 최신 상태를 알 수 없고 capability 생명주기 SOT가 아님 | 의미 품질을 자동 보증하지 않음 |
 
 SKILL만으로는 프로바이더가 "내 Memory Worker가 살아있나? 뭘 처리했나?"를 알 수 없습니다.
-프로바이더가 약결합된 Memory Worker의 상태를 인지하는 **유일한 채널이 Mailbox**이므로,
-**Mailbox의 위생 상태(Hygiene)가 전체 시스템의 건강을 결정합니다.**
+프로바이더가 약결합된 Memory Worker의 상태를 인지하는 정본 채널은 **Postman/Mailbox work_order/history/receipt**이므로,
+**Mailbox와 Postman history의 위생 상태(Hygiene)가 전체 시스템의 건강을 결정합니다.**
+
+capability 선택과 skill 진화는 Provider-facing bootstrap skill을 직접
+부풀리거나 수정하는 방식이 아니라, repo-managed capability record와 snapshot으로 관리해야 합니다.
 
 ### 생산면 — "무엇을 기억할 것인가"
 
@@ -853,7 +876,7 @@ SKILL만으로는 프로바이더가 "내 Memory Worker가 살아있나? 뭘 처
 2. **Topology ID (`episode_ids`, `claim_ids`)**: Vault/Graphify 내에서 해당 지식이 생성된 맥락적 위상 좌표.
 3. **Evidence Refs (`safe_ref`)**: 필요 시 지원 로그나 터미널 실행 근거를 점검할 수 있는 안전한 포인터.
 
-결과적으로 에이전트는 요약본과 함께 기원을 점검할 수 있는 제한된 근거 주소를 받습니다. 이 결과는 **Delivery Monitor**(internal Postman)를 거쳐 타입이 지정된 **Mailbox** 계약으로 수신됩니다.
+결과적으로 에이전트는 요약본과 함께 기원을 점검할 수 있는 제한된 근거 주소를 받습니다. 이 결과는 **Postman**이 관리하는 **Mailbox / work_history / Result Receipt** 계약으로 수신됩니다.
 
 <a id="ptc"></a>
 
@@ -898,7 +921,7 @@ openyggdrasil의 생산 및 소비 파이프라인은 **PTC (Programmatic Tool C
   ┌──────────────────────────────────────────────────────────────┐
   │               openyggdrasil (PTC Palette)                    │
   │                                                              │
-  │  1. Provider: ygg가 LLM 코드 템플릿을 생성하여 MS1/MF1(legacy OP1/OP2)에 발행  │
+  │  1. Provider: ygg가 LLM 코드 템플릿을 생성하여 MS1/MF1에 발행                  │
   │  2. Stub Generator: IPC preamble + 26종 도구 함수 주입       │
   │  3. Sandbox Executor: bwrap 샌드박스에서 Python 스크립트 실행  │
   │  4. IPC Server: Unix Domain Socket으로 호스트 primitives 호출 │
@@ -996,7 +1019,7 @@ openyggdrasil은 자체 LLM이나 API 키를 갖고 있지 않습니다.
        │
        ▼
   에이전트가 자기 쉘/도구호출로 Python 진입점 실행
-  → producer/consumer가 고정 체인(추론 불필요)으로 파이프라인 관통
+  → MS/MF compatibility runtime이 고정 체인(추론 불필요)으로 파이프라인 관통
   → 또는 PTC 체인(`--ptc`)으로 26종 도구 팔레트에서 코드 실행
 ```
 
@@ -1037,7 +1060,7 @@ Reasoning Lease 경계를 필요로 합니다. 이것은 full PTC kitchen이 pro
   │     (구조화된 신호와 함께)                     (질의와 함께)                │
   │  ④ Signal → 12-모듈 체인                  ④ Pathfinder → Vault 스캔      │
   │  ⑤ Vault 갱신                            ⑤ Evidence Pack 조립                │
-  │  ⑥ Delivery Monitor → Mailbox Result Receipt               ⑥ Mailbox → 에이전트가          │
+  │  ⑥ Postman → Mailbox work_history/Result Receipt           ⑥ Mailbox → 에이전트가          │
   │                                              제한된 검색 결과 수신         │
   └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1085,7 +1108,7 @@ Reasoning Lease 경계를 필요로 합니다. 이것은 full PTC kitchen이 pro
 
 캡처 신호가 시스템에 들어오면, 이를 자동화된 블랙박스에 그대로 넘기지 않습니다. 이 과정은 프로바이더 세션과 Memory Worker Session의 역할 분담으로 처리됩니다:
 
-1. **초기 맥락 인지 (프로바이더 어댑터 / 워커):** 프로바이더 어댑터나 워커가 `SKILL.md`를 참고하여 기억해야 할 맥락을 라우팅합니다. 근거가 있을 때에만 `surface_reason`과 `source_ref`가 포함된 초기 신호(Session Structure Signal)를 구성해 OpenYggdrasil 런타임에 주입해야 합니다.
+1. **초기 맥락 인지 (프로바이더 어댑터 / 워커):** 프로바이더 어댑터나 워커가 bootstrap `SKILL.md`를 참고하여 기억해야 할 맥락을 라우팅합니다. 근거가 있을 때에만 `surface_reason`과 `source_ref`가 포함된 초기 신호(Session Structure Signal)를 구성해 OpenYggdrasil 런타임에 주입해야 합니다. 역할별 worker manual과 Tool Search / PTC capability 선택은 Provider bootstrap skill을 부풀리는 방식이 아니라 repo-managed capability record로 관리해야 합니다.
 2. **심층 구조화 (Memory Worker Session):** 목표 흐름에서 런타임은 이 의뢰를 프로바이더 어댑터의 추론 임대(Reasoning Lease) 경계로 받고 Memory Worker Session을 스폰합니다. Memory Worker Session은 고정된 파이프라인이나 단일 모듈이 아니라, **부여된 작업 계약(Task Contract)에 따라 역할을 바꾸는 다면기(Role-Polymorphic Leased Executor)** 개념입니다.
 
 Memory Worker Session은 PTC(Programmatic Tool Calling) 본질에 맞게, Memory Saver/Finder 역할을 수행하기 위해 **ygg가 생성한 템플릿 코드를 bwrap 샌드박스에서 실행**할 수 있습니다. 현재 안전한 목표는 26종 도구를 한 표면에 섞어 두는 것이 아닙니다. production kitchen과 consumption kitchen을 분리하고 역할별 allowlist와 typed egress를 강제해야 합니다.
@@ -1356,7 +1379,7 @@ read/search/Evidence Pack 조립 역할 안에서만 도구를 사용해야 합�
 - `origin_claims`와 `recent_claims`는 서로 의존하지 않으므로 병렬 호출 가능.
 - 모든 도구는 `stub_generator.py` preamble에 "Use this when / Do NOT use this when" 형식의
   어포던스 설명을 제공받는다.
-- P1 완료 전까지 “LLM 자유 조합 전체 PASS” 또는 “Consumer kitchen PASS”를 주장하지 않는다.
+- P1 완료 전까지 “LLM 자유 조합 전체 PASS” 또는 “MF consumption kitchen PASS”를 주장하지 않는다.
 
 ### PTC 도구 설계 원칙 (어포던스 기반)
 
@@ -1526,8 +1549,8 @@ RESULT = {"sources": sources}
 | ⑦ | **Nursery** | 수용된 후보 배양 | 새 지식은 승격 전 인큐베이션 필요 |
 | ⑧ | **Map Maker** | 토픽/커뮤니티 구조에 메모리 배치 | 평면 덤프가 아닌 탐색 가능한 구조 |
 | ⑨ | **Gardener** | 생명주기 전환: ACTIVE → SUPERSEDED → STALE | 지식은 축적만이 아니라 가지치기도 필요 |
-| ⑩ | **Delivery Monitor** | Evidence Pack 라우팅(internal Postman transport) | 전달은 부수효과가 아닌 계약 |
-| ⑪ | **Mailbox** | 프로바이더 세션 수신함 | 타입 안전 소비 표면 |
+| ⑩ | **Postman** | 편지 접수, work order/history, MS/MF CPR, receipt mirror 조율 | 전달은 부수효과가 아니라 기록 가능한 계약이다 |
+| ⑪ | **Mailbox / Work History** | 프로바이더와 MS/MF 사이의 작업 원장 | 타입 안전 작업 접수와 결과 회수 표면 |
 | ⑫ | **Pathfinder** | 설명 가능한 지원 자료 검색 | 검색 결과는 출처와 생명주기 증거를 수반하거나 typed unavailable로 닫혀야 함 |
 
 15차 필수 승격군:
@@ -1542,8 +1565,8 @@ RESULT = {"sources": sources}
 | 25 | **PTC Egress / Sandbox Checkpoint** | NOT PASS | raw stdout은 debug-only, provider-facing 결과는 typed egress. production sandbox unavailable은 fail-closed |
 | 26 | **Provenance Ring Lineage** | PARTIAL | source_ref, anchor_hash, message range를 append-only 나이테로 각인 |
 | 27 | **Graphify Support Verifier** | PARTIAL | Graphify hint를 Vault/provenance로 재검증한 뒤 Evidence Pack 후보로만 사용 |
-| 28 | **TMUX Live Witness** | POLICY ONLY | 사람이 보는 live 관찰 표면. SOT나 execution proof가 아님 |
-| 29 | **Session Attach Gateway** | NOT PASS | 목표 `ygg status/attach/tmux`가 active project/session registry에 붙는 UX |
+| 28 | **TMUX Live Witness** | SCOPED PASS | 레포지토리 안의 `./scripts/ygg status/pro1/ms1/mf1`로 live lane을 관찰하거나 붙을 수 있음. TMUX는 여전히 SOT가 아님 |
+| 29 | **Session Attach Gateway** | SCOPED PASS | 레포지토리 안의 `./scripts/ygg doctor/status/pro1/ms1/mf1`가 현재 Provider/MS/MF live lane을 확인하고 attach 표면을 제공 |
 | 30 | **Interactive Memory Lane Talk** | NOT PASS | 목표 `ygg talk MS1/MF1`를 raw tmux/stdin이 아닌 typed mailbox/event 입력으로 처리 |
 
 15차 승격후보군:
@@ -1603,18 +1626,18 @@ fail-closed로 닫혀야 합니다.
 
 ```
 openyggdrasil/
+├── capabilities/       # SKILL/MCP/tool/TST 생명주기 원본과 projection 계획
 ├── contracts/          # JSON 스키마 — 모듈 간 API
 ├── runtime/
 │   ├── admission/      # Checkpoint, Seedkeeper, Amundsen 핸드오프
 │   ├── capture/        # Signal 캡처, Decision Distiller
-│   ├── evaluation/     # Evaluator, 승격 가치 평가
+│   ├── evaluation/     # 런타임 evaluator handoff와 승격 가치 판단 helper
 │   ├── cultivation/    # Nursery, Gardener, 생명주기
 │   ├── placement/      # Map Maker, 토픽/에피소드 배치
 │   ├── provenance/     # 출처 추적, 시간 엣지
 │   ├── retrieval/      # Pathfinder, PTC 도구, Graphify 어댑터
-│   ├── delivery/       # Delivery Monitor(internal Postman), Mailbox, Evidence Pack
+│   ├── delivery/       # Postman, mailbox work_order/history, Result Receipt, Evidence Pack
 │   ├── reasoning/      # Reasoning Lease, 프로바이더 게이트
-│   ├── runner/         # 오케스트레이션, 회귀 진입점
 │   ├── ptc/            # Programmatic Tool Calling 엔진
 │   └── governance/     # 페이즈 자동화
 ├── common/graphify/    # 파생 그래프/위키/인덱스 뷰 (비SOT)
@@ -1723,8 +1746,10 @@ openyggdrasil은 LSP를 직접 사용하지 않지만, 그 **capability negotiat
 5. **Fail-closed, not fail-open.** 증거가 없으면 시스템은 타입이 지정된
    불가용성을 보고합니다 — 절대 준비 상태를 조작하지 않습니다.
 
-6. **파생 뷰는 절대 진실 원천이 아닙니다.** Graphify 인덱스, 그래프 뷰,
-   위키 페이지는 파생 표면입니다. Vault만이 유일한 정규 표면입니다.
+6. **보기 좋은 표면만으로는 근거가 되지 않습니다.** Graphify 인덱스와
+   그래프 뷰는 탐색을 돕는 파생 표면입니다. Wiki Ring page는 사람이
+   읽는 지식 표면이지만, 최종 근거가 되려면 source_ref, provenance,
+   safe_index_cursor, Result Receipt와 함께 확인되어야 합니다.
 
 7. **Schema validates, Persona persuades, Runtime enforces.** 추론 품질은
    JSON 스키마 강제만으로 달성되지 않습니다. LLM에게 행위의 이유와 경계를

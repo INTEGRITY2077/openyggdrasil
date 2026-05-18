@@ -7,6 +7,10 @@ openyggdrasil does not ship a static Antigravity runtime bundle here. The
 public baseline is generated from provider-neutral attachment contracts and
 repo-owned bootstrap helpers.
 
+Generated provider files are projection/install artifacts. They are not the
+Skill/MCP/tool lifecycle source. Managed capability source is planned under
+`capabilities/`, with provider-specific projection and deployment receipts.
+
 ## Public Baseline
 
 - generated workspace artifacts: `.yggdrasil/providers/antigravity/...`
@@ -14,6 +18,9 @@ repo-owned bootstrap helpers.
 - deploy/helper surface: `runtime/attachments/deploy_skill.py`
 - machine-readable baseline:
   `contracts/antigravity_provider_packaging_baseline.v1.schema.json`
+
+The generated file target must be tied back to a repo capability snapshot and
+deployment receipt before it is considered managed.
 
 ## Required Contracts
 

@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ptc.primitives import load_vault, load_edges
+from runtime.ptc.primitives import load_vault, load_edges
 
 
 def _handle_prune(mailbox: Path, vault: Path, msg: dict) -> None:

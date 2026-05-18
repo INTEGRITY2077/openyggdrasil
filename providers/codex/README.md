@@ -6,10 +6,14 @@ Codex currently attaches through the provider-neutral openyggdrasil skill and
 shared workspace-local contracts. There is no provider-native installed package
 target in the public deploy helper yet.
 
+The provider-neutral `SKILL.md` is a bootstrap/attachment contract. It is not
+the repo-managed lifecycle source for Skill, MCP, tool, or TST worker-manual
+capabilities. That source/control plane is planned under `capabilities/`.
+
 ## Public Baseline
 
 - generated workspace artifacts: `.yggdrasil/providers/codex/...`
-- canonical instructions: `SKILL.md`
+- bootstrap instructions: `SKILL.md`
 - attachment helpers: `runtime/attachments/`
 - machine-readable baseline:
   `contracts/codex_provider_packaging_baseline.v1.schema.json`

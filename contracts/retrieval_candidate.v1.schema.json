@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/retrieval_candidate.v1.schema.json",
+  "title": "openyggdrasil Retrieval Candidate v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "generator",
+    "node_id",
+    "source_path",
+    "source_ref",
+    "origin_locator",
+    "line_range",
+    "community_id",
+    "ring_id",
+    "lifecycle_state",
+    "score",
+    "freshness",
+    "evidence_class",
+    "supporting_generators",
+    "rejection_reason"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "retrieval_candidate.v1"
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generator": {
+      "enum": [
+        "bm25",
+        "keyword",
+        "korean_expansion",
+        "edge",
+        "community",
+        "provenance_ring",
+        "recent_episode",
+        "source_ref_lookup"
+      ]
+    },
+    "node_id": {
+      "type": ["string", "null"]
+    },
+    "source_path": {
+      "type": ["string", "null"]
+    },
+    "source_ref": {
+      "type": ["string", "null"]
+    },
+    "origin_locator": {
+      "type": ["string", "null"]
+    },
+    "line_range": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "end"],
+          "properties": {
+            "start": {"type": "integer", "minimum": 0},
+            "end": {"type": "integer", "minimum": 0}
+          }
+        }
+      ]
+    },
+    "community_id": {
+      "type": ["string", "null"]
+    },
+    "ring_id": {
+      "type": ["string", "null"]
+    },
+    "lifecycle_state": {
+      "enum": ["ACTIVE", "SUPERSEDED", "STALE", "UNKNOWN"]
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0
+    },
+    "freshness": {
+      "enum": ["current", "recent", "stale", "unknown"]
+    },
+    "evidence_class": {
+      "enum": [
+        "source_path",
+        "provenance",
+        "community_hint",
+        "lexical_match",
+        "typed_unavailable"
+      ]
+    },
+    "supporting_generators": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "rejection_reason": {
+      "type": ["string", "null"]
+    }
+  }
+}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import hashlib
 import json
 import queue
@@ -97,7 +98,7 @@ class _MailboxWriteQueue:
             except BaseException as exc:
                 try:
                     connection.rollback()  # type: ignore[name-defined]
-                except Exception as exc:
+                except RECOVERABLE_RUNTIME_ERRORS as exc:
                     print(json.dumps({"ts": "", "level": "ERROR", "event": "mailbox_store_rollback_failed", "exc": str(exc)}), file=sys.stderr)
                 queued.error = exc
             finally:

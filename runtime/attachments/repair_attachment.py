@@ -3,17 +3,10 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import sys
 from pathlib import Path
 from typing import Any
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-RUNTIME_ROOT = PROJECT_ROOT / "runtime"
-if str(RUNTIME_ROOT) not in sys.path:
-    sys.path.insert(0, str(RUNTIME_ROOT))
-
-from attachments.provider_attachment import (  # noqa: E402
+from runtime.attachments.provider_attachment import (
     build_session_uid,
     provider_inbox_path,
     validate_inbox_binding,
@@ -21,7 +14,7 @@ from attachments.provider_attachment import (  # noqa: E402
     validate_session_attachment,
     validate_turn_delta,
 )
-from harness_common import utc_now_iso  # noqa: E402
+from runtime.harness_common import utc_now_iso
 
 
 DEFAULT_CAPABILITIES = {
@@ -44,7 +37,7 @@ def _read_json_if_valid(path: Path, validator) -> dict[str, Any] | None:
         payload = json.loads(path.read_text(encoding="utf-8"))
         validator(payload)
         return payload
-    except Exception:  # noqa: BLE001
+    except (OSError, json.JSONDecodeError, ValueError, TypeError):
         return None
 
 
@@ -62,7 +55,7 @@ def _repair_turn_delta_file(path: Path) -> tuple[bool, list[str]]:
             payload = json.loads(line)
             validate_turn_delta(payload)
             valid_rows.append(payload)
-        except Exception:  # noqa: BLE001
+        except (json.JSONDecodeError, ValueError, TypeError):
             invalid_lines.append(raw_line)
 
     if not invalid_lines:
@@ -241,7 +234,7 @@ def repair_workspace(workspace_root: Path) -> dict[str, Any]:
             turn_delta_repaired, backups = _repair_turn_delta_file(turn_delta_path)
             row["repaired"] = row["repaired"] or turn_delta_repaired
             row["backups"].extend(backups)
-        except Exception as exc:  # noqa: BLE001
+        except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
             row["errors"].append(str(exc))
 
         rows.append(row)

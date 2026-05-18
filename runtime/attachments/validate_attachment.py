@@ -2,17 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-RUNTIME_ROOT = PROJECT_ROOT / "runtime"
-if str(RUNTIME_ROOT) not in sys.path:
-    sys.path.insert(0, str(RUNTIME_ROOT))
-
-from attachments.provider_attachment import (  # noqa: E402
+from runtime.attachments.provider_attachment import (
     validate_inbox_binding,
     validate_provider_descriptor,
     validate_session_attachment,
@@ -60,28 +53,28 @@ def validate_workspace(workspace_root: Path) -> dict[str, Any]:
         try:
             descriptor = _read_json(attachment_root / "provider_descriptor.v1.json")
             validate_provider_descriptor(descriptor)
-        except Exception as exc:  # noqa: BLE001
+        except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
             result["ok"] = False
             result["errors"].append(f"provider_descriptor: {exc}")
 
         try:
             attachment = _read_json(attachment_root / "session_attachment.v1.json")
             validate_session_attachment(attachment)
-        except Exception as exc:  # noqa: BLE001
+        except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
             result["ok"] = False
             result["errors"].append(f"session_attachment: {exc}")
 
         try:
             inbox_binding = _read_json(attachment_root / "inbox_binding.v1.json")
             validate_inbox_binding(inbox_binding)
-        except Exception as exc:  # noqa: BLE001
+        except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
             result["ok"] = False
             result["errors"].append(f"inbox_binding: {exc}")
 
         try:
             for row in _iter_jsonl(attachment_root / "turn_delta.v1.jsonl"):
                 validate_turn_delta(row)
-        except Exception as exc:  # noqa: BLE001
+        except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
             result["ok"] = False
             result["errors"].append(f"turn_delta: {exc}")
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import re
 import uuid
 from pathlib import Path
@@ -271,7 +272,7 @@ def build_pathfinder_retrieval_result(
 
     try:
         validate_mailbox_support_result(mailbox_support_result)
-    except Exception as exc:
+    except RECOVERABLE_RUNTIME_ERRORS as exc:
         return _pathfinder_retrieval_result(
             query_text=query_text,
             status="stopped",
@@ -321,7 +322,7 @@ def build_pathfinder_retrieval_result(
 
     try:
         validate_support_bundle(support_bundle)
-    except Exception as exc:
+    except RECOVERABLE_RUNTIME_ERRORS as exc:
         return _pathfinder_retrieval_result(
             query_text=query_text,
             status="stopped",

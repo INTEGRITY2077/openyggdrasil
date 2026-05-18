@@ -3,18 +3,13 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 from typing import Any
 
 
-RUNTIME_ROOT = Path(__file__).resolve().parents[1]
-if str(RUNTIME_ROOT) not in sys.path:
-    sys.path.insert(0, str(RUNTIME_ROOT))
-
-from attachments.provider_attachment import bootstrap_skill_provider_session
-from delivery.postman_heartbeat_cpr import (
+from runtime.attachments.provider_attachment import bootstrap_skill_provider_session
+from runtime.delivery.postman_heartbeat_cpr import (
     inject_postman_heartbeat_cpr_to_provider_inbox,
     read_postman_heartbeat_cpr_packets,
 )
@@ -29,17 +24,17 @@ PROVIDER_SESSION_ID = "postman-cpr-regression-provider"
 def _live_group() -> dict[str, Any]:
     return {
         "provider": {"status": "present", "session_name": "ygg-pro1"},
-        "op1": {"status": "present", "session_name": "ygg-op1"},
-        "op2": {"status": "present", "session_name": "ygg-op2"},
+        "ms1": {"status": "present", "session_name": "ygg-ms1"},
+        "mf1": {"status": "present", "session_name": "ygg-mf1"},
     }
 
 
 def _engine_status() -> dict[str, Any]:
     return {
         "tmux": {"status": "running", "evidence_ref": "tmux-ref://openyggdrasil/regression"},
-        "watcher": {"status": "healthy", "consumer": "engine_heartbeat_coordinator"},
+        "postman_helper": {"status": "healthy", "consumer": "engine_heartbeat_coordinator"},
         "mailbox": {"status": "healthy", "namespace": "regression"},
-        "receipt_registry": {"status": "ready", "receipt_id": "op2-regression-receipt"},
+        "receipt_registry": {"status": "ready", "receipt_id": "mf1-regression-receipt"},
     }
 
 
@@ -89,12 +84,12 @@ def _ring_support_bundle() -> dict[str, Any]:
     }
 
 
-def build_regression_op2_receipt() -> dict[str, Any]:
+def build_regression_mf1_receipt() -> dict[str, Any]:
     return {
         "in_reply_to": "ask-postman-cpr-regression",
         "delivery_id": "postman-cpr-regression-delivery",
-        "receipt_id": "op2-cpr-regression-receipt",
-        "op2_query_receipt_id": "op2-cpr-regression-query-receipt",
+        "receipt_id": "mf1-cpr-regression-receipt",
+        "mf1_query_receipt_id": "mf1-cpr-regression-query-receipt",
         "bundle": {
             "contract": "support_bundle.v1",
             "support_bundle": _ring_support_bundle(),
@@ -158,7 +153,7 @@ def _run_in_workspace(workspace_root: Path, *, cleanup_requested: bool) -> dict[
         provider_session_id=PROVIDER_SESSION_ID,
         live_group=_live_group(),
         engine_status=_engine_status(),
-        op2_receipt=build_regression_op2_receipt(),
+        mf1_receipt=build_regression_mf1_receipt(),
         created_at="2026-05-07T00:00:00+00:00",
     )
     packets = read_postman_heartbeat_cpr_packets(
@@ -168,7 +163,7 @@ def _run_in_workspace(workspace_root: Path, *, cleanup_requested: bool) -> dict[
         provider_session_id=PROVIDER_SESSION_ID,
     )
     payload = delivery["payload"]
-    metadata = payload.get("op2_support_metadata") or {}
+    metadata = payload.get("mf1_support_metadata") or {}
     korean = metadata.get("korean_query_expansion") or {}
     hard_nonclaims = payload.get("hard_nonclaims") or {}
     korean_nonclaims = korean.get("hard_nonclaims") or {}
@@ -176,14 +171,14 @@ def _run_in_workspace(workspace_root: Path, *, cleanup_requested: bool) -> dict[
 
     checks = {
         "delivery_created": delivery.get("delivery_status") == "created",
-        "operator_brief_packet": (delivery.get("packet") or {}).get("packet_type") == "operator_brief",
+        "worker_brief_packet": (delivery.get("packet") or {}).get("packet_type") == "worker_brief",
         "readback_single_packet": len(packets) == 1,
         "readback_message_id_matches": bool(packets) and packets[0].get("message_id") == delivery.get("message_id"),
         "payload_ready": payload.get("heartbeat_cpr_status") == "ready",
         "handoff_ready": (payload.get("provider_inbox_handoff") or {}).get("handoff_status") == "ready_for_provider_current_dialogue",
         "manual_prompt_injection_not_required": (payload.get("provider_inbox_handoff") or {}).get("manual_prompt_injection_required") is False,
         "mailbox_correlation_preserved": (payload.get("mailbox_correlation") or {}).get("mail_id") == "ask-postman-cpr-regression",
-        "receipt_id_preserved": (payload.get("mailbox_correlation") or {}).get("receipt_id") == "op2-cpr-regression-receipt",
+        "receipt_id_preserved": (payload.get("mailbox_correlation") or {}).get("receipt_id") == "mf1-cpr-regression-receipt",
         "ring_support_schema_preserved": metadata.get("support_schema_version") == "ring_support_bundle.v1",
         "source_paths_preserved": metadata.get("source_paths") == [
             "vault/queries/postman-cpr-regression.md",

@@ -7,12 +7,17 @@ public repo still treats live foreground support conservatively: foreground
 proof must be explicit, and foreground-equivalent fallback must not be relabeled
 as live provider support.
 
+Hermes provider-local skills, hooks, memories, and MCP configuration are
+projection/install surfaces. They are not the repo-managed Skill/MCP/tool
+lifecycle source. Managed capability source is planned under `capabilities/`,
+with Hermes-specific projections and deployment receipts.
+
 ## Public Shape
 
 | Path | Role |
 | --- | --- |
 | `skills/` | Sanitized public manifest and boundary for the private provider-native skill bundle. |
-| `projects/harness/` | Legacy Hermes harness compatibility surface currently still tracked in public. |
+| `projects/` | Public boundary notes only. Operator-only harness code is not published here. |
 | `hooks/` | Public pointer for hook boundary documentation. |
 | `memories/` | Public pointer for provider memory boundary documentation. |
 | `policy/` | Public policy pointer, not the full internal policy corpus. |
@@ -23,6 +28,7 @@ repository root:
 
 - `runtime/`
 - `contracts/`
+- `capabilities/`
 - `vault/`
 - `common/graphify/`
 
@@ -52,3 +58,5 @@ Required contracts:
 - Provider raw sessions and transcripts are not copied into openyggdrasil.
 - The inbox remains session-bound; no global inbox is allowed.
 - Provider-native private bundles are not published in this public repository.
+- A Hermes-installed local skill is not managed unless it can be traced to a
+  repo capability snapshot, projection, deployment receipt, and drift check.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import json
 import uuid
 from os import PathLike
@@ -165,7 +166,7 @@ def classify_p0_provider_owned_hermes_gateway_evidence_package(
             gateway_proof=_candidate_for_contract(candidate or {})
         )
         validate_p0_provider_owned_hermes_gateway_contract(contract)
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return _typed_unavailable_classification(
             reason_code="p0_g2_contract_validation_failed",
             unavailable_condition="p0_g2_contract_validation_failed",

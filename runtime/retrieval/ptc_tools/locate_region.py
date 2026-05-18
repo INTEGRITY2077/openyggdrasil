@@ -15,5 +15,5 @@ def register(registry: dict, *, vault_root, anchor_evaluator=None) -> None:
         required_inputs={"query_text": "string"},
         read_only=True,
         output_kind="region_hint",
-        handler=lambda **kwargs: find_region(vault_root=vault_root, **kwargs),
+        handler=lambda **kwargs: locate_region(vault_root=vault_root, **kwargs),
     )

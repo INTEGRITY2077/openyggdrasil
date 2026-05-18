@@ -8,6 +8,12 @@ provider-neutral runtime packages, vault memory, or Graphify derivation. Those
 live at the repository root under `contracts/`, `runtime/`, `vault/`, and
 `common/graphify/`.
 
+Provider directories are also not the source of truth for Skill, MCP, tool, or
+TST worker-manual lifecycle management. That source/control plane is planned
+under `capabilities/`. Provider-local skill and MCP files are projection or
+install artifacts derived from capability snapshots and must be backed by
+deployment receipts before they are considered managed.
+
 ## Current Public Provider Surfaces
 
 | Provider | Public role |
@@ -25,3 +31,6 @@ live at the repository root under `contracts/`, `runtime/`, `vault/`, and
   not belong in the public repository.
 - Provider directories may expose manifests, packaging baselines, compatibility
   shims, and public-safe README anchors.
+- Provider-installed SKILL/MCP state must not be promoted as product truth
+  unless the repo capability source, projection, install receipt, and drift
+  check agree.

@@ -9,6 +9,7 @@ from typing import Any, Mapping, Sequence
 
 import jsonschema
 
+from runtime.common.portable_ref import looks_like_local_path
 from harness_common import utc_now_iso
 from reasoning.hermes_subagent_reasoning_lease_bridge import (
     build_hermes_subagent_reasoning_lease_bridge,
@@ -49,14 +50,13 @@ P0_E6_TYPED_HANDOFF_TOLLGATE_STATUSES = {
 }
 
 SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^\s\\]+$")
-LOCAL_PATH_RE = re.compile(r"(^[A-Za-z]:|\\\\|/Users/|/home/|/tmp/|file://)", re.IGNORECASE)
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 UNSAFE_REF_FRAGMENTS = (
     ".env",
     ".skill.md",
     "auth.json",
     "credential",
-    "openyggdrasil-private-dev",
+    "local-private-workspace",
     "private",
     "profile",
     "prompt",
@@ -154,7 +154,7 @@ UNSAFE_TEXT_REASON_FRAGMENTS = (
     ("generic gateway", "mcp_generic_gateway_or_agent_adapter_current_surface_not_allowed"),
     ("hermes source patch", "hermes_source_hard_coupling_not_allowed"),
     ("mcp gateway", "mcp_generic_gateway_or_agent_adapter_current_surface_not_allowed"),
-    ("openyggdrasil-private-dev", "local_private_file_ref_not_allowed"),
+    ("local-private-workspace", "local_private_file_ref_not_allowed"),
     ("patched hermes source", "hermes_source_hard_coupling_not_allowed"),
     ("provider credential", "provider_credential_profile_not_allowed"),
     ("provider profile", "provider_credential_profile_not_allowed"),
@@ -253,14 +253,14 @@ def _is_safe_ref(value: str) -> bool:
     stripped = str(value).strip()
     if not SAFE_REF_RE.match(stripped):
         return False
-    if LOCAL_PATH_RE.search(stripped):
+    if looks_like_local_path(stripped):
         return False
     lowered = stripped.lower()
     return not any(fragment in lowered for fragment in UNSAFE_REF_FRAGMENTS)
 
 
 def _unsafe_text_reason(value: str) -> str | None:
-    if LOCAL_PATH_RE.search(value):
+    if looks_like_local_path(value):
         return "local_private_file_ref_not_allowed"
     lowered = value.lower()
     for fragment, reason_code in UNSAFE_TEXT_REASON_FRAGMENTS:

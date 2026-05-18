@@ -6,9 +6,20 @@ from pathlib import Path
 from typing import Any
 
 
+SUPPORTED_SESSION_JSON_SCHEMES = ("hermes-session-json", "provider-session-json")
+
+
 def _canonical_anchor_hash(messages: list[dict[str, Any]]) -> str:
     canonical = json.dumps(messages, ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _parse_session_json_source_ref(source_ref: str) -> tuple[str, str] | None:
+    for scheme in SUPPORTED_SESSION_JSON_SCHEMES:
+        prefix = f"{scheme}://"
+        if source_ref.startswith(prefix):
+            return scheme, source_ref[len(prefix) :]
+    return None
 
 
 def resolve_hermes_session_json_source_ref(
@@ -19,8 +30,8 @@ def resolve_hermes_session_json_source_ref(
     anchor_hash: str,
 ) -> dict[str, Any]:
     """Hermes session_<id>.json source_ref를 message index 범위로 해석한다."""
-    prefix = "hermes-session-json://"
-    if not source_ref.startswith(prefix):
+    parsed = _parse_session_json_source_ref(source_ref)
+    if not parsed:
         return {
             "status": "reject",
             "reason": "unsupported_source_ref",
@@ -29,7 +40,7 @@ def resolve_hermes_session_json_source_ref(
             "redaction_status": "not_applicable",
         }
 
-    session_id = source_ref[len(prefix) :]
+    scheme, session_id = parsed
     session_path = Path(sessions_dir) / f"session_{session_id}.json"
     if not session_path.exists():
         return {
@@ -64,6 +75,7 @@ def resolve_hermes_session_json_source_ref(
     origin_locator = f"{source_ref}#message_index={start}..{end}"
     return {
         "status": "resolved",
+        "source_ref_scheme": scheme,
         "provider_session_id": session_id,
         "source_ref": source_ref,
         "message_index_range": {"start": start, "end": end},
@@ -109,10 +121,12 @@ def register_hermes_session_json_resolver() -> None:
     from .registry import register_source_ref_resolver
 
     register_source_ref_resolver("hermes-session-json", resolve_hermes_session_json_registered)
+    register_source_ref_resolver("provider-session-json", resolve_hermes_session_json_registered)
 
 
 __all__ = [
     "_canonical_anchor_hash",
+    "SUPPORTED_SESSION_JSON_SCHEMES",
     "register_hermes_session_json_resolver",
     "resolve_hermes_session_json_registered",
     "resolve_hermes_session_json_source_ref",

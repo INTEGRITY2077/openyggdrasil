@@ -1,31 +1,33 @@
 from __future__ import annotations
 
-import sys
-
-# When this file is executed directly as `python runtime/import_smoke.py`,
-# Python puts `runtime/` at the front of sys.path.  That makes the repo's
-# `runtime/operator/` package shadow the standard-library `operator` module
-# while stdlib modules such as `enum` are importing.  Remove the runtime path
-# before importing any stdlib module that may reach `operator`, then restore it
-# for the runtime surface imports below.
-_RUNTIME_DIR = __file__.replace("\\", "/").rsplit("/", 1)[0].rstrip("/")
-_REMOVED_RUNTIME_PATHS = [
-    entry
-    for entry in sys.path
-    if (entry or ".").replace("\\", "/").rstrip("/") == _RUNTIME_DIR
-]
-sys.path[:] = [
-    entry
-    for entry in sys.path
-    if (entry or ".").replace("\\", "/").rstrip("/") != _RUNTIME_DIR
-]
-
 import importlib
+import importlib.util
 import json
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 import operator as _stdlib_operator  # noqa: F401 - pins stdlib operator in sys.modules
 
-sys.path[:0] = _REMOVED_RUNTIME_PATHS or [_RUNTIME_DIR]
+
+def _ensure_runtime_package_loaded() -> None:
+    if "runtime" in sys.modules:
+        return
+    runtime_root = Path(__file__).resolve().parent
+    spec = importlib.util.spec_from_file_location(
+        "runtime",
+        runtime_root / "__init__.py",
+        submodule_search_locations=[str(runtime_root)],
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load runtime package from {runtime_root}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["runtime"] = module
+    spec.loader.exec_module(module)
+
+
+_ensure_runtime_package_loaded()
+
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 
 
 CANONICAL_RUNTIME_MODULES = [
@@ -34,18 +36,14 @@ CANONICAL_RUNTIME_MODULES = [
     "admission.amundsen_nursery_handoff",
     "admission.decision_contracts",
     "admission.session_admission_gate",
-    "attachments.antigravity_provider_packaging_baseline",
     "attachments.bootstrap_contract",
-    "attachments.claude_code_provider_packaging_baseline",
-    "attachments.codex_provider_packaging_baseline",
-    "attachments.hermes_foreground_unavailable_contract",
-    "attachments.hermes_provider_packaging_baseline",
     "attachments.provider_attachment",
     "attachments.provider_cold_start_healthcheck",
     "attachments.provider_inbox",
-    "attachments.provider_packaging_known_limitations_matrix",
     "attachments.provider_tooling_classification",
+    "capture.boundary_ledger",
     "capture.decision_distiller",
+    "capture.context_guard",
     "capture.provider_current_source_bridge",
     "capture.provider_runtime_integrity",
     "capture.session_structure_signal",
@@ -57,6 +55,7 @@ CANONICAL_RUNTIME_MODULES = [
     "cultivation.gardener_lifecycle_transition_request",
     "cultivation.gardener_routing",
     "cultivation.helper_output_staging",
+    "cultivation.wiki_vault_janitor",
     "cultivation.gardener_stub",
     "cultivation.lifecycle_candidate_lint_loop",
     "cultivation.nursery_stub",
@@ -77,28 +76,11 @@ CANONICAL_RUNTIME_MODULES = [
     "delivery.postman_heartbeat_cpr",
     "delivery.subagent_telemetry",
     "delivery.support_bundle",
+    "delivery.typed_unavailable_result",
     "evaluation.evaluator",
     "evaluation.evaluator_amundsen_handoff",
-    "evaluation.chain_health_scorecard",
-    "evaluation.foreground_live_comparison",
-    "evaluation.graphify_snapshot_from_live_delta",
-    "evaluation.hermes_guarded_foreground_smoke",
-    "evaluation.hermes_launcher_acquisition",
-    "evaluation.hermes_profile_acquisition",
-    "evaluation.hermes_live_e2e_witness_logger",
-    "evaluation.knowledge_forest_delta_from_live_session",
-    "evaluation.live_e2e_environment_preconditions",
-    "evaluation.live_e2e_physical_hermes_launcher",
-    "evaluation.live_e2e_readiness_gate",
-    "evaluation.live_e2e_safe_run_bundle_launcher",
-    "evaluation.mailbox_delivery_hermes_consumption",
-    "evaluation.physical_multiturn_session_artifact",
-    "evaluation.production_report_evidence_lineage",
-    "evaluation.production_poc_report",
-    "evaluation.provider_job_alignment_logger",
     "evaluation.promotion_worthiness",
     "evaluation.why_remembered_answer",
-    "evaluation.worker_chain_quant_logger",
     "placement.community_bridge_stub",
     "placement.map_maker_stub",
     "placement.topic_index_catalog",
@@ -108,10 +90,6 @@ CANONICAL_RUNTIME_MODULES = [
     "provenance.episode_semantic_edges",
     "provenance.episode_semantic_edges_v2",
     "provenance.provenance_store",
-    "reasoning.hermes_background_invocation_smoke",
-    "reasoning.hermes_background_result_contract",
-    "reasoning.hermes_background_task_capture",
-    "reasoning.hermes_background_unavailable_contract",
     "reasoning.hermes_main_context_non_accumulation",
     "reasoning.hermes_state_metadata_policy",
     "reasoning.chain_bundle_policy",
@@ -129,15 +107,6 @@ CANONICAL_RUNTIME_MODULES = [
     "reasoning.reasoning_lease_contracts",
     "reasoning.typed_availability_metrics",
     "reasoning.worker_hardening_policy",
-    "runner.failure_fallback_regression",
-    "runner.mailbox_support_emission",
-    "runner.phase_a_mock_pipeline_facade",
-    "runner.no_credential_prompt_regression",
-    "runner.provider_declined_visibility",
-    "runner.role_split_integration",
-    "runner.same_session_answer_smoke",
-    "runner.session_signal_runner",
-    "runner.thin_worker_chain",
     "retrieval.graph_freshness",
     "retrieval.cross_provider_memory_consumption",
     "retrieval.graph_output_guard",
@@ -219,12 +188,13 @@ def smoke_import_modules(module_names: list[str] | tuple[str, ...]) -> ImportSmo
     imported: list[str] = []
     failed: list[str] = []
     for module_name in module_names:
+        import_name = module_name if module_name.startswith("runtime.") else f"runtime.{module_name}"
         try:
-            importlib.import_module(module_name)
-        except Exception as exc:
-            failed.append(f"{module_name}: {exc.__class__.__name__}: {exc}")
+            importlib.import_module(import_name)
+        except RECOVERABLE_RUNTIME_ERRORS as exc:
+            failed.append(f"{import_name}: {exc.__class__.__name__}: {exc}")
         else:
-            imported.append(module_name)
+            imported.append(import_name)
     return ImportSmokeResult(imported=tuple(imported), failed=tuple(failed))
 
 

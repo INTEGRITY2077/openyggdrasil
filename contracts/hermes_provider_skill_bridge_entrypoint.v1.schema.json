@@ -375,7 +375,7 @@
             "pattern": "(?i)credential"
           },
           {
-            "pattern": "(?i)openyggdrasil-private-dev"
+            "pattern": "(?i)local-private-workspace"
           },
           {
             "pattern": "(?i)private"

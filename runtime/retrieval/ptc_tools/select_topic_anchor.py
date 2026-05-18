@@ -14,7 +14,7 @@ def register(registry: dict, *, vault_root, anchor_evaluator=None) -> None:
         required_inputs={"query_text": "string", "region_id": "string"},
         read_only=True,
         output_kind="topic_anchor",
-        handler=lambda **kwargs: find_topic_anchor(
+        handler=lambda **kwargs: select_topic_anchor(
             vault_root=vault_root,
             evaluator=anchor_evaluator,
             **kwargs,

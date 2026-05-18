@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
 import json
 import re
 import uuid
@@ -11,6 +12,7 @@ from admission.decision_contracts import (
     validate_decision_surface,
 )
 from attachments.provider_attachment import build_session_uid
+from runtime.common.portable_ref import looks_like_local_path
 from harness_common import utc_now_iso
 
 
@@ -40,9 +42,6 @@ FORBIDDEN_STRUCTURED_OUTPUT_KEYS = {
     "token",
     "transcript",
 }
-LOCAL_PATH_PATTERN = re.compile(
-    r"(?:\b[A-Za-z]:[\\/][^\s\"']+|\\\\[^\s\"']+|file://|/(?:Users|home|mnt|tmp|var|etc)/[^\s\"']+)"
-)
 CREDENTIAL_VALUE_PATTERN = re.compile(
     r"(?i)(?:api[_-]?key|access[_-]?token|secret|credential|password)\s*[:=]\s*['\"]?[^,\s'\"]+|sk-[A-Za-z0-9_-]{12,}"
 )
@@ -150,7 +149,7 @@ def _unsafe_structured_output_reason(value: Any) -> str | None:
             if child_reason is not None:
                 return child_reason
     elif isinstance(value, str):
-        if LOCAL_PATH_PATTERN.search(value):
+        if looks_like_local_path(value):
             return "portable_local_path_material_not_allowed"
         if CREDENTIAL_VALUE_PATTERN.search(value):
             return "credential_material_not_allowed"
@@ -186,7 +185,7 @@ def _normalize_rejected_alternatives(value: Any) -> list[str]:
 def _normalize_confidence_score(value: Any) -> float:
     try:
         score = float(value)
-    except Exception:
+    except RECOVERABLE_RUNTIME_ERRORS:
         return 0.0
     return max(0.0, min(1.0, score))
 

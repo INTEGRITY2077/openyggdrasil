@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/wiki_continent_page.v1.schema.json",
+  "title": "Wiki Continent Page v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "page_ref",
+    "internal_node_id",
+    "semantic_category_path",
+    "provider_source_events",
+    "decision_timeline",
+    "community_growth_events",
+    "machine_appendix_present"
+  ],
+  "properties": {
+    "schema_version": {"const": "wiki_continent_page.v1"},
+    "page_ref": {"type": "string", "pattern": "^oy-vault://categories/.+\\.md$"},
+    "internal_node_id": {"type": "string", "minLength": 1},
+    "semantic_category_path": {"type": "object"},
+    "provider_source_events": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "decision_timeline": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "community_growth_events": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "machine_appendix_present": {"const": true},
+    "hard_nonclaims": {"type": "array", "items": {"type": "string"}}
+  }
+}

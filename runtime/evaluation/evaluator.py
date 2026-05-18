@@ -42,7 +42,6 @@ POSITIVE_LABELS = {
     "explicit_decision",
     "hard_to_rederive",
     "novel_synthesis",
-    "real_ux_regression",
     "substantial_comparison",
     "supersession",
 }

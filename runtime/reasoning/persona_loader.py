@@ -16,7 +16,8 @@ OPENYGGDRASIL_ROOT = Path(__file__).resolve().parents[2]
 PERSONAS_ROOT = OPENYGGDRASIL_ROOT / "personas"
 CONTRACTS_ROOT = OPENYGGDRASIL_ROOT / "contracts"
 SCHEMA_VERSION = "subagent_persona_manifest.v1"
-SCHEMA_PATH = CONTRACTS_ROOT / f"{SCHEMA_VERSION}.schema.json"
+SUBAGENT_PERSONA_MANIFEST_SCHEMA = "subagent_persona_manifest.v1.schema.json"
+SCHEMA_PATH = CONTRACTS_ROOT / SUBAGENT_PERSONA_MANIFEST_SCHEMA
 
 ROLE_PERSONA_FILES = {
     "distiller": "PERSONA_DISTILLER.md",

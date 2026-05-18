@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .postman_work_order import append_postman_work_order
+
 POSTMAN_DIR_NAME = "postman"
 SESSIONS_DIR_NAME = "sessions"
 CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD = "preserve_paragraph_intent_before_decision_atoms"
@@ -72,8 +74,8 @@ def _append_jsonl(path: Path, row: dict[str, Any]) -> None:
 
 def _recipient_mailbox(recipient: str) -> Path:
     recipient = recipient.upper()
-    if not recipient.startswith("OP"):
-        raise ValueError(f"recipient must be OP#, got {recipient!r}")
+    if not (recipient.startswith("MS") or recipient.startswith("MF")):
+        raise ValueError(f"recipient must be MS# or MF#, got {recipient!r}")
     mailbox = _sessions_dir() / recipient
     mailbox.mkdir(parents=True, exist_ok=True)
     return mailbox
@@ -225,14 +227,17 @@ def submit_live_delivery(
     provider_id: str,
     mail_id: str | None = None,
 ) -> dict[str, Any]:
-    """Provider 요청을 Postman live-delivery packet으로 위탁하고 수신인 OP mailbox/live_inbox에 전달한다.
-
-    Postman이 OP mailbox append 책임을 가진다. Provider/ygg는 이 함수를 호출해
-    Postman에게 위탁할 뿐, OP mailbox 파일 형식을 직접 소유하지 않는다.
-    """
+    """Route a Provider letter to a canonical MS/MF mailbox."""
     recipient = recipient.upper()
-    if not recipient.startswith("OP"):
-        raise ValueError(f"recipient must be OP#, got {recipient!r}")
+    if not (recipient.startswith("MS") or recipient.startswith("MF")):
+        raise ValueError(f"recipient must be MS# or MF#, got {recipient!r}")
+    try:
+        recipient_index = int(recipient[2:])
+    except ValueError:
+        recipient_index = 0
+    is_saver = recipient.startswith("MS")
+    worker_key = f"{'ms' if is_saver else 'mf'}{recipient_index}" if recipient_index else "unknown"
+    recipient_role = "memory_saver" if is_saver else "memory_finder"
     delivery_id = f"postman-{uuid.uuid4().hex[:8]}"
     timestamp = _now()
 
@@ -338,22 +343,48 @@ def submit_live_delivery(
     _append_jsonl(postman_dir / "outbox.jsonl", packet)
     _append_jsonl(message_file, message_row)
     _append_jsonl(mailbox / "live_inbox.jsonl", live_event)
+    work_order = append_postman_work_order(
+        postman_dir=postman_dir,
+        mailbox=mailbox,
+        delivery_id=delivery_id,
+        mail_id=mail_id,
+        recipient=recipient,
+        message_type=message_type,
+        provider_id=provider_id,
+        message_file_name=message_file_name,
+        payload=payload,
+    )
     _append_jsonl(postman_dir / "delivery_log.jsonl", delivery_log)
 
-    return {
+    result = {
         "delivery_id": delivery_id,
         "mail_id": mail_id,
         "recipient": recipient,
+        "canonical_mailbox_key": recipient,
+        "recipient_role": recipient_role,
+        "worker_key": worker_key,
         "message_type": message_type,
-        "mailbox": str(mailbox),
-        "message_file": str(message_file),
-        "intent_file": str(message_file) if message_type in ("save", "memory_ticket") else None,
-        "query_file": str(message_file) if message_type == "query" else None,
-        "live_inbox": str(mailbox / "live_inbox.jsonl"),
-        "outbox": str(postman_dir / "outbox.jsonl"),
-        "delivery_log": str(postman_dir / "delivery_log.jsonl"),
+        "message_file_name": message_file.name,
+        "intent_file_name": message_file.name if message_type in ("save", "memory_ticket") else None,
+        "query_file_name": message_file.name if message_type == "query" else None,
+        "live_inbox_file_name": "live_inbox.jsonl",
+        **work_order,
+        "outbox_file_name": "outbox.jsonl",
+        "delivery_log_file_name": "delivery_log.jsonl",
         "status": "delivered",
     }
+    if os.environ.get("YGG_DEBUG_LOCAL_PATHS") == "1":
+        result["compat_mailbox_key"] = recipient
+        result["debug_paths"] = {
+            "mailbox": str(mailbox),
+            "message_file": str(message_file),
+            "intent_file": str(message_file) if message_type in ("save", "memory_ticket") else None,
+            "query_file": str(message_file) if message_type == "query" else None,
+            "live_inbox": str(mailbox / "live_inbox.jsonl"),
+            "outbox": str(postman_dir / "outbox.jsonl"),
+            "delivery_log": str(postman_dir / "delivery_log.jsonl"),
+        }
+    return result
 
 
 __all__ = ["PostmanIntegrityError", "submit_live_delivery"]

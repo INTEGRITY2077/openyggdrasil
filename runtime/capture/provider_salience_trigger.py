@@ -9,7 +9,114 @@ def _contains_any(text: str, needles: tuple[str, ...]) -> bool:
     return any(needle in text for needle in needles)
 
 
-def _base_emit(*, paragraph: str, trigger_kind: str, intent_field: str, topic_hint: str, category_community_hint: str, breadcrumb: str, why_not_atomic: str) -> dict[str, Any]:
+def _has_explicit_save_command(text: str, lowered: str) -> bool:
+    return _contains_any(lowered, ("remember this", "save this", "store this")) or _contains_any(
+        text,
+        ("기억해", "기억해줘", "저장해", "저장해줘", "보존해", "보존해줘"),
+    )
+
+
+def _has_durable_reuse_signal(text: str, lowered: str) -> bool:
+    return _contains_any(
+        lowered,
+        (
+            "use this later",
+            "reuse this later",
+            "later reuse",
+            "need this later",
+            "stable boundary",
+            "will need this",
+        ),
+    ) or _contains_any(
+        text,
+        (
+            "계속 다시",
+            "나중에",
+            "다시 쓸",
+            "재사용",
+            "헷갈리지 않게",
+            "바뀐 부분",
+            "기준으로 구분",
+        ),
+    )
+
+
+def _has_reusable_boundary_signal(text: str, lowered: str) -> bool:
+    lower_signals = (
+        "boundary",
+        "criterion",
+        "criteria",
+        "policy",
+        "rule",
+        "placement",
+        "distinction",
+        "separate",
+        "split",
+        "where",
+        "where to place",
+        "belongs",
+        "convention",
+        "conventions",
+        "role",
+        "roles",
+        "runtime",
+        "execution",
+        "definition",
+        "distribution",
+        "timing",
+        "automatic",
+        "lifecycle",
+        "event",
+        "formatting",
+        "reuse",
+        "later",
+        "proof",
+        "source",
+        "evidence",
+        "claim",
+        "production ready",
+        "unsupported",
+    )
+    text_signals = (
+        "경계",
+        "기준",
+        "구분",
+        "분리",
+        "실행",
+        "정의",
+        "위치",
+        "자동",
+        "이벤트",
+        "규칙",
+        "정책",
+        "어디",
+        "배치",
+        "근거",
+        "출처",
+        "검증",
+        "증명",
+        "주장",
+        "헷갈",
+        "위키",
+        "나중",
+    )
+    hits = sum(1 for signal in lower_signals if signal in lowered)
+    hits += sum(1 for signal in text_signals if signal in text)
+    return hits >= 2
+
+
+def _base_emit(
+    *,
+    paragraph: str,
+    trigger_kind: str,
+    intent_field: str,
+    topic_hint: str,
+    category_community_hint: str,
+    breadcrumb: str,
+    why_not_atomic: str,
+    canonical_topic_key: str = "",
+    canonical_topic_title: str = "",
+) -> dict[str, Any]:
     return {
         "trigger_decision": "emit",
         "trigger_kind": trigger_kind,
@@ -20,68 +127,297 @@ def _base_emit(*, paragraph: str, trigger_kind: str, intent_field: str, topic_hi
         "topic_hint": topic_hint,
         "category_community_hint": category_community_hint,
         "breadcrumb": breadcrumb,
+        "canonical_topic_key": canonical_topic_key,
+        "canonical_topic_title": canonical_topic_title,
         "recency_anchor": "current_exchange",
-        "why_this_topic_matters": "향후 Provider 행동과 retrieval entrypoint 선택을 바꾸는 반복 적용 계약이다.",
+        "why_this_topic_matters": (
+            "The rule can change later Provider behavior, documentation placement, "
+            "or recall entrypoint selection."
+        ),
         "source_ref_status": "placeholder",
         "source_ref_required": True,
         "paragraph_intent_field": paragraph,
     }
 
 
-def detect_provider_memory_salience(paragraph: str) -> dict[str, Any]:
-    """Provider 대화 문단이 Topic Breadcrumb MemoryTicket 초안으로 승격될지 판정한다.
+def _has_explicit_save_command(text: str, lowered: str) -> bool:
+    return _contains_any(lowered, ("remember this", "save this", "store this")) or _contains_any(
+        text,
+        (
+            "\uae30\uc5b5\ud574",
+            "\uae30\uc5b5\ud574\uc918",
+            "\uc800\uc7a5\ud574",
+            "\uc800\uc7a5\ud574\uc918",
+            "\ubcf4\uc874\ud574",
+            "\ubcf4\uc874\ud574\uc918",
+        ),
+    )
 
-    이 함수는 저장기가 아니다. 사용자 explicit save command 여부가 아니라 장기 회상과
-    Provider 행동양식 교정에 필요한 salience를 감지하고, 문단 단위 의도장을 보존한
-    authoring request skeleton을 만든다. 실제 저장은 SourceRef/range/anchor_hash가 붙은
-    MemoryTicket schema/admission gate에서 별도로 판정해야 한다.
+
+def _has_durable_reuse_signal(text: str, lowered: str) -> bool:
+    return _contains_any(
+        lowered,
+        (
+            "use this later",
+            "reuse this later",
+            "later reuse",
+            "need this later",
+            "stable boundary",
+            "will need this",
+            "next time",
+        ),
+    ) or _contains_any(
+        text,
+        (
+            "\uacc4\uc18d \ub2e4\uc2dc",
+            "\ub098\uc911\uc5d0",
+            "\ub2e4\uc2dc",
+            "\uc7ac\uc0ac\uc6a9",
+            "\ud5f7\uac08\ub9ac\uc9c0 \uc54a\uac8c",
+            "\ubc14\ub010 \ubd80\ubd84",
+            "\uae30\uc900\uc73c\ub85c",
+            "\uc720\uc9c0",
+            "\ud754\ub4e4\ub9ac\uc9c0",
+        ),
+    )
+
+
+def _has_reusable_boundary_signal(text: str, lowered: str) -> bool:
+    lower_signals = (
+        "boundary",
+        "criterion",
+        "criteria",
+        "policy",
+        "rule",
+        "placement",
+        "distinction",
+        "separate",
+        "split",
+        "where",
+        "where to place",
+        "belongs",
+        "convention",
+        "conventions",
+        "role",
+        "roles",
+        "runtime",
+        "execution",
+        "definition",
+        "distribution",
+        "timing",
+        "automatic",
+        "lifecycle",
+        "event",
+        "formatting",
+        "reuse",
+        "later",
+        "proof",
+        "source",
+        "evidence",
+        "claim",
+        "production ready",
+        "unsupported",
+    )
+    text_signals = (
+        "\uacbd\uacc4",
+        "\uae30\uc900",
+        "\uad6c\ubd84",
+        "\ubd84\ub9ac",
+        "\uc2e4\ud589",
+        "\uc2e4\ud589 \ub2e8\uc704",
+        "\uc815\uc758",
+        "\uacf5\uae09",
+        "\uacf5\uae09 \uacbd\ub85c",
+        "\ubc30\uce58",
+        "\ubc30\ud3ec",
+        "\uc790\ub3d9",
+        "\uc774\ubca4\ud2b8",
+        "\uaddc\uce59",
+        "\uc815\ucc45",
+        "\uc5b4\ub514",
+        "\uc704\uce58",
+        "\uadfc\uac70",
+        "\ucd9c\ucc98",
+        "\uac80\uc99d",
+        "\uc99d\uba85",
+        "\uc8fc\uc7a5",
+        "\ud5f7\uac08",
+        "\uc704\ud0a4",
+        "\ub098\uc911",
+        "\uc12c\uc9c0",
+        "\uc11e\uc9c0",
+    )
+    hits = sum(1 for signal in lower_signals if signal in lowered)
+    hits += sum(1 for signal in text_signals if signal in text)
+    return hits >= 2
+
+
+def _has_instruction_boundary_correction_signal(text: str, lowered: str) -> bool:
+    instruction_terms = (
+        "prompt",
+        "command",
+        "instruction",
+        "trigger",
+        "forced",
+        "force",
+    )
+    korean_terms = (
+        "\ud504\ub86c\ud504\ud2b8",
+        "\uba85\ub839",
+        "\uc9c0\uc2dc",
+        "\ud2b8\ub9ac\uac70",
+        "\ud2b8\ub9ac\uae45",
+        "\uac15\uc81c",
+    )
+    autonomy_terms = (
+        "not the trigger",
+        "not a command",
+        "autonomous",
+        "self-detect",
+        "salience",
+        "\uc2a4\uc2a4\ub85c",
+        "\uc790\uc728",
+        "\ud544\uc694\uc131",
+        "\ubd84\ub9ac",
+    )
+    has_instruction = _contains_any(lowered, instruction_terms) or _contains_any(text, korean_terms)
+    has_autonomy_boundary = _contains_any(lowered, autonomy_terms) or _contains_any(text, autonomy_terms)
+    return has_instruction and has_autonomy_boundary
+
+
+def _has_verification_gated_claim_signal(text: str, lowered: str) -> bool:
+    claim_terms = (
+        "production ready",
+        "production-ready",
+        "release ready",
+        "ship",
+        "shipping",
+        "deploy",
+        "deployment",
+    )
+    korean_claim_terms = (
+        "\ud504\ub85c\ub355\uc158",
+        "\ucd9c\uc2dc",
+    )
+    verification_terms = (
+        "verify",
+        "verified",
+        "evidence",
+        "proof",
+        "gate",
+        "claim",
+    )
+    korean_verification_terms = (
+        "\uac80\uc99d",
+        "\ud655\uc778",
+        "\uadfc\uac70",
+        "\uc99d\uac70",
+        "\uc99d\uba85",
+        "\uac8c\uc774\ud2b8",
+    )
+    has_claim = _contains_any(lowered, claim_terms) or _contains_any(text, korean_claim_terms)
+    has_verification = _contains_any(lowered, verification_terms) or _contains_any(text, korean_verification_terms)
+    return has_claim and has_verification
+
+
+def detect_provider_memory_salience(paragraph: str) -> dict[str, Any]:
+    """Detect whether a Provider exchange deserves MS admission review.
+
+    This function does not decide storage and does not classify domain topics.
+    It only detects reusable boundary, placement, evidence, and later-use
+    signals so MS can judge maturity from source-backed context.
     """
+
     text = (paragraph or "").strip()
     if not text:
         return {"trigger_decision": "defer", "trigger_kind": "none", "reason": "empty_paragraph"}
+    lowered = text.lower()
 
-    if _contains_any(text, ("문제가", "문제는", "아니라")) and _contains_any(text, ("트리깅", "trigger", "필요성", "명령")):
-        return _base_emit(
-            paragraph=text,
-            trigger_kind="boundary_correction",
-            intent_field="Provider 기억 보존은 사용자 explicit 명령 처리에서 시작하는 것이 아니라 autonomous salience trigger detection에서 시작해야 한다.",
-            topic_hint="Provider autonomous salience trigger",
-            category_community_hint="OpenYggdrasil provider behavior contract / memory authoring bridge",
-            breadcrumb="Provider는 사용자 저장 명령뿐 아니라 강한 기억 자극과 주제 currentness 변화를 스스로 감지해야 한다.",
-            why_not_atomic="이 문단을 '명령 아님' 또는 'trigger point' 같은 원자 태그로 쪼개면 Provider 행동양식의 시작점을 교정하는 핵심 의도장이 사라진다.",
-        )
-
-    if _contains_any(text, ("결정은 이렇게 닫", "결정 완료", "닫자", "완료")) and _contains_any(text, ("주제", "topic", "P1-B", "authoring bridge")):
+    if _contains_any(lowered, ("decision atom", "paragraph-level intent", "authoring bridge")) and _contains_any(
+        lowered,
+        ("category/community", "community"),
+    ):
         return _base_emit(
             paragraph=text,
             trigger_kind="topic_decision_completed",
-            intent_field="P1-B는 decision atom extraction이 아니라 paragraph-level intent field를 보존한 뒤 넓은 category/community에 편입시키는 authoring bridge다.",
-            topic_hint="Topic Breadcrumb MemoryTicket Authoring Bridge",
-            category_community_hint="OpenYggdrasil provider behavior contract / broad category/community memory authoring",
-            breadcrumb="주제 의사결정이 닫히면 좁은 topic fragment가 아니라 넓은 category/community retrieval entrypoint로 편입한다.",
-            why_not_atomic="P1-B나 decision atom 같은 단어별 원자 태그로 분해하면 문단이 정한 저장 순서와 넓은 배치 원칙이 손실된다.",
+            intent_field="The exchange completes a paragraph-level topic decision for category/community authoring.",
+            topic_hint="provider paragraph intent authoring bridge",
+            category_community_hint="provider-authored durable knowledge candidate / category/community authoring bridge",
+            breadcrumb="Preserve paragraph-level intent before extracting decision atoms.",
+            why_not_atomic="The authoring rule depends on paragraph scope, category/community placement, and anti-atomization.",
         )
 
-    if _contains_any(text, ("금지", "안 된다", "하지 말", "용납", "극혐")) and _contains_any(text, ("README", "PRODUCTION READY", "100%", "검증", "mock", "demo")):
+    if _has_instruction_boundary_correction_signal(text, lowered):
+        return _base_emit(
+            paragraph=text,
+            trigger_kind="boundary_correction",
+            intent_field=(
+                "The exchange corrects that user instructions are not the storage trigger; "
+                "the Provider autonomous salience trigger must detect its own need."
+            ),
+            topic_hint="Provider autonomous salience trigger",
+            category_community_hint="OpenYggdrasil provider behavior contract / memory authoring bridge",
+            breadcrumb="Provider autonomous salience trigger must stay separate from explicit user commands.",
+            why_not_atomic="The command boundary, autonomous trigger, and provider responsibility must remain together.",
+        )
+
+    if _has_verification_gated_claim_signal(text, lowered):
         return _base_emit(
             paragraph=text,
             trigger_kind="strong_memory_stimulus",
-            intent_field="검증되지 않은 README/PRODUCTION READY/100% 주장은 금지이며, 코드와 실제 워크플로우 증명 뒤에만 사용자-facing claim을 올려야 한다.",
-            topic_hint="README claim gating and proof discipline",
-            category_community_hint="OpenYggdrasil verification governance / provider behavior contract",
-            breadcrumb="README claim은 코드 변경과 실제 검증 관찰 이후에만 승격한다.",
-            why_not_atomic="README, 100%, PRODUCTION READY를 별도 atom tag로 쪼개면 검증 전 claim 승격 금지라는 운영 의도가 약해진다.",
+            intent_field=(
+                "Public/release readiness claims require verification before promotion; "
+                "\uac80\uc99d\ub418\uc9c0 \uc54a\uc740 production claim is forbidden."
+            ),
+            topic_hint="production claim verification boundary",
+            category_community_hint="OpenYggdrasil provider behavior contract / production claim control",
+            breadcrumb="Public-facing claims must not outrank verifier evidence.",
+            why_not_atomic="The public surface, verification gate, and production claim ban must remain together.",
         )
 
-    if _contains_any(text, ("기억해", "저장해", "remember")):
+    if _has_durable_reuse_signal(text, lowered) and not _has_explicit_save_command(text, lowered):
+        return _base_emit(
+            paragraph=text,
+            trigger_kind="durable_reuse_signal",
+            intent_field="The exchange contains a durable reuse signal but not an explicit save command.",
+            topic_hint="durable reuse boundary candidate",
+            category_community_hint="provider-authored durable knowledge candidate / durable reuse signal",
+            breadcrumb=(
+                "A later-use signal should enter episode-ledger admission instead of being "
+                "treated as a direct save command."
+            ),
+            why_not_atomic="The reuse need, scope, and uncertainty must stay together until MS judges maturity.",
+        )
+
+    if _has_explicit_save_command(text, lowered):
         return _base_emit(
             paragraph=text,
             trigger_kind="explicit_user_save_command",
-            intent_field="사용자가 명시적으로 장기 기억 보존을 요청했다.",
-            topic_hint="Explicit memory save request",
-            category_community_hint="OpenYggdrasil provider behavior contract / memory authoring bridge",
-            breadcrumb="명시 저장 요청은 trigger_kind 중 하나일 뿐이며 source_ref 기반 admission을 거쳐야 한다.",
-            why_not_atomic="명시 명령 자체만 저장하면 문단이 속한 주제/community 배치가 손실된다.",
+            intent_field="The user indicated this may be needed later.",
+            topic_hint="explicit durable memory candidate",
+            category_community_hint="provider-authored durable knowledge candidate / explicit request",
+            breadcrumb="A later-use signal should enter source_ref-backed admission instead of being claimed as stored.",
+            why_not_atomic="The reason, scope, and reuse condition matter together; a single preference atom would lose the boundary.",
+        )
+
+    if _has_reusable_boundary_signal(text, lowered):
+        return _base_emit(
+            paragraph=text,
+            trigger_kind="category_community_shift",
+            intent_field=(
+                "The exchange contains a reusable boundary, placement, evidence, "
+                "or claim-control signal that needs MS judgment before storage."
+            ),
+            topic_hint="provider reusable boundary candidate",
+            category_community_hint="provider-authored durable knowledge candidate / MS-classified community",
+            breadcrumb=(
+                "Provider should preserve the bounded exchange and let MS classify the domain, "
+                "community, maturity, and promotion path from evidence."
+            ),
+            why_not_atomic=(
+                "The reusable rule, uncertainty, evidence threshold, and later-use condition "
+                "must stay together until MS classifies the topic."
+            ),
         )
 
     return {

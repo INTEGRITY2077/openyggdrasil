@@ -8,15 +8,14 @@ from __future__ import annotations
 import json
 import os
 import re
-import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from runtime.common.contract_validation import validate_contract_payload
 from runtime.log_event import log_event
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from ptc.primitives import (
+from runtime.ptc.primitives import (
     extract_decisions,
     build_spo_triples,
     build_vault_node,
@@ -31,6 +30,7 @@ from ptc.primitives import (
 
 from runtime.operator.helpers import (
     deliver_receipt,
+    write_operator_receipt,
     _update_status,
     _update_manifest,
     _ensure_q13_dirs,
@@ -44,8 +44,38 @@ from runtime.operator.prune import (
     _days_since,
     _run_hygiene_check,
 )
+from runtime.memory.domain_evidence import enrich_memory_ticket_payload
+from runtime.memory.semantic_category_path import category_page_relative_path
 
+from runtime.memory.wiki_node_taxonomy import (
+    build_community_node_taxonomy,
+    build_node_taxonomy,
+    validate_node_taxonomy,
+)
+from runtime.operator.community_growth_writer import build_community_growth_event
+from runtime.operator.decision_timeline_writer import build_memory_ticket_decision_timeline
+from runtime.operator.memory_ticket_admission import (
+    CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD,
+    admit_memory_ticket_payload,
+)
+from runtime.operator.node_quality_assessor import assess_lineage_quality
+from runtime.operator.provider_source_event_writer import build_provider_source_event
+from runtime.operator.safe_cursor_writer import as_vault_source_paths
+from runtime.operator.wiki_page_renderer import render_wiki_continent_page
+from runtime.placement.amundsen_continent_router import route_amundsen_continent
 from runtime.ptc.sandbox_executor import execute_ptc_code
+
+PROVENANCE_RING_NODE_SCHEMA = "provenance_ring_node.v1.schema.json"
+
+try:
+    from runtime.ptc.tool_search_supervisor import (
+        build_memory_ticket_tst_supervisor,
+        run_memory_saver_tst,
+    )
+except ImportError as exc:
+    log_event("optional_import_unavailable", module="runtime.ptc.tool_search_supervisor", reason=str(exc))
+    build_memory_ticket_tst_supervisor = None
+    run_memory_saver_tst = None
 
 
 def run_producer(mailbox: Path, vault: Path):
@@ -58,7 +88,7 @@ def run_producer(mailbox: Path, vault: Path):
         sandbox_ok = sandbox_run(["python3", "--version"], timeout=10)
         if sandbox_ok is None:
             log_event("sandbox_unavailable", reason="bwrap_not_found", action="continue_direct")
-    except Exception:
+    except (ImportError, OSError, RuntimeError):
         log_event("sandbox_unavailable", reason="import_error", action="continue_direct")
 
     # POC Phase 0+: intents.jsonl 우선, legacy messages.jsonl 폴백
@@ -71,12 +101,15 @@ def run_producer(mailbox: Path, vault: Path):
         log_event("producer_no_messages")
         return
 
-    # Load completed
+    # Load completed. A typed_unavailable close is not a durable save success and
+    # must not permanently block a later role-owned processor retry.
     completed = set()
     if receipts_file.exists():
         for line in receipts_file.read_text(encoding="utf-8").splitlines():
             if line.strip():
-                completed.add(json.loads(line).get("in_reply_to"))
+                row = json.loads(line)
+                if row.get("status") in {"acknowledged", "completed", "delivered"} and int(row.get("produced_count") or 0) > 0:
+                    completed.add(row.get("in_reply_to"))
 
     # Process pending
     for line in messages_file.read_text(encoding="utf-8").splitlines():
@@ -88,26 +121,49 @@ def run_producer(mailbox: Path, vault: Path):
 
         if msg.get("intent") == "memory_ticket":
             result = _handle_memory_ticket(mailbox, vault, msg)
+            effective_payload = result.get("effective_payload")
+            if not isinstance(effective_payload, dict):
+                effective_payload = msg.get("payload", {}) or {}
             nodes = result.get("nodes", [])
             status = result.get("status", "acknowledged")
             ring_ids = result.get("ring_ids", [])
-            receipt = {
-                "receipt_id": str(uuid.uuid4())[:8],
-                "in_reply_to": msg["mail_id"],
-                "status": status,
-                "intent": "memory_ticket",
-                "produced_count": len(nodes),
-                "nodes": nodes,
-                "ring_ids": ring_ids,
-                "canonical_topic_path": result.get("canonical_topic_path"),
-                "support_bundle_seed": result.get("support_bundle_seed"),
-                "source_ref_status": result.get("source_ref_status"),
-                "reason": result.get("reason"),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "producer_pid": os.getpid(),
-            }
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+            tst_capability_supervisor = (
+                build_memory_ticket_tst_supervisor(
+                    payload=effective_payload,
+                    result=result,
+                )
+                if build_memory_ticket_tst_supervisor is not None
+                else None
+            )
+            worker_judgment = _memory_saver_judgment(
+                intent="memory_ticket",
+                status=status,
+                nodes=nodes,
+                reason=result.get("reason"),
+                strict_storage_gate=(
+                    (tst_capability_supervisor or {})
+                    .get("result_summary", {})
+                    .get("strict_storage_gate")
+                ),
+            )
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status=status,
+                intent="memory_ticket",
+                produced_count=len(nodes),
+                nodes=nodes,
+                ring_ids=ring_ids,
+                canonical_topic_path=result.get("canonical_topic_path"),
+                support_bundle_seed=result.get("support_bundle_seed"),
+                source_ref_status=result.get("source_ref_status"),
+                reason=result.get("reason"),
+                domain_evidence_enrichment=result.get("domain_evidence_enrichment"),
+                quality_assessment=result.get("quality_assessment"),
+                tst_capability_supervisor=tst_capability_supervisor,
+                worker_judgment=worker_judgment,
+                producer_pid=os.getpid(),
+            )
             deliver_receipt(
                 mailbox,
                 msg["mail_id"],
@@ -122,6 +178,10 @@ def run_producer(mailbox: Path, vault: Path):
                     "ring_ids": ring_ids,
                     "canonical_topic_path": result.get("canonical_topic_path"),
                     "support_bundle_seed": result.get("support_bundle_seed"),
+                    "domain_evidence_enrichment": result.get("domain_evidence_enrichment"),
+                    "quality_assessment": result.get("quality_assessment"),
+                    "tst_capability_supervisor": tst_capability_supervisor,
+                    "worker_judgment": worker_judgment,
                 },
             )
             continue
@@ -129,112 +189,159 @@ def run_producer(mailbox: Path, vault: Path):
         # ★ 14차 Axis 4: sandbox-exec intent 처리 (PTC 코드 실행)
         if msg.get("intent") == "sandbox-exec":
             result = _handle_sandbox_exec(mailbox, vault, msg)
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": result.get("status", "error"),
-                    "intent": "sandbox-exec",
-                    "exit_code": result.get("exit_code"),
-                    "sandbox": result.get("sandbox"),
-                    "stdout": (result.get("stdout", "") or "")[:2000],
-                    "stderr": (result.get("stderr", "") or "")[:2000],
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }, ensure_ascii=False) + "\n")
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status=result.get("status", "error"),
+                intent="sandbox-exec",
+                exit_code=result.get("exit_code"),
+                sandbox=result.get("sandbox"),
+                stdout=(result.get("stdout", "") or "")[:2000],
+                stderr=(result.get("stderr", "") or "")[:2000],
+            )
             continue
 
         # ★ Q13: prune intent 처리
         if msg.get("intent") == "prune":
             _handle_prune(mailbox, vault, msg)
             # Mark as completed
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": "acknowledged",
-                    "intent": "prune",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }, ensure_ascii=False) + "\n")
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status="acknowledged",
+                intent="prune",
+            )
             continue
 
         # ★ Q13: curate intent 처리 (curate→_handle_prune)
         if msg.get("intent") == "curate":
             _handle_prune(mailbox, vault, msg)
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": "acknowledged",
-                    "intent": "curate",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }, ensure_ascii=False) + "\n")
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status="acknowledged",
+                intent="curate",
+            )
             continue
 
         # ★ Q13: restore intent 처리 (restore→_restore_from_archive)
         if msg.get("intent") == "restore":
             node_id = msg.get("payload", {}).get("node_id", "")
             restored = _restore_from_archive(mailbox, vault, node_id)
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": "acknowledged",
-                    "intent": "restore",
-                    "node_id": node_id,
-                    "restored": restored,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }, ensure_ascii=False) + "\n")
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status="acknowledged",
+                intent="restore",
+                node_id=node_id,
+                restored=restored,
+            )
             continue
 
         # ★ Q13: skill_update intent 처리 (skill_update→_handle_skill_update)
         if msg.get("intent") == "skill_update":
             _handle_skill_update(mailbox, msg)
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": "acknowledged",
-                    "intent": "skill_update",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }, ensure_ascii=False) + "\n")
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status="acknowledged",
+                intent="skill_update",
+            )
             continue
 
-        # ★ Phase 2: PTC 대체 경로 — LLM 코드가 전체 체인을 자유 조합
+        # Phase 2: PTC save path now goes through the role-scoped TST supervisor.
+        # The old free-form code executor remains only as a compatibility fallback.
         if msg.get("payload", {}).get("ptc"):
-            ptc_code = msg["payload"].get("ptc_code", "")
-            if ptc_code.strip():
-                result = execute_ptc_code(ptc_code, vault, mode="ipc", timeout=120)
-                nodes_produced = _count_ptc_saves(result)
-                receipt = {
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": "acknowledged",
-                    "produced_count": nodes_produced,
-                    "ptc_mode": True,
-                    "ptc_stdout": (result.get("stdout", "") or "")[:500],
-                    "ptc_stderr": (result.get("stderr", "") or "")[:500],
-                    "ptc_status": result.get("status"),
-                    "ptc_exit": result.get("exit_code"),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }
-                with open(receipts_file, "a", encoding="utf-8") as f:
-                    f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
-                deliver_receipt(mailbox, msg["mail_id"], status="delivered", produced_count=nodes_produced)
+            snapshot = msg.get("payload", {}).get("context_snapshot", "")
+            if run_memory_saver_tst is not None:
+                result = run_memory_saver_tst(
+                    context_snapshot=snapshot,
+                    vault_root=vault,
+                    provider_id=msg.get("provider_id", "unknown"),
+                )
+                nodes = result.get("nodes") or []
+                nodes_produced = int(result.get("produced_count") or 0)
+                status = "acknowledged" if nodes_produced else "typed_unavailable"
+                write_operator_receipt(
+                    receipts_file,
+                    msg["mail_id"],
+                    status=status,
+                    produced_count=nodes_produced,
+                    nodes=nodes,
+                    ptc_mode=True,
+                    ptc_status=result.get("status"),
+                    tst_supervisor=result.get("tst_supervisor"),
+                    tst_capability_supervisor=(
+                        result.get("tst_capability_supervisor")
+                        or result.get("tst_supervisor")
+                    ),
+                    reason=result.get("status"),
+                    worker_judgment=_memory_saver_judgment(
+                        intent="save_ptc",
+                        status=status,
+                        nodes=nodes,
+                        reason=result.get("status"),
+                    ),
+                )
+                deliver_receipt(
+                    mailbox,
+                    msg["mail_id"],
+                    status="delivered" if nodes_produced else "deferred",
+                    produced_count=nodes_produced,
+                    node_ids=nodes,
+                    result_bundle={
+                        "intent": "save",
+                        "ptc_mode": True,
+                        "tst_supervisor": result.get("tst_supervisor"),
+                        "tst_capability_supervisor": (
+                            result.get("tst_capability_supervisor")
+                            or result.get("tst_supervisor")
+                        ),
+                        "reason": result.get("status"),
+                    },
+                )
+            else:
+                ptc_code = msg["payload"].get("ptc_code", "")
+                if ptc_code.strip():
+                    result = execute_ptc_code(
+                        ptc_code,
+                        vault,
+                        mode="ipc",
+                        timeout=120,
+                        caller="memory_saver",
+                    )
+                    nodes_produced = _count_ptc_saves(result)
+                    write_operator_receipt(
+                        receipts_file,
+                        msg["mail_id"],
+                        status="acknowledged",
+                        produced_count=nodes_produced,
+                        ptc_mode=True,
+                        ptc_stdout=(result.get("stdout", "") or "")[:500],
+                        ptc_stderr=(result.get("stderr", "") or "")[:500],
+                        ptc_status=result.get("status"),
+                        ptc_exit=result.get("exit_code"),
+                        worker_judgment=_memory_saver_judgment(
+                            intent="save_ptc_compat",
+                            status="acknowledged",
+                            nodes=["ptc-save"] if nodes_produced else [],
+                            reason=result.get("status"),
+                        ),
+                    )
+                    deliver_receipt(mailbox, msg["mail_id"], status="delivered", produced_count=nodes_produced)
             continue
         # ★ Nursery: promote intent 처리 (DRAFT → ACTIVE)
         if msg.get("intent") == "promote":
             node_id = msg.get("payload", {}).get("node_id", "")
             if node_id:
                 _handle_promote(vault, node_id)
-            with open(receipts_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "receipt_id": str(uuid.uuid4())[:8],
-                    "in_reply_to": msg["mail_id"],
-                    "status": "acknowledged",
-                    "intent": "promote",
-                    "node_id": node_id,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }, ensure_ascii=False) + "\n")
+            write_operator_receipt(
+                receipts_file,
+                msg["mail_id"],
+                status="acknowledged",
+                intent="promote",
+                node_id=node_id,
+            )
             continue
 
 
@@ -256,16 +363,13 @@ def run_producer(mailbox: Path, vault: Path):
                 # P0 Admission Gate: Vault 진입 전 최소 품질 검증
                 passed, reason = _validate_admission(node)
                 if not passed:
-                    rejection_receipt = {
-                        "receipt_id": str(uuid.uuid4())[:8],
-                        "in_reply_to": msg["mail_id"],
-                        "status": "rejected",
-                        "reason": reason,
-                        "gate": "admission_gate.v1",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    }
-                    with open(receipts_file, "a", encoding="utf-8") as f:
-                        f.write(json.dumps(rejection_receipt, ensure_ascii=False) + "\n")
+                    write_operator_receipt(
+                        receipts_file,
+                        msg["mail_id"],
+                        status="rejected",
+                        reason=reason,
+                        gate="admission_gate.v1",
+                    )
                     continue
                 path = save_to_vault(vault, node)
                 nodes.append(node["node_id"])
@@ -292,17 +396,19 @@ def run_producer(mailbox: Path, vault: Path):
                 related = search_vault_by_keyword(load_vault(vault), first_subject)
                 _write_context_bundle(context_dir, related)
 
-        receipt = {
-            "receipt_id": str(uuid.uuid4())[:8],
-            "in_reply_to": msg["mail_id"],
-            "status": "acknowledged",
-            "produced_count": len(nodes),
-            "nodes": nodes,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "producer_pid": os.getpid(),
-        }
-        with open(receipts_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+        write_operator_receipt(
+            receipts_file,
+            msg["mail_id"],
+            status="acknowledged",
+            produced_count=len(nodes),
+            nodes=nodes,
+            worker_judgment=_memory_saver_judgment(
+                intent="save",
+                status="acknowledged",
+                nodes=nodes,
+            ),
+            producer_pid=os.getpid(),
+        )
 
         # ★ Reverse Push: Operator → Provider 영수증 발행
         deliver_receipt(mailbox, msg["mail_id"],
@@ -319,6 +425,70 @@ def run_producer(mailbox: Path, vault: Path):
     if _days_since(last_curation) >= 7:
         _run_hygiene_check(mailbox, vault)
 
+
+def _memory_saver_judgment(
+    *,
+    intent: str,
+    status: str,
+    nodes: list,
+    reason: object = None,
+    strict_storage_gate: dict | None = None,
+) -> dict:
+    """Provider-safe worker judgment summary for MS receipts."""
+    produced_count = len(nodes or [])
+    strict_allowed = (
+        strict_storage_gate.get("storage_success_allowed")
+        if isinstance(strict_storage_gate, dict)
+        else None
+    )
+    success = status in {"acknowledged", "completed"} and produced_count > 0
+    if strict_allowed is False:
+        success = False
+    return {
+        "schema_version": "worker_judgment.v1",
+        "worker_role": "memory_saver",
+        "small_goal": (
+            "decide whether the Save Request has enough durable evidence to become stored memory"
+        ),
+        "todo": [
+            "check source and intent evidence",
+            "run the role-scoped save/provenance path",
+            "inspect produced node and receipt evidence",
+            "close as storage_receipt or typed_unavailable",
+        ],
+        "success_evidence": [
+            "produced_count > 0",
+            "node ids are present",
+            "Result Receipt was written",
+        ],
+        "failure_conditions": [
+            "no durable save candidate",
+            "source/provenance evidence missing",
+            "produced_count is zero",
+            "requested and saved cannot be distinguished",
+        ],
+        "observation": {
+            "intent": intent,
+            "status": status,
+            "produced_count": produced_count,
+            "node_count": len(nodes or []),
+            "reason": str(reason or ""),
+            "strict_storage_gate_allowed": strict_allowed,
+            "strict_storage_gate_failure_reason": (
+                strict_storage_gate.get("failure_reason")
+                if isinstance(strict_storage_gate, dict)
+                else None
+            ),
+        },
+        "judgment": "success" if success else "typed_unavailable",
+        "close_decision": "storage_receipt" if success else "typed_unavailable_no_storage_evidence",
+        "hard_nonclaims": [
+            "delivery_is_not_storage_success",
+            "pane_text_is_not_storage_success",
+            "storage_receipt_is_not_semantic_truth",
+        ],
+    }
+
     # P1 피드백 루프: Gardener receipts -> prune/curate intent 발행
     feedback_stats = _run_feedback_loop(mailbox)
     if any(v > 0 for v in feedback_stats.values()):
@@ -331,7 +501,7 @@ def run_producer(mailbox: Path, vault: Path):
         log_event("vault_stats_collected",
                   node_count=meta_stats.get("node_count", 0),
                   total_size=meta_stats.get("total_size_bytes", 0))
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError):
         log_event("vault_stats_skip")
 
     elapsed = (datetime.now(timezone.utc) - t0).total_seconds() * 1000
@@ -354,31 +524,146 @@ def _as_list(value) -> list[str]:
     return [str(value)] if str(value) else []
 
 
+def _canonical_claim_from_capsule(capsule: dict) -> str:
+    conclusion = str(capsule.get("conclusion") or "").strip()
+    decision = str(capsule.get("decision") or "").strip()
+    return conclusion or decision
+
+
+def _is_source_reference(value: object) -> bool:
+    text = str(value or "").strip()
+    lowered = text.lower()
+    return lowered.startswith(
+        (
+            "local-docs://",
+            "hermes-session-json://",
+            "http://",
+            "https://",
+            "source:",
+            "ring:",
+        )
+    )
+
+
+def _semantic_related_nodes(values: list[str]) -> list[str]:
+    return [
+        value
+        for value in _as_list(values)
+        if not _is_source_reference(value)
+    ]
+
+
 def _render_provenance_ring_page(*, ring_node: dict) -> str:
     topic = ring_node["canonical_topic"]
     capsule = ring_node["decision_capsule"]
-    ring = ring_node["provenance_rings"][0]
+    canonical_claim = _canonical_claim_from_capsule(capsule)
+    rings = list(ring_node["provenance_rings"] or [])
+    ring = rings[-1]
+    source_refs = []
+    for item in rings:
+        source_ref = str(item.get("source_ref") or "").strip()
+        if source_ref and source_ref not in source_refs:
+            source_refs.append(source_ref)
     lifecycle = ring_node["lifecycle"]
     community = ring_node["community"]
+    taxonomy = ring_node.get("node_taxonomy", {})
     retrieval = ring_node["retrieval_contract"]
     safety_belt = ring_node.get("paragraph_intent_safety_belt", {})
     quality = ring_node.get("quality_assessment", {})
+    domain_evidence = ring_node.get("domain_evidence_enrichment", {})
+    retrieval_terms = retrieval.get("retrieval_terms") or retrieval.get("keywords") or []
+    quality_verdict = str(quality.get("verdict") or "").lower()
+    lifecycle_state = "ACTIVE" if quality_verdict == "pass" else "NEEDS_REPAIR"
+    current_authority = "active" if quality_verdict == "pass" else "candidate_only"
     return f"""---
 id: {ring_node['node_id']}
 title: {topic['title']}
 type: {ring_node.get('category', 'policy')}
-status: ACTIVE
+continent: {taxonomy.get('continent', 'concepts')}
+physical_continent: {taxonomy.get('physical_continent', 'concepts')}
+node_type: {taxonomy.get('node_type', ring_node.get('category', 'policy'))}
+topography_level: {taxonomy.get('topography_level', 'tree')}
+community_role: {taxonomy.get('community_role', 'member')}
+status: {lifecycle_state}
 community: {community['community_id']}
-sources: [{ring['source_ref']}]
-root_claim: {capsule['decision']}
-current_authority: active
+sources: [{', '.join(source_refs)}]
+root_claim: {canonical_claim}
+current_authority: {current_authority}
 ring_id: {ring['ring_id']}
-lifecycle_state: ACTIVE
+lifecycle_state: {lifecycle_state}
 ---
 # {topic['title']}
 
+## What This Page Is
+This page preserves a reusable, source-backed boundary from a Provider discussion.
+
+{canonical_claim}
+
+## Why It Matters
+{capsule.get('context') or 'A later question may revisit the same boundary in different words.'}
+
+Use this page to keep the rule stable without turning mailbox receipts, runtime proof, or temporary conversation state into the rule itself.
+
+## Operating Rule
+{canonical_claim}
+
+## Role Boundary
+- Domain boundary: {capsule.get('conclusion') or 'Keep the documented responsibilities separate unless source evidence supports merging them.'}
+- Memory boundary: Provider may use this page only after MF1 returns safe source-backed support.
+- Evidence boundary: source links and receipts explain provenance; they are not the user-facing answer.
+
+## Failure Cases
+- missing or unresolved source_ref
+- pending candidate treated as final support
+- local path or pane text treated as proof
+- source references treated as semantic related pages
+- generated confidence treated as human review
+
+## Examples
+- Use this when a later question asks for the same boundary in different words.
+- Do not use it for unrelated product-currentness questions.
+- If the page is still `NEEDS_REPAIR`, keep it candidate-only until janitor and recall gates admit it.
+
+## Source Synthesis
+{_render_source_synthesis(ring=ring, community=community, domain_evidence=domain_evidence, lifecycle_state=lifecycle_state)}
+
+## Category Placement
+```json
+{json.dumps(ring_node.get('semantic_category_path') or {}, ensure_ascii=False, indent=2)}
+```
+
+## Provider Source Events
+```json
+{json.dumps(ring_node.get('provider_source_events') or [], ensure_ascii=False, indent=2)}
+```
+
+## Decision Timeline
+```json
+{json.dumps(ring_node.get('decision_timeline') or [], ensure_ascii=False, indent=2)}
+```
+
+## Community Growth
+```json
+{json.dumps(ring_node.get('community_growth_events') or [], ensure_ascii=False, indent=2)}
+```
+
+## Retrieval Surface
+- keyword_policy: {retrieval.get('keyword_policy', 'deterministic_diverse_terms_not_title_repeat')}
+- retrieval_terms: {', '.join(str(item) for item in retrieval_terms)}
+
+## Related Pages
+{_render_related_pages(community)}
+
+## Maintenance Notes
+- quality_verdict: {quality.get('verdict', 'unknown')}
+- reason_codes: {', '.join(str(item) for item in quality.get('reason_codes') or [])}
+- confidence_deductions: {', '.join(str(item) for item in quality.get('confidence_deductions') or [])}
+- confidence: {quality.get('confidence', 'unknown')}
+
+## Machine Appendix
+
 ## 1. Canonical Claim
-{capsule['decision']}
+{canonical_claim}
 
 ## 2. Decision Capsule
 ```json
@@ -397,11 +682,16 @@ lifecycle_state: ACTIVE
 
 ## 5. Edges
 - DERIVES_FROM: {ring['origin_locator']}
-- SUPPORTS: {capsule['decision']}
+- SUPPORTS: {canonical_claim}
 
 ## 6. Community Placement
 ```json
 {json.dumps(community, ensure_ascii=False, indent=2)}
+```
+
+## 6A. Node Taxonomy
+```json
+{json.dumps(taxonomy, ensure_ascii=False, indent=2)}
 ```
 
 ## 7. Paragraph Intent Safety Belt
@@ -419,6 +709,11 @@ lifecycle_state: ACTIVE
 {json.dumps(quality, ensure_ascii=False, indent=2)}
 ```
 
+## 9A. Lineage Quality Evaluation
+```json
+{json.dumps(ring_node.get('lineage_quality_assessment') or {}, ensure_ascii=False, indent=2)}
+```
+
 ## 10. Raw Evidence Pointers
 - source_ref: {ring['source_ref']}
 - origin_locator: {ring['origin_locator']}
@@ -427,7 +722,108 @@ lifecycle_state: ACTIVE
 - resolver_status: {ring.get('resolver_status', 'resolved')}
 - redaction_status: {ring.get('redaction_status', 'pointer_only')}
 - message_index_range: {json.dumps(ring.get('message_index_range', {}), ensure_ascii=False)}
+- source_line_range: {json.dumps(ring.get('source_line_range') or {}, ensure_ascii=False)}
 """
+
+
+def _render_related_pages(community: dict) -> str:
+    related_nodes = _as_list(community.get("related_nodes"))
+    semantic_nodes = _semantic_related_nodes(related_nodes)
+    source_refs = [node for node in related_nodes if _is_source_reference(node)]
+    lines: list[str] = []
+    if semantic_nodes:
+        lines.extend(f"- {node_id}" for node_id in semantic_nodes)
+    else:
+        lines.append("- semantic related pages are not established yet; janitor must attach, split, or keep this page below full wiki-quality claim.")
+    if source_refs:
+        lines.append("- source references are listed under Source Synthesis and are not counted as semantic related pages.")
+    return "\n".join(lines)
+
+
+def _render_source_synthesis(*, ring: dict, community: dict, domain_evidence: dict, lifecycle_state: str) -> str:
+    lines = [
+        f"- provider_source_ref: {ring['source_ref']}",
+        f"- provider_origin_locator: {ring['origin_locator']}",
+        f"- community: {community['community_id']}",
+        f"- maturity: {lifecycle_state}",
+    ]
+    accepted = domain_evidence.get("accepted_evidence") if isinstance(domain_evidence, dict) else []
+    if isinstance(accepted, list) and accepted:
+        lines.append("- domain_evidence:")
+        for item in accepted[:6]:
+            if not isinstance(item, dict):
+                continue
+            ref = str(item.get("evidence_ref") or "").strip()
+            terms = ", ".join(str(term) for term in item.get("matched_terms") or [])
+            lines.append(f"  - {ref} (matched: {terms})")
+    else:
+        lines.append("- domain_evidence: unavailable; this page must stay candidate-only until MS enrichment resolves source pointers.")
+    return "\n".join(lines)
+
+
+def _retrieval_terms_from_payload(*, payload: dict, decision: str, topic_title: str, community_key: str) -> list[str]:
+    candidates = [
+        decision,
+        topic_title,
+        community_key.replace("-", " "),
+        str(payload.get("topic_hint") or ""),
+        str(payload.get("category_community_hint") or ""),
+        str(payload.get("breadcrumb") or ""),
+        str(payload.get("reuse_condition") or ""),
+        "wiki ring",
+        "source-backed",
+        "safe recall",
+        "MS storage",
+        "MF recall boundary",
+        "provenance",
+    ]
+    terms: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        normalized = re.sub(r"\s+", " ", str(candidate or "").strip().lower())
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        terms.append(normalized)
+        if len(terms) >= 16:
+            break
+    return terms
+
+
+def _merge_unique_values(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    merged: list[str] = []
+    for value in values:
+        item = str(value or "").strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        merged.append(item)
+    return merged
+
+
+def _source_refs_from_related_nodes(vault: Path, related_nodes: list[str]) -> list[str]:
+    refs: list[str] = []
+    for node_id in related_nodes:
+        node = str(node_id or "").strip()
+        if not node:
+            continue
+        path = vault / "concepts" / f"{node}.md"
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        refs.extend(re.findall(r"hermes-session-json://[A-Za-z0-9_\-]+", text))
+    return _merge_unique_values(refs)
+
+
+def _community_growth_events(*, ring_ids: list[str], source_refs: list[str]) -> list[dict[str, str]]:
+    events: list[dict[str, str]] = []
+    for index, source_ref in enumerate(source_refs):
+        event = {"source_ref": source_ref}
+        if index < len(ring_ids):
+            event["ring_id"] = ring_ids[index]
+        events.append(event)
+    return events
 
 
 def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
@@ -436,21 +832,53 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     community = ring_node["community"]
     topic_path = vault / topic["page_path"]
     topic_path.parent.mkdir(parents=True, exist_ok=True)
+    existing_topic = topic_path.read_text(encoding="utf-8") if topic_path.exists() else ""
+    merged_rings = _merge_provenance_rings(
+        _existing_provenance_rings(existing_topic),
+        list(ring_node["provenance_rings"] or []),
+    )
+    if merged_rings:
+        ring_node = {**ring_node, "provenance_rings": merged_rings}
+    ring = ring_node["provenance_rings"][-1]
+    community_key_for_related = community["community_id"].split(":", 1)[-1]
+    community_path_for_related = vault / "communities" / f"{community_key_for_related}.md"
+    existing_community_for_related = (
+        community_path_for_related.read_text(encoding="utf-8")
+        if community_path_for_related.exists()
+        else ""
+    )
+    semantic_siblings = [
+        node
+        for node in _semantic_related_nodes(_metadata_values(existing_community_for_related, "related_nodes"))
+        if node != ring_node["node_id"]
+    ]
+    if semantic_siblings:
+        updated_community = dict(community)
+        updated_community["related_nodes"] = _merge_unique_values(
+            [
+                *_as_list(updated_community.get("related_nodes")),
+                *semantic_siblings,
+            ]
+        )
+        ring_node = {**ring_node, "community": updated_community}
+        community = updated_community
     topic_path.write_text(_render_provenance_ring_page(ring_node=ring_node), encoding="utf-8")
 
-    # OP2의 기존 BM25 fixed path가 concepts/entities 중심으로 읽으므로 POC mirror를 하나 둔다.
+    # MF1 BM25 fixed path reads concepts/entities first, so keep one canonical concept mirror.
     concept_path = vault / "concepts" / f"{ring_node['node_id']}.md"
     concept_path.parent.mkdir(parents=True, exist_ok=True)
     concept_rendered = _render_provenance_ring_page(ring_node=ring_node)
     concept_path.write_text(concept_rendered, encoding="utf-8")
 
-    # 기존 full UX 최소 계약은 concepts/N-*.md mirror를 찾는다. POC ring node의 정식 ID는 PRN-*로 유지하되
-    # legacy 검색/회귀 호환 mirror를 함께 둔다.
-    legacy_id = "N-" + ring_node["node_id"].split("-", 1)[1]
-    legacy_concept_path = vault / "concepts" / f"{legacy_id}.md"
-    legacy_concept_path.write_text(concept_rendered.replace(f"id: {ring_node['node_id']}", f"id: {legacy_id}\ncanonical_node_id: {ring_node['node_id']}"), encoding="utf-8")
-
     topic_key = topic["topic_id"].split(":", 1)[1]
+    semantic_category = ring_node.get("semantic_category_path") or {}
+    semantic_segments = list(semantic_category.get("segments") or [])
+    category_slug = semantic_segments[-1] if semantic_segments else topic_key
+    category_page_rel = category_page_relative_path(semantic_category, slug=category_slug)
+    category_page_path = vault / category_page_rel
+    category_page_path.parent.mkdir(parents=True, exist_ok=True)
+    category_page_path.write_text(render_wiki_continent_page(ring_node=ring_node), encoding="utf-8")
+
     prov_path = vault / "_meta" / "provenance" / f"{topic_key}.md"
     prov_path.parent.mkdir(parents=True, exist_ok=True)
     record = {
@@ -462,35 +890,157 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
         "derived_from": topic["page_path"],
         "source_ref": ring["source_ref"],
         "origin_locator": ring["origin_locator"],
+        "source_line_range": ring.get("source_line_range"),
+        "node_taxonomy": ring_node.get("node_taxonomy", {}),
+        "provider_source_events": ring_node.get("provider_source_events", []),
+        "decision_timeline": ring_node.get("decision_timeline", []),
+        "semantic_category_path": ring_node.get("semantic_category_path", {}),
+        "community_growth_events": ring_node.get("community_growth_events", []),
+        "readable_wiki_page_ref": f"oy-vault://{category_page_rel}",
     }
-    prov_path.write_text(
-        "# Provenance Rings\n"
+    episode_block = (
         f"<!-- provenance:{record['episode_id']}:start -->\n"
         f"## Episode {ring['ring_id']}\n"
         "```json\n"
         f"{json.dumps(record, ensure_ascii=False)}\n"
         "```\n"
-        f"<!-- provenance:{record['episode_id']}:end -->\n",
-        encoding="utf-8",
+        f"<!-- provenance:{record['episode_id']}:end -->\n"
     )
+    existing_provenance = prov_path.read_text(encoding="utf-8") if prov_path.exists() else "# Provenance Rings\n"
+    if f"provenance:{record['episode_id']}:start" not in existing_provenance:
+        existing_provenance = existing_provenance.rstrip() + "\n" + episode_block
+    prov_path.write_text(existing_provenance, encoding="utf-8")
 
     community_key = community["community_id"].split(":", 1)[-1]
     community_path = vault / "communities" / f"{community_key}.md"
     community_path.parent.mkdir(parents=True, exist_ok=True)
+    community_taxonomy = build_community_node_taxonomy(community["community_id"])
+    existing_community = community_path.read_text(encoding="utf-8") if community_path.exists() else ""
+    related_nodes = _merge_metadata_values(existing_community, "related_nodes", [ring_node["node_id"]])
+    ring_ids = _merge_metadata_values(existing_community, "ring_ids", [ring["ring_id"]])
+    ring_ids = _merge_metadata_values(existing_community, "ring_id", ring_ids)
+    source_refs = _merge_unique_values(
+        [
+            *_metadata_values(existing_community, "source_refs"),
+            *_source_refs_from_related_nodes(vault, related_nodes),
+            ring["source_ref"],
+        ]
+    )
+    growth_events = _community_growth_events(ring_ids=ring_ids, source_refs=source_refs)
+    lineage_growth_events = list(ring_node.get("community_growth_events") or [])
     community_path.write_text(
-        f"# {community_key}\n\n- community_id: {community['community_id']}\n- placement_reason: {community['placement_reason']}\n- related_nodes: {ring_node['node_id']}\n- ring_id: {ring['ring_id']}\n",
+        f"# {community_key}\n\n"
+        f"- community_id: {community['community_id']}\n"
+        f"- placement_reason: {community['placement_reason']}\n"
+        f"- growth_policy: append_only_discontinuous_source_ref\n"
+        f"- growth_event_count: {len(source_refs)}\n"
+        f"- related_nodes: {', '.join(related_nodes)}\n"
+        f"- ring_id: {ring['ring_id']}\n"
+        f"- ring_ids: {', '.join(ring_ids)}\n"
+        f"- source_refs: {', '.join(source_refs)}\n"
+        f"- overmerge_guard: split_when_new_source_ref_changes_runtime_category\n"
+        f"- node_type: {community_taxonomy['node_type']}\n"
+        f"- topography_level: {community_taxonomy['topography_level']}\n"
+        f"- community_role: {community_taxonomy['community_role']}\n"
+        "\n```json\n"
+        f"{json.dumps({'schema_version': 'community_growth_history.v1', 'node_taxonomy': community_taxonomy, 'growth_events': growth_events, 'community_growth_events': lineage_growth_events}, ensure_ascii=False, indent=2)}\n"
+        "```\n",
         encoding="utf-8",
     )
     return {
-        "canonical_topic_path": str(topic_path.relative_to(vault)),
-        "concept_path": str(concept_path.relative_to(vault)),
-        "legacy_concept_path": str(legacy_concept_path.relative_to(vault)),
-        "provenance_path": str(prov_path.relative_to(vault)),
-        "community_path": str(community_path.relative_to(vault)),
+        "canonical_topic_path": topic_path.relative_to(vault).as_posix(),
+        "category_page_path": category_page_path.relative_to(vault).as_posix(),
+        "concept_path": concept_path.relative_to(vault).as_posix(),
+        "provenance_path": prov_path.relative_to(vault).as_posix(),
+        "community_path": community_path.relative_to(vault).as_posix(),
     }
 
 
-CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD = "preserve_paragraph_intent_before_decision_atoms"
+def _write_safe_index_cursor_sync(vault: Path, *, ring_id: str, paths: dict) -> dict:
+    committed_paths = [value for value in paths.values() if value]
+    try:
+        from runtime.retrieval.safe_index_cursor import (
+            SAFE_INDEX_CURSOR_RELATIVE_PATH,
+            load_safe_index_cursor,
+            write_safe_index_cursor,
+        )
+
+        existing_cursor = load_safe_index_cursor(vault)
+        existing_committed_paths = list(existing_cursor.get("committed_paths") or [])
+        cursor_path = write_safe_index_cursor(
+            vault_root=vault,
+            committed_paths=[*existing_committed_paths, *committed_paths],
+            cursor_id=f"cursor:{ring_id}",
+            source="memory_ticket_producer",
+        )
+        cursor = load_safe_index_cursor(vault)
+        return {
+            "schema_version": "safe_index_cursor_sync.v1",
+            "janitor_status": "clean",
+            "cursor_path": str(cursor_path.relative_to(vault)).replace("\\", "/")
+            if cursor_path.is_absolute()
+            else SAFE_INDEX_CURSOR_RELATIVE_PATH,
+            "committed_paths": list(cursor.get("committed_paths") or []),
+            "hard_nonclaims": [
+                "safe_cursor_sync_is_not_semantic_truth",
+                "safe_cursor_sync_is_not_full_vault_consistency",
+            ],
+        }
+    except Exception as exc:
+        return {
+            "schema_version": "safe_index_cursor_sync.v1",
+            "janitor_status": "issues_detected",
+            "committed_paths": [f"vault/{str(path).replace('\\', '/').lstrip('/')}" for path in committed_paths],
+            "reason_code": f"safe_index_cursor_sync_failed:{type(exc).__name__}",
+            "hard_nonclaims": [
+                "failed_safe_cursor_sync_does_not_authorize_final_support",
+            ],
+        }
+
+
+def _metadata_values(text: str, key: str) -> list[str]:
+    match = re.search(rf"^\s*-\s*{re.escape(key)}\s*:\s*(.*?)\s*$", text or "", flags=re.MULTILINE)
+    if not match:
+        return []
+    return [item.strip() for item in match.group(1).split(",") if item.strip()]
+
+
+def _existing_provenance_rings(text: str) -> list[dict]:
+    match = re.search(r"## 3\. Provenance Rings\s*```json\s*(.*?)\s*```", text or "", flags=re.DOTALL)
+    if not match:
+        return []
+    try:
+        value = json.loads(match.group(1))
+    except json.JSONDecodeError:
+        return []
+    if isinstance(value, list):
+        return [dict(item) for item in value if isinstance(item, dict) and item.get("ring_id")]
+    return []
+
+
+def _merge_provenance_rings(*ring_lists: list[dict]) -> list[dict]:
+    seen: set[str] = set()
+    merged: list[dict] = []
+    for rings in ring_lists:
+        for ring in rings:
+            ring_id = str(ring.get("ring_id") or "").strip()
+            if not ring_id or ring_id in seen:
+                continue
+            seen.add(ring_id)
+            merged.append(dict(ring))
+    return merged
+
+
+def _merge_metadata_values(text: str, key: str, values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    merged: list[str] = []
+    for value in [*_metadata_values(text, key), *values]:
+        item = str(value or "").strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        merged.append(item)
+    return merged
 
 
 def _is_atom_tag_hint(value: str) -> bool:
@@ -504,60 +1054,34 @@ def _is_atom_tag_hint(value: str) -> bool:
     return False
 
 
-def _is_nonempty_string(value) -> bool:
-    return isinstance(value, str) and bool(value.strip())
-
-
-def _valid_index_range(value) -> bool:
-    if not isinstance(value, dict):
-        return False
-    start = value.get("start")
-    end = value.get("end")
-    return isinstance(start, int) and isinstance(end, int) and start >= 0 and end >= start
-
-
-def _valid_id_range(value) -> bool:
-    if not isinstance(value, dict):
-        return False
-    start = value.get("start")
-    end = value.get("end")
-    return isinstance(start, (int, str)) and isinstance(end, (int, str)) and str(start) != "" and str(end) != ""
-
-
 def _admit_memory_ticket_payload(payload: dict) -> tuple[bool, str]:
-    if payload.get("schema_version") != "memory_ticket.v1":
-        return False, "invalid_schema_version"
-    for key in ("source_ref", "provider_session_id", "surface_reason", "commit_watermark"):
-        if not _is_nonempty_string(payload.get(key)):
-            return False, f"missing_{key}"
-    has_index_range = "message_index_range" in payload
-    has_id_range = "message_id_range" in payload
-    if has_index_range == has_id_range:
-        return False, "invalid_message_range_choice"
-    if has_index_range and not _valid_index_range(payload.get("message_index_range")):
-        return False, "invalid_message_index_range"
-    if has_id_range and not _valid_id_range(payload.get("message_id_range")):
-        return False, "invalid_message_id_range"
-    if not _is_nonempty_string(payload.get("anchor_hash")):
-        return False, "missing_anchor_hash"
-    if not re.fullmatch(r"[0-9a-f]{64}", str(payload.get("anchor_hash"))):
-        return False, "invalid_anchor_hash"
-    for key in ("intent_field", "decomposition_guard", "min_split_unit", "why_not_atomic", "topic_hint", "category_community_hint"):
-        if not _is_nonempty_string(payload.get(key)):
-            return False, f"missing_{key}"
-    if str(payload.get("decomposition_guard")) != CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD:
-        return False, "invalid_decomposition_guard"
-    if str(payload.get("min_split_unit")) not in {"paragraph_intent", "topic_decision_cluster"}:
-        return False, "invalid_min_split_unit"
-    if _is_atom_tag_hint(str(payload.get("category_community_hint") or "")):
-        return False, "category_community_hint_too_atomic"
-    return True, "admitted"
+    return admit_memory_ticket_payload(payload)
 
 
 def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ring_node: dict) -> dict:
     capsule = ring_node["decision_capsule"]
     community = ring_node["community"]
     ring = ring_node["provenance_rings"][0]
+    evidence_refs = _as_list(capsule.get("evidence"))
+    external_evidence_refs = [
+        ref
+        for ref in evidence_refs
+        if not str(ref).startswith("hermes-session-json://")
+    ]
+    related_nodes = _as_list(community.get("related_nodes"))
+    semantic_related_nodes = _semantic_related_nodes(related_nodes)
+    domain_evidence = payload.get("domain_evidence_enrichment")
+    domain_evidence_resolved = (
+        isinstance(domain_evidence, dict)
+        and domain_evidence.get("status") == "resolved"
+        and bool(domain_evidence.get("accepted_evidence"))
+    )
+    review_executed = str(
+        payload.get("quality_review_status")
+        or payload.get("automated_quality_review_status")
+        or payload.get("human_evaluator_status")
+        or ""
+    ).lower() == "executed"
     checks = {
         "decision_capsule_present": bool(capsule.get("decision")),
         "context_present": bool(str(capsule.get("context") or "").strip()),
@@ -569,22 +1093,71 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
         "anchor_hash_verified": str(ring.get("anchor_hash") or "") == str(payload.get("anchor_hash") or ""),
         "paragraph_intent_guard_present": ring_node.get("paragraph_intent_safety_belt", {}).get("decomposition_guard") == CANONICAL_MEMORY_TICKET_DECOMPOSITION_GUARD,
         "community_not_atomic": not _is_atom_tag_hint(str(payload.get("category_community_hint") or community.get("community_id") or "")),
+        "node_taxonomy_valid": validate_node_taxonomy(ring_node.get("node_taxonomy", {}))["valid"],
         "raw_transcript_absent": True,
+        "external_source_synthesis_present": bool(external_evidence_refs),
+        "domain_evidence_resolved": domain_evidence_resolved,
+        "related_nodes_present": bool(related_nodes),
+        "quality_review_executed": review_executed,
     }
-    failed = [name for name, passed in checks.items() if not passed]
+    hard_check_names = {
+        "decision_capsule_present",
+        "context_present",
+        "conclusion_present",
+        "evidence_pointer_present",
+        "reuse_condition_present",
+        "source_ref_resolved",
+        "bounded_message_range_present",
+        "anchor_hash_verified",
+        "paragraph_intent_guard_present",
+        "community_not_atomic",
+        "node_taxonomy_valid",
+        "raw_transcript_absent",
+    }
+    hard_failed = [
+        name
+        for name in hard_check_names
+        if not checks.get(name)
+    ]
+    if str(payload.get("graph_dedupe_status") or "").lower() != "executed":
+        confidence_deductions = ["graph_dedupe_not_executed"]
+    else:
+        confidence_deductions = []
+    verdict = "pass" if not hard_failed else "needs_review"
+    if not checks["external_source_synthesis_present"]:
+        confidence_deductions.append("external_source_synthesis_not_present")
+    if not checks["domain_evidence_resolved"]:
+        confidence_deductions.append("domain_evidence_not_resolved")
+    if not checks["related_nodes_present"]:
+        confidence_deductions.append("related_nodes_not_present")
+    if not checks["quality_review_executed"]:
+        confidence_deductions.append("quality_review_not_executed")
+    if str(payload.get("human_evaluator_status") or "").lower() != "executed":
+        confidence_deductions.append("human_evaluator_not_executed")
+    if related_nodes and not semantic_related_nodes:
+        confidence_deductions.append("semantic_related_pages_not_established")
+    confidence_reason_codes = list(confidence_deductions)
+    if verdict == "pass":
+        confidence = round(max(0.0, 0.94 - (0.06 * len(confidence_deductions))), 2)
+    else:
+        confidence = round(max(0.0, 0.72 - (0.03 * len(hard_failed))), 2)
     return {
         "evaluator": "memory_ticket_producer_quality_gate.v1",
-        "verdict": "pass" if not failed else "needs_review",
-        "confidence": 0.91 if not failed else 0.62,
-        "reason_codes": failed,
-        "ambiguity": "low" if not failed else "medium",
-        "duplication_risk": "unknown_without_graph_dedupe",
+        "verdict": verdict,
+        "confidence": confidence,
+        "confidence_deductions": confidence_deductions,
+        "reason_codes": [*hard_failed, *confidence_reason_codes],
+        "quality_blocker_reason_codes": hard_failed,
+        "confidence_reason_codes": confidence_reason_codes,
+        "ambiguity": "low" if verdict == "pass" else "medium",
+        "duplication_risk": "checked_bounded_graph_dedupe" if str(payload.get("graph_dedupe_status") or "").lower() == "executed" else "unknown_without_graph_dedupe",
         "misclassification_risk": "low" if checks["community_not_atomic"] else "high",
-        "recallability": "community_and_source_path_retrievable" if not failed else "partial",
+        "recallability": "community_and_source_path_retrievable" if verdict == "pass" else "candidate_only",
         "checks": checks,
         "hard_nonclaims": [
-            "graph_dedupe_not_executed",
-            "human_evaluator_not_executed",
+            *([] if str(payload.get("graph_dedupe_status") or "").lower() == "executed" else ["graph_dedupe_not_executed"]),
+            *([] if str(payload.get("human_evaluator_status") or "").lower() == "executed" else ["human_evaluator_not_executed"]),
+            *([] if semantic_related_nodes else ["semantic_related_pages_not_established"]),
         ],
     }
 
@@ -598,23 +1171,29 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
 
     source_ref = str(payload.get("source_ref") or "")
     range_hint = payload.get("message_index_range") or {}
+    source_line_range = payload.get("source_line_range") if isinstance(payload.get("source_line_range"), dict) else None
     anchor_hash = str(payload.get("anchor_hash") or "")
     resolver_options = dict(payload.get("resolver_options") or {})
     if payload.get("sessions_dir") and "sessions_dir" not in resolver_options:
         resolver_options["sessions_dir"] = payload.get("sessions_dir")
+    if payload.get("evidence") and "evidence" not in resolver_options:
+        resolver_options["evidence"] = payload.get("evidence")
 
     try:
         from runtime.source_ref.bootstrap import register_default_source_ref_resolvers
         from runtime.source_ref.registry import resolve_source_ref
 
         register_default_source_ref_resolvers()
+        resolver_range_hint = {"start": int(range_hint.get("start", 0)), "end": int(range_hint.get("end", 0))}
+        if source_line_range:
+            resolver_range_hint["source_line_range"] = dict(source_line_range)
         resolved = resolve_source_ref(
             source_ref=source_ref,
-            range_hint={"start": int(range_hint.get("start", 0)), "end": int(range_hint.get("end", 0))},
+            range_hint=resolver_range_hint,
             anchor_hash=anchor_hash,
             resolver_options=resolver_options,
         )
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError) as exc:
         return {"status": "deferred", "nodes": [], "source_ref_status": "unavailable", "reason": f"resolver_error:{type(exc).__name__}"}
 
     if resolved.get("status") != "resolved":
@@ -626,13 +1205,73 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         }
 
     decision = str(payload.get("decision") or payload.get("결정") or payload.get("surface_reason") or "MemoryTicket")
-    topic_title = str(payload.get("canonical_topic_title") or payload.get("topic_title") or decision[:80])
+    payload = enrich_memory_ticket_payload(payload, vault=vault)
+    decision = str(payload.get("decision") or payload.get("conclusion") or decision)
+    topic_title = str(payload.get("canonical_topic_title") or payload.get("topic_title") or decision)
     topic_key = _slugify_topic_key(str(payload.get("canonical_topic_key") or topic_title))
-    node_id = "PRN-" + uuid.uuid5(uuid.NAMESPACE_URL, f"{source_ref}:{range_hint}:{decision}").hex[:16]
+    node_id = "N-" + uuid.uuid5(uuid.NAMESPACE_URL, f"{source_ref}:{range_hint}:{decision}").hex[:16]
     ring_id = "ring-" + uuid.uuid5(uuid.NAMESPACE_URL, f"ring:{source_ref}:{range_hint}:{anchor_hash}").hex[:16]
     community_key = _slugify_topic_key(str(payload.get("community") or payload.get("커뮤니티") or "openyggdrasil-memory"))
     community_id = f"community:{community_key}"
     commit_watermark = str(payload.get("commit_watermark") or resolved.get("commit_watermark") or "")
+    provider_source_event = build_provider_source_event(
+        provider_id=str(payload.get("provider_id") or msg.get("provider_id") or resolved.get("provider_id") or "unknown"),
+        provider_profile=str(payload.get("provider_profile") or msg.get("provider_profile") or resolved.get("provider_profile") or "unknown"),
+        provider_session_id=str(payload.get("provider_session_id") or resolved.get("provider_session_id") or ""),
+        source_ref=source_ref,
+        message_index_range=resolved.get("message_index_range") or range_hint,
+        anchor_hash=anchor_hash,
+        event_role=str(payload.get("provider_event_role") or "provider_conversation_source"),
+        redaction_status=str(resolved.get("redaction_status") or "pointer_only"),
+    )
+    amundsen_route = route_amundsen_continent(
+        payload=payload,
+        topic_title=topic_title,
+        basis_refs=[source_ref, provider_source_event["event_id"]],
+        candidate_categories=payload.get("category_candidates") or [],
+    )
+    semantic_category_path = amundsen_route.get("semantic_category_path") or {}
+    decision_timeline = build_memory_ticket_decision_timeline(
+        provider_source_event=provider_source_event,
+        ring_id=ring_id,
+        node_id=node_id,
+        category_path=semantic_category_path,
+    )
+    community_growth_event = build_community_growth_event(
+        community_id=community_id,
+        event_kind="attached",
+        provider_source_event_ref=provider_source_event["event_id"],
+        decision_timeline_event_ref=str(decision_timeline[-1].get("timeline_event_id") or ""),
+        topic_key=topic_key,
+        reason_codes=[
+            "memory_ticket_attached_to_community",
+            "discontinuous_growth_event_recorded",
+        ],
+    )
+    retrieval_terms = _retrieval_terms_from_payload(
+        payload=payload,
+        decision=decision,
+        topic_title=topic_title,
+        community_key=community_key,
+    )
+    legacy_category = str(payload.get("category") or payload.get("移댄뀒怨좊━") or "policy")
+    node_taxonomy = build_node_taxonomy(
+        {**payload, "category": legacy_category},
+        physical_continent="concepts",
+        default_node_type="policy",
+    )
+    node_taxonomy["semantic_category_path"] = semantic_category_path.get("path", "")
+    node_taxonomy["semantic_category_segments"] = list(semantic_category_path.get("segments") or [])
+    initial_related_nodes = _as_list(payload.get("related_nodes") or payload.get("related_pages"))
+    existing_community_path = vault / "communities" / f"{community_key}.md"
+    if existing_community_path.exists():
+        existing_community_text = existing_community_path.read_text(encoding="utf-8", errors="replace")
+        existing_semantic_siblings = [
+            node
+            for node in _semantic_related_nodes(_metadata_values(existing_community_text, "related_nodes"))
+            if node != node_id
+        ]
+        initial_related_nodes = _merge_unique_values([*initial_related_nodes, *existing_semantic_siblings])
     ring_node = {
         "schema_version": "provenance_ring_node.v1",
         "node_id": node_id,
@@ -656,6 +1295,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
             "origin_locator": str(resolved.get("origin_locator") or f"{source_ref}#message_index={range_hint.get('start')}..{range_hint.get('end')}"),
             "provider_session_id": str(payload.get("provider_session_id") or resolved.get("provider_session_id") or ""),
             "message_index_range": resolved.get("message_index_range") or range_hint,
+            "source_line_range": source_line_range,
             "anchor_hash": anchor_hash,
             "commit_watermark": commit_watermark,
             "surface_reason": str(payload.get("surface_reason") or ""),
@@ -670,7 +1310,7 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         "community": {
             "community_id": community_id,
             "placement_reason": str(payload.get("surface_reason") or "MemoryTicket provenance placement"),
-            "related_nodes": [],
+            "related_nodes": initial_related_nodes,
         },
         "paragraph_intent_safety_belt": {
             "intent_field": str(payload.get("intent_field") or ""),
@@ -684,27 +1324,89 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         },
         "retrieval_contract": {
             "keywords": [decision, topic_title, source_ref, community_key],
+            "retrieval_terms": retrieval_terms,
+            "keyword_policy": "deterministic_diverse_terms_not_title_repeat",
             "support_lanes": ["origin", "recent", "source_paths", "community_edges", "semantic_edges"],
         },
+        "provider_source_events": [provider_source_event],
+        "decision_timeline": decision_timeline,
+        "semantic_category_path": semantic_category_path,
+        "amundsen_route": amundsen_route,
+        "community_growth_events": [community_growth_event],
     }
+    if isinstance(payload.get("domain_evidence_enrichment"), dict):
+        ring_node["domain_evidence_enrichment"] = dict(payload["domain_evidence_enrichment"])
+    validate_contract_payload(ring_node, PROVENANCE_RING_NODE_SCHEMA)
+    ring_node["category"] = node_taxonomy["node_type"]
+    ring_node["node_taxonomy"] = node_taxonomy
     ring_node["quality_assessment"] = _build_memory_ticket_quality_assessment(
         payload=payload,
         resolved=resolved,
         ring_node=ring_node,
     )
+    ring_node["lineage_quality_assessment"] = assess_lineage_quality(ring_node)
+    quality_verdict = str(ring_node["quality_assessment"].get("verdict") or "")
+    if quality_verdict != "pass":
+        return {
+            "status": "typed_unavailable",
+            "nodes": [],
+            "ring_ids": [],
+            "source_ref_status": "resolved",
+            "reason": "quality_assessment_not_pass",
+            "effective_payload": payload,
+            "domain_evidence_enrichment": payload.get("domain_evidence_enrichment"),
+            "quality_assessment": ring_node["quality_assessment"],
+            "support_bundle_seed": {
+                "ring_ids": [],
+                "source_paths": [],
+                "community_id": community_id,
+                "source_line_range": source_line_range,
+                "node_taxonomy": node_taxonomy,
+                "provider_source_events": [provider_source_event],
+                "decision_timeline": decision_timeline,
+                "semantic_category_path": semantic_category_path,
+                "community_growth_events": [community_growth_event],
+                "lineage_quality_assessment": ring_node["lineage_quality_assessment"],
+                "quality_assessment": ring_node["quality_assessment"],
+                "safe_index_cursor_sync": {
+                    "schema_version": "safe_index_cursor_sync.v1",
+                    "janitor_status": "blocked",
+                    "committed_paths": [],
+                    "reason_code": "quality_assessment_not_pass",
+                    "hard_nonclaims": [
+                        "candidate_node_not_safe_final_support",
+                        "needs_review_node_not_committed_to_safe_index_cursor",
+                    ],
+                },
+            },
+        }
     paths = _write_provenance_ring_artifacts(vault, ring_node=ring_node)
+    safe_index_cursor_sync = _write_safe_index_cursor_sync(vault, ring_id=ring_id, paths=paths)
     return {
         "status": "acknowledged",
         "nodes": [node_id],
         "ring_ids": [ring_id],
         "source_ref_status": "resolved",
         "reason": "provenance_ring_node_saved",
+        "effective_payload": payload,
+        "domain_evidence_enrichment": payload.get("domain_evidence_enrichment"),
+        "quality_assessment": ring_node["quality_assessment"],
         "canonical_topic_path": paths["canonical_topic_path"],
         "support_bundle_seed": {
             "ring_ids": [ring_id],
-            "source_paths": list(paths.values()),
+            "source_paths": as_vault_source_paths(paths),
+            "readable_wiki_page_ref": f"oy-vault://{paths.get('category_page_path', paths['canonical_topic_path'])}",
+            "internal_node_id": node_id,
             "community_id": community_id,
+            "source_line_range": source_line_range,
+            "node_taxonomy": node_taxonomy,
+            "provider_source_events": [provider_source_event],
+            "decision_timeline": decision_timeline,
+            "semantic_category_path": semantic_category_path,
+            "community_growth_events": [community_growth_event],
+            "lineage_quality_assessment": ring_node["lineage_quality_assessment"],
             "quality_assessment": ring_node["quality_assessment"],
+            "safe_index_cursor_sync": safe_index_cursor_sync,
         },
     }
 
@@ -737,7 +1439,7 @@ def _handle_sandbox_exec(mailbox: Path, vault: Path, msg: dict) -> dict:
         return {"status": "error", "stderr": "empty code", "exit_code": -1, "sandbox": "none"}
 
     log_event("sandbox_exec_start", code_len=len(code), timeout=timeout)
-    result = execute_ptc_code(code, vault, timeout=timeout)
+    result = execute_ptc_code(code, vault, timeout=timeout, caller="memory_saver")
     log_event("sandbox_exec_done",
               status=result.get("status"),
               exit_code=result.get("exit_code"),
@@ -760,6 +1462,8 @@ def _ptc_placement_hint(mailbox: Path, vault: Path, snapshot: str) -> None:
             vault=vault,
             mode="ipc",
             timeout=15,
+            caller="memory_saver",
+            allowed_methods=("suggest_placement",),
         )
         stdout = result.get("stdout", "")
         if stdout:
@@ -770,9 +1474,9 @@ def _ptc_placement_hint(mailbox: Path, vault: Path, snapshot: str) -> None:
                           suggested=hint.get("suggested_category"),
                           confidence=hint.get("category_confidence"),
                           similar=hint.get("similar_count"))
-            except Exception:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 pass
-    except Exception:
+    except (OSError, RuntimeError, ValueError, TypeError):
         pass  # PTC 실패는 고정 체인을 막지 않음
 
 
@@ -795,5 +1499,5 @@ def _count_ptc_saves(result: dict) -> int:
             if "final" in res and "initial" in res:
                 return max(0, res["final"] - res["initial"])
         return 0
-    except Exception:
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         return 0

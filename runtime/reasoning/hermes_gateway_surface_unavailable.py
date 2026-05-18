@@ -31,8 +31,7 @@ P0_G6_SOURCE_REF = (
     "no-current-safe-provider-owned-or-app-assigned-hermes-gateway-surface"
 )
 P0_G5_VERIFICATION_REF = (
-    "private-evidence://Dev_history/todo/worker4/2026-04-30/result/"
-    "2026-04-30_2201_worker4_p0_g5_safe_gateway_surface_candidate_scan_verification_result.md"
+    "verification-ref://openyggdrasil/provider-gateway/safe-surface-scan-unavailable"
 )
 SAFE_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 FORBIDDEN_MATERIAL_FRAGMENTS = (

@@ -6,13 +6,13 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from harness_common import DEFAULT_VAULT, RUNTIME_STATE_ROOT, utc_now_iso
-from reasoning.approved_routing_fact import (
+from runtime.harness_common import DEFAULT_VAULT, RUNTIME_STATE_ROOT, utc_now_iso
+from runtime.reasoning.approved_routing_fact import (
     build_approved_routing_fact_from_ptc_trace,
     build_hermes_routing_receipt,
 )
-from retrieval.pathfinder import validate_pathfinder_bundle
-from retrieval.pathfinder_tools import (
+from runtime.retrieval.pathfinder import validate_pathfinder_bundle
+from runtime.retrieval.pathfinder_tools import (
     build_support_bundle,
     build_unanchored_bundle,
     find_region,
@@ -21,7 +21,7 @@ from retrieval.pathfinder_tools import (
     get_raw_sources,
     get_recent_episodes,
 )
-from ptc.engine import (
+from runtime.ptc.engine import (
     build_pathfinder_ptc_routing_trace,
     structural_anchor_fallback_evaluator,
     render_default_pathfinder_program,
