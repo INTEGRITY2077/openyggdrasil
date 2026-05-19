@@ -548,7 +548,14 @@ def _safe_index_cursor(bundle: dict) -> dict:
         return bundle["safe_index_cursor"]
     if isinstance(nested_bundle.get("safe_index_cursor"), dict):
         return nested_bundle["safe_index_cursor"]
-    return {}
+    return {
+        "schema_version": "safe_index_cursor_check.v1",
+        "status": "missing",
+        "final_support_allowed": False,
+        "hard_nonclaims": [
+            "missing_safe_index_cursor_is_not_final_support",
+        ],
+    }
 
 
 def _unsafe_cursor_bundle(*, query_text: str, bundle: dict, alignment: dict) -> dict:
@@ -883,7 +890,7 @@ def _memory_finder_judgment(*, query_text: str, bundle: dict, status: str) -> di
         and alignment.get("status") in {"aligned", "aligned_with_limits"}
     )
     safe_index_cursor = _safe_index_cursor(bundle if isinstance(bundle, dict) else {})
-    if safe_index_cursor.get("status") == "outside":
+    if safe_index_cursor.get("final_support_allowed") is False:
         success = False
     return {
         "schema_version": "worker_judgment.v1",
