@@ -124,6 +124,9 @@ CANONICAL_RUNTIME_MODULES = [
     "retrieval.pathfinder_product_route",
     "retrieval.pathfinder_ptc_mvp",
     "retrieval.pathfinder_tools",
+    "wiki.best_case_alignment_gate",
+    "wiki.content_first_article_renderer",
+    "wiki.content_first_gate",
     "wiki.operation",
 ]
 
