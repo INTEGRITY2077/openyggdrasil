@@ -205,11 +205,23 @@ def _duplicate_repair_decision(vault_root: Path, duplicate: Mapping[str, Any]) -
     has_mojibake = "\ufffd" in title_key
     query_count = sum(1 for path in paths if _path_role(path) == "query")
     concept_count = sum(1 for path in paths if _path_role(path) in {"concept_node", "prose_ring_node"})
+    exclusions = [
+        support_exclusion_for_path(vault_root=vault_root, path_value=path)
+        for path in paths
+    ]
+    all_final_support_excluded = bool(paths) and all(
+        bool(exclusion.get("excluded")) and not bool(exclusion.get("final_support_allowed"))
+        for exclusion in exclusions
+    )
 
     if has_mojibake:
         suggested_action = "repair_encoding_title_then_recheck"
         queue_status = "queued"
         reason_codes = ["title_contains_replacement_character"]
+    elif all_final_support_excluded:
+        suggested_action = "keep_excluded_machine_mirrors_out_of_final_support"
+        queue_status = "not_queued_support_excluded"
+        reason_codes = ["duplicate_candidates_are_support_excluded_machine_mirrors"]
     elif query_count == 1 and concept_count >= 1 and hash_group_count == 1:
         suggested_action = "treat_as_expected_query_concept_projection_group"
         queue_status = "not_queued_expected_projection"
