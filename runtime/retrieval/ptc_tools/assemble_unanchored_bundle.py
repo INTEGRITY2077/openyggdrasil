@@ -7,7 +7,6 @@ CAPABILITY_ID = "assemble_unanchored_bundle"
 
 
 def register(registry: dict, *, vault_root, anchor_evaluator=None) -> None:
-    _ = vault_root
     _ = anchor_evaluator
     from retrieval.programmatic_tool_runtime import Capability
 
@@ -16,5 +15,5 @@ def register(registry: dict, *, vault_root, anchor_evaluator=None) -> None:
         required_inputs={"query_text": "string"},
         read_only=True,
         output_kind="pathfinder_bundle",
-        handler=assemble_unanchored_bundle,
+        handler=lambda **kwargs: assemble_unanchored_bundle(vault_root=vault_root, **kwargs),
     )

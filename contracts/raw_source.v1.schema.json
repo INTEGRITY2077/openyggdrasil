@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/raw_source.v1.schema.json",
+  "title": "Raw Source v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "raw_source_ref",
+    "source_kind",
+    "origin_locator",
+    "captured_at",
+    "redaction_status",
+    "hard_nonclaims"
+  ],
+  "properties": {
+    "schema_version": {"const": "raw_source.v1"},
+    "raw_source_ref": {"type": "string", "minLength": 1},
+    "source_kind": {"type": "string", "minLength": 1},
+    "origin_locator": {"type": "string", "minLength": 1},
+    "captured_at": {"type": "string", "minLength": 1},
+    "anchor_hash": {"type": ["string", "null"]},
+    "redaction_status": {"type": "string", "minLength": 1},
+    "hard_nonclaims": {"type": "array", "items": {"type": "string"}}
+  }
+}

@@ -5,6 +5,14 @@ from typing import Any, Mapping
 
 from runtime.common.contract_validation import validate_contract_payload
 from runtime.memory.semantic_category_path import category_page_relative_path
+from runtime.wiki.operation import (
+    build_index_entry,
+    build_log_entry,
+    build_source_cell,
+    build_wiki_page_from_ring_node,
+    lint_wiki_page_markdown,
+    render_wiki_page_markdown,
+)
 
 
 WIKI_CONTINENT_PAGE_SCHEMA = "wiki_continent_page.v1.schema.json"
@@ -39,6 +47,23 @@ def render_wiki_continent_page(*, ring_node: Mapping[str, Any]) -> str:
         ],
     }
     validate_wiki_continent_page_contract(page_contract)
+    source_cells = _build_source_cells(ring_node=ring_node)
+    wiki_page = build_wiki_page_from_ring_node(
+        ring_node=ring_node,
+        page_ref=f"oy-vault://{page_rel}",
+        source_cell_refs=[cell["source_cell_id"] for cell in source_cells],
+        machine_appendix_ref=f"oy-vault://{page_rel}#machine-appendix",
+    )
+    index_entry = build_index_entry(
+        wiki_page=wiki_page,
+        category_path=str(category_path.get("path") or ""),
+    )
+    log_entry = build_log_entry(
+        operation="ingest",
+        summary=f"Rendered wiki page: {topic['title']}",
+        pages_touched=[wiki_page["page_ref"]],
+        source_ref=source_cells[0]["raw_source_ref"] if source_cells else None,
+    )
     ring_summary = {
         "schema_version": "wiki_ring_machine_summary.v1",
         "internal_node_id": ring_node.get("node_id"),
@@ -52,80 +77,22 @@ def render_wiki_continent_page(*, ring_node: Mapping[str, Any]) -> str:
             "internal_concept_mirror_contains_stable_machine_payload",
         ],
     }
-    return f"""---
-id: {ring_node['node_id']}
-title: {topic['title']}
-semantic_category_path: {category_path.get('path', '')}
-community: {community.get('community_id', '')}
-current_authority: active
----
-# {topic['title']}
-
-## What This Page Is
-This is the production-facing wiki page for a source-backed OpenYggdrasil memory.
-
-## Why It Matters
-{capsule.get('context') or 'This topic may be reopened by another provider at a later time.'}
-
-## Operating Rule
-{capsule.get('conclusion') or capsule.get('decision') or ''}
-
-## Category Placement
-- semantic_category_path: {category_path.get('path', '')}
-- category_authority: {(category_path.get('category_authority') or {}).get('owner', 'amundsen')}
-- physical_storage_note: internal hash nodes are stable ids, not the user-facing continent.
-
-## Provider Source Events
-{_bullets(provider_events, key='event_id', fallback='no provider source events')}
-
-## Decision Timeline
-{_bullets(timeline, key='timeline_event_id', fallback='no decision timeline events')}
-
-## Community Growth
-{_bullets(growth, key='growth_event_id', fallback='no community growth events')}
-
-## Source Synthesis
-The page is backed by bounded provider source refs and may be enriched by external domain evidence. Graphify evidence is advisory and never the category authority.
-
-## Retrieval Surface
-- retrieval_terms: {', '.join(str(item) for item in retrieval.get('retrieval_terms') or retrieval.get('keywords') or [])}
-
-## Maintenance Notes
-- quality_verdict: {quality.get('verdict', 'unknown')}
-- reason_codes: {', '.join(str(item) for item in quality.get('reason_codes') or [])}
-
-## Machine Appendix
-
-### Wiki Continent Page Contract
-```json
-{json.dumps(page_contract, ensure_ascii=False, indent=2)}
-```
-
-### Provider Source Events
-```json
-{json.dumps(provider_events, ensure_ascii=False, indent=2)}
-```
-
-### Decision Timeline
-```json
-{json.dumps(timeline, ensure_ascii=False, indent=2)}
-```
-
-### Semantic Category Path
-```json
-{json.dumps(category_path, ensure_ascii=False, indent=2)}
-```
-
-### Community Growth
-```json
-{json.dumps(growth, ensure_ascii=False, indent=2)}
-```
-
-### Ring Node Summary
-```json
-{json.dumps(ring_summary, ensure_ascii=False, indent=2, default=str)}
-```
-"""
+    markdown = render_wiki_page_markdown(
+        wiki_page=wiki_page,
+        source_cells=source_cells,
+        machine_appendix={
+            "wiki_continent_page_contract": page_contract,
+            "wiki_index_entry": index_entry,
+            "wiki_log_entry": log_entry,
+            "provider_source_events": provider_events,
+            "decision_timeline": timeline,
+            "semantic_category_path": category_path,
+            "community_growth": growth,
+            "ring_node_summary": ring_summary,
+        },
+    )
+    lint = lint_wiki_page_markdown(markdown)
+    return markdown.rstrip() + "\n\n<!-- wiki_page_lint_status: " + lint["status"] + " -->\n"
 
 
 def _bullets(rows: list[Any], *, key: str, fallback: str) -> str:
@@ -136,6 +103,37 @@ def _bullets(rows: list[Any], *, key: str, fallback: str) -> str:
             detail = str(row.get("decision_kind") or row.get("event_kind") or row.get("source_ref") or "")
             lines.append(f"- {label}: {detail}")
     return "\n".join(lines) if lines else f"- {fallback}"
+
+
+def _build_source_cells(*, ring_node: Mapping[str, Any]) -> list[dict[str, Any]]:
+    topic = ring_node.get("canonical_topic") or {}
+    capsule = ring_node.get("decision_capsule") or {}
+    supports = [
+        str(capsule.get("decision") or capsule.get("conclusion") or topic.get("title") or "").strip()
+    ]
+    does_not_support = [
+        "production readiness",
+        "provider answer correctness without MF1 safe recall and Provider rejudgment",
+    ]
+    cells: list[dict[str, Any]] = []
+    rings = [item for item in ring_node.get("provenance_rings") or [] if isinstance(item, Mapping)]
+    if not rings:
+        rings = [{"source_ref": f"oy-vault://internal/{ring_node.get('node_id', 'unknown')}", "origin_locator": "unknown"}]
+    for ring in rings:
+        raw_source_ref = str(ring.get("source_ref") or ring.get("raw_source_ref") or "")
+        origin_locator = str(ring.get("origin_locator") or raw_source_ref)
+        if not raw_source_ref:
+            raw_source_ref = origin_locator or f"oy-vault://internal/{ring_node.get('node_id', 'unknown')}"
+        cells.append(
+            build_source_cell(
+                raw_source_ref=raw_source_ref,
+                origin_locator=origin_locator or raw_source_ref,
+                supports=supports or [str(topic.get("title") or "wiki page source support")],
+                does_not_support=does_not_support,
+                anchor_hash=ring.get("anchor_hash") if isinstance(ring.get("anchor_hash"), str) else None,
+            )
+        )
+    return cells
 
 
 def validate_wiki_continent_page_contract(payload: Mapping[str, Any]) -> None:

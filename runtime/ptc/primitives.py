@@ -650,12 +650,54 @@ def save_to_vault(vault_path: Path, node: dict[str, Any]) -> Path:
     return file_path
 
 
+def _iter_vault_node_files(vault_path: Path) -> list[Path]:
+    patterns = (
+        "concepts/N-*.md",
+        "categories/**/*.md",
+        "communities/**/*.md",
+        "entities/**/*.md",
+    )
+    seen: set[Path] = set()
+    files: list[Path] = []
+    for pattern in patterns:
+        for path in sorted(vault_path.glob(pattern)):
+            if path in seen or not path.is_file():
+                continue
+            if "graphify-out" in path.parts:
+                continue
+            seen.add(path)
+            files.append(path)
+    return files
+
+
+def _markdown_h1(text: str, fallback: str) -> str:
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("# "):
+            return stripped[2:].strip()
+    return fallback
+
+
+def _frontmatter_search_surface(fm: dict[str, Any], title: str) -> str:
+    keys = (
+        "display_title",
+        "short_title",
+        "graph_label",
+        "canonical_question",
+        "retrieval_terms",
+        "semantic_category_path",
+        "article_role",
+        "summary",
+    )
+    return " ".join(str(fm.get(key) or "") for key in keys if fm.get(key)) or title
+
+
 def load_vault(vault_path: Path) -> list[dict[str, Any]]:
     """Vault의 모든 노드를 YAML 프론트매터에서 로드."""
     if not vault_path.exists():
         return []
     nodes = []
-    for f in vault_path.rglob("N-*.md"):
+    for f in _iter_vault_node_files(vault_path):
         text = f.read_text(encoding="utf-8")
         # Parse YAML frontmatter
         if not text.startswith("---"):
@@ -679,23 +721,27 @@ def load_vault(vault_path: Path) -> list[dict[str, Any]]:
                 parsed[key] = value
         fm = parsed if isinstance(parsed, dict) else {}
 
+        rel_path = str(f.relative_to(vault_path)).replace("\\", "/")
+        body = text[end+3:]
+        title = fm.get("title") or _markdown_h1(body, f.stem)
+        node_id = fm.get("node_id") or fm.get("id") or fm.get("page_ref") or f.stem
+
         # Reconstruct node dict for search compatibility
         node = {
-            "node_id": fm.get("node_id", f.stem),
+            "node_id": node_id,
             "spo": {
-                "subject": fm.get("title", ""),
+                "subject": title,
                 "predicate": "",
-                "object": "",
+                "object": _frontmatter_search_surface(fm, title),
                 "category": fm.get("type", ""),
                 "source_sentence": "",
             },
             "metadata": fm,
             "created_at": fm.get("created", ""),
             "content_hash": fm.get("content_hash", ""),
-            "_source_path": str(f.relative_to(vault_path)).replace("\\", "/"),
+            "_source_path": rel_path,
         }
         # Extract S-P-O from body
-        body = text[end+3:]
         for line in body.split("\n"):
             if line.startswith("- **Subject:**"):
                 node["spo"]["subject"] = line.split(":**", 1)[1].strip()

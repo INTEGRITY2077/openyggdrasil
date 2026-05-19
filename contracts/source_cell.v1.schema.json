@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/source_cell.v1.schema.json",
+  "title": "Source Cell v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "source_cell_id",
+    "raw_source_ref",
+    "origin_locator",
+    "supports",
+    "captured_at",
+    "confidence",
+    "hard_nonclaims"
+  ],
+  "properties": {
+    "schema_version": {"const": "source_cell.v1"},
+    "source_cell_id": {"type": "string", "minLength": 1},
+    "raw_source_ref": {"type": "string", "minLength": 1},
+    "origin_locator": {"type": "string", "minLength": 1},
+    "supports": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "does_not_support": {"type": "array", "items": {"type": "string"}},
+    "captured_at": {"type": "string", "minLength": 1},
+    "anchor_hash": {"type": ["string", "null"]},
+    "confidence": {"type": "string", "minLength": 1},
+    "hard_nonclaims": {"type": "array", "items": {"type": "string"}}
+  }
+}

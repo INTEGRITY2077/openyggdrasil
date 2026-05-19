@@ -10,6 +10,21 @@ from typing import Any
 
 SCHEMA_SUFFIX = ".schema.json"
 BACKTICK_CONTRACT_RE = re.compile(r"`([^`]+\.v\d+)`")
+PRESSURE_TEST_FILES = {
+    "scripts/contract_pressure_test.py",
+}
+AUDIT_ONLY_FILES = {
+    "scripts/contract_refinery_audit.py",
+}
+VALIDATOR_ONLY_FILES: set[str] = set()
+
+
+def _without(paths: list[str], excluded: set[str]) -> list[str]:
+    return [path for path in paths if path not in excluded]
+
+
+def _intersect(paths: list[str], selected: set[str]) -> list[str]:
+    return [path for path in paths if path in selected]
 
 
 def _read_text(path: Path) -> str:
@@ -87,7 +102,11 @@ def build_audit(repo_root: Path) -> dict[str, Any]:
     parse_errors: list[dict[str, str]] = []
     unclassified_orphans: list[str] = []
     declared_without_validation: list[str] = []
+    validator_only_pending_live_circulation: list[str] = []
+    pressure_test_or_audit_only: list[str] = []
     active_flowing = 0
+    validator_only = 0
+    pressure_test_only = 0
 
     for path in schemas:
         schema_name = path.name
@@ -101,11 +120,29 @@ def build_audit(repo_root: Path) -> dict[str, Any]:
         runtime_stem_hits = _hits(runtime_files, stem, repo_root)
         doc_hits = _hits(doc_files, schema_name, repo_root) + _hits(doc_files, stem, repo_root)
         owner, stage = _infer_owner_and_stage(schema_name, runtime_file_hits + runtime_stem_hits + doc_hits)
+        pressure_test_hits = _intersect(runtime_file_hits, PRESSURE_TEST_FILES)
+        audit_only_hits = _intersect(runtime_file_hits, AUDIT_ONLY_FILES)
+        validator_hits = _intersect(runtime_file_hits, VALIDATOR_ONLY_FILES)
+        active_runtime_schema_file_hits = _without(
+            runtime_file_hits,
+            PRESSURE_TEST_FILES | AUDIT_ONLY_FILES | VALIDATOR_ONLY_FILES,
+        )
 
-        if runtime_file_hits:
-            circulation_state = "active_flowing"
+        if active_runtime_schema_file_hits:
+            circulation_state = "active_live_schema_file_load"
             public_status = "active"
             active_flowing += 1
+        elif validator_hits:
+            circulation_state = "validator_only_pending_live_circulation"
+            public_status = "candidate_not_active"
+            validator_only += 1
+            validator_only_pending_live_circulation.append(schema_name)
+        elif pressure_test_hits or audit_only_hits:
+            circulation_state = "pressure_test_or_audit_only"
+            public_status = "test_only"
+            pressure_test_only += 1
+            pressure_test_or_audit_only.append(schema_name)
+            unclassified_orphans.append(schema_name)
         elif runtime_stem_hits and schema_name in allowlist:
             circulation_state = "declared_interface_not_pressure_tested"
             public_status = "compatibility"
@@ -131,11 +168,18 @@ def build_audit(repo_root: Path) -> dict[str, Any]:
                 "owner": owner,
                 "pipeline_stage": stage,
                 "runtime_schema_file_hits": runtime_file_hits,
+                "active_runtime_schema_file_hits": active_runtime_schema_file_hits,
+                "validator_only_hits": validator_hits,
+                "pressure_test_hits": pressure_test_hits,
                 "runtime_schema_version_hits": runtime_stem_hits,
                 "doc_hits": sorted(set(doc_hits)),
                 "validation_evidence": (
-                    "runtime_loads_schema_file"
-                    if runtime_file_hits
+                    "active_runtime_loads_schema_file"
+                    if active_runtime_schema_file_hits
+                    else "validator_only_pending_live_circulation"
+                    if validator_hits
+                    else "pressure_test_or_audit_only"
+                    if pressure_test_hits or audit_only_hits
                     else "manifest_declared_not_active" if schema_name in allowlist else "missing"
                 ),
             }
@@ -151,6 +195,8 @@ def build_audit(repo_root: Path) -> dict[str, Any]:
     status = "pass"
     if parse_errors or unclassified_orphans or missing_schema_refs:
         status = "fail"
+    elif validator_only_pending_live_circulation or declared_without_validation:
+        status = "partial"
 
     return {
         "schema_version": "contract_refinery_audit.v1",
@@ -159,13 +205,21 @@ def build_audit(repo_root: Path) -> dict[str, Any]:
         "contracts_root": str(contracts_root),
         "schema_count": len(rows),
         "active_flowing_count": active_flowing,
+        "validator_only_count": validator_only,
+        "validator_only_pending_live_circulation": sorted(validator_only_pending_live_circulation),
+        "pressure_test_only_count": pressure_test_only,
+        "pressure_test_or_audit_only": sorted(pressure_test_or_audit_only),
+        "live_circulation_blocker_count": len(validator_only_pending_live_circulation)
+        + len(declared_without_validation),
         "declared_not_pressure_tested_count": len(declared_without_validation),
         "parse_errors": parse_errors,
         "unclassified_orphans": sorted(unclassified_orphans),
         "missing_schema_refs_from_docs": missing_schema_refs,
         "contracts": rows,
         "hard_nonclaims": [
-            "active_flowing_means_schema_file_is_loaded_by_runtime_not_that_every_live_path_was_executed",
+            "active_flowing_means_a_non_test_runtime_path_loads_the_schema_file_not_that_every_live_path_was_executed",
+            "validator_only_pending_live_circulation_is_not_actual_contract_circulation",
+            "pressure_test_or_audit_only_is_not_a_public_active_contract",
             "declared_interface_not_pressure_tested_is_not_a_public_active_contract",
             "this_audit_does_not_replace_domain_semantic_review",
         ],

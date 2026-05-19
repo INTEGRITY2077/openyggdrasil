@@ -7,10 +7,11 @@ instead of free-form prose whenever a result, handoff, lifecycle decision,
 provider attachment, or unavailable state must cross a boundary.
 
 The contract directory is audited as a refinery pipeline. A schema is a public
-active pipe only when it has a producer or consumer and a runtime schema-file
-validation/load path. A schema mentioned only as `schema_version` is a declared
-interface, not a pressure-tested active pipe, until the refinery audit proves
-the full flow.
+active pipe only when a non-test runtime path loads the schema file. A schema
+loaded only by sample validators, pressure tests, or audit tooling is a
+candidate interface, not actual live circulation. A schema mentioned only as
+`schema_version` is a declared interface until the refinery audit proves a
+runtime load path.
 
 ## Contract Families
 
@@ -20,8 +21,9 @@ the full flow.
 | Capture and admission | `decision_surface.v1`, `decision_candidate.v1`, `session_structure_signal.v1`, `admission_verdict.v1` | Raw provider signals are normalized before evaluation. |
 | Evaluation | `evaluator_verdict.v1`, `evaluator_amundsen_handoff.v1`, `promotion_worthiness.v1` | Weak or ambiguous candidates do not silently become memory. |
 | Cultivation and lifecycle | `vault_record_lifecycle.v1`, `gardener_lifecycle_transition_request.v1`, `cross_provider_conflict_quarantine.v1`, `effort_aware_gardener_worthiness.v1` | Canonical records move through explicit active, stale, superseded, or quarantined states. |
+| Wiki operation | `raw_source.v1`, `source_cell.v1`, `wiki_page.v1`, `wiki_index_entry.v1`, `wiki_log_entry.v1`, `wiki_ingest_ticket.v1`, `wiki_page_mutation.v1` | Raw material, source cells, readable wiki pages, and index/log mutations are separated before recall. |
 | Retrieval | `pathfinder.v1`, `pathfinder_retrieval_result.v1`, `graphify_snapshot_manifest.v1`, `programmatic_tool_runtime_trace.v1`, `cross_provider_memory_consumption_result.v1` | Retrieval must preserve source refs, lifecycle state, freshness, provider boundary, and bounded tool-call traces. |
-| Delivery | `postman_work_order.v1`, `worker_work_history.v1`, `worker_structured_receipt.v1`, `support_bundle.v1`, `inbox_packet.v1`, `mailbox_support_result.v1`, `mailbox_guard_result.v1`, `postman_delivery_handoff.v1` | Provider sessions receive bounded support, not raw vault dumps, and workers close mailbox work through typed receipts. |
+| Delivery | `postman_work_order.v1`, `worker_work_history.v1`, `worker_structured_receipt.v1`, `support_bundle.v1`, `support_bundle.v2`, `inbox_packet.v1`, `mailbox_support_result.v1`, `mailbox_guard_result.v1`, `postman_delivery_handoff.v1` | Provider sessions receive bounded support, not raw vault dumps, and workers close mailbox work through typed receipts. |
 | Reasoning | `reasoning_lease_request.v1`, `reasoning_lease_result.v1`, `provider_reasoning_gate.v1`, `module_effort_requirement.v1`, `module_effort_plan.v1`, `process_sandbox_runtime_decision.v1` | High-effort provider reasoning is optional, effort-aware, sandbox-policy gated, and typed when unavailable. |
 | Provider packaging | `provider_descriptor.v1`, `provider_cold_start_healthcheck.v1`, `provider_runtime_integrity_result.v1` | Public adapters state what they can and cannot prove. |
 | Capability lifecycle | `module_skill.v1`, `skill_metadata_reader.v1`, `programmatic_tool_runtime_trace.v1` | Skill, MCP, tool, and TST worker-manual source must be selected from repo-managed capability snapshots, not provider-local install state. |
@@ -51,14 +53,15 @@ The public import smoke exercises the schema/runtime import surface:
 py -3 runtime/import_smoke.py
 ```
 
-The refinery audit checks whether public contracts actually circulate:
+The refinery audit separates active runtime schema loads from validator-only
+candidate contracts:
 
 ```powershell
 py -3 scripts/contract_refinery_audit.py --out contracts/refinery_audit.current.json
 ```
 
-The pressure test exercises the formerly signboard-only contracts with sample
-payloads that must load schema files and validate:
+The pressure test only proves sample payloads can load schema files and
+validate. It does not prove Provider/MS1/MF1 live circulation:
 
 ```powershell
 py -3 scripts/contract_pressure_test.py --out contracts/contract_pressure_test.current.json

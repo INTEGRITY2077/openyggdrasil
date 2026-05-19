@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/wiki_page.v1.schema.json",
+  "title": "Wiki Page v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "page_ref",
+    "canonical_title",
+    "what_it_is",
+    "why_it_matters",
+    "key_points",
+    "important_distinctions",
+    "related_pages",
+    "source_cell_refs",
+    "machine_appendix_ref",
+    "hard_nonclaims"
+  ],
+  "properties": {
+    "schema_version": {"const": "wiki_page.v1"},
+    "page_ref": {"type": "string", "minLength": 1},
+    "canonical_title": {"type": "string", "minLength": 1},
+    "display_title": {"type": "string"},
+    "what_it_is": {"type": "string", "minLength": 1},
+    "why_it_matters": {"type": "string", "minLength": 1},
+    "key_points": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "important_distinctions": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "related_pages": {"type": "array", "items": {"type": "object"}},
+    "source_cell_refs": {"type": "array", "items": {"type": "string"}},
+    "open_questions": {"type": "array", "items": {"type": "string"}},
+    "machine_appendix_ref": {"type": "string", "minLength": 1},
+    "hard_nonclaims": {"type": "array", "items": {"type": "string"}}
+  }
+}

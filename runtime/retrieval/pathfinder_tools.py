@@ -20,6 +20,7 @@ from retrieval.pathfinder import (
 )
 from retrieval.recall_digest import build_recall_digest_from_support_bundle
 from retrieval.safe_index_cursor import evaluate_safe_index_cursor
+from runtime.wiki.operation import build_source_cell, validate_support_bundle_v2
 from memory.wiki_node_taxonomy import coerce_node_taxonomy
 
 
@@ -282,13 +283,84 @@ def build_support_bundle(
     return bundle
 
 
-def assemble_unanchored_bundle(*, query_text: str) -> dict[str, Any]:
-    return _unanchored_bundle(query_text=query_text)
+def _load_vault_search_tools() -> tuple[Callable[..., list[dict[str, Any]]], Callable[..., list[dict[str, Any]]]] | None:
+    try:
+        from runtime.ptc.primitives import load_vault, search_vault_bm25
+    except ImportError:
+        try:
+            from ptc.primitives import load_vault, search_vault_bm25  # type: ignore
+        except ImportError:
+            return None
+    return load_vault, search_vault_bm25
 
 
-def build_unanchored_bundle(*, query_text: str) -> dict[str, Any]:
+def _unanchored_support_fact(node: Mapping[str, Any]) -> str:
+    metadata = node.get("metadata") if isinstance(node.get("metadata"), Mapping) else {}
+    spo = node.get("spo") if isinstance(node.get("spo"), Mapping) else {}
+    for key in ("canonical_question", "summary", "display_title", "title"):
+        value = str(metadata.get(key) or "").strip()
+        if value:
+            return value
+    for key in ("source_sentence", "subject", "object"):
+        value = str(spo.get(key) or "").strip()
+        if value:
+            return value
+    return str(node.get("node_id") or "").strip()
+
+
+def _unanchored_candidate_bundle(*, query_text: str, vault_root: Path = DEFAULT_VAULT) -> dict[str, Any]:
+    tools = _load_vault_search_tools()
+    if tools is None:
+        return _unanchored_bundle(query_text=query_text)
+    load_vault, search_vault_bm25 = tools
+    matched = search_vault_bm25(load_vault(vault_root), query_text, top_k=5)
+    source_paths: list[str] = []
+    support_facts: list[str] = []
+    page_ids: list[str] = []
+    for node in matched:
+        source_path = str(node.get("_source_path") or "").strip()
+        if source_path:
+            source_paths.append(to_vault_uri(source_path, vault_root=vault_root))
+            page_ids.append(build_page_id(source_path))
+        fact = _unanchored_support_fact(node)
+        if fact:
+            support_facts.append(fact)
+    if not source_paths and not support_facts:
+        return _unanchored_bundle(query_text=query_text)
+    bundle = {
+        "schema_version": "pathfinder.v1",
+        "query_text": query_text,
+        "anchor_type": "none",
+        "anchor_id": None,
+        "topic_id": None,
+        "anchor_title": None,
+        "episode_ids": [],
+        "claim_ids": [],
+        "page_ids": list(dict.fromkeys(page_ids)),
+        "source_paths": list(dict.fromkeys(source_paths)),
+        "support_facts": list(dict.fromkeys(support_facts)),
+        "bundle_mode": "unanchored",
+        "generated_at": utc_now_iso(),
+    }
+    validate_pathfinder_bundle(bundle)
+    return bundle
+
+
+def assemble_unanchored_bundle(
+    *,
+    query_text: str,
+    vault_root: Path = DEFAULT_VAULT,
+) -> dict[str, Any]:
+    return _unanchored_candidate_bundle(query_text=query_text, vault_root=vault_root)
+
+
+def build_unanchored_bundle(
+    *,
+    query_text: str,
+    vault_root: Path = DEFAULT_VAULT,
+) -> dict[str, Any]:
     """Backward-compatible alias for older Pathfinder PTC imports."""
-    return assemble_unanchored_bundle(query_text=query_text)
+    return assemble_unanchored_bundle(query_text=query_text, vault_root=vault_root)
 
 
 def _extract_json_objects_from_fenced_blocks(text: str) -> list[dict[str, Any]]:
@@ -569,6 +641,21 @@ def _vault_source_path(path: Path, *, vault_root: Path) -> str:
     return to_vault_uri(path, vault_root=vault_root)
 
 
+def _candidate_readable_wiki_page_refs(candidate_paths: list[Path], *, vault_root: Path) -> list[str]:
+    refs: list[str] = []
+    for path in candidate_paths:
+        try:
+            rel = path.relative_to(vault_root).as_posix()
+        except ValueError:
+            continue
+        if not rel.startswith("categories/") or not rel.endswith(".md"):
+            continue
+        if "/graphify-out/" in rel:
+            continue
+        refs.append(to_vault_uri(rel, vault_root=vault_root))
+    return _unique_preserve_order(refs)
+
+
 def _topic_key_from_candidate_paths(
     *,
     candidate_paths: list[Path],
@@ -679,8 +766,15 @@ def build_ring_support_bundle(
     감지될 때 MF receipt 안에 추가로 싣는다.
     """
     selected_topic_key = topic_key
-    if not selected_topic_key and matched_nodes:
+    candidate_paths: list[Path] = []
+    candidate_readable_refs: list[str] = []
+    if matched_nodes:
         candidate_paths = _candidate_paths_from_matched_nodes(matched_nodes=matched_nodes, vault_root=vault_root)
+        candidate_readable_refs = _candidate_readable_wiki_page_refs(
+            candidate_paths,
+            vault_root=vault_root,
+        )
+    if not selected_topic_key and candidate_paths:
         selected_topic_key = _topic_key_from_candidate_paths(
             candidate_paths=candidate_paths,
             vault_root=vault_root,
@@ -720,6 +814,7 @@ def build_ring_support_bundle(
             for record in [*wiki_page_contracts, *all_records]
             if str(record.get("page_ref") or record.get("readable_wiki_page_ref") or "").strip()
         ]
+        + candidate_readable_refs
     )
     ring_ids = _extract_ring_ids(all_text, all_records)
     community_ids = _extract_community_ids(all_text, all_records)
@@ -883,5 +978,63 @@ def build_ring_support_bundle(
         "community_edges": community_edges,
         "semantic_edges": semantic_edges,
     }
+    support_bundle_v2 = _build_support_bundle_v2(
+        query_text=query_text,
+        wiki_page_refs=readable_wiki_page_refs or unique_source_paths[:1],
+        support_facts=support_facts,
+        source_ref=str(ring_record.get("source_ref") or ""),
+        origin_locator=str(ring_record.get("origin_locator") or ""),
+        anchor_hash=str(ring_record.get("anchor_hash") or ""),
+    )
+    if support_bundle_v2:
+        bundle["support_bundle_v2"] = support_bundle_v2
     bundle["recall_digest"] = build_recall_digest_from_support_bundle(query_text=query_text, support_bundle=bundle)
     return bundle
+
+
+def _build_support_bundle_v2(
+    *,
+    query_text: str,
+    wiki_page_refs: list[str],
+    support_facts: list[str],
+    source_ref: str,
+    origin_locator: str,
+    anchor_hash: str,
+) -> dict[str, Any] | None:
+    facts = _unique_preserve_order([str(item) for item in support_facts if str(item).strip()])
+    page_refs = _unique_preserve_order([str(item) for item in wiki_page_refs if str(item).strip()])
+    if not facts or not page_refs or not source_ref:
+        return None
+    normalized_anchor_hash = anchor_hash if re.fullmatch(r"[0-9a-f]{64}", anchor_hash or "") else None
+    source_cell = build_source_cell(
+        raw_source_ref=source_ref,
+        origin_locator=origin_locator or source_ref,
+        supports=facts,
+        does_not_support=["production readiness", "provider answer without rejudgment"],
+        anchor_hash=normalized_anchor_hash,
+        confidence="medium",
+    )
+    payload = {
+        "schema_version": "support_bundle.v2",
+        "query_text": query_text,
+        "wiki_page_refs": page_refs,
+        "support_facts": facts,
+        "source_cell_refs": [source_cell["source_cell_id"]],
+        "source_cells": [source_cell],
+        "provider_rejudgment_brief": {
+            "answerable": True,
+            "brief": facts[0],
+            "limits": [
+                "MF1 support is not a provider answer by itself.",
+                "Provider must compare this support with the current user question.",
+            ],
+        },
+        "excluded_states": ["pending", "unsafe", "quarantined", "repair_needed"],
+        "hard_nonclaims": [
+            "support_bundle_v2_is_not_provider_answer",
+            "provider_must_rejudge_against_the_current_question",
+            "wiki_page_refs_are_preferred_over_node_ids_or_receipts",
+        ],
+    }
+    validate_support_bundle_v2(payload)
+    return payload

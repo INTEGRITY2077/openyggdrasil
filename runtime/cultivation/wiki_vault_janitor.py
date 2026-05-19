@@ -9,6 +9,7 @@ from typing import Any, Mapping
 
 from runtime.common.jsonl_io import append_jsonl_atomic
 from runtime.retrieval.safe_index_cursor import load_safe_index_cursor
+from runtime.wiki.operation import lint_wiki_page_markdown
 
 
 MAINTENANCE_RECEIPTS_RELATIVE_PATH = "_meta/maintenance_receipts.jsonl"
@@ -291,16 +292,21 @@ def _scan_production_page_lineage(vault_root: Path) -> list[dict[str, Any]]:
             reason_codes.append("private_absolute_path_exposed")
         if "oy-vault://categories/" not in text:
             reason_codes.append("readable_oy_vault_page_ref_missing")
+        lint_result = lint_wiki_page_markdown(text)
+        if lint_result.get("status") != "pass":
+            reason_codes.append("wiki_page_lint_failed")
         if reason_codes:
             candidates.append(
                 {
                     "schema_version": "wiki_production_page_lineage_issue.v1",
                     "page_path": _relative_vault_path(path, vault_root=vault_root),
                     "reason_codes": reason_codes,
+                    "wiki_page_lint_result": lint_result,
                     "suggested_action": "rerender_or_quarantine_before_final_support",
                     "hard_nonclaims": [
                         "category_page_issue_is_not_a_delete_event",
                         "janitor_lineage_scan_is_not_provider_rejudgment",
+                        "wiki_page_lint_is_not_live_provider_ux",
                     ],
                 }
             )

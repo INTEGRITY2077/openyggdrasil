@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/wiki_ingest_ticket.v1.schema.json",
+  "title": "Wiki Ingest Ticket v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "ticket_id",
+    "raw_source_ref",
+    "candidate_summary",
+    "source_cell_refs",
+    "target_page_ref",
+    "decision_options",
+    "hard_nonclaims"
+  ],
+  "properties": {
+    "schema_version": {"const": "wiki_ingest_ticket.v1"},
+    "ticket_id": {"type": "string", "minLength": 1},
+    "raw_source_ref": {"type": "string", "minLength": 1},
+    "candidate_summary": {"type": "string", "minLength": 1},
+    "source_cell_refs": {"type": "array", "items": {"type": "string"}},
+    "target_page_ref": {"type": "string", "minLength": 1},
+    "decision_options": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "provider_boundary_request_ref": {"type": ["string", "null"]},
+    "hard_nonclaims": {"type": "array", "items": {"type": "string"}}
+  }
+}

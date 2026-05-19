@@ -10,6 +10,12 @@ def is_provider_rejudgment_wakeup_text(text: object) -> bool:
         return False
     if PROVIDER_REJUDGMENT_WAKE_SENTINEL in normalized:
         return True
+    if (
+        "OpenYggdrasil 보강 결과가 도착했습니다" in normalized
+        and "마지막 사용자 질문" in normalized
+        and "다시 비교" in normalized
+    ):
+        return True
     return (
         "OpenYggdrasil 보강 결과가 도착했습니다" in normalized
         and "아까 답을 뒤에서 확인된 기준과 비교" in normalized

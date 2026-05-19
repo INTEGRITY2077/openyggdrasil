@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/support_bundle.v2.schema.json",
+  "title": "Support Bundle v2",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "query_text",
+    "wiki_page_refs",
+    "support_facts",
+    "source_cell_refs",
+    "provider_rejudgment_brief",
+    "excluded_states",
+    "hard_nonclaims"
+  ],
+  "properties": {
+    "schema_version": {"const": "support_bundle.v2"},
+    "query_text": {"type": "string", "minLength": 1},
+    "wiki_page_refs": {"type": "array", "items": {"type": "string"}},
+    "support_facts": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "source_cell_refs": {"type": "array", "items": {"type": "string"}},
+    "provider_rejudgment_brief": {"type": "object"},
+    "excluded_states": {"type": "array", "items": {"type": "string"}},
+    "hard_nonclaims": {"type": "array", "items": {"type": "string"}}
+  }
+}

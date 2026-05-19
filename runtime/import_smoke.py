@@ -124,6 +124,7 @@ CANONICAL_RUNTIME_MODULES = [
     "retrieval.pathfinder_product_route",
     "retrieval.pathfinder_ptc_mvp",
     "retrieval.pathfinder_tools",
+    "wiki.operation",
 ]
 
 

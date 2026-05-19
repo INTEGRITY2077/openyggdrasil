@@ -859,6 +859,28 @@ def _matched_nodes_from_candidates(
     return boosted
 
 
+def _representative_tree_companion_candidates(
+    candidates: Sequence[Mapping[str, Any]],
+    *,
+    limit: int = 3,
+) -> list[Mapping[str, Any]]:
+    companions: list[Mapping[str, Any]] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        source_path = str(candidate.get("source_path") or "").replace("\\", "/")
+        if not source_path.startswith("vault/categories/"):
+            continue
+        if "/graphify-out/" in source_path:
+            continue
+        if source_path in seen:
+            continue
+        seen.add(source_path)
+        companions.append(candidate)
+        if len(companions) >= limit:
+            break
+    return companions
+
+
 def build_structured_recall_answer_frame(result: Mapping[str, Any]) -> dict[str, Any]:
     query_text = str(result.get("query_text") or "")
     candidate_set = result.get("candidate_set") if isinstance(result.get("candidate_set"), Mapping) else {}
@@ -1073,8 +1095,12 @@ def build_ptc_retrieval_orchestrator_result(
         "retry_decision": retry_decision,
     }
     validate_retrieval_candidate_set(candidate_set)
+    support_candidate_scope = [
+        *selected,
+        *_representative_tree_companion_candidates(reranked),
+    ]
     matched_nodes = _matched_nodes_from_candidates(
-        selected=selected,
+        selected=support_candidate_scope,
         vault_nodes=vault_nodes,
         vault_root=vault_root,
     )
@@ -1082,11 +1108,10 @@ def build_ptc_retrieval_orchestrator_result(
     final_ring_bundle = ring_bundle
     if matched_nodes:
         try:
-            ring_matched_nodes = matched_nodes[:1] if domain_hints else matched_nodes
             final_ring_bundle = build_ring_support_bundle(
                 query_text=query_text,
                 vault_root=vault_root,
-                matched_nodes=ring_matched_nodes,
+                matched_nodes=matched_nodes,
             )
         except RECOVERABLE_RUNTIME_ERRORS:
             final_ring_bundle = ring_bundle

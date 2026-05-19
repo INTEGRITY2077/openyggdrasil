@@ -217,10 +217,10 @@ def _node_taxonomy_lines(support: Mapping[str, Any]) -> list[str]:
 def _build_provider_cpr_wakeup_prompt(result: Mapping[str, Any]) -> str:
     del result
     return (
-        "아까 답을 뒤에서 확인된 기준과 비교해서 필요한 밀도로 다시 봐줘. "
-        "근거가 충분하면 달라지는 부분과 판단 근거를 구조적으로 보강하고, "
-        "부족하거나 바뀔 게 없으면 그 한계만 분명히 닫아줘. "
-        "근거 이름이나 내부 번호를 나열하지는 마."
+        f"{PROVIDER_REJUDGMENT_WAKE_SENTINEL} "
+        "OpenYggdrasil 보강 결과가 도착했습니다. 마지막 사용자 질문과 현재 답을 다시 비교하세요. "
+        "근거가 충분하면 필요한 문장만 보강하고, 부족하거나 답을 바꿀 근거가 없으면 그렇게 짧게 닫으세요. "
+        "파일 경로, 노드 ID, receipt ID, 개수 목록은 사용자 답변에 쓰지 마세요."
     )
 
 

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/wiki_index_entry.v1.schema.json",
+  "title": "Wiki Index Entry v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "page_ref",
+    "canonical_title",
+    "category_path",
+    "summary",
+    "updated_at",
+    "source_cell_refs",
+    "related_page_refs"
+  ],
+  "properties": {
+    "schema_version": {"const": "wiki_index_entry.v1"},
+    "page_ref": {"type": "string", "minLength": 1},
+    "canonical_title": {"type": "string", "minLength": 1},
+    "category_path": {"type": "string"},
+    "summary": {"type": "string", "minLength": 1},
+    "updated_at": {"type": "string", "minLength": 1},
+    "source_cell_refs": {"type": "array", "items": {"type": "string"}},
+    "related_page_refs": {"type": "array", "items": {"type": "string"}}
+  }
+}

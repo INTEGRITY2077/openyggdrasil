@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/wiki_log_entry.v1.schema.json",
+  "title": "Wiki Log Entry v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "log_id",
+    "timestamp",
+    "operation",
+    "summary",
+    "pages_touched",
+    "hard_nonclaims"
+  ],
+  "properties": {
+    "schema_version": {"const": "wiki_log_entry.v1"},
+    "log_id": {"type": "string", "minLength": 1},
+    "timestamp": {"type": "string", "minLength": 1},
+    "operation": {"type": "string", "minLength": 1},
+    "summary": {"type": "string", "minLength": 1},
+    "pages_touched": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "source_ref": {"type": ["string", "null"]},
+    "hard_nonclaims": {"type": "array", "items": {"type": "string"}}
+  }
+}

@@ -171,10 +171,13 @@ def _activation_prompt(
     role = _worker_role(label, role_type)
     if role_type == "producer":
         request_name = "Save Request"
+        completion_gate = "completed_claim_requires_same_mail_done_and_nonzero_when_saving"
     elif message_type == "query":
         request_name = "Find Request"
+        completion_gate = "completed_claim_requires_same_mail_completed_with_fact_and_path_when_finding"
     else:
         request_name = "Work Request"
+        completion_gate = "completed_claim_requires_same_mail_completed_before_positive_close"
     prompt = " | ".join(
         [
             "mailbox notice",
@@ -190,7 +193,7 @@ def _activation_prompt(
             "processor_entrypoint=configured role-owned mailbox processor",
             "surface_fields=selected capability class and bounded program hash from processor result when present",
             f"same_mail_status_check=scripts/ygg receipt {delivery.get('mail_id') or 'unknown'}",
-            "completed_claim_requires_same_mail_done_and_nonzero_when_saving",
+            completion_gate,
             "pending_or_zero_output_must_close_typed_unavailable",
             "missing_receipt_close_only_after_processor_attempt",
             "final_step=close_mailbox_receipt_or_typed_unavailable",
