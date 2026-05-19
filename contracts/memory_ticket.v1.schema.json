@@ -62,7 +62,10 @@
         "boundary_correction",
         "reusable_operational_rule",
         "category_community_shift",
-        "currentness_changed"
+        "currentness_changed",
+        "multiturn_domain_understanding_storage",
+        "time_separated_reinforcement",
+        "domain_knowledge_storage"
       ]
     },
     "breadcrumb": {"type": "string"},

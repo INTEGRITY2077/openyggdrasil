@@ -12,7 +12,9 @@ from reasoning.hermes_gateway_evidence_package import (
     CLASSIFIER_SCHEMA_VERSION,
     CLASSIFIER_VERDICTS,
     TYPED_UNAVAILABLE_LIVE_PROOF,
+    classify_p0_official_hermes_gateway_evidence_package,
     classify_p0_provider_owned_hermes_gateway_evidence_package,
+    validate_p0_official_hermes_gateway_evidence_classification,
     validate_p0_provider_owned_hermes_gateway_evidence_classification,
 )
 
@@ -167,6 +169,36 @@ def run_p0_provider_owned_hermes_gateway_evidence_intake(
     return artifact
 
 
+def run_p0_official_hermes_gateway_evidence_intake(
+    candidate_json_path: str | PathLike[str],
+    *,
+    output_path: str | PathLike[str] | None = None,
+    source_ref: str | None = None,
+) -> dict[str, Any]:
+    """Compatibility alias for the older P0 "official Hermes gateway" wording."""
+
+    candidate_path = Path(candidate_json_path)
+    candidate, load_error = _load_candidate_json(candidate_path)
+    if load_error is not None:
+        classification = _typed_unavailable_classification(load_error)
+    else:
+        classification = classify_p0_official_hermes_gateway_evidence_package(candidate or {})
+    validate_p0_official_hermes_gateway_evidence_classification(classification)
+    artifact = _redacted_artifact(
+        candidate_path=candidate_path,
+        classification=classification,
+        source_ref=source_ref,
+    )
+    if output_path is not None:
+        output = Path(output_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(
+            json.dumps(artifact, ensure_ascii=False, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+    return artifact
+
+
 def validate_p0_provider_owned_hermes_gateway_evidence_intake(artifact: Mapping[str, Any]) -> None:
     if artifact.get("schema_version") != INTAKE_SCHEMA_VERSION:
         raise ValueError("invalid P0 gateway evidence intake schema_version")
@@ -189,3 +221,9 @@ def validate_p0_provider_owned_hermes_gateway_evidence_intake(artifact: Mapping[
     for raw_key in RAW_MATERIAL_KEYS:
         if raw_key in artifact:
             raise ValueError(f"P0 gateway evidence intake raw material key present: {raw_key}")
+
+
+def validate_p0_official_hermes_gateway_evidence_intake(artifact: Mapping[str, Any]) -> None:
+    """Compatibility alias for the older P0 "official Hermes gateway" wording."""
+
+    validate_p0_provider_owned_hermes_gateway_evidence_intake(artifact)

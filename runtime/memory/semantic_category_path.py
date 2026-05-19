@@ -50,6 +50,20 @@ def infer_semantic_category_segments(payload: Mapping[str, Any], *, topic_title:
     text = f"{topic_title} {text}".lower()
     if "claude code" in text or "claude-code" in text:
         segments = ["software-development", "claude-code"]
+        if any(
+            term in text
+            for term in (
+                "permission",
+                "approval",
+                "allowed tool",
+                "tool access",
+                "tool exposure",
+                "security",
+                "mcp exposure",
+                "external connection exposure",
+            )
+        ):
+            return [*segments, "security-permissions", "tool-access"]
         if any(term in text for term in ("hook", "skill", "mcp", "plugin", "agent")):
             segments.append("extension-placement")
         if "agent" in text:

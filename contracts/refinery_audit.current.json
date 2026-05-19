@@ -1,5 +1,5 @@
 {
-  "active_flowing_count": 96,
+  "active_flowing_count": 102,
   "contracts": [
     {
       "active_runtime_schema_file_hits": [
@@ -41,7 +41,8 @@
       "runtime_schema_version_hits": [
         "runtime/admission/admission_stub.py",
         "runtime/admission/decision_contracts.py",
-        "runtime/admission/session_admission_gate.py"
+        "runtime/admission/session_admission_gate.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "admission_verdict.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/admission_verdict.v1.schema.json",
@@ -88,7 +89,8 @@
       ],
       "runtime_schema_version_hits": [
         "runtime/admission/amundsen_nursery_handoff.py",
-        "runtime/admission/decision_contracts.py"
+        "runtime/admission/decision_contracts.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "amundsen_nursery_handoff.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/amundsen_nursery_handoff.v1.schema.json",
@@ -141,6 +143,28 @@
       ],
       "schema": "community_topography.v1.schema.json",
       "schema_id": "https://integrity2077.local/openyggdrasil/community_topography.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/delivery/consumer_receipt_ingress.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "Postman",
+      "pipeline_stage": "postman_delivery",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/delivery/consumer_receipt_ingress.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/delivery/consumer_receipt_ingress.py",
+        "runtime/pipeline/p0_e10_usage_ref_materializer.py"
+      ],
+      "schema": "consumption_request.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/consumption_request.v1.schema.json",
       "validation_evidence": "active_runtime_loads_schema_file",
       "validator_only_hits": []
     },
@@ -205,7 +229,8 @@
       ],
       "runtime_schema_version_hits": [
         "runtime/admission/decision_contracts.py",
-        "runtime/cultivation/gardener_stub.py"
+        "runtime/cultivation/gardener_stub.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "cultivated_decision.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/cultivated_decision.v1.schema.json",
@@ -229,7 +254,8 @@
       ],
       "runtime_schema_version_hits": [
         "runtime/admission/decision_contracts.py",
-        "runtime/capture/decision_distiller.py"
+        "runtime/capture/decision_distiller.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "decision_candidate.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/decision_candidate.v1.schema.json",
@@ -274,7 +300,8 @@
         "runtime/admission/decision_contracts.py"
       ],
       "runtime_schema_version_hits": [
-        "runtime/admission/decision_contracts.py"
+        "runtime/admission/decision_contracts.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "decision_surface.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/decision_surface.v1.schema.json",
@@ -367,7 +394,8 @@
       ],
       "runtime_schema_version_hits": [
         "runtime/admission/decision_contracts.py",
-        "runtime/cultivation/nursery_stub.py"
+        "runtime/cultivation/nursery_stub.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "engraved_seed.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/engraved_seed.v1.schema.json",
@@ -434,7 +462,8 @@
       ],
       "runtime_schema_version_hits": [
         "runtime/admission/decision_contracts.py",
-        "runtime/evaluation/evaluator_amundsen_handoff.py"
+        "runtime/evaluation/evaluator_amundsen_handoff.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "evaluator_amundsen_handoff.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/evaluator_amundsen_handoff.v1.schema.json",
@@ -460,7 +489,8 @@
       ],
       "runtime_schema_version_hits": [
         "runtime/admission/decision_contracts.py",
-        "runtime/evaluation/evaluator.py"
+        "runtime/evaluation/evaluator.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "evaluator_verdict.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/evaluator_verdict.v1.schema.json",
@@ -505,7 +535,8 @@
       ],
       "runtime_schema_version_hits": [
         "runtime/admission/decision_contracts.py",
-        "runtime/cultivation/gardener_routing.py"
+        "runtime/cultivation/gardener_routing.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "gardener_routing_decision.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/gardener_routing_decision.v1.schema.json",
@@ -558,6 +589,49 @@
     },
     {
       "active_runtime_schema_file_hits": [
+        "runtime/delivery/consumer_receipt_ingress.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "Postman",
+      "pipeline_stage": "postman_delivery",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/delivery/consumer_receipt_ingress.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/delivery/consumer_receipt_ingress.py",
+        "runtime/pipeline/p0_e10_usage_ref_materializer.py"
+      ],
+      "schema": "hermes_answer_receipt.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/hermes_answer_receipt.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/reasoning/hermes_background_unavailable_contract.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "TST/PTC",
+      "pipeline_stage": "reasoning_or_ptc",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/reasoning/hermes_background_unavailable_contract.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/reasoning/hermes_background_unavailable_contract.py"
+      ],
+      "schema": "hermes_background_unavailable_contract.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/hermes_background_unavailable_contract.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
         "runtime/reasoning/hermes_main_context_non_accumulation.py"
       ],
       "circulation_state": "active_live_schema_file_load",
@@ -574,6 +648,27 @@
       ],
       "schema": "hermes_main_context_non_accumulation.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/hermes_main_context_non_accumulation.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/reasoning/hermes_provider_owned_background_gateway.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "TST/PTC",
+      "pipeline_stage": "reasoning_or_ptc",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/reasoning/hermes_provider_owned_background_gateway.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/reasoning/hermes_provider_owned_background_gateway.py"
+      ],
+      "schema": "hermes_provider_owned_background_gateway.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/hermes_provider_owned_background_gateway.v1.schema.json",
       "validation_evidence": "active_runtime_loads_schema_file",
       "validator_only_hits": []
     },
@@ -800,6 +895,7 @@
       ],
       "runtime_schema_version_hits": [
         "runtime/admission/decision_contracts.py",
+        "runtime/pipeline/runtime_facade_chain.py",
         "runtime/placement/map_maker_stub.py"
       ],
       "schema": "map_topography.v1.schema.json",
@@ -928,7 +1024,8 @@
       ],
       "runtime_schema_version_hits": [
         "runtime/admission/decision_contracts.py",
-        "runtime/cultivation/nursery_composition_input.py"
+        "runtime/cultivation/nursery_composition_input.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "nursery_composition_input.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/nursery_composition_input.v1.schema.json",
@@ -953,6 +1050,29 @@
       ],
       "schema": "origin_shortcut_result.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/origin_shortcut_result.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/reasoning/hermes_official_gateway_contract.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "TST/PTC",
+      "pipeline_stage": "reasoning_or_ptc",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/reasoning/hermes_official_gateway_contract.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/reasoning/hermes_gateway_surface_unavailable.py",
+        "runtime/reasoning/hermes_official_gateway_contract.py",
+        "runtime/reasoning/hermes_real_session_usage_unavailable.py"
+      ],
+      "schema": "p0_official_hermes_gateway_contract.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/p0_official_hermes_gateway_contract.v1.schema.json",
       "validation_evidence": "active_runtime_loads_schema_file",
       "validator_only_hits": []
     },
@@ -1066,7 +1186,8 @@
       ],
       "runtime_schema_version_hits": [
         "runtime/admission/decision_contracts.py",
-        "runtime/cultivation/gardener_stub.py"
+        "runtime/cultivation/gardener_stub.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "planting_decision.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/planting_decision.v1.schema.json",
@@ -1090,7 +1211,8 @@
       ],
       "runtime_schema_version_hits": [
         "runtime/admission/decision_contracts.py",
-        "runtime/delivery/postman_finalization.py"
+        "runtime/delivery/postman_finalization.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "postman_delivery_handoff.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/postman_delivery_handoff.v1.schema.json",
@@ -1397,6 +1519,7 @@
         "scripts/contract_pressure_test.py"
       ],
       "runtime_schema_version_hits": [
+        "runtime/pipeline/p0_e10_usage_ref_materializer.py",
         "runtime/reasoning/provider_skill_receipt_consumer.py",
         "scripts/contract_pressure_test.py"
       ],
@@ -1518,6 +1641,7 @@
         "runtime/reasoning/reasoning_lease_contracts.py"
       ],
       "runtime_schema_version_hits": [
+        "runtime/reasoning/hermes_background_unavailable_contract.py",
         "runtime/reasoning/lease_executor.py",
         "runtime/reasoning/provider_resource_boundary.py",
         "runtime/reasoning/README.md",
@@ -1525,6 +1649,28 @@
       ],
       "schema": "reasoning_lease_result.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/reasoning_lease_result.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/delivery/consumer_receipt_ingress.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "Postman",
+      "pipeline_stage": "postman_delivery",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/delivery/consumer_receipt_ingress.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/delivery/consumer_receipt_ingress.py",
+        "runtime/pipeline/p0_e10_usage_ref_materializer.py"
+      ],
+      "schema": "recall_support_bundle_ref.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/recall_support_bundle_ref.v1.schema.json",
       "validation_evidence": "active_runtime_loads_schema_file",
       "validator_only_hits": []
     },
@@ -1616,7 +1762,8 @@
       ],
       "runtime_schema_version_hits": [
         "runtime/admission/decision_contracts.py",
-        "runtime/cultivation/seedkeeper.py"
+        "runtime/cultivation/seedkeeper.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "seedkeeper_segment.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/seedkeeper_segment.v1.schema.json",
@@ -1665,7 +1812,8 @@
       ],
       "runtime_schema_version_hits": [
         "runtime/admission/decision_contracts.py",
-        "runtime/admission/session_admission_gate.py"
+        "runtime/admission/session_admission_gate.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "session_admission_verdict.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/session_admission_verdict.v1.schema.json",
@@ -1718,7 +1866,8 @@
       ],
       "runtime_schema_version_hits": [
         "runtime/admission/decision_contracts.py",
-        "runtime/capture/session_structure_signal.py"
+        "runtime/capture/session_structure_signal.py",
+        "runtime/pipeline/runtime_facade_chain.py"
       ],
       "schema": "session_structure_signal.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/session_structure_signal.v1.schema.json",
@@ -2001,6 +2150,7 @@
     },
     {
       "active_runtime_schema_file_hits": [
+        "runtime/delivery/consumer_receipt_ingress.py",
         "runtime/delivery/typed_unavailable_result.py"
       ],
       "circulation_state": "active_live_schema_file_load",
@@ -2010,11 +2160,13 @@
       "pressure_test_hits": [],
       "public_status": "active",
       "runtime_schema_file_hits": [
+        "runtime/delivery/consumer_receipt_ingress.py",
         "runtime/delivery/typed_unavailable_result.py"
       ],
       "runtime_schema_version_hits": [
         "runtime/capture/provider_current_source_bridge.py",
         "runtime/cli/ygg_flow.py",
+        "runtime/delivery/consumer_receipt_ingress.py",
         "runtime/delivery/postman_heartbeat_cpr.py",
         "runtime/delivery/typed_unavailable_result.py",
         "runtime/delivery/worker_receipt_surface.py",
@@ -2309,7 +2461,7 @@
   "pressure_test_only_count": 0,
   "pressure_test_or_audit_only": [],
   "repo_root": "D:\\0_PROJECT\\openyggdrasil",
-  "schema_count": 96,
+  "schema_count": 102,
   "schema_version": "contract_refinery_audit.v1",
   "status": "pass",
   "unclassified_orphans": [],

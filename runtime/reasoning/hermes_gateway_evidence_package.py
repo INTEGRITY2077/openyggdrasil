@@ -12,6 +12,10 @@ from reasoning.hermes_provider_owned_gateway_contract import (
     build_p0_provider_owned_hermes_gateway_contract,
     validate_p0_provider_owned_hermes_gateway_contract,
 )
+from reasoning.hermes_official_gateway_contract import (
+    build_p0_official_hermes_gateway_contract,
+    validate_p0_official_hermes_gateway_contract,
+)
 
 
 CLASSIFIER_SCHEMA_VERSION = "p0_provider_owned_hermes_gateway_evidence_package_classifier.v1"
@@ -205,6 +209,57 @@ def classify_p0_provider_owned_hermes_gateway_evidence_package(
     }
 
 
+def classify_p0_official_hermes_gateway_evidence_package(
+    candidate_package: Mapping[str, Any] | str | PathLike[str],
+) -> dict[str, Any]:
+    """Compatibility alias for the older P0 "official Hermes gateway" wording."""
+
+    candidate, source_kind, input_error = _candidate_from_input(candidate_package)
+    if input_error is not None:
+        return _typed_unavailable_classification(
+            reason_code=input_error,
+            unavailable_condition=input_error,
+            source_kind=source_kind,
+        )
+
+    try:
+        contract = build_p0_official_hermes_gateway_contract(
+            gateway_proof=_candidate_for_contract(candidate or {})
+        )
+        validate_p0_official_hermes_gateway_contract(contract)
+    except RECOVERABLE_RUNTIME_ERRORS:
+        return _typed_unavailable_classification(
+            reason_code="p0_g2_contract_validation_failed",
+            unavailable_condition="p0_g2_contract_validation_failed",
+            source_kind=source_kind,
+        )
+
+    contract_status = str(contract.get("gateway_status") or "")
+    verdict = CONTRACT_STATUS_TO_VERDICT.get(contract_status, TYPED_UNAVAILABLE_LIVE_PROOF)
+    refs = [
+        str(contract[field])
+        for field in REF_FIELDS_TO_RETURN
+        if contract.get(field) is not None
+    ]
+    return {
+        "schema_version": CLASSIFIER_SCHEMA_VERSION,
+        "evidence_package_id": uuid.uuid4().hex,
+        "verdict": verdict,
+        "source_kind": source_kind,
+        "contract_status": contract_status,
+        "unavailable_condition": contract.get("unavailable_condition"),
+        "reject_condition": contract.get("reject_condition"),
+        "reason_codes": _string_list(contract.get("reason_codes")),
+        "safety_reject_reasons": _string_list(contract.get("safety_reject_reasons")),
+        "contract": contract,
+        "safe_portable_refs": refs,
+        "provider_gateway_called": False,
+        "raw_candidate_material_included": False,
+        "static_classifier_only": True,
+        "created_at": utc_now_iso(),
+    }
+
+
 def validate_p0_provider_owned_hermes_gateway_evidence_classification(
     classification: Mapping[str, Any],
 ) -> None:
@@ -223,6 +278,34 @@ def validate_p0_provider_owned_hermes_gateway_evidence_classification(
             raise ValueError("P0 gateway evidence classifier contract must be mapping or null")
         validate_p0_provider_owned_hermes_gateway_contract(contract)
 
+    verdict = classification.get("verdict")
+    contract_status = classification.get("contract_status")
+    if verdict == PASS_SAFE_PROVIDER_GATEWAY_EVIDENCE and contract_status != "static_contract_ready":
+        raise ValueError("P0 gateway evidence PASS requires static contract ready")
+    if verdict == TYPED_UNAVAILABLE_LIVE_PROOF and contract_status != "typed_unavailable":
+        raise ValueError("P0 gateway evidence typed unavailable requires typed_unavailable contract")
+    if verdict == REJECT_UNSAFE_GATEWAY_CANDIDATE and contract_status != "reject":
+        raise ValueError("P0 gateway evidence reject requires reject contract")
+
+
+def validate_p0_official_hermes_gateway_evidence_classification(
+    classification: Mapping[str, Any],
+) -> None:
+    """Compatibility alias for the older P0 "official Hermes gateway" wording."""
+
+    if classification.get("schema_version") != CLASSIFIER_SCHEMA_VERSION:
+        raise ValueError("invalid P0 gateway evidence classifier schema_version")
+    if classification.get("verdict") not in CLASSIFIER_VERDICTS:
+        raise ValueError("invalid P0 gateway evidence classifier verdict")
+    if classification.get("provider_gateway_called") is not False:
+        raise ValueError("P0 gateway evidence classifier must not call provider gateway")
+    if classification.get("raw_candidate_material_included") is not False:
+        raise ValueError("P0 gateway evidence classifier must not include raw candidate material")
+    contract = classification.get("contract")
+    if contract is not None:
+        if not isinstance(contract, Mapping):
+            raise ValueError("P0 gateway evidence classifier contract must be mapping or null")
+        validate_p0_official_hermes_gateway_contract(contract)
     verdict = classification.get("verdict")
     contract_status = classification.get("contract_status")
     if verdict == PASS_SAFE_PROVIDER_GATEWAY_EVIDENCE and contract_status != "static_contract_ready":

@@ -1,64 +1,66 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://openyggdrasil.local/contracts/typed_unavailable.v1.schema.json",
-  "title": "openyggdrasil Typed Unavailable v1",
+  "$id": "https://openyggdrasil.local/contracts/consumption_request.v1.schema.json",
+  "title": "OpenYggdrasil Consumption Request v1",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
-    "unavailable_ref",
+    "consumption_request_ref",
     "created_at",
-    "reason_code",
-    "blocked_stage",
-    "missing_or_rejected_refs",
+    "worker4_verdict_ref",
+    "worker4_verdict",
+    "source_production_receipt_ref",
+    "approved_routing_fact_ref",
+    "ptc_code_execution_session_ref",
+    "recall_support_bundle_ref",
+    "requested_answer_category",
+    "evidence_refs",
     "raw_provider_material_included",
     "skill_body_included",
     "portable_local_path_included",
     "fabricated_answer",
-    "no_overclaim_boundary"
+    "no_overclaim_boundary",
+    "reason_codes"
   ],
   "properties": {
     "schema_version": {
-      "const": "typed_unavailable.v1"
+      "const": "consumption_request.v1"
     },
-    "unavailable_ref": {
+    "consumption_request_ref": {
       "$ref": "#/$defs/safe_ref"
     },
     "created_at": {
       "type": "string",
       "format": "date-time"
     },
-    "reason_code": {
-      "type": "string",
-      "enum": [
-        "missing_independent_verification",
-        "unresolved_evidence_ref",
-        "stale_or_decoy_evidence",
-        "raw_provider_material_detected",
-        "raw_skill_body_detected",
-        "unsafe_local_path_detected",
-        "graphify_hint_not_sot",
-        "producer_receipt_missing",
-        "consumer_ingress_blocked",
-        "missing_worker4_pass"
-      ]
+    "worker4_verdict_ref": {
+      "$ref": "#/$defs/safe_ref"
     },
-    "blocked_stage": {
-      "type": "string",
-      "enum": [
-        "independent_verification_gate",
-        "evidence_resolution",
-        "recall_support_bundle",
-        "answer_receipt",
-        "raw_material_scan",
-        "worker4_gate"
-      ]
+    "worker4_verdict": {
+      "const": "PASS"
     },
-    "missing_or_rejected_refs": {
+    "source_production_receipt_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "approved_routing_fact_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "ptc_code_execution_session_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "recall_support_bundle_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "requested_answer_category": {
+      "$ref": "#/$defs/answer_category"
+    },
+    "evidence_refs": {
       "type": "array",
+      "minItems": 1,
       "maxItems": 24,
       "items": {
-        "$ref": "#/$defs/rejected_ref"
+        "$ref": "#/$defs/evidence_ref"
       }
     },
     "raw_provider_material_included": {
@@ -75,6 +77,9 @@
     },
     "no_overclaim_boundary": {
       "$ref": "#/$defs/no_overclaim_boundary"
+    },
+    "reason_codes": {
+      "$ref": "#/$defs/reason_codes"
     }
   },
   "$defs": {
@@ -106,32 +111,53 @@
         ]
       }
     },
-    "rejected_ref": {
+    "answer_category": {
+      "type": "string",
+      "enum": [
+        "memory_recall",
+        "decision_explanation",
+        "status_summary",
+        "support_bundle_summary"
+      ]
+    },
+    "evidence_ref": {
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "evidence_id",
         "ref",
-        "reason_code",
-        "rejection_kind"
+        "evidence_kind",
+        "resolution_status",
+        "evidence_status",
+        "pointer_accounting_key"
       ],
       "properties": {
+        "evidence_id": {
+          "$ref": "#/$defs/identifier"
+        },
         "ref": {
           "$ref": "#/$defs/safe_ref"
         },
-        "reason_code": {
-          "$ref": "#/$defs/identifier"
-        },
-        "rejection_kind": {
+        "evidence_kind": {
           "type": "string",
           "enum": [
-            "missing",
-            "unresolved",
-            "stale",
-            "superseded",
-            "decoy",
-            "graphify_non_sot",
-            "unsafe_material"
+            "production_receipt",
+            "approved_routing_fact",
+            "ptc_code_execution_session",
+            "ptc_egress_payload",
+            "worker4_verification",
+            "support_bundle",
+            "route_decision"
           ]
+        },
+        "resolution_status": {
+          "const": "resolved"
+        },
+        "evidence_status": {
+          "const": "current"
+        },
+        "pointer_accounting_key": {
+          "$ref": "#/$defs/identifier"
         }
       }
     },
@@ -161,6 +187,15 @@
         "readiness_91_percent_claimed": {
           "const": false
         }
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/identifier"
       }
     }
   }
