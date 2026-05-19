@@ -180,6 +180,7 @@
         "runtime/cultivation/wiki_vault_janitor.py",
         "runtime/operator/community_growth_writer.py",
         "runtime/retrieval/pathfinder_tools.py",
+        "runtime/wiki/content_first_article_renderer.py",
         "scripts/contract_pressure_test.py"
       ],
       "schema": "community_growth_event.v1.schema.json",
@@ -391,6 +392,7 @@
         "runtime/cultivation/wiki_vault_janitor.py",
         "runtime/operator/decision_timeline_writer.py",
         "runtime/retrieval/pathfinder_tools.py",
+        "runtime/wiki/content_first_article_renderer.py",
         "scripts/contract_pressure_test.py"
       ],
       "schema": "decision_timeline_event.v1.schema.json",
@@ -1827,6 +1829,7 @@
         "runtime/cultivation/wiki_vault_janitor.py",
         "runtime/operator/provider_source_event_writer.py",
         "runtime/retrieval/pathfinder_tools.py",
+        "runtime/wiki/content_first_article_renderer.py",
         "scripts/contract_pressure_test.py"
       ],
       "schema": "provider_source_event.v1.schema.json",
@@ -2069,6 +2072,7 @@
         "runtime/cultivation/wiki_vault_janitor.py",
         "runtime/memory/semantic_category_path.py",
         "runtime/retrieval/pathfinder_tools.py",
+        "runtime/wiki/content_first_article_renderer.py",
         "scripts/contract_pressure_test.py"
       ],
       "schema": "semantic_category_path.v1.schema.json",
