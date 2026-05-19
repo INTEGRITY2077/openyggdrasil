@@ -23,7 +23,7 @@ UNSAFE_REF_FRAGMENTS = (
     ".skill.md",
     "auth.json",
     "credential",
-    "openyggdrasil-private-dev",
+    "private-dev",
     "profile",
     "prompt",
     "state-db",
@@ -124,7 +124,7 @@ UNSAFE_KEY_REASON_CODES = {
 UNSAFE_TEXT_REASON_FRAGMENTS = (
     ("foreground .env injection", "foreground_env_injection_not_allowed"),
     (".env injection", "foreground_env_injection_not_allowed"),
-    ("openyggdrasil-private-dev", "local_provider_path_material_not_allowed"),
+    ("private-dev", "local_provider_path_material_not_allowed"),
     ("stdin injection", "stdin_injection_not_allowed"),
     ("raw transcript", "raw_transcript_not_allowed"),
     ("session transcript", "raw_transcript_not_allowed"),

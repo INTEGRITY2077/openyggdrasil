@@ -13,6 +13,11 @@ from runtime.cli.ygg_memory_lanes import _canonical_alias_for_op, _ensure_memory
 from runtime.cli.ygg_registry import _load_registry
 from runtime.cli.ygg_tmux import _tmux, _tmux_session_exists
 
+
+def _session_evidence_ref(op: str, name: str, line: int) -> str:
+    return f"ygg-session://{op}/{name}:{line}"
+
+
 def _start_flow_window(op: str, record: dict, *, select: bool) -> dict:
     session = _ensure_memory_lane_tmux_name(op)
     window = "flow"
@@ -297,17 +302,17 @@ def cmd_receipt(mail_id: str) -> None:
         else:
             nodes = row.get("nodes", []) if isinstance(row, dict) else []
             created = f"receipt status={row.get('status', '?')} produced_count={row.get('produced_count', 0)} nodes={nodes}"
-        evidence = f"/home/mjk79/.yggdrasil/sessions/{latest[0]}/{latest[1]}:{latest[2]}"
+        evidence = _session_evidence_ref(str(latest[0]), str(latest[1]), int(latest[2]))
     elif delivery_hits:
         latest = delivery_hits[-1]
         created = f"delivery_receipt status={latest[3].get('status', '?')} produced_count={latest[3].get('produced_count', '?')}"
-        evidence = f"/home/mjk79/.yggdrasil/sessions/{latest[0]}/{latest[1]}:{latest[2]}"
+        evidence = _session_evidence_ref(str(latest[0]), str(latest[1]), int(latest[2]))
     elif post_hits:
         created = f"Postman delivered, memory-lane receipt pending; delivery_id={post_hits[-1][1].get('delivery_id', '?')}"
         evidence = f"{postman}:{post_hits[-1][0]}"
     else:
         created = "mail_id를 Postman/memory lane 원장에서 찾지 못함"
-        evidence = f"{postman}; {SESSIONS_DIR}"
+        evidence = "ygg-session://registry"
 
     _workflow(
         "YGG RECEIPT",
