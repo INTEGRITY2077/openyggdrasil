@@ -651,6 +651,11 @@ def save_to_vault(vault_path: Path, node: dict[str, Any]) -> Path:
 
 
 def _iter_vault_node_files(vault_path: Path) -> list[Path]:
+    try:
+        from runtime.retrieval.support_exclusion_manifest import is_final_support_excluded
+    except ImportError:  # pragma: no cover - compatibility for direct primitive reuse
+        is_final_support_excluded = None  # type: ignore[assignment]
+
     patterns = (
         "concepts/N-*.md",
         "categories/**/*.md",
@@ -664,6 +669,8 @@ def _iter_vault_node_files(vault_path: Path) -> list[Path]:
             if path in seen or not path.is_file():
                 continue
             if "graphify-out" in path.parts:
+                continue
+            if is_final_support_excluded is not None and is_final_support_excluded(vault_root=vault_path, path_value=path):
                 continue
             seen.add(path)
             files.append(path)

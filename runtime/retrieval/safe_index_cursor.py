@@ -4,6 +4,11 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+try:
+    from runtime.retrieval.support_exclusion_manifest import support_exclusion_for_path
+except ImportError:  # pragma: no cover - compatibility for runtime-dir sys.path
+    from retrieval.support_exclusion_manifest import support_exclusion_for_path  # type: ignore
+
 
 SAFE_INDEX_CURSOR_SCHEMA_VERSION = "safe_index_cursor.v1"
 SAFE_INDEX_CURSOR_RELATIVE_PATH = "_meta/safe_index_cursor.json"
@@ -95,7 +100,12 @@ def evaluate_safe_index_cursor(*, vault_root: Path, source_paths: list[object]) 
         }
     committed = set(cursor.get("committed_paths") or [])
     rejected = [path for path in checked if path not in committed]
-    status = "inside" if checked and not rejected else "outside" if rejected else "empty"
+    excluded = [
+        support_exclusion_for_path(vault_root=vault_root, path_value=path)
+        for path in checked
+    ]
+    excluded = [item for item in excluded if item.get("excluded")]
+    status = "excluded" if excluded else "inside" if checked and not rejected else "outside" if rejected else "empty"
     return {
         "schema_version": "safe_index_cursor_check.v1",
         "status": status,
@@ -104,6 +114,8 @@ def evaluate_safe_index_cursor(*, vault_root: Path, source_paths: list[object]) 
         "cursor_path": cursor["cursor_path"],
         "checked_paths": checked,
         "rejected_paths": rejected,
+        "excluded_paths": [item.get("path") for item in excluded],
+        "support_exclusion_checks": excluded,
         "committed_path_count": len(committed),
         "hard_nonclaims": [
             "safe_cursor_check_is_not_semantic_alignment",

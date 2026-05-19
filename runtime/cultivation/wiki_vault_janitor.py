@@ -9,6 +9,7 @@ from typing import Any, Mapping
 
 from runtime.common.jsonl_io import append_jsonl_atomic
 from runtime.retrieval.safe_index_cursor import load_safe_index_cursor
+from runtime.retrieval.support_exclusion_manifest import support_exclusion_for_path
 from runtime.wiki.operation import lint_wiki_page_markdown
 
 
@@ -279,6 +280,11 @@ def _scan_production_page_lineage(vault_root: Path) -> list[dict[str, Any]]:
         "wiki_continent_page.v1": "wiki_continent_page_contract_missing",
     }
     for path in sorted(category_root.rglob("*.md")):
+        if "graphify-out" in path.parts:
+            continue
+        exclusion = support_exclusion_for_path(vault_root=vault_root, path_value=path)
+        if exclusion.get("excluded"):
+            continue
         text = path.read_text(encoding="utf-8", errors="replace")
         reason_codes = [
             reason

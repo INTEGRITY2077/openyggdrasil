@@ -866,7 +866,7 @@ def build_ring_support_bundle(
         source_paths.append(_vault_source_path(topic_path, vault_root=vault_root))
     if prov_path.exists():
         source_paths.append(_vault_source_path(prov_path, vault_root=vault_root))
-    if concept_path and concept_path.exists():
+    if concept_path and concept_path.exists() and not readable_wiki_page_refs:
         source_paths.append(_vault_source_path(concept_path, vault_root=vault_root))
     if community_path and community_path.exists():
         source_paths.append(_vault_source_path(community_path, vault_root=vault_root))
@@ -913,7 +913,7 @@ def build_ring_support_bundle(
         missing_refs.append("lifecycle_state")
     if not source_paths:
         missing_refs.append("source_paths")
-    if safe_index_cursor.get("status") == "outside":
+    if not safe_index_cursor.get("final_support_allowed", safe_index_cursor.get("status") != "outside"):
         missing_refs.append("safe_index_cursor")
     if missing_refs:
         unavailable = _typed_unavailable_bundle(query_text=query_text, missing_refs=missing_refs)

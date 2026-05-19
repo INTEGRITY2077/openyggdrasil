@@ -44,6 +44,7 @@ _bootstrap_runtime_package_for_direct_script()
 
 from runtime.common.error_policy import record_recoverable
 from runtime.common.exceptions import RECOVERABLE_RUNTIME_ERRORS
+from runtime.retrieval.support_exclusion_manifest import is_final_support_excluded
 
 try:
     from rank_bm25 import BM25Okapi
@@ -95,6 +96,10 @@ def _iter_searchable_pages(vault: Path) -> list[Path]:
     for pattern in SEARCHABLE_PATTERNS:
         for page in sorted(vault.glob(pattern)):
             if page in seen or not page.is_file():
+                continue
+            if "graphify-out" in page.parts:
+                continue
+            if is_final_support_excluded(vault_root=vault, path_value=page):
                 continue
             seen.add(page)
             pages.append(page)
