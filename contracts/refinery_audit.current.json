@@ -1,5 +1,5 @@
 {
-  "active_flowing_count": 102,
+  "active_flowing_count": 115,
   "contracts": [
     {
       "active_runtime_schema_file_hits": [
@@ -94,6 +94,69 @@
       ],
       "schema": "amundsen_nursery_handoff.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/amundsen_nursery_handoff.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "Runtime",
+      "pipeline_stage": "compatibility",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "schema": "answer_quality_signal.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/answer_quality_signal.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "Runtime",
+      "pipeline_stage": "compatibility",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "schema": "capability_lane_trace.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/capability_lane_trace.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "Amundsen",
+      "pipeline_stage": "wiki_vault",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "schema": "category_tree_transaction.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/category_tree_transaction.v1.schema.json",
       "validation_evidence": "active_runtime_loads_schema_file",
       "validator_only_hits": []
     },
@@ -499,6 +562,27 @@
     },
     {
       "active_runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "Runtime",
+      "pipeline_stage": "compatibility",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "schema": "follow_up_production_request_candidate.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/follow_up_production_request_candidate.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
         "runtime/cultivation/gardener_lifecycle_transition_request.py"
       ],
       "circulation_state": "active_live_schema_file_load",
@@ -540,6 +624,69 @@
       ],
       "schema": "gardener_routing_decision.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/gardener_routing_decision.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "Runtime",
+      "pipeline_stage": "compatibility",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "schema": "graph_non_sot_hint.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/graph_non_sot_hint.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "Runtime",
+      "pipeline_stage": "compatibility",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "schema": "graph_quality_feedback_package.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/graph_quality_feedback_package.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "Runtime",
+      "pipeline_stage": "compatibility",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "schema": "graph_structure_quality_gate.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/graph_structure_quality_gate.v1.schema.json",
       "validation_evidence": "active_runtime_loads_schema_file",
       "validator_only_hits": []
     },
@@ -698,6 +845,30 @@
     },
     {
       "active_runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "TST/PTC",
+      "pipeline_stage": "reasoning_or_ptc",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/evaluation/graph_quality_contracts.py",
+        "runtime/pipeline/p0_e10_usage_ref_materializer.py",
+        "runtime/reasoning/hermes_real_session_usage_probe.py",
+        "runtime/reasoning/hermes_real_session_usage_unavailable.py"
+      ],
+      "schema": "hermes_real_session_usage_probe.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/hermes_real_session_usage_probe.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
         "runtime/reasoning/approved_routing_fact.py"
       ],
       "circulation_state": "active_live_schema_file_load",
@@ -814,6 +985,27 @@
     },
     {
       "active_runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "Runtime",
+      "pipeline_stage": "compatibility",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "schema": "index_delta.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/index_delta.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
         "runtime/cultivation/lifecycle_candidate_lint_loop.py"
       ],
       "circulation_state": "active_live_schema_file_load",
@@ -830,6 +1022,27 @@
       ],
       "schema": "lifecycle_candidate_lint_loop.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/lifecycle_candidate_lint_loop.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "Runtime",
+      "pipeline_stage": "compatibility",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "schema": "log_delta.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/log_delta.v1.schema.json",
       "validation_evidence": "active_runtime_loads_schema_file",
       "validator_only_hits": []
     },
@@ -853,6 +1066,27 @@
       ],
       "schema": "mailbox_guard_result.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/mailbox_guard_result.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "Postman",
+      "pipeline_stage": "postman_delivery",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "schema": "mailbox_intent.v1.schema.json",
+      "schema_id": "contract-ref://openyggdrasil/contracts/mailbox_intent.v1.schema.json",
       "validation_evidence": "active_runtime_loads_schema_file",
       "validator_only_hits": []
     },
@@ -931,6 +1165,27 @@
       ],
       "schema": "memory_ticket.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/memory_ticket.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "Runtime",
+      "pipeline_stage": "compatibility",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "schema": "module_anchor_mapping.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/module_anchor_mapping.v1.schema.json",
       "validation_evidence": "active_runtime_loads_schema_file",
       "validator_only_hits": []
     },
@@ -1266,6 +1521,30 @@
       ],
       "schema": "process_sandbox_runtime_decision.v1.schema.json",
       "schema_id": "https://openyggdrasil.local/contracts/process_sandbox_runtime_decision.v1.schema.json",
+      "validation_evidence": "active_runtime_loads_schema_file",
+      "validator_only_hits": []
+    },
+    {
+      "active_runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "circulation_state": "active_live_schema_file_load",
+      "doc_hits": [],
+      "owner": "MS1",
+      "pipeline_stage": "memory_saver_storage",
+      "pressure_test_hits": [],
+      "public_status": "active",
+      "runtime_schema_file_hits": [
+        "runtime/evaluation/graph_quality_contracts.py"
+      ],
+      "runtime_schema_version_hits": [
+        "runtime/evaluation/graph_quality_contracts.py",
+        "runtime/pipeline/p0_e10_usage_ref_materializer.py",
+        "runtime/pipeline/producer_consumer_smoke.py",
+        "runtime/pipeline/runtime_facade_chain.py"
+      ],
+      "schema": "producer_consumer_smoke.v1.schema.json",
+      "schema_id": "https://openyggdrasil.local/contracts/producer_consumer_smoke.v1.schema.json",
       "validation_evidence": "active_runtime_loads_schema_file",
       "validator_only_hits": []
     },
@@ -2461,7 +2740,7 @@
   "pressure_test_only_count": 0,
   "pressure_test_or_audit_only": [],
   "repo_root": "D:\\0_PROJECT\\openyggdrasil",
-  "schema_count": 102,
+  "schema_count": 115,
   "schema_version": "contract_refinery_audit.v1",
   "status": "pass",
   "unclassified_orphans": [],

@@ -1,0 +1,771 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/category_tree_transaction.v1.schema.json",
+  "title": "OpenYggdrasil Category Tree Transaction v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "transaction_id",
+    "transaction_ref",
+    "created_at",
+    "production_request_ref",
+    "approved_routing_fact_ref",
+    "ptc_code_execution_session_ref",
+    "reasoning_lease_ref",
+    "leased_token_budget",
+    "lease_consumed_tokens",
+    "lease_status",
+    "lease_binding_mode",
+    "execution_physical_profile",
+    "runtime_profile_ref",
+    "ttl_ms",
+    "expires_at",
+    "intermediate_store_ref",
+    "cleanup_trace_ref",
+    "session_state",
+    "cleanup_evidence_ref",
+    "allowed_callers_equivalent_ref",
+    "capability_lane_trace_ref",
+    "source_provenance_ref",
+    "seedkeeper_segment_ref",
+    "nursery_candidate_ref",
+    "amundsen_decision_input_ref",
+    "amundsen_decision_basis_refs",
+    "amundsen_decision_branch",
+    "hardcoded_decision",
+    "pipeline_stage_trace_ref",
+    "category_decision_ref",
+    "topic_episode_placement_ref",
+    "map_topography_ref",
+    "index_delta_ref",
+    "log_delta_ref",
+    "append_only_log_validation_ref",
+    "evaluator_handoff_ref",
+    "nursery_seed_engraving_ref",
+    "receipt_egress_publication_ref",
+    "label_authority_refs_or_namespaces",
+    "aftercare_request_or_ref_evidence",
+    "safe_refs_replaced_internal_local_paths_before_egress",
+    "production_receipt_schema_version",
+    "production_receipt_ref",
+    "ptc_egress_payload_schema_version",
+    "ptc_egress_payload_ref",
+    "ptc_egress_payload_kind",
+    "final_ptc_egress_only",
+    "portable_output",
+    "evidence_refs",
+    "guards",
+    "no_overclaim_boundary",
+    "reason_codes"
+  ],
+  "allOf": [
+    {
+      "anyOf": [
+        {
+          "required": [
+            "sandbox_profile_ref"
+          ]
+        },
+        {
+          "required": [
+            "provider_background_task_id"
+          ]
+        }
+      ]
+    },
+    {
+      "anyOf": [
+        {
+          "required": [
+            "ring_id"
+          ]
+        },
+        {
+          "required": [
+            "provenance_ring_ref"
+          ]
+        }
+      ]
+    },
+    {
+      "if": {
+        "properties": {
+          "execution_physical_profile": {
+            "const": "provider_owned_background"
+          }
+        },
+        "required": [
+          "execution_physical_profile"
+        ]
+      },
+      "then": {
+        "required": [
+          "provider_background_task_id"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "execution_physical_profile": {
+            "enum": [
+              "bubblewrap_equivalent",
+              "managed_container",
+              "lease_bound_worker_process"
+            ]
+          }
+        },
+        "required": [
+          "execution_physical_profile"
+        ]
+      },
+      "then": {
+        "required": [
+          "sandbox_profile_ref"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lease_status": {
+            "enum": [
+              "exhausted",
+              "revoked",
+              "expired"
+            ]
+          }
+        },
+        "required": [
+          "lease_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "typed_unavailable_egress_ref"
+        ],
+        "properties": {
+          "ptc_egress_payload_kind": {
+            "const": "typed_unavailable"
+          },
+          "session_state": {
+            "const": "closed"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lease_binding_mode": {
+            "const": "provider_owned_background_live"
+          }
+        },
+        "required": [
+          "lease_binding_mode"
+        ]
+      },
+      "then": {
+        "required": [
+          "provider_background_task_id",
+          "p4_h1_background_live_smoke_ref",
+          "p4_h2_background_task_id_ref",
+          "p4_h3_background_result_contract_ref",
+          "p4_h6_main_context_non_accumulation_ref"
+        ],
+        "properties": {
+          "execution_physical_profile": {
+            "const": "provider_owned_background"
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "category_tree_transaction.v1"
+    },
+    "transaction_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "transaction_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "production_request_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "approved_routing_fact_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "ptc_code_execution_session_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "reasoning_lease_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "leased_token_budget": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000000
+    },
+    "lease_consumed_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000000
+    },
+    "lease_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "exhausted",
+        "revoked",
+        "expired"
+      ]
+    },
+    "lease_binding_mode": {
+      "type": "string",
+      "enum": [
+        "fixture_contract",
+        "self_managed_live",
+        "provider_owned_background_live"
+      ]
+    },
+    "execution_physical_profile": {
+      "type": "string",
+      "enum": [
+        "bubblewrap_equivalent",
+        "provider_owned_background",
+        "managed_container",
+        "lease_bound_worker_process"
+      ]
+    },
+    "runtime_profile_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "sandbox_profile_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "provider_background_task_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "ttl_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 86400000
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "intermediate_store_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "cleanup_trace_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "session_state": {
+      "const": "closed"
+    },
+    "cleanup_evidence_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "p4_h1_background_live_smoke_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "p4_h2_background_task_id_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "p4_h3_background_result_contract_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "p4_h6_main_context_non_accumulation_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "allowed_callers_equivalent_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "capability_lane_trace_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "source_provenance_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "seedkeeper_segment_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "ring_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "provenance_ring_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "nursery_candidate_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "amundsen_decision_input_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "amundsen_decision_basis_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
+    "amundsen_decision_branch": {
+      "type": "string",
+      "enum": [
+        "existing_category",
+        "new_frontier",
+        "ambiguous_quarantine",
+        "typed_unavailable"
+      ]
+    },
+    "hardcoded_decision": {
+      "const": false
+    },
+    "pipeline_stage_trace_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "category_decision_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "topic_episode_placement_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "map_topography_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "index_delta_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "log_delta_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "append_only_log_validation_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "evaluator_handoff_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "nursery_seed_engraving_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "receipt_egress_publication_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "label_authority_refs_or_namespaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_category",
+        "derived_graph",
+        "lifecycle",
+        "quality"
+      ],
+      "properties": {
+        "canonical_category": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "derived_graph": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "quality": {
+          "$ref": "#/$defs/safe_ref"
+        }
+      }
+    },
+    "aftercare_request_or_ref_evidence": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "safe_refs_replaced_internal_local_paths_before_egress": {
+      "const": true
+    },
+    "production_receipt_schema_version": {
+      "const": "production_receipt.v1"
+    },
+    "production_receipt_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "ptc_egress_payload_schema_version": {
+      "const": "ptc_egress_payload.v1"
+    },
+    "ptc_egress_payload_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "ptc_egress_payload_kind": {
+      "type": "string",
+      "enum": [
+        "typed_payload",
+        "typed_unavailable"
+      ]
+    },
+    "typed_unavailable_egress_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "derived_graph_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "final_ptc_egress_only": {
+      "const": true
+    },
+    "portable_output": {
+      "$ref": "#/$defs/portable_output"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/evidence_ref"
+      }
+    },
+    "guards": {
+      "$ref": "#/$defs/guards"
+    },
+    "no_overclaim_boundary": {
+      "$ref": "#/$defs/no_overclaim_boundary"
+    },
+    "reason_codes": {
+      "$ref": "#/$defs/reason_codes"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "safe_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\s]+$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^[Ff][Ii][Ll][Ee]://"
+          },
+          {
+            "pattern": "^[A-Za-z]:"
+          },
+          {
+            "pattern": "(?i)\\.skill\\.md"
+          },
+          {
+            "pattern": "(?i)transcript\\.txt"
+          },
+          {
+            "pattern": "(?i)credential"
+          }
+        ]
+      }
+    },
+    "evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "ref",
+        "evidence_kind",
+        "resolution_status",
+        "pointer_accounting_key"
+      ],
+      "properties": {
+        "evidence_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "evidence_kind": {
+          "type": "string",
+          "enum": [
+            "production_request",
+            "approved_routing_fact",
+            "ptc_code_execution_session",
+            "reasoning_lease",
+            "runtime_profile",
+            "sandbox_profile",
+            "provider_background_task",
+            "intermediate_store",
+            "cleanup_trace",
+            "cleanup_evidence",
+            "allowed_callers_equivalent",
+            "capability_lane_trace",
+            "source_provenance",
+            "seedkeeper_segment",
+            "provenance_ring",
+            "nursery_candidate",
+            "amundsen_decision_input",
+            "amundsen_decision_basis",
+            "category_decision",
+            "topic_episode_placement",
+            "map_topography",
+            "index_delta",
+            "log_delta",
+            "pipeline_stage_trace",
+            "append_only_log_validation",
+            "production_receipt",
+            "ptc_egress_payload",
+            "evaluator_handoff",
+            "nursery_seed_engraving",
+            "receipt_egress_publication",
+            "label_authority",
+            "aftercare_request",
+            "derived_graph"
+          ]
+        },
+        "resolution_status": {
+          "const": "resolved"
+        },
+        "pointer_accounting_key": {
+          "$ref": "#/$defs/identifier"
+        }
+      }
+    },
+    "guards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_dialogue_included",
+        "raw_skill_body_included",
+        "credential_content_included",
+        "provider_private_material_included",
+        "portable_local_path_included",
+        "graphify_used_as_sot",
+        "vector_embedding_used_as_canonical_placement",
+        "broad_vault_scan_performed",
+        "standalone_module_agent_spawned",
+        "raw_stdout_included",
+        "raw_stderr_included",
+        "raw_tool_intermediates_included",
+        "raw_provider_context_included",
+        "live_process_handles_included",
+        "untyped_scratch_files_included",
+        "standalone_llm_spawned",
+        "reasoning_lease_bypassed",
+        "lease_less_execution",
+        "non_typed_ptc_egress",
+        "host_context_pollution",
+        "host_death_without_session_close",
+        "proxoauth_provider_api_proxy",
+        "stdin_injection",
+        "state_db_raw_polling",
+        "provider_tool_decision_override",
+        "hidden_request_response_mutation",
+        "main_context_injection",
+        "fixture_lease_presented_as_live_background_proof",
+        "map_maker_without_amundsen_authority",
+        "gardener_before_placement_topography",
+        "seedkeeper_stage_skipped",
+        "nursery_stage_skipped",
+        "collapsed_promotion_stage_detected",
+        "ambiguous_untyped_label_bucket_detected",
+        "portable_local_path_leakage_detected",
+        "direct_aftercare_mutation_detected",
+        "historical_ring_snapshot_read_capability_claimed"
+      ],
+      "properties": {
+        "raw_dialogue_included": {
+          "const": false
+        },
+        "raw_skill_body_included": {
+          "const": false
+        },
+        "credential_content_included": {
+          "const": false
+        },
+        "provider_private_material_included": {
+          "const": false
+        },
+        "portable_local_path_included": {
+          "const": false
+        },
+        "graphify_used_as_sot": {
+          "const": false
+        },
+        "vector_embedding_used_as_canonical_placement": {
+          "const": false
+        },
+        "broad_vault_scan_performed": {
+          "const": false
+        },
+        "standalone_module_agent_spawned": {
+          "const": false
+        },
+        "raw_stdout_included": {
+          "const": false
+        },
+        "raw_stderr_included": {
+          "const": false
+        },
+        "raw_tool_intermediates_included": {
+          "const": false
+        },
+        "raw_provider_context_included": {
+          "const": false
+        },
+        "live_process_handles_included": {
+          "const": false
+        },
+        "untyped_scratch_files_included": {
+          "const": false
+        },
+        "standalone_llm_spawned": {
+          "const": false
+        },
+        "reasoning_lease_bypassed": {
+          "const": false
+        },
+        "lease_less_execution": {
+          "const": false
+        },
+        "non_typed_ptc_egress": {
+          "const": false
+        },
+        "host_context_pollution": {
+          "const": false
+        },
+        "host_death_without_session_close": {
+          "const": false
+        },
+        "proxoauth_provider_api_proxy": {
+          "const": false
+        },
+        "stdin_injection": {
+          "const": false
+        },
+        "state_db_raw_polling": {
+          "const": false
+        },
+        "provider_tool_decision_override": {
+          "const": false
+        },
+        "hidden_request_response_mutation": {
+          "const": false
+        },
+        "main_context_injection": {
+          "const": false
+        },
+        "fixture_lease_presented_as_live_background_proof": {
+          "const": false
+        },
+        "map_maker_without_amundsen_authority": {
+          "const": false
+        },
+        "gardener_before_placement_topography": {
+          "const": false
+        },
+        "seedkeeper_stage_skipped": {
+          "const": false
+        },
+        "nursery_stage_skipped": {
+          "const": false
+        },
+        "collapsed_promotion_stage_detected": {
+          "const": false
+        },
+        "ambiguous_untyped_label_bucket_detected": {
+          "const": false
+        },
+        "portable_local_path_leakage_detected": {
+          "const": false
+        },
+        "direct_aftercare_mutation_detected": {
+          "const": false
+        },
+        "historical_ring_snapshot_read_capability_claimed": {
+          "const": false
+        }
+      }
+    },
+    "portable_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "egress_payload_ref",
+        "typed_refs_only",
+        "raw_stdout_included",
+        "raw_stderr_included",
+        "raw_tool_intermediates_included",
+        "raw_provider_context_included",
+        "live_process_handles_included",
+        "untyped_scratch_files_included"
+      ],
+      "properties": {
+        "egress_payload_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "typed_refs_only": {
+          "const": true
+        },
+        "raw_stdout_included": {
+          "const": false
+        },
+        "raw_stderr_included": {
+          "const": false
+        },
+        "raw_tool_intermediates_included": {
+          "const": false
+        },
+        "raw_provider_context_included": {
+          "const": false
+        },
+        "live_process_handles_included": {
+          "const": false
+        },
+        "untyped_scratch_files_included": {
+          "const": false
+        }
+      }
+    },
+    "no_overclaim_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reasoning_lease_solved_claimed",
+        "live_readiness_claimed",
+        "production_readiness_claimed",
+        "public_runtime_integration_complete_claimed",
+        "readiness_91_percent_claimed"
+      ],
+      "properties": {
+        "reasoning_lease_solved_claimed": {
+          "const": false
+        },
+        "live_readiness_claimed": {
+          "const": false
+        },
+        "production_readiness_claimed": {
+          "const": false
+        },
+        "public_runtime_integration_complete_claimed": {
+          "const": false
+        },
+        "readiness_91_percent_claimed": {
+          "const": false
+        }
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    }
+  }
+}

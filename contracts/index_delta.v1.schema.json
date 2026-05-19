@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/index_delta.v1.schema.json",
+  "title": "OpenYggdrasil Index Delta v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "delta_id",
+    "transaction_ref",
+    "created_at",
+    "operation",
+    "target_kind",
+    "target_ref",
+    "summary",
+    "source_refs",
+    "bounded_to_single_transaction",
+    "raw_provider_material_included",
+    "skill_body_included",
+    "credential_content_included",
+    "portable_local_path_included",
+    "graphify_used_as_sot",
+    "vector_embedding_used_as_canonical_placement",
+    "broad_vault_scan_performed",
+    "raw_stdout_included",
+    "raw_stderr_included",
+    "raw_tool_intermediates_included",
+    "raw_provider_context_included",
+    "live_process_handles_included",
+    "untyped_scratch_files_included"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "index_delta.v1"
+    },
+    "delta_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "transaction_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "operation": {
+      "type": "string",
+      "enum": [
+        "add",
+        "update",
+        "supersede",
+        "no_op"
+      ]
+    },
+    "target_kind": {
+      "type": "string",
+      "enum": [
+        "topic",
+        "page",
+        "episode",
+        "cross_ref"
+      ]
+    },
+    "target_ref": {
+      "$ref": "#/$defs/safe_ref"
+    },
+    "summary": {
+      "$ref": "#/$defs/provider_safe_text"
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
+    "bounded_to_single_transaction": {
+      "const": true
+    },
+    "raw_provider_material_included": {
+      "const": false
+    },
+    "skill_body_included": {
+      "const": false
+    },
+    "credential_content_included": {
+      "const": false
+    },
+    "portable_local_path_included": {
+      "const": false
+    },
+    "graphify_used_as_sot": {
+      "const": false
+    },
+    "vector_embedding_used_as_canonical_placement": {
+      "const": false
+    },
+    "broad_vault_scan_performed": {
+      "const": false
+    },
+    "raw_stdout_included": {
+      "const": false
+    },
+    "raw_stderr_included": {
+      "const": false
+    },
+    "raw_tool_intermediates_included": {
+      "const": false
+    },
+    "raw_provider_context_included": {
+      "const": false
+    },
+    "live_process_handles_included": {
+      "const": false
+    },
+    "untyped_scratch_files_included": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "safe_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\s]+$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^[Ff][Ii][Ll][Ee]://"
+          },
+          {
+            "pattern": "^[A-Za-z]:"
+          },
+          {
+            "pattern": "(?i)\\.skill\\.md"
+          },
+          {
+            "pattern": "(?i)transcript\\.txt"
+          },
+          {
+            "pattern": "(?i)credential"
+          },
+          {
+            "pattern": "(?i)raw stdout"
+          },
+          {
+            "pattern": "(?i)raw stderr"
+          },
+          {
+            "pattern": "(?i)raw tool intermediate"
+          },
+          {
+            "pattern": "(?i)raw provider context"
+          },
+          {
+            "pattern": "(?i)live process handle"
+          },
+          {
+            "pattern": "(?i)untyped scratch"
+          }
+        ]
+      }
+    },
+    "provider_safe_text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600,
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "(?s)^---\\s*\\n.*name\\s*:"
+          },
+          {
+            "pattern": "```"
+          },
+          {
+            "pattern": "\\.skill\\.md"
+          },
+          {
+            "pattern": "(?i)raw provider transcript"
+          },
+          {
+            "pattern": "(?i)credential"
+          },
+          {
+            "pattern": "(?i)raw stdout"
+          },
+          {
+            "pattern": "(?i)raw stderr"
+          },
+          {
+            "pattern": "(?i)raw tool intermediate"
+          },
+          {
+            "pattern": "(?i)raw provider context"
+          },
+          {
+            "pattern": "(?i)live process handle"
+          },
+          {
+            "pattern": "(?i)untyped scratch"
+          }
+        ]
+      }
+    }
+  }
+}
