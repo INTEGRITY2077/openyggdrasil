@@ -27,6 +27,11 @@ from runtime.delivery.postman_live_delivery import (  # noqa: E402
 )
 from runtime.common.provider_wake_markers import is_provider_rejudgment_wakeup_text  # noqa: E402
 from source_ref.hermes_session_json import _canonical_anchor_hash  # noqa: E402
+from scripts.provider_intent_patterns import (  # noqa: E402
+    has_progressive_source_backed_recall_intent,
+    has_source_backed_memory_need,
+    is_hermes_native_memory_maintenance_prompt,
+)
 
 
 POSTMAN_DIR = Path.home() / ".yggdrasil" / "sessions" / "postman"
@@ -304,6 +309,36 @@ def _event_query_text(event: Mapping[str, Any]) -> str:
     return ""
 
 
+def _text_corruption_score(text: str) -> float:
+    value = str(text or "")
+    if not value:
+        return 0.0
+    suspicious_tokens = ("�", "??", "?꾧", "??", "吏", "諛", "筌", "疫")
+    suspicious = sum(value.count(token) for token in suspicious_tokens)
+    question_density = value.count("?") / max(len(value), 1)
+    control_chars = sum(1 for char in value if ord(char) < 32 and char not in "\n\r\t")
+    return min(1.0, (suspicious * 0.18) + (question_density * 0.8) + (control_chars / max(len(value), 1)))
+
+
+def _choose_query_text(
+    *,
+    event_text: str,
+    session_text: str,
+) -> tuple[str, str, dict[str, Any]]:
+    event_score = _text_corruption_score(event_text)
+    session_score = _text_corruption_score(session_text)
+    meta = {
+        "schema_version": "query_text_integrity.v1",
+        "event_text_corruption_score": round(event_score, 3),
+        "session_text_corruption_score": round(session_score, 3),
+    }
+    if session_text and (not event_text or event_score > session_score + 0.15):
+        return session_text, "session_latest_user_due_text_integrity", meta
+    if event_text:
+        return event_text, "event_payload", meta
+    return session_text, "session_latest_user", meta
+
+
 def _is_contextual_recall_query(text: str) -> bool:
     lowered = str(text or "").lower()
     return any(marker.lower() in lowered for marker in CONTEXTUAL_RECALL_MARKERS)
@@ -405,9 +440,21 @@ def run_latest_provider_recall_hook(*, event_name: str, require_tool_name: str |
             {**result, "created_at": _now(), "tool_name": tool_name, "session_path_name": session_path.name},
         )
         return result
-    query_text = _event_query_text(event)
-    if not query_text and latest_user:
-        query_text = latest_user[1]
+    event_query_text = _event_query_text(event)
+    latest_user_text = latest_user[1] if latest_user else ""
+    if is_hermes_native_memory_maintenance_prompt(event_query_text) or is_hermes_native_memory_maintenance_prompt(latest_user_text):
+        result = {
+            "status": "skipped",
+            "reason_code": "hermes_native_memory_maintenance_not_openyggdrasil_recall",
+            "event_name": event_name,
+            "provider_session_id": session_id,
+        }
+        _append_jsonl(RECALL_LOG_PATH, {**result, "created_at": _now(), "tool_name": tool_name, "session_path_name": session_path.name})
+        return result
+    query_text, query_text_source, query_text_integrity = _choose_query_text(
+        event_text=event_query_text,
+        session_text=latest_user_text,
+    )
     context_anchor_terms: list[str] = []
     if latest_user is not None:
         query_text, context_anchor_terms = _augment_contextual_recall_query(
@@ -476,7 +523,8 @@ def run_latest_provider_recall_hook(*, event_name: str, require_tool_name: str |
         "work_order_id": delivery.get("work_order_id"),
         "recipient": delivery.get("recipient"),
         "postman_activation_status": activation.get("status"),
-        "query_text_source": "session_latest_user_with_context_anchor" if context_anchor_terms else "session_latest_user",
+        "query_text_source": "session_latest_user_with_context_anchor" if context_anchor_terms else query_text_source,
+        "query_text_integrity": query_text_integrity,
         "context_anchor_terms": context_anchor_terms,
         "hard_nonclaims": [
             "recall_delivery_is_not_support_bundle",

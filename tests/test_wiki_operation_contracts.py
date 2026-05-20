@@ -74,7 +74,7 @@ def test_wiki_page_contract_renders_prose_first_markdown() -> None:
         machine_appendix={"index_entry": index_entry, "log_entry": log_entry},
     )
     assert "# Wiki operation contract separates page content from proof metadata" in markdown
-    assert markdown.index("## What It Is") < markdown.index("## Machine Appendix")
+    assert markdown.index("## What This Page Is") < markdown.index("## Machine Appendix")
     assert lint_wiki_page_markdown(markdown)["status"] == "pass"
 
 
