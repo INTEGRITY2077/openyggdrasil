@@ -447,6 +447,41 @@ DOMAIN_PATH_ALLOWLISTS = {
     "memory": MEMORY_SYSTEM_PATH_PREFIXES,
 }
 
+DOMAIN_PROVENANCE_TERMS = {
+    "animal": {
+        "animal",
+        "biology",
+        "ecology",
+        "dog",
+        "dogs",
+        "domestic",
+        "welfare",
+        "urban",
+        "wildlife",
+    },
+    "software": {
+        "claude",
+        "code",
+        "agent",
+        "agents",
+        "hook",
+        "skill",
+        "mcp",
+        "plugin",
+        "plugins",
+        "software",
+    },
+    "memory": {
+        "openyggdrasil",
+        "wiki",
+        "ring",
+        "memory",
+        "provider",
+        "durable",
+        "recall",
+    },
+}
+
 
 def _contains_phrase_or_token(text: str, terms: set[str]) -> bool:
     lowered = f" {str(text or '').lower()} "
@@ -492,6 +527,19 @@ def _path_matches_prefix(path_value: object, prefixes: list[str]) -> bool:
 
 def _path_matches_any_prefix(path_value: object, prefixes: tuple[str, ...]) -> bool:
     return _path_matches_prefix(path_value, list(prefixes))
+
+
+def _path_matches_domain(*, path_value: object, domain: str, prefixes: tuple[str, ...]) -> bool:
+    path = str(path_value or "").replace("\\", "/").lstrip("/").lower()
+    if path.startswith("vault/"):
+        path = path[len("vault/") :]
+    if any(path.startswith(prefix) for prefix in prefixes):
+        return True
+    if path.startswith("_meta/provenance/"):
+        terms = DOMAIN_PROVENANCE_TERMS.get(domain, set())
+        path_tokens = set(re.findall(r"[a-z0-9]+", path))
+        return bool(path_tokens & terms)
+    return False
 
 
 def _filter_negated_domain_support(*, query_text: str, bundle: dict) -> tuple[dict, dict]:
@@ -568,15 +616,26 @@ def _filter_target_domain_support(*, query_text: str, bundle: dict) -> tuple[dic
         }
 
     original_facts, original_paths = _support_facts_and_paths(bundle)
-    removed_paths = [str(path) for path in original_paths if not _path_matches_any_prefix(path, allowed_prefixes)]
-    kept_paths = [path for path in original_paths if _path_matches_any_prefix(path, allowed_prefixes)]
+    removed_paths = [
+        str(path)
+        for path in original_paths
+        if not _path_matches_domain(path_value=path, domain=domain, prefixes=allowed_prefixes)
+    ]
+    kept_paths = [
+        path
+        for path in original_paths
+        if _path_matches_domain(path_value=path, domain=domain, prefixes=allowed_prefixes)
+    ]
 
     def keep_fact(fact: object) -> bool:
         if isinstance(fact, dict):
             fact_paths = [fact.get(key) for key in ("source_path", "path", "origin_locator")]
             visible_paths = [value for value in fact_paths if value]
             if visible_paths:
-                return any(_path_matches_any_prefix(value, allowed_prefixes) for value in visible_paths)
+                return any(
+                    _path_matches_domain(path_value=value, domain=domain, prefixes=allowed_prefixes)
+                    for value in visible_paths
+                )
         return True
 
     kept_facts = [fact for fact in original_facts if keep_fact(fact)]
@@ -845,7 +904,9 @@ def _boundary_fallback_bundle(
     reason_code: str,
 ) -> dict | None:
     significant_terms = _significant_query_terms(query_text)
-    if len(significant_terms) < 2:
+    alias_terms = _conceptual_boundary_aliases(significant_terms)
+    candidate_terms = significant_terms | alias_terms
+    if len(candidate_terms) < 2:
         return None
     candidates: list[dict] = []
     for path in vault.rglob("*.md"):
@@ -854,7 +915,9 @@ def _boundary_fallback_bundle(
         except OSError:
             continue
         doc_terms = _normalized_tokens(text)
-        covered = sorted(significant_terms & doc_terms)
+        exact_covered = significant_terms & doc_terms
+        alias_covered = alias_terms & doc_terms
+        covered = sorted(exact_covered | alias_covered)
         if len(covered) < 2:
             continue
         relative = path.relative_to(vault).as_posix()
@@ -870,7 +933,7 @@ def _boundary_fallback_bundle(
             {
                 "path": relative,
                 "covered_terms": covered[:20],
-                "score": len(covered),
+                "score": len(exact_covered) * 2 + len(alias_covered),
                 "snippet": _support_snippet(text, set(covered)),
                 "safe_cursor_inside": safe_cursor_inside,
             }
@@ -1081,6 +1144,14 @@ def _promote_ptc_contract_fields(bundle: dict) -> dict:
         if isinstance(candidate, dict):
             supervisors.append(candidate)
     supervisor = supervisors[0] if supervisors else {}
+    selected_capability_class = supervisor.get("selected_capability_class") if isinstance(supervisor, dict) else None
+    if not selected_capability_class and isinstance(supervisor, dict):
+        role = str(supervisor.get("role") or "").strip()
+        mode = str(supervisor.get("mode") or "").strip()
+        if role and mode:
+            selected_capability_class = f"{role}/{mode}"
+    if selected_capability_class and not bundle.get("selected_capability_class"):
+        bundle["selected_capability_class"] = selected_capability_class
     for source_key, target_key in (
         ("worker_authored_ptc_program", "worker_authored_ptc_program"),
         ("worker_authored_ptc_program", "worker_authored_ptc_program_ref"),

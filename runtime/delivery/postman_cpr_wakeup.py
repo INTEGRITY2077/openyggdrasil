@@ -217,7 +217,6 @@ def _node_taxonomy_lines(support: Mapping[str, Any]) -> list[str]:
 def _build_provider_cpr_wakeup_prompt(result: Mapping[str, Any]) -> str:
     del result
     return (
-        f"{PROVIDER_REJUDGMENT_WAKE_SENTINEL} "
         "OpenYggdrasil 보강 결과가 도착했습니다. "
         "방금 답한 내용을 마지막 사용자 질문과 다시 비교하세요. "
         "충분하면 필요한 밀도로만 보강하고, 부족하거나 현재 답을 바꿀 근거가 없으면 그렇게 짧게 닫으세요. "

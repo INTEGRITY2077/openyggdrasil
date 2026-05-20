@@ -181,3 +181,45 @@ def test_everyday_memory_word_does_not_override_dog_domain_filter() -> None:
     ]
     assert prepared["target_domain_filter"]["applied"] is True
     assert prepared["target_domain_filter"]["target_domain"] == "animal"
+
+
+def test_single_domain_dog_query_keeps_domain_specific_provenance_support() -> None:
+    bundle = {
+        "support_facts": [
+            {
+                "source_path": "_meta/provenance/domestic-dog-ecology-boundary-2e9eae6298.md",
+                "text": (
+                    "Keep dog walking ecology, breed variation, training ethics, and urban "
+                    "wildlife impact as related but separate decision axes."
+                ),
+            },
+            {
+                "source_path": "categories/software-development/claude-code/extension-placement/agents/example.md",
+                "text": "Claude Code agents are a software-development placement topic.",
+            },
+        ],
+        "source_paths": [
+            "_meta/provenance/domestic-dog-ecology-boundary-2e9eae6298.md",
+            "categories/software-development/claude-code/extension-placement/agents/example.md",
+        ],
+        "safe_index_cursor": {
+            "status": "inside",
+            "final_support_allowed": True,
+        },
+    }
+
+    prepared, status = _prepare_memory_finder_bundle(
+        query_text=(
+            "강아지 산책 얘기에서 냄새 맡기랑 산책 부족 스트레스는 같은 글에 두고, "
+            "품종 차이, 보호자 훈련, 공원 야생동물 피해는 각각 어디까지 같은 묶음으로 봐야 해?"
+        ),
+        bundle=bundle,
+        status="completed",
+    )
+
+    assert status == "completed"
+    assert prepared["source_paths"] == [
+        "_meta/provenance/domestic-dog-ecology-boundary-2e9eae6298.md"
+    ]
+    assert prepared["target_domain_filter"]["applied"] is True
+    assert prepared["target_domain_filter"]["target_domain"] == "animal"

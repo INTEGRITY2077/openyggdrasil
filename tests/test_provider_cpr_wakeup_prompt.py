@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from runtime.common.provider_wake_markers import is_provider_rejudgment_wakeup_text
+from runtime.common.provider_wake_markers import (
+    PROVIDER_REJUDGMENT_WAKE_SENTINEL,
+    is_provider_rejudgment_wakeup_text,
+)
 from runtime.delivery.postman_cpr_wakeup import _build_provider_cpr_wakeup_prompt
 from runtime.delivery.worker_result_spec import build_provider_rejudgment
 
@@ -23,6 +26,7 @@ def test_provider_cpr_wakeup_prompt_is_readable_korean_and_marker_detectable() -
     assert "파일 경로" in prompt
     assert "내부 식별자" in prompt
     assert "receipt ID" not in prompt
+    assert PROVIDER_REJUDGMENT_WAKE_SENTINEL not in prompt
     assert not any(marker in prompt for marker in MOJIBAKE_MARKERS)
     assert is_provider_rejudgment_wakeup_text(prompt)
 
