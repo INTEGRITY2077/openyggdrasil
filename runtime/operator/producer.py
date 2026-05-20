@@ -66,6 +66,7 @@ from runtime.placement.amundsen_continent_router import route_amundsen_continent
 from runtime.ptc.sandbox_executor import execute_ptc_code
 
 PROVENANCE_RING_NODE_SCHEMA = "provenance_ring_node.v1.schema.json"
+SOURCE_REF_INLINE_RE = re.compile(r"(?:hermes-session-json|local-docs|https?)://[^\s,)\]}\"']+")
 
 try:
     from runtime.ptc.tool_search_supervisor import (
@@ -545,6 +546,10 @@ def _is_source_reference(value: object) -> bool:
     )
 
 
+def _source_refs_from_text(text: str) -> list[str]:
+    return _merge_unique_values(SOURCE_REF_INLINE_RE.findall(str(text or "")))
+
+
 def _semantic_related_nodes(values: list[str]) -> list[str]:
     return [
         value
@@ -833,7 +838,7 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     topic_key = topic["topic_id"].split(":", 1)[1]
     semantic_category = ring_node.get("semantic_category_path") or {}
     semantic_segments = list(semantic_category.get("segments") or [])
-    category_slug = semantic_segments[-1] if semantic_segments else topic_key
+    category_slug = topic_key
     category_page_rel = category_page_relative_path(semantic_category, slug=category_slug)
     category_page_path = vault / category_page_rel
     topic_path = vault / topic["page_path"]
@@ -926,6 +931,7 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     source_refs = _merge_unique_values(
         [
             *_metadata_values(existing_community, "source_refs"),
+            *_source_refs_from_text(existing_community),
             *_source_refs_from_related_nodes(vault, related_nodes),
             ring["source_ref"],
         ]
@@ -1145,6 +1151,8 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
         confidence_deductions.append("human_evaluator_not_executed")
     if related_nodes and not semantic_related_nodes:
         confidence_deductions.append("semantic_related_pages_not_established")
+    if verdict == "pass" and not confidence_deductions:
+        confidence_deductions.append("bounded_automatic_confidence_cap")
     confidence_reason_codes = list(confidence_deductions)
     if verdict == "pass":
         confidence = round(max(0.0, 0.94 - (0.06 * len(confidence_deductions))), 2)
@@ -1233,6 +1241,8 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         event_role=str(payload.get("provider_event_role") or "provider_conversation_source"),
         redaction_status=str(resolved.get("redaction_status") or "pointer_only"),
     )
+    if commit_watermark:
+        provider_source_event["commit_watermark"] = commit_watermark
     amundsen_route = route_amundsen_continent(
         payload=payload,
         topic_title=topic_title,

@@ -18,14 +18,19 @@ WIKI_PAGE_MUTATION_SCHEMA = "wiki_page_mutation.v1.schema.json"
 SUPPORT_BUNDLE_V2_SCHEMA = "support_bundle.v2.schema.json"
 
 REQUIRED_WIKI_SECTIONS = (
-    "## What It Is",
+    "## What This Page Is",
     "## Why It Matters",
     "## Key Points",
+    "## Operating Rule",
+    "## Category Placement",
+    "## Retrieval Surface",
     "## Examples",
     "## How This Changed",
     "## Source Synthesis",
     "## Important Distinctions",
     "## Related Pages",
+    "## Wiki Operations",
+    "## Data Gaps",
     "## Open Questions",
     "## Machine Appendix",
 )
@@ -164,6 +169,13 @@ def build_wiki_page_from_ring_node(
                 }
             )
     community = ring_node.get("community") or {}
+    retrieval_contract = ring_node.get("retrieval_contract") if isinstance(ring_node.get("retrieval_contract"), Mapping) else {}
+    retrieval_terms = _unique_strings(
+        [
+            *_strings(retrieval_contract.get("retrieval_terms") or []),
+            *_strings(retrieval_contract.get("keywords") or []),
+        ]
+    )
     timeline = [
         item
         for item in ring_node.get("decision_timeline") or []
@@ -210,6 +222,7 @@ def build_wiki_page_from_ring_node(
         "community_growth_summary": _community_growth_summary(growth),
         "important_distinctions": forbidden
         or ["Keep adjacent topics separate until an accepted later source explicitly bridges them."],
+        "retrieval_terms": retrieval_terms,
         "related_pages": related,
         "source_cell_refs": _strings(source_cell_refs),
         "open_questions": _strings(ring_node.get("open_questions") or []),
@@ -290,10 +303,11 @@ def render_wiki_page_markdown(
         "article_role: representative_tree",
         f"page_ref: {wiki_page['page_ref']}",
         f"title: {wiki_page['canonical_title']}",
+        f"root_claim: {str(wiki_page['what_it_is']).replace(chr(10), ' ')}",
         "---",
         f"# {wiki_page['canonical_title']}",
         "",
-        "## What It Is",
+        "## What This Page Is",
         str(wiki_page["what_it_is"]),
         "",
         "## Why It Matters",
@@ -301,6 +315,15 @@ def render_wiki_page_markdown(
         "",
         "## Key Points",
         *[f"- {item}" for item in wiki_page.get("key_points") or []],
+        "",
+        "## Operating Rule",
+        str((wiki_page.get("key_points") or [wiki_page.get("what_it_is")])[0]),
+        "",
+        "## Category Placement",
+        _category_placement_text(machine_appendix=machine_appendix, wiki_page=wiki_page),
+        "",
+        "## Retrieval Surface",
+        *_retrieval_surface_lines(wiki_page=wiki_page),
         "",
         "## Examples",
         *[f"- {item}" for item in wiki_page.get("examples") or []],
@@ -327,6 +350,21 @@ def render_wiki_page_markdown(
         )
     else:
         lines.append("- No related page has been accepted yet.")
+    lines.extend(
+        [
+            "",
+            "## Wiki Operations",
+            "- Ingest: source cells are admitted with source_ref, origin locator, anchor hash, and message range before this page is written.",
+            "- Query: MF1 may use this page only through safe_index_cursor membership and source-backed support matching.",
+            "- Lint: Janitor must check stale, duplicate, conflict, unsafe, and repair-needed states before production support.",
+            "- Index/log: index.md and log.md must track this page so Raw / Wiki / Schema and Ingest / Query / Lint stay aligned.",
+            "",
+            "## Data Gaps",
+            "- This page does not prove the whole memory system is ready for release.",
+            "- Human review, graph dedupe, or later contradiction repair may still change the page state.",
+            "- Adjacent topics remain separate until a later source-backed update explicitly bridges them.",
+        ]
+    )
     lines.extend(["", "## Sources"])
     if cell_rows:
         for index, cell in enumerate(cell_rows, start=1):
@@ -349,6 +387,44 @@ def render_wiki_page_markdown(
         ]
     )
     return "\n".join(lines) + "\n"
+
+
+def _category_placement_text(
+    *,
+    machine_appendix: Mapping[str, Any] | None,
+    wiki_page: Mapping[str, Any],
+) -> str:
+    appendix = machine_appendix if isinstance(machine_appendix, Mapping) else {}
+    category = appendix.get("semantic_category_path") if isinstance(appendix.get("semantic_category_path"), Mapping) else {}
+    category_path = str(category.get("path") or "").strip()
+    if not category_path:
+        page_ref = str(wiki_page.get("page_ref") or "")
+        marker = "oy-vault://categories/"
+        if page_ref.startswith(marker):
+            category_path = page_ref.removeprefix(marker).rsplit("/", 1)[0]
+    if not category_path:
+        return "No accepted category path has been attached yet; keep this page candidate-only for placement decisions."
+    segments = [segment for segment in category_path.split("/") if segment]
+    if not segments:
+        return "No accepted category path has been attached yet; keep this page candidate-only for placement decisions."
+    continent = segments[0]
+    mountain = " / ".join(segments[:2]) if len(segments) >= 2 else continent
+    forest = " / ".join(segments[:3]) if len(segments) >= 3 else mountain
+    tree_area = category_path
+    return (
+        f"This page is filed under `{tree_area}`. "
+        f"Continent: `{continent}`. Mountain: `{mountain}`. Forest: `{forest}`. "
+        "Use this placement to decide whether a later source should attach here, become a child page, split as a sibling, or stay rejected."
+    )
+
+
+def _retrieval_surface_lines(*, wiki_page: Mapping[str, Any]) -> list[str]:
+    terms = _strings(wiki_page.get("retrieval_terms") or [])
+    if not terms:
+        terms = _strings(wiki_page.get("key_points") or [])[:4]
+    if not terms:
+        return ["- No accepted retrieval terms yet; keep recall conservative."]
+    return [f"- {term}" for term in terms[:12]]
 
 
 def _timeline_summary(events: Iterable[Mapping[str, Any]]) -> str:

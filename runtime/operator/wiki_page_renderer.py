@@ -27,6 +27,8 @@ def render_wiki_continent_page(*, ring_node: Mapping[str, Any]) -> str:
     growth = list(ring_node.get("community_growth_events") or [])
     retrieval = ring_node.get("retrieval_contract") or {}
     community = ring_node.get("community") or {}
+    lifecycle = ring_node.get("lifecycle") if isinstance(ring_node.get("lifecycle"), Mapping) else {}
+    lifecycle_state = str(lifecycle.get("state") or "UNKNOWN")
     quality = ring_node.get("quality_assessment") or {}
     segments = list(category_path.get("segments") or [])
     category_slug = segments[-1] if segments else str(topic.get("topic_id") or "page").split(":", 1)[-1]
@@ -39,6 +41,7 @@ def render_wiki_continent_page(*, ring_node: Mapping[str, Any]) -> str:
         "provider_source_events": provider_events,
         "decision_timeline": timeline,
         "community_growth_events": growth,
+        "state": lifecycle_state,
         "machine_appendix_present": True,
         "hard_nonclaims": [
             "wiki_page_is_not_provider_answer",
@@ -68,8 +71,21 @@ def render_wiki_continent_page(*, ring_node: Mapping[str, Any]) -> str:
         "schema_version": "wiki_ring_machine_summary.v1",
         "internal_node_id": ring_node.get("node_id"),
         "ring_ids": [str(item.get("ring_id") or "") for item in ring_node.get("provenance_rings") or [] if isinstance(item, Mapping)],
+        "provenance_rings": [
+            {
+                "ring_id": item.get("ring_id"),
+                "source_ref": item.get("source_ref"),
+                "message_index_range": item.get("message_index_range"),
+                "anchor_hash": item.get("anchor_hash"),
+                "commit_watermark": item.get("commit_watermark"),
+                "resolver_status": item.get("resolver_status"),
+            }
+            for item in ring_node.get("provenance_rings") or []
+            if isinstance(item, Mapping)
+        ],
         "community_id": community.get("community_id"),
         "retrieval_terms": retrieval.get("retrieval_terms") or retrieval.get("keywords") or [],
+        "keyword_policy": retrieval.get("keyword_policy"),
         "quality_assessment": quality,
         "lineage_quality_assessment": ring_node.get("lineage_quality_assessment") or {},
         "hard_nonclaims": [
@@ -162,6 +178,7 @@ def _compact_machine_appendix(
         "page_contract": {
             "schema_version": page_contract.get("schema_version"),
             "page_ref": page_contract.get("page_ref"),
+            "state": page_contract.get("state"),
             "machine_appendix_present": page_contract.get("machine_appendix_present"),
         },
         "page_ref": page_contract.get("page_ref"),
@@ -175,6 +192,7 @@ def _compact_machine_appendix(
             "timestamp": log_entry.get("timestamp"),
             "source_ref": log_entry.get("source_ref"),
         },
+        "provenance_rings": ring_summary.get("provenance_rings") or [],
         "provider_source_events": [
             {
                 "schema_version": event.get("schema_version") or "provider_source_event.v1",
@@ -182,6 +200,7 @@ def _compact_machine_appendix(
                 "source_ref": event.get("source_ref"),
                 "message_index_range": event.get("message_index_range"),
                 "anchor_hash": event.get("anchor_hash"),
+                "commit_watermark": event.get("commit_watermark"),
             }
             for event in provider_events
             if isinstance(event, Mapping)
@@ -217,10 +236,19 @@ def _compact_machine_appendix(
             if isinstance(event, Mapping)
         ],
         "quality_summary": {
+            "evaluator": quality.get("evaluator"),
             "verdict": quality.get("verdict"),
             "confidence": quality.get("confidence"),
             "reason_codes": quality.get("reason_codes") or [],
+            "checks": quality.get("checks") or {},
+            "duplication_risk": quality.get("duplication_risk"),
+            "misclassification_risk": quality.get("misclassification_risk"),
+            "recallability": quality.get("recallability"),
             "hard_nonclaims": quality.get("hard_nonclaims") or [],
+        },
+        "retrieval_contract": {
+            "retrieval_terms": ring_summary.get("retrieval_terms") or [],
+            "keyword_policy": ring_summary.get("keyword_policy"),
         },
         "hard_nonclaims": page_contract.get("hard_nonclaims") or [],
     }

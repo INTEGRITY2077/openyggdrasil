@@ -53,7 +53,7 @@ def resolve_vault_root(
     private testbed vault.
     """
 
-    active_env = env or os.environ
+    active_env = os.environ if env is None else env
     for name in PRODUCTION_VAULT_ENV_ORDER:
         value = _env_value(active_env, name)
         if value:
