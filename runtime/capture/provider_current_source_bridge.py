@@ -718,12 +718,12 @@ def _generic_provider_exchange_memory_fields(*, user_text: str, assistant_text: 
 
 
 def _should_request_domain_evidence(signal_buckets: list[str]) -> bool:
-    domain_buckets = {
-        "agent-taxonomy",
-        "extension-placement",
-        "automation-timing",
+    non_domain_buckets = {
+        "durable-reuse",
+        "role-boundary",
+        "source-evidence",
     }
-    return bool(domain_buckets.intersection(signal_buckets))
+    return any(bucket not in non_domain_buckets for bucket in signal_buckets)
 
 
 def _attach_domain_evidence_request(
