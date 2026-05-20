@@ -29,6 +29,21 @@ SELF_QUALITY_MARKERS = (
     "human_evaluator_not_executed",
 )
 
+BODY_CONTAMINATION_MARKERS = (
+    "이 저장 내용이",
+    "저장 처리 완료",
+    "저장됨이라고 말할 수",
+    "receipt",
+    "produced_count",
+    "mail_id",
+    "work_order_id",
+    "source_ref_status",
+    "quality verdict",
+    "production-ready",
+    "production ready",
+    "production readiness",
+)
+
 PROOF_PATH_DUMP_RE = re.compile(
     r"\b(receipt|produced_count|source_ref_status|work_order|mail_id)\s*[:=]"
     r"|\b(work_order|mail_id)[_-]id\b"
@@ -114,6 +129,8 @@ def evaluate_content_first_wiki_article(markdown: str, *, path_hint: str = "") -
             blockers.append(fail_code)
 
     lower = markdown.lower()
+    body_before_appendix = markdown.partition("## Machine Appendix")[0]
+    body_lower = body_before_appendix.lower()
     first_body = _first_content_block(markdown).lower()
     machine_appendix_index = lower.find("## machine appendix")
     missing_groups = [
@@ -137,8 +154,9 @@ def evaluate_content_first_wiki_article(markdown: str, *, path_hint: str = "") -
     add(_has_time_direction(markdown), 10, "time_direction_present", "time_direction_missing")
     add(_related_pages_are_semantic(markdown), 8, "semantic_related_pages", "related_pages_are_internal_ids_or_missing")
     add(_machine_appendix_is_late(markdown, machine_appendix_index), 5, "machine_appendix_late", "machine_appendix_missing_or_too_early")
-    add(not any(marker in lower for marker in SELF_QUALITY_MARKERS), 5, "no_self_quality_claim", "self_quality_claim_present")
+    add(not any(marker in body_lower for marker in SELF_QUALITY_MARKERS), 5, "no_self_quality_claim", "self_quality_claim_present")
     add(not _has_proof_path_dump(first_body), 5, "mf_safe_user_surface", "proof_or_mailbox_terms_in_opening")
+    add(not _has_body_contamination(body_before_appendix), 10, "no_body_contamination", "body_contains_proof_or_storage_self_talk")
 
     verdict = "pass" if score >= 90 and not blockers else "fail"
     return {
@@ -222,6 +240,11 @@ def _has_proof_path_dump(text: str) -> bool:
     return bool(PROOF_PATH_DUMP_RE.search(text))
 
 
+def _has_body_contamination(text: str) -> bool:
+    lowered = text.lower()
+    return any(marker in lowered or marker in text for marker in BODY_CONTAMINATION_MARKERS)
+
+
 def _source_synthesis_is_contentful(markdown: str) -> bool:
     section = _section_text(markdown, "Source Synthesis") or _section_text(markdown, "Source Notes") or _section_text(markdown, "Sources")
     if not section:
@@ -266,7 +289,18 @@ def _related_pages_are_semantic(markdown: str) -> bool:
 def _machine_appendix_is_late(markdown: str, machine_appendix_index: int) -> bool:
     if machine_appendix_index < 0:
         return False
-    return machine_appendix_index > len(markdown) * 0.60
+    preceding_groups = {
+        group: candidates
+        for group, candidates in ARTICLE_SECTION_GROUPS.items()
+        if group != "appendix"
+    }
+    return all(
+        any(
+            (index := markdown.find(section)) >= 0 and index < machine_appendix_index
+            for section in candidates
+        )
+        for candidates in preceding_groups.values()
+    )
 
 
 def _section_text(markdown: str, heading: str) -> str:

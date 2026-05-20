@@ -11,6 +11,7 @@ from runtime.wiki.operation import (
     render_wiki_page_markdown,
     validate_support_bundle_v2,
 )
+from runtime.wiki.content_first_gate import evaluate_content_first_wiki_article
 
 
 ANCHOR_HASH = hashlib.sha256(b"wiki-operation-contract-test").hexdigest()
@@ -77,6 +78,51 @@ def test_wiki_page_contract_renders_prose_first_markdown() -> None:
     assert lint_wiki_page_markdown(markdown)["status"] == "pass"
 
 
+def test_wiki_continent_renderer_keeps_lineage_contract_markers_in_machine_appendix() -> None:
+    from runtime.operator.wiki_page_renderer import render_wiki_continent_page
+
+    ring_node = _ring_node()
+    ring_node["semantic_category_path"] = {
+        "schema_version": "semantic_category_path.v1",
+        "path": "software-development/contracts",
+        "segments": ["software-development", "contracts"],
+        "category_authority": {"owner": "amundsen"},
+    }
+    ring_node["provider_source_events"] = [
+        {
+            "schema_version": "provider_source_event.v1",
+            "event_id": "pse-test",
+            "source_ref": SOURCE_REF,
+            "message_index_range": {"start": 0, "end": 3},
+            "anchor_hash": ANCHOR_HASH,
+        }
+    ]
+    ring_node["decision_timeline"] = [
+        {
+            "schema_version": "decision_timeline_event.v1",
+            "timeline_event_id": "dte-test",
+            "decision_owner": "ms",
+            "event_kind": "storage_admission",
+            "reason_codes": ["source_ref_resolved"],
+        }
+    ]
+    ring_node["community_growth_events"] = [
+        {
+            "schema_version": "community_growth_event.v1",
+            "growth_event_id": "cge-test",
+            "event_kind": "attached",
+            "community_id": "community:wiki-operation",
+            "created_at": "2026-05-21T00:00:00+09:00",
+        }
+    ]
+    markdown = render_wiki_continent_page(ring_node=ring_node)
+    assert '"schema_version": "wiki_continent_page.v1"' in markdown
+    assert '"schema_version": "provider_source_event.v1"' in markdown
+    assert '"schema_version": "decision_timeline_event.v1"' in markdown
+    assert '"schema_version": "semantic_category_path.v1"' in markdown
+    assert '"schema_version": "community_growth_event.v1"' in markdown
+
+
 def test_lint_blocks_proof_marker_before_machine_appendix() -> None:
     markdown = """# Bad Page
 
@@ -107,6 +153,48 @@ x
     result = lint_wiki_page_markdown(markdown)
     assert result["status"] == "fail"
     assert "receipt" in result["proof_markers_in_body"]
+
+
+def test_content_first_gate_accepts_article_heading_variants_before_machine_appendix() -> None:
+    markdown = """---
+schema_version: wiki_article.v1
+article_role: representative_tree
+---
+# Domestic Dog Ecology
+
+Dogs adapt to people through inherited behavior, daily routines, and the environment around them.
+
+## What This Page Decides
+This page separates ordinary dog ecology from adjacent welfare or urban wildlife questions.
+
+## Why It Matters
+The same walk can be an ecology question, a welfare question, or an urban wildlife question.
+
+## Operating Rule
+Keep behavior and environment in the ecology page; split care ethics and wildlife impact when they become the main decision.
+
+## Examples
+- Breed differences can stay as a child detail when they explain the ecology question.
+
+## How This Changed Over Time
+The page started with walking stress, then added breed variation and an urban ecology split boundary.
+
+## Source Synthesis
+The page combines conversation turns, dog behavior references, and adjacent welfare/ecology source cells.
+
+## Related Pages
+- Companion Animal Welfare
+- Urban Animal Ecology
+
+## Machine Appendix
+{}
+"""
+    result = evaluate_content_first_wiki_article(
+        markdown,
+        path_hint="vault/categories/biology/animal-ecology/domestic-dogs/domestic-dog-ecology.md",
+    )
+    assert result["verdict"] == "pass"
+    assert "machine_appendix_late" in result["reason_codes"]
 
 
 def test_support_bundle_v2_requires_wiki_page_and_source_cell_refs() -> None:

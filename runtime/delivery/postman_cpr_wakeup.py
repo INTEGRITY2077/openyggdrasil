@@ -218,9 +218,10 @@ def _build_provider_cpr_wakeup_prompt(result: Mapping[str, Any]) -> str:
     del result
     return (
         f"{PROVIDER_REJUDGMENT_WAKE_SENTINEL} "
-        "OpenYggdrasil 보강 결과가 도착했습니다. 마지막 사용자 질문과 현재 답을 다시 비교하세요. "
-        "근거가 충분하면 필요한 문장만 보강하고, 부족하거나 답을 바꿀 근거가 없으면 그렇게 짧게 닫으세요. "
-        "파일 경로, 노드 ID, receipt ID, 개수 목록은 사용자 답변에 쓰지 마세요."
+        "OpenYggdrasil 보강 결과가 도착했습니다. "
+        "방금 답한 내용을 마지막 사용자 질문과 다시 비교하세요. "
+        "충분하면 필요한 밀도로만 보강하고, 부족하거나 현재 답을 바꿀 근거가 없으면 그렇게 짧게 닫으세요. "
+        "파일 경로, 내부 식별자, 개수 목록은 사용자 답변에 쓰지 마세요."
     )
 
 

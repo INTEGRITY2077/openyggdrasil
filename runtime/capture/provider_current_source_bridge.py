@@ -442,6 +442,57 @@ def _stable_signal_buckets(text: str) -> list[str]:
             "\uc0dd\uba85\uc8fc\uae30",
             "\uc774\ubca4\ud2b8",
         ),
+        "animal-ecology": (
+            "dog",
+            "dogs",
+            "puppy",
+            "canine",
+            "walk",
+            "walking",
+            "smell",
+            "odor",
+            "routine",
+            "breed",
+            "husky",
+            "chihuahua",
+            "\uac15\uc544\uc9c0",
+            "\ubc18\ub824\uacac",
+            "\uc0b0\ucc45",
+            "\ud6c4\uac01",
+            "\ub0c4\uc0c8",
+            "\ub8e8\ud2f4",
+            "\ud488\uc885",
+        ),
+        "animal-welfare": (
+            "welfare",
+            "punishment",
+            "training",
+            "ethics",
+            "stress",
+            "behavior modification",
+            "\ubcf5\uc9c0",
+            "\uccb4\ubc8c",
+            "\ud6c8\ub828",
+            "\uc724\ub9ac",
+            "\uc2a4\ud2b8\ub808\uc2a4",
+            "\ud589\ub3d9 \uc218\uc815",
+        ),
+        "urban-ecology": (
+            "urban",
+            "park",
+            "wildlife",
+            "habitat",
+            "disturbance",
+            "leash",
+            "public management",
+            "\ub3c4\uc2dc",
+            "\uacf5\uc6d0",
+            "\uc57c\uc0dd\ub3d9\ubb3c",
+            "\uc11c\uc2dd\uc9c0",
+            "\uad50\ub780",
+            "\ub9ac\ub4dc\uc904",
+            "\uacf5\uacf5 \uad00\ub9ac",
+        ),
     }
     active = [
         bucket
@@ -483,7 +534,11 @@ def _select_canonical_decision(*, answer_candidate: str, conclusion: str) -> str
     answer_candidate = str(answer_candidate or "").strip()
     conclusion = str(conclusion or "").strip()
     sentence_count = sum(answer_candidate.count(marker) for marker in (".", "?", "!", "。"))
-    if conclusion and (_looks_like_answer_scaffold(answer_candidate) or sentence_count >= 2):
+    if conclusion and (
+        _looks_like_answer_scaffold(answer_candidate)
+        or sentence_count >= 2
+        or len(answer_candidate) < 40
+    ):
         return conclusion
     return answer_candidate or conclusion
 
@@ -616,6 +671,21 @@ def _generic_provider_exchange_memory_fields(*, user_text: str, assistant_text: 
             "Use when team documentation revisits the same mentioned Claude Code surfaces "
             "and needs their placement roles kept separate."
         )
+    elif "animal-ecology" in buckets:
+        canonical_topic_title = "Domestic dog ecology and adjacent boundary map"
+        topic_stem = "domestic-dog-ecology-boundary"
+        context = (
+            "A Provider exchange separated the ecological function of dog walking "
+            "from adjacent breed-variation, welfare, and urban-ecology questions."
+        )
+        conclusion = (
+            "Keep dog walking ecology, breed variation, training ethics, and urban wildlife impact "
+            "as related but separate decision axes unless a later source explicitly bridges them."
+        )
+        reuse_condition = (
+            "Use when a later question asks whether a dog-care detail belongs in domestic dog ecology, "
+            "a breed-specific child topic, companion animal welfare, or urban animal ecology."
+        )
     else:
         canonical_topic_title = "Provider durable reuse boundary"
         topic_stem = "provider-durable-reuse-boundary"
@@ -651,9 +721,7 @@ def _should_request_domain_evidence(signal_buckets: list[str]) -> bool:
     domain_buckets = {
         "agent-taxonomy",
         "extension-placement",
-        "execution-distribution",
         "automation-timing",
-        "source-evidence",
     }
     return bool(domain_buckets.intersection(signal_buckets))
 

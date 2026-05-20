@@ -327,6 +327,18 @@ def _is_boundary_question(text: str, query_tokens: set[str]) -> bool:
 
 def _conceptual_boundary_aliases(terms: set[str]) -> set[str]:
     aliases: set[str] = set()
+    if terms & {"품종", "견종"}:
+        aliases.update({"breed", "variation", "breed-specific"})
+    if terms & {"사람", "개입", "훈련", "윤리", "복지"}:
+        aliases.update({"human", "intervention", "training", "ethics", "welfare"})
+    if terms & {"산책", "걷기"}:
+        aliases.update({"walking", "walk", "dog", "ecology"})
+    if terms & {"스트레스", "예민"}:
+        aliases.add("stress")
+    if terms & {"도시", "생태", "야생동물", "공원"}:
+        aliases.update({"urban", "ecology", "wildlife"})
+    if terms & {"문서", "페이지"}:
+        aliases.update({"document", "page"})
     if terms & {"실행", "단위"}:
         aliases.update({"execution", "runtime", "model"})
     if terms & {"정의"}:

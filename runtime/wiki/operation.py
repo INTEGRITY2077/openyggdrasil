@@ -21,9 +21,11 @@ REQUIRED_WIKI_SECTIONS = (
     "## What It Is",
     "## Why It Matters",
     "## Key Points",
+    "## Examples",
+    "## How This Changed",
+    "## Source Synthesis",
     "## Important Distinctions",
     "## Related Pages",
-    "## Sources",
     "## Open Questions",
     "## Machine Appendix",
 )
@@ -58,6 +60,18 @@ def _as_list(value: Any) -> list[Any]:
 
 def _strings(values: Iterable[Any]) -> list[str]:
     return [str(item).strip() for item in values if str(item).strip()]
+
+
+def _unique_strings(values: Iterable[Any]) -> list[str]:
+    seen: set[str] = set()
+    rows: list[str] = []
+    for item in values:
+        text = str(item).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        rows.append(text)
+    return rows
 
 
 def _json_block(value: Any) -> str:
@@ -150,6 +164,16 @@ def build_wiki_page_from_ring_node(
                 }
             )
     community = ring_node.get("community") or {}
+    timeline = [
+        item
+        for item in ring_node.get("decision_timeline") or []
+        if isinstance(item, Mapping)
+    ]
+    growth = [
+        item
+        for item in ring_node.get("community_growth_events") or []
+        if isinstance(item, Mapping)
+    ]
     if not related and community.get("community_id"):
         related.append(
             {
@@ -158,6 +182,13 @@ def build_wiki_page_from_ring_node(
                 "why_related": "This page belongs to the same knowledge community.",
             }
         )
+    timeline_summary = _timeline_summary(timeline)
+    examples = _strings(
+        [
+            _example_from_decision(decision),
+            _example_from_reuse_condition(reuse_condition),
+        ]
+    )
     payload = {
         "schema_version": "wiki_page.v1",
         "page_ref": page_ref,
@@ -165,7 +196,7 @@ def build_wiki_page_from_ring_node(
         "display_title": title,
         "what_it_is": decision or context or "A reusable OpenYggdrasil wiki topic.",
         "why_it_matters": context or reuse_condition or "Future providers can reuse this without rereading the full source.",
-        "key_points": _strings(
+        "key_points": _unique_strings(
             [
                 decision,
                 reuse_condition,
@@ -173,8 +204,12 @@ def build_wiki_page_from_ring_node(
             ]
         )
         or ["This page summarizes a reusable source-backed distinction."],
+        "examples": examples or ["Use this page when the same distinction appears in a later conversation."],
+        "time_direction": timeline_summary
+        or "The page records an initial Provider source, an MS1 admission decision, and later category/community updates when they occur.",
+        "community_growth_summary": _community_growth_summary(growth),
         "important_distinctions": forbidden
-        or ["Do not treat source-backed wiki support as a production-ready claim."],
+        or ["Keep adjacent topics separate until an accepted later source explicitly bridges them."],
         "related_pages": related,
         "source_cell_refs": _strings(source_cell_refs),
         "open_questions": _strings(ring_node.get("open_questions") or []),
@@ -251,7 +286,8 @@ def render_wiki_page_markdown(
     open_questions = wiki_page.get("open_questions") or []
     lines = [
         "---",
-        f"schema_version: {wiki_page['schema_version']}",
+        "schema_version: wiki_article.v1",
+        "article_role: representative_tree",
         f"page_ref: {wiki_page['page_ref']}",
         f"title: {wiki_page['canonical_title']}",
         "---",
@@ -266,8 +302,20 @@ def render_wiki_page_markdown(
         "## Key Points",
         *[f"- {item}" for item in wiki_page.get("key_points") or []],
         "",
+        "## Examples",
+        *[f"- {item}" for item in wiki_page.get("examples") or []],
+        "",
+        "## How This Changed",
+        str(wiki_page.get("time_direction") or "No time-direction summary has been accepted yet."),
+        "",
+        "## Source Synthesis",
+        _source_synthesis_text(wiki_page=wiki_page, source_cells=cell_rows),
+        "",
         "## Important Distinctions",
         *[f"- {item}" for item in wiki_page.get("important_distinctions") or []],
+        "",
+        "## Maintenance Notes",
+        str(wiki_page.get("community_growth_summary") or "No accepted maintenance or community-growth note has been recorded yet."),
         "",
         "## Related Pages",
     ]
@@ -281,12 +329,9 @@ def render_wiki_page_markdown(
         lines.append("- No related page has been accepted yet.")
     lines.extend(["", "## Sources"])
     if cell_rows:
-        for cell in cell_rows:
+        for index, cell in enumerate(cell_rows, start=1):
             supports = "; ".join(str(item) for item in cell.get("supports") or [])
-            limits = "; ".join(str(item) for item in cell.get("does_not_support") or [])
-            lines.append(f"- {cell['source_cell_id']}: {supports}")
-            if limits:
-                lines.append(f"  - Does not support: {limits}")
+            lines.append(f"- Accepted source {index}: {supports}")
     else:
         lines.append("- No source cells attached.")
     lines.extend(["", "## Open Questions"])
@@ -304,6 +349,58 @@ def render_wiki_page_markdown(
         ]
     )
     return "\n".join(lines) + "\n"
+
+
+def _timeline_summary(events: Iterable[Mapping[str, Any]]) -> str:
+    rows = list(events)
+    if not rows:
+        return ""
+    labels: list[str] = []
+    for row in rows[:5]:
+        owner = str(row.get("decision_owner") or row.get("owner") or "system")
+        kind = str(row.get("decision_kind") or row.get("event_kind") or "decision")
+        labels.append(f"{owner}:{kind}")
+    return "Decision lineage so far: " + " -> ".join(labels) + "."
+
+
+def _community_growth_summary(events: Iterable[Mapping[str, Any]]) -> str:
+    rows = list(events)
+    if not rows:
+        return "No accepted community growth event yet."
+    kinds = [str(row.get("event_kind") or "event") for row in rows[:5]]
+    return "Community growth recorded as: " + ", ".join(kinds) + "."
+
+
+def _example_from_decision(decision: str) -> str:
+    text = str(decision or "").strip()
+    if not text:
+        return ""
+    return f"When a later question asks this same distinction, start from: {text}"
+
+
+def _example_from_reuse_condition(reuse_condition: str) -> str:
+    text = str(reuse_condition or "").strip()
+    if not text:
+        return ""
+    return f"Reuse condition: {text}"
+
+
+def _source_synthesis_text(*, wiki_page: Mapping[str, Any], source_cells: Iterable[Mapping[str, Any]]) -> str:
+    cells = list(source_cells)
+    if not cells:
+        return "No accepted source cell has been attached, so this page must stay candidate-only."
+    supports: list[str] = []
+    limits: list[str] = []
+    for cell in cells:
+        supports.extend(str(item).strip() for item in cell.get("supports") or [] if str(item).strip())
+        limits.extend(str(item).strip() for item in cell.get("does_not_support") or [] if str(item).strip())
+    support_text = supports[0] if supports else str(wiki_page.get("what_it_is") or "the page claim")
+    return (
+        "The accepted source material keeps this article grounded in the part of the conversation "
+        "where the distinction stabilized. "
+        f"It supports the reusable distinction that {support_text}. "
+        "Nearby topics should still be split or bridged by later source-backed updates instead of by title similarity."
+    )
 
 
 def lint_wiki_page_markdown(markdown: str) -> dict[str, Any]:

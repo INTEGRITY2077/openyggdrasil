@@ -8,6 +8,26 @@ from typing import Any, Mapping
 
 SUPPORT_EXCLUSION_SCHEMA_VERSION = "support_exclusion_manifest.v1"
 SUPPORT_EXCLUSION_RELATIVE_PATH = "_meta/support_exclusion_manifest.json"
+BUILTIN_FINAL_SUPPORT_EXCLUSION_PATTERNS = (
+    {
+        "pattern": "vault/concepts/N-*.md",
+        "exclusion_state": "machine_mirror",
+        "final_support_allowed": False,
+        "reason_codes": [
+            "concept_hash_node_is_internal_machine_mirror",
+            "reader_support_must_use_readable_wiki_page_or_source_cell",
+        ],
+    },
+    {
+        "pattern": "vault/concepts/PRN-*.md",
+        "exclusion_state": "machine_mirror",
+        "final_support_allowed": False,
+        "reason_codes": [
+            "provenance_ring_node_is_internal_machine_mirror",
+            "reader_support_must_use_readable_wiki_page_or_source_cell",
+        ],
+    },
+)
 
 
 def _normalize_vault_path(value: object, *, vault_root: Path) -> str:
@@ -66,6 +86,7 @@ def load_support_exclusion_manifest(vault_root: Path) -> dict[str, Any]:
         }
     entries = [dict(item) for item in payload.get("entries") or [] if isinstance(item, Mapping)]
     patterns = [dict(item) for item in payload.get("patterns") or [] if isinstance(item, Mapping)]
+    patterns = [*patterns, *[dict(item) for item in BUILTIN_FINAL_SUPPORT_EXCLUSION_PATTERNS]]
     return {
         **dict(payload),
         "schema_version": str(payload.get("schema_version") or SUPPORT_EXCLUSION_SCHEMA_VERSION),
@@ -97,6 +118,7 @@ def support_exclusion_for_path(*, vault_root: Path, path_value: object) -> dict[
                 "path": normalized,
                 "manifest_status": manifest.get("status"),
                 "exclusion_state": str(entry.get("exclusion_state") or "excluded"),
+                "final_support_allowed": False,
                 "reason_codes": list(entry.get("reason_codes") or []),
                 "entry": entry,
             }
@@ -112,6 +134,7 @@ def support_exclusion_for_path(*, vault_root: Path, path_value: object) -> dict[
                 "path": normalized,
                 "manifest_status": manifest.get("status"),
                 "exclusion_state": str(pattern_entry.get("exclusion_state") or "excluded_by_pattern"),
+                "final_support_allowed": False,
                 "reason_codes": list(pattern_entry.get("reason_codes") or []),
                 "entry": pattern_entry,
             }

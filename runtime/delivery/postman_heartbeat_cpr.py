@@ -366,6 +366,61 @@ def _safe_node_taxonomy(value: Any) -> dict[str, Any] | None:
     }
 
 
+def _first_text_in_rows(source: Mapping[str, Any], collection_keys: Sequence[str], value_keys: Sequence[str]) -> str | None:
+    for collection_key in collection_keys:
+        rows = source.get(collection_key)
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if isinstance(row, Mapping):
+                text = _first_text(row, value_keys)
+                if text:
+                    return text
+    return None
+
+
+def _first_mapping_in_rows(source: Mapping[str, Any], collection_keys: Sequence[str], value_keys: Sequence[str]) -> dict[str, Any] | None:
+    for collection_key in collection_keys:
+        rows = source.get(collection_key)
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, Mapping):
+                continue
+            for key in value_keys:
+                value = row.get(key)
+                if isinstance(value, Mapping):
+                    return dict(value)
+    return None
+
+
+def _taxonomy_from_source_paths(source_paths: Sequence[str], node_taxonomy: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Prefer production-facing category paths over legacy concept mirror taxonomy."""
+
+    if node_taxonomy and node_taxonomy.get("continent") not in {"", "concepts", None}:
+        return node_taxonomy
+    for source_path in source_paths:
+        normalized = str(source_path or "").replace("\\", "/")
+        marker = "categories/"
+        if marker not in normalized:
+            continue
+        category_rel = normalized.split(marker, 1)[1]
+        parts = [part for part in category_rel.split("/") if part and not part.endswith(".md")]
+        if not parts:
+            continue
+        return {
+            "schema_version": "wiki_node_taxonomy.v1",
+            "continent": _safe_portable_text(parts[0]),
+            "physical_continent": "categories",
+            "node_type": "wiki_article",
+            "topography_level": "tree",
+            "community_role": (node_taxonomy or {}).get("community_role") or "member",
+            "classification_source": "source_path",
+            "taxonomy_status": "derived_from_production_category_path",
+        }
+    return node_taxonomy
+
+
 def _safe_recall_digest_value(value: Any) -> Any:
     if isinstance(value, Mapping):
         return {
@@ -480,12 +535,45 @@ def _select_support(receipt: Mapping[str, Any]) -> dict[str, Any]:
 def _support_fact_texts(support: Mapping[str, Any], receipt: Mapping[str, Any]) -> list[str]:
     direct = support.get("support_facts") or support.get("facts") or receipt.get("support_facts") or receipt.get("facts")
     if direct:
-        return _non_empty_strings(direct, limit=12)
+        values: list[Any] = []
+        for item in direct:
+            if isinstance(item, Mapping):
+                values.append(item.get("text") or item.get("support_fact") or item.get("fact") or "")
+            else:
+                values.append(item)
+        return _non_empty_strings(values, limit=12)
     origin_facts: list[str] = []
     for row in support.get("origin_claims") or ():
         if isinstance(row, Mapping):
             origin_facts.append(str(row.get("support_fact") or ""))
     return _non_empty_strings(origin_facts, limit=12)
+
+
+def _message_range_from_locator(locator: str | None) -> dict[str, int] | None:
+    if not locator:
+        return None
+    match = re.search(r"message_index=(\d+)\.\.(\d+)", locator)
+    if not match:
+        return None
+    start = int(match.group(1))
+    end = int(match.group(2))
+    if end < start:
+        return None
+    return {"start": start, "end": end}
+
+
+def _taxonomy_value(
+    *,
+    support: Mapping[str, Any],
+    node_taxonomy: Mapping[str, Any] | None,
+    key: str,
+    support_keys: Sequence[str],
+) -> str | None:
+    taxonomy_value = (node_taxonomy or {}).get(key)
+    support_value = _first_text(support, support_keys)
+    if taxonomy_value and support_value in {None, "", "concepts", "policy"}:
+        return str(taxonomy_value)
+    return support_value or (str(taxonomy_value) if taxonomy_value else None)
 
 
 def _support_metadata(mf1_receipt: Mapping[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
@@ -495,28 +583,77 @@ def _support_metadata(mf1_receipt: Mapping[str, Any] | None) -> tuple[dict[str, 
     facts = _support_fact_texts(support, receipt)
     source_paths = _safe_source_paths(support.get("source_paths") or receipt.get("source_paths") or ())
     support_status = "available" if source_paths and facts else "typed_unavailable" if typed_unavailable else "missing"
-    node_taxonomy = _safe_node_taxonomy(support.get("node_taxonomy"))
+    node_taxonomy = _taxonomy_from_source_paths(source_paths, _safe_node_taxonomy(support.get("node_taxonomy")))
+    source_ref = (
+        _first_text(support, ("source_ref", "support_bundle_ref", "canonical_note"))
+        or _first_text_in_rows(support, ("origin_claims", "recent_rings"), ("source_ref",))
+    )
+    origin_locator = (
+        _first_text(support, ("origin_locator",))
+        or _first_text_in_rows(support, ("origin_claims", "recent_rings"), ("origin_locator",))
+    )
+    provider_session_id = (
+        _first_text(support, ("provider_session_id",))
+        or _first_text_in_rows(support, ("origin_claims", "recent_rings"), ("provider_session_id",))
+    )
+    message_index_range = (
+        support.get("message_index_range")
+        if isinstance(support.get("message_index_range"), Mapping)
+        else _message_range_from_locator(origin_locator)
+        or _first_mapping_in_rows(support, ("origin_claims", "recent_rings"), ("message_index_range",))
+    )
+    source_line_range = (
+        support.get("source_line_range")
+        if isinstance(support.get("source_line_range"), Mapping)
+        else _first_mapping_in_rows(support, ("origin_claims", "recent_rings"), ("source_line_range",))
+    )
+    anchor_hash = _first_text(support, ("anchor_hash",)) or _first_text_in_rows(
+        support, ("origin_claims", "recent_rings"), ("anchor_hash",)
+    )
+    commit_watermark = _first_text(support, ("commit_watermark",)) or _first_text_in_rows(
+        support, ("origin_claims", "recent_rings"), ("commit_watermark",)
+    )
     metadata = {
         "status": support_status,
         "support_schema_version": _first_text(support, ("schema_version",)),
         "support_facts": facts,
         "source_paths": source_paths,
-        "source_ref": _first_text(support, ("source_ref", "support_bundle_ref", "canonical_note")),
+        "source_ref": source_ref,
         "community_id": _first_text(support, ("community_id", "ring_id", "topic_id")),
         "node_taxonomy": node_taxonomy,
-        "continent": _first_text(support, ("continent",)) or (node_taxonomy or {}).get("continent"),
-        "node_type": _first_text(support, ("node_type",)) or (node_taxonomy or {}).get("node_type"),
-        "topography_level": _first_text(support, ("topography_level",)) or (node_taxonomy or {}).get("topography_level"),
-        "community_role": _first_text(support, ("community_role",)) or (node_taxonomy or {}).get("community_role"),
+        "continent": _taxonomy_value(
+            support=support,
+            node_taxonomy=node_taxonomy,
+            key="continent",
+            support_keys=("continent",),
+        ),
+        "node_type": _taxonomy_value(
+            support=support,
+            node_taxonomy=node_taxonomy,
+            key="node_type",
+            support_keys=("node_type",),
+        ),
+        "topography_level": _taxonomy_value(
+            support=support,
+            node_taxonomy=node_taxonomy,
+            key="topography_level",
+            support_keys=("topography_level",),
+        ),
+        "community_role": _taxonomy_value(
+            support=support,
+            node_taxonomy=node_taxonomy,
+            key="community_role",
+            support_keys=("community_role",),
+        ),
         "currentness": _first_text(support, ("currentness", "current_authority", "lifecycle_state")),
         "topic_key": _first_text(support, ("topic_key",)),
         "ring_id": _first_text(support, ("ring_id",)),
-        "origin_locator": _first_text(support, ("origin_locator",)),
-        "provider_session_id": _first_text(support, ("provider_session_id",)),
-        "message_index_range": support.get("message_index_range") if isinstance(support.get("message_index_range"), Mapping) else None,
-        "source_line_range": support.get("source_line_range") if isinstance(support.get("source_line_range"), Mapping) else None,
-        "anchor_hash_present": bool(support.get("anchor_hash")),
-        "commit_watermark": _first_text(support, ("commit_watermark",)),
+        "origin_locator": origin_locator,
+        "provider_session_id": provider_session_id,
+        "message_index_range": message_index_range,
+        "source_line_range": source_line_range,
+        "anchor_hash_present": bool(anchor_hash),
+        "commit_watermark": commit_watermark,
         "origin_claims_count": len(support.get("origin_claims") or []) if isinstance(support.get("origin_claims"), list) else 0,
         "recent_rings_count": len(support.get("recent_rings") or []) if isinstance(support.get("recent_rings"), list) else 0,
         "community_edges_count": len(support.get("community_edges") or []) if isinstance(support.get("community_edges"), list) else 0,

@@ -45,9 +45,29 @@ def infer_semantic_category_segments(payload: Mapping[str, Any], *, topic_title:
             "conclusion",
             "community",
             "category_community_hint",
+            "reuse_condition",
         )
     )
     text = f"{topic_title} {text}".lower()
+
+    if any(term in text for term in ("dog", "dogs", "puppy", "breed", "husky", "chihuahua", "canine", "강아지", "개 ", "반려견", "품종")):
+        segments = ["biology", "animal-ecology"]
+        if any(term in text for term in ("domestic dog ecology", "dog walking", "walk", "smell", "odor", "routine", "산책", "후각", "냄새", "루틴")):
+            return [*segments, "domestic-dogs"]
+        if any(term in text for term in ("welfare", "punishment", "training", "ethic", "stress", "체벌", "훈련", "복지", "스트레스")):
+            return [*segments, "companion-animal-welfare"]
+        if any(term in text for term in ("wildlife", "urban", "park", "habitat", "도시", "공원", "야생동물", "서식지")):
+            return [*segments, "urban-animal-ecology"]
+        return [*segments, "domestic-dogs"]
+
+    if any(term in text for term in ("memory", "wiki ring", "openyggdrasil", "provider", "mf1", "ms1", "janitor", "메모리", "위키", "기억")):
+        segments = ["memory-systems", "openyggdrasil"]
+        if any(term in text for term in ("wiki ring", "node", "article", "vault", "노드", "문서", "vault")):
+            return [*segments, "wiki-ring"]
+        if any(term in text for term in ("provider", "ms1", "mf1", "postman", "janitor")):
+            return [*segments, "memory-roles"]
+        return segments
+
     if "claude code" in text or "claude-code" in text:
         segments = ["software-development", "claude-code"]
         if any(
