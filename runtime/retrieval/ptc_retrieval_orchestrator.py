@@ -46,6 +46,17 @@ RETRIEVAL_CANDIDATE_SCHEMA = "retrieval_candidate.v1.schema.json"
 RETRIEVAL_CANDIDATE_SET_SCHEMA = "retrieval_candidate_set.v1.schema.json"
 STRONG_EVIDENCE = {"source_path", "provenance"}
 DOMAIN_ROUTE_FRAGMENTS = {
+    "animal_ecology": (
+        "biology/animal-ecology",
+        "biology/animal-welfare",
+        "domestic-dogs",
+        "domestic-dog",
+        "domestic dog",
+        "urban-animal-ecology",
+        "companion-animal-welfare",
+        "dog-ecology",
+        "animal-ecology",
+    ),
     "hooks": ("hooks", "event-automation", "lifecycle-event"),
     "skills": ("skills", "reusable-guidance", "skill.md"),
     "subagents": ("subagent", "subagents", "isolated-context", "isolated-worker"),
@@ -92,6 +103,60 @@ def _query_terms(query_text: str) -> list[str]:
 def _query_domain_hints(query_text: str) -> set[str]:
     text = query_text.lower()
     hints: set[str] = set()
+    software_markers = (
+        "claude code",
+        "claude.md",
+        "hook",
+        "skill",
+        "mcp",
+        "plugin",
+        "auto memory",
+        "software",
+        "subagent",
+        "agent team",
+    )
+    animal_negation_markers = (
+        "붙이면 안",
+        "섞이면 오염",
+        "무관",
+        "아니라 software",
+        "software 쪽",
+        "dog community에 붙이면 안",
+        "dog node가 아니라",
+    )
+    if any(marker in text for marker in software_markers):
+        hints.add("documentation_placement")
+    if any(
+        marker in text
+        for marker in (
+            "강아지",
+            "개가",
+            "개의",
+            "반려견",
+            "견종",
+            "품종",
+            "산책",
+            "냄새",
+            "후각",
+            "짖음",
+            "목줄",
+            "야생동물",
+            "도시 공원",
+            "free-roaming",
+            "dog",
+            "dogs",
+            "breed-specific",
+            "husky",
+            "chihuahua",
+            "beagle",
+            "bulldog",
+            "border collie",
+            "toy poodle",
+        )
+    ):
+        hints.add("animal_ecology")
+    if "animal_ecology" in hints and any(marker in text for marker in software_markers) and any(marker in text for marker in animal_negation_markers):
+        hints.discard("animal_ecology")
     if any(marker in text for marker in ("자동", "매번", "이벤트", "event", "lifecycle", "pretooluse", "posttooluse", "도구 호출")):
         hints.add("hooks")
     if any(marker in text for marker in ("반복", "체크리스트", "작업 절차", "재사용", "필요할 때", "skill", "skills", "skill.md", "지침")):
@@ -253,6 +318,8 @@ def _candidate_feature_vector(
 def _candidate_reranker(candidate: Mapping[str, Any], features: Mapping[str, Any]) -> dict[str, Any]:
     reason_codes: list[str] = []
     lifecycle = str(candidate.get("lifecycle_state") or "").upper()
+    matched_domains = list((candidate.get("domain_affinity") or {}).get("matched") or [])
+    conflicting_domains = list((candidate.get("domain_affinity") or {}).get("conflicting") or [])
     if not (candidate.get("source_path") or candidate.get("source_ref")):
         reason_codes.append("missing_source_ref_or_source_path")
     if lifecycle in {"STALE", "SUPERSEDED"}:
@@ -263,6 +330,8 @@ def _candidate_reranker(candidate: Mapping[str, Any], features: Mapping[str, Any
         reason_codes.append("near_miss_specificity_marker_mismatch")
     if float(features.get("query_alignment_score") or 0.0) <= 0.0:
         reason_codes.append("missing_query_alignment")
+    if conflicting_domains and not matched_domains:
+        reason_codes.append("conflicting_domain_route")
 
     weighted = (
         0.16 * float(features.get("lexical_score") or 0.0)
@@ -458,10 +527,13 @@ def _node_index(vault_nodes: Sequence[Mapping[str, Any]]) -> dict[str, Mapping[s
     for node in vault_nodes:
         node_id = str(node.get("node_id") or "").strip()
         if node_id:
-            indexed[node_id] = node
+            indexed.setdefault(node_id, node)
         source_path = _source_path_for_node(node)
         if source_path:
-            indexed[Path(source_path).stem] = node
+            normalized = source_path.replace("\\", "/").strip("/")
+            indexed[normalized] = node
+            indexed[normalized.removeprefix("vault/")] = node
+            indexed.setdefault(Path(source_path).stem, node)
     return indexed
 
 
@@ -479,7 +551,14 @@ def _rank_bm25_candidates(
             candidates = []
             for row in rows:
                 node_id = str(row.get("node_id") or row.get("metadata", {}).get("node_id") or "")
-                node = indexed.get(node_id) or indexed.get(Path(node_id).stem)
+                metadata = row.get("metadata", {}) if isinstance(row.get("metadata"), Mapping) else {}
+                row_path = str(metadata.get("path") or "").replace("\\", "/").strip("/")
+                node = (
+                    indexed.get(f"vault/{row_path}")
+                    or indexed.get(row_path)
+                    or indexed.get(node_id)
+                    or indexed.get(Path(node_id).stem)
+                )
                 if node is None:
                     continue
                 candidates.append(
