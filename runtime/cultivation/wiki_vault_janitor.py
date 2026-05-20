@@ -10,6 +10,7 @@ from typing import Any, Mapping
 from runtime.common.jsonl_io import append_jsonl_atomic
 from runtime.retrieval.safe_index_cursor import load_safe_index_cursor
 from runtime.retrieval.support_exclusion_manifest import support_exclusion_for_path
+from runtime.wiki.content_first_gate import evaluate_content_first_wiki_article
 from runtime.wiki.operation import lint_wiki_page_markdown
 
 
@@ -19,6 +20,12 @@ TOMBSTONES_RELATIVE_PATH = "_meta/tombstones.jsonl"
 REPAIR_QUEUE_RELATIVE_PATH = "_meta/repair_queue.jsonl"
 SOURCE_REF_RE = re.compile(r"hermes-session-json://[A-Za-z0-9_\-]+")
 PRIVATE_ABSOLUTE_PATH_RE = re.compile(r"(?<![A-Za-z])[A-Za-z]:[\\/]|/mnt/[a-z]/", re.IGNORECASE)
+REPORT_SCAFFOLD_MARKERS = (
+    "추출된 주장:",
+    "이 소스가 노드에 충분한 이유:",
+    "커뮤니티와의 연결 방식:",
+    "이것이 증명하지 못하는 것:",
+)
 
 
 def _now_iso() -> str:
@@ -55,6 +62,16 @@ def _markdown_title(path: Path) -> str:
         if stripped.startswith("# "):
             return stripped[2:].strip()
     return ""
+
+
+def _has_mojibake(text: str) -> bool:
+    if "\ufffd" in text:
+        return True
+    if any(0x80 <= ord(char) <= 0x9F for char in text):
+        return True
+    cjk_count = sum(1 for char in text if "\u4e00" <= char <= "\u9fff")
+    suspicious_question_count = len(re.findall(r"\?[^\s\n]{1,8}", text))
+    return cjk_count >= 5 or suspicious_question_count >= 20
 
 
 def _ordered_unique(values: list[str]) -> list[str]:
@@ -310,8 +327,13 @@ def _scan_production_page_lineage(vault_root: Path) -> list[dict[str, Any]]:
             reason_codes.append("private_absolute_path_exposed")
         if "oy-vault://categories/" not in text:
             reason_codes.append("readable_oy_vault_page_ref_missing")
-        lint_result = lint_wiki_page_markdown(text)
-        if lint_result.get("status") != "pass":
+        if "schema_version: wiki_article.v1" in text:
+            lint_result = evaluate_content_first_wiki_article(text, path_hint=str(path))
+            lint_pass = lint_result.get("verdict") == "pass"
+        else:
+            lint_result = lint_wiki_page_markdown(text)
+            lint_pass = lint_result.get("status") == "pass"
+        if not lint_pass:
             reason_codes.append("wiki_page_lint_failed")
         if reason_codes:
             candidates.append(
@@ -331,12 +353,46 @@ def _scan_production_page_lineage(vault_root: Path) -> list[dict[str, Any]]:
     return candidates
 
 
+def _scan_full_vault_health(vault_root: Path) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    for path in sorted(vault_root.rglob("*")):
+        if path.is_dir():
+            continue
+        if "graphify-out" in path.parts:
+            continue
+        if path.suffix.lower() not in {".md", ".json", ".jsonl"}:
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        reason_codes: list[str] = []
+        if _has_mojibake(text):
+            reason_codes.append("mojibake_detected")
+        if PRIVATE_ABSOLUTE_PATH_RE.search(text):
+            reason_codes.append("private_absolute_path_exposed")
+        if path.suffix.lower() == ".md" and any(marker in text for marker in REPORT_SCAFFOLD_MARKERS):
+            reason_codes.append("report_scaffold_marker_in_markdown")
+        if reason_codes:
+            issues.append(
+                {
+                    "schema_version": "wiki_full_vault_health_issue.v1",
+                    "path": _relative_vault_path(path, vault_root=vault_root),
+                    "reason_codes": reason_codes,
+                    "suggested_action": "repair_or_quarantine_before_full_vault_pass",
+                    "hard_nonclaims": [
+                        "full_vault_health_issue_is_not_a_delete_event",
+                        "janitor_detection_is_not_semantic_repair_by_itself",
+                    ],
+                }
+            )
+    return issues
+
+
 def run_wiki_vault_janitor(
     *,
     vault_root: Path,
     run_id: str,
     source: str = "manual",
     write: bool = True,
+    full_vault: bool = False,
 ) -> dict[str, Any]:
     vault_root = vault_root.resolve()
     cursor = load_safe_index_cursor(vault_root)
@@ -365,21 +421,33 @@ def run_wiki_vault_janitor(
         community_source_ref_drift_candidates
     )
     production_page_lineage_issues = _scan_production_page_lineage(vault_root)
+    full_vault_health_issues = _scan_full_vault_health(vault_root) if full_vault else []
     queued_repairs = [
         decision
         for decision in [
             *duplicate_repair_decisions,
             *community_source_ref_repair_decisions,
             *production_page_lineage_issues,
+            *full_vault_health_issues,
         ]
         if decision.get("repair_queue_status") == "queued"
         or decision.get("suggested_action") == "rerender_or_quarantine_before_final_support"
     ]
     status = (
         "pass"
-        if cursor.get("status") == "configured" and not missing and not production_page_lineage_issues
+        if cursor.get("status") == "configured"
+        and not missing
+        and not production_page_lineage_issues
+        and not full_vault_health_issues
         else "partial"
     )
+    hard_nonclaims = [
+        "duplicate_title_candidate_is_not_confirmed_semantic_conflict",
+        "community_source_ref_drift_candidate_is_not_a_rendered_repair",
+        "tombstone_policy_check_is_not_a_delete_event",
+    ]
+    if not full_vault:
+        hard_nonclaims.insert(0, "janitor_slice_is_not_full_vault_health")
     now = _now_iso()
     maintenance_receipt = {
         "schema_version": "wiki_vault_janitor_receipt.v1",
@@ -398,6 +466,8 @@ def run_wiki_vault_janitor(
         "community_source_ref_drift_candidates": community_source_ref_drift_candidates,
         "community_source_ref_repair_decisions": community_source_ref_repair_decisions,
         "production_page_lineage_issues": production_page_lineage_issues,
+        "full_vault_scan_enabled": full_vault,
+        "full_vault_health_issues": full_vault_health_issues,
         "queued_repair_count": len(queued_repairs),
         "mutation_log_checked": True,
         "safe_index_cursor_checked": True,
@@ -411,12 +481,7 @@ def run_wiki_vault_janitor(
             "delete_requires_tombstone": True,
             "tombstones_path": TOMBSTONES_RELATIVE_PATH,
         },
-        "hard_nonclaims": [
-            "janitor_slice_is_not_full_vault_health",
-            "duplicate_title_candidate_is_not_confirmed_semantic_conflict",
-            "community_source_ref_drift_candidate_is_not_a_rendered_repair",
-            "tombstone_policy_check_is_not_a_delete_event",
-        ],
+        "hard_nonclaims": hard_nonclaims,
     }
     mutation_entry = {
         "schema_version": "wiki_mutation_log_entry.v1",
@@ -428,6 +493,8 @@ def run_wiki_vault_janitor(
         "missing_committed_paths": missing,
         "community_source_ref_drift_count": len(community_source_ref_drift_candidates),
         "production_page_lineage_issue_count": len(production_page_lineage_issues),
+        "full_vault_scan_enabled": full_vault,
+        "full_vault_health_issue_count": len(full_vault_health_issues),
         "queued_repair_count": len(queued_repairs),
         "hard_nonclaims": [
             "hash_check_is_not_semantic_quality_review",
@@ -472,12 +539,14 @@ def main() -> int:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--source", default="manual")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--full-vault", action="store_true")
     args = parser.parse_args()
     result = run_wiki_vault_janitor(
         vault_root=args.vault_root,
         run_id=args.run_id,
         source=args.source,
         write=not args.dry_run,
+        full_vault=args.full_vault,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["maintenance_receipt"]["status"] == "pass" else 1
