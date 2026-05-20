@@ -10,6 +10,15 @@ SUPPORT_EXCLUSION_SCHEMA_VERSION = "support_exclusion_manifest.v1"
 SUPPORT_EXCLUSION_RELATIVE_PATH = "_meta/support_exclusion_manifest.json"
 BUILTIN_FINAL_SUPPORT_EXCLUSION_PATTERNS = (
     {
+        "pattern": "vault/queries/*.md",
+        "exclusion_state": "legacy_query_projection",
+        "final_support_allowed": False,
+        "reason_codes": [
+            "query_projection_is_not_reader_facing_wiki_article",
+            "reader_support_must_use_readable_wiki_page_or_source_cell",
+        ],
+    },
+    {
         "pattern": "vault/concepts/N-*.md",
         "exclusion_state": "machine_mirror",
         "final_support_allowed": False,
@@ -55,9 +64,9 @@ def load_support_exclusion_manifest(vault_root: Path) -> dict[str, Any]:
             "status": "not_configured",
             "manifest_path": SUPPORT_EXCLUSION_RELATIVE_PATH,
             "entries": [],
-            "patterns": [],
+            "patterns": [dict(item) for item in BUILTIN_FINAL_SUPPORT_EXCLUSION_PATTERNS],
             "hard_nonclaims": [
-                "missing_support_exclusion_manifest_does_not_prove_support_safety",
+                "missing_support_exclusion_manifest_uses_builtin_internal_path_exclusions_only",
             ],
         }
     try:
@@ -100,7 +109,7 @@ def load_support_exclusion_manifest(vault_root: Path) -> dict[str, Any]:
 def support_exclusion_for_path(*, vault_root: Path, path_value: object) -> dict[str, Any]:
     manifest = load_support_exclusion_manifest(vault_root)
     normalized = _normalize_vault_path(path_value, vault_root=vault_root)
-    if not normalized or manifest.get("status") != "configured":
+    if not normalized:
         return {
             "schema_version": "support_exclusion_check.v1",
             "excluded": False,

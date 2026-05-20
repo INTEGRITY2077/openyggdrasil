@@ -69,6 +69,11 @@ def load_safe_index_cursor(vault_root: Path) -> dict[str, Any]:
         _normalize_vault_path(item, vault_root=vault_root)
         for item in payload.get("committed_paths") or payload.get("safe_paths") or []
     ]
+    committed = [
+        item
+        for item in committed
+        if item and not support_exclusion_for_path(vault_root=vault_root, path_value=item).get("excluded")
+    ]
     return {
         **dict(payload),
         "schema_version": str(payload.get("schema_version") or SAFE_INDEX_CURSOR_SCHEMA_VERSION),
@@ -137,6 +142,11 @@ def write_safe_index_cursor(
         _normalize_vault_path(item, vault_root=vault_root)
         for item in committed_paths
         if str(item or "").strip()
+    ]
+    normalized = [
+        item
+        for item in normalized
+        if item and not support_exclusion_for_path(vault_root=vault_root, path_value=item).get("excluded")
     ]
     payload = {
         "schema_version": SAFE_INDEX_CURSOR_SCHEMA_VERSION,
