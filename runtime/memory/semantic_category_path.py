@@ -27,14 +27,7 @@ def _as_segments(value: Any) -> list[str]:
     return []
 
 
-def infer_semantic_category_segments(payload: Mapping[str, Any], *, topic_title: str = "") -> list[str]:
-    explicit = (
-        _as_segments(payload.get("semantic_category_path"))
-        or _as_segments(payload.get("category_path"))
-    )
-    if explicit:
-        return explicit[:8]
-
+def _category_text(payload: Mapping[str, Any], *, topic_title: str = "") -> str:
     text = " ".join(
         str(payload.get(key) or "")
         for key in (
@@ -48,49 +41,92 @@ def infer_semantic_category_segments(payload: Mapping[str, Any], *, topic_title:
             "reuse_condition",
         )
     )
-    text = f"{topic_title} {text}".lower()
+    return f"{topic_title} {text}".lower()
 
-    if any(term in text for term in ("dog", "dogs", "puppy", "breed", "husky", "chihuahua", "canine", "강아지", "개 ", "반려견", "품종")):
-        segments = ["biology", "animal-ecology"]
-        if any(term in text for term in ("domestic dog ecology", "dog walking", "walk", "smell", "odor", "routine", "산책", "후각", "냄새", "루틴")):
-            return [*segments, "domestic-dogs"]
-        if any(term in text for term in ("welfare", "punishment", "training", "ethic", "stress", "체벌", "훈련", "복지", "스트레스")):
-            return [*segments, "companion-animal-welfare"]
-        if any(term in text for term in ("wildlife", "urban", "park", "habitat", "도시", "공원", "야생동물", "서식지")):
-            return [*segments, "urban-animal-ecology"]
+
+def _claude_code_segments(text: str) -> list[str] | None:
+    if "claude code" not in text and "claude-code" not in text:
+        return None
+    segments = ["software-development", "claude-code"]
+    if any(
+        term in text
+        for term in (
+            "permission",
+            "approval",
+            "allowed tool",
+            "tool access",
+            "tool exposure",
+            "security",
+            "mcp exposure",
+            "external connection exposure",
+        )
+    ):
+        return [*segments, "security-permissions", "tool-access"]
+    if any(term in text for term in ("hook", "skill", "mcp", "plugin", "agent")):
+        segments.append("extension-placement")
+    if "agent" in text:
+        segments.append("agents")
+    elif any(term in text for term in ("hook", "skill", "mcp", "plugin")):
+        segments.append("hooks-skills-mcp-plugins")
+    return segments
+
+
+def _animal_ecology_segments(text: str) -> list[str] | None:
+    if not any(
+        term in text
+        for term in (
+            "dog",
+            "dogs",
+            "puppy",
+            "breed",
+            "husky",
+            "chihuahua",
+            "canine",
+            "강아지",
+            "개",
+            "반려견",
+            "품종",
+        )
+    ):
+        return None
+    segments = ["biology", "animal-ecology"]
+    if any(term in text for term in ("domestic dog ecology", "dog walking", "walk", "smell", "odor", "routine", "산책", "후각", "냄새", "루틴")):
         return [*segments, "domestic-dogs"]
+    if any(term in text for term in ("welfare", "punishment", "training", "ethic", "stress", "체벌", "훈련", "복지", "스트레스")):
+        return [*segments, "companion-animal-welfare"]
+    if any(term in text for term in ("wildlife", "urban", "park", "habitat", "도시", "공원", "야생동물", "서식지")):
+        return [*segments, "urban-animal-ecology"]
+    return [*segments, "domestic-dogs"]
 
-    if any(term in text for term in ("memory", "wiki ring", "openyggdrasil", "provider", "mf1", "ms1", "janitor", "메모리", "위키", "기억")):
-        segments = ["memory-systems", "openyggdrasil"]
-        if any(term in text for term in ("wiki ring", "node", "article", "vault", "노드", "문서", "vault")):
-            return [*segments, "wiki-ring"]
-        if any(term in text for term in ("provider", "ms1", "mf1", "postman", "janitor")):
-            return [*segments, "memory-roles"]
-        return segments
 
-    if "claude code" in text or "claude-code" in text:
-        segments = ["software-development", "claude-code"]
-        if any(
-            term in text
-            for term in (
-                "permission",
-                "approval",
-                "allowed tool",
-                "tool access",
-                "tool exposure",
-                "security",
-                "mcp exposure",
-                "external connection exposure",
-            )
-        ):
-            return [*segments, "security-permissions", "tool-access"]
-        if any(term in text for term in ("hook", "skill", "mcp", "plugin", "agent")):
-            segments.append("extension-placement")
-        if "agent" in text:
-            segments.append("agents")
-        elif "hook" in text or "skill" in text or "mcp" in text or "plugin" in text:
-            segments.append("hooks-skills-mcp-plugins")
-        return segments
+def _memory_system_segments(text: str) -> list[str] | None:
+    if not any(term in text for term in ("memory", "wiki ring", "openyggdrasil", "provider", "mf1", "ms1", "janitor", "메모리", "위키", "기억")):
+        return None
+    segments = ["memory-systems", "openyggdrasil"]
+    if any(term in text for term in ("wiki ring", "node", "article", "vault", "노드", "문서")):
+        return [*segments, "wiki-ring"]
+    if any(term in text for term in ("provider", "ms1", "mf1", "postman", "janitor")):
+        return [*segments, "memory-roles"]
+    return segments
+
+
+def infer_semantic_category_segments(payload: Mapping[str, Any], *, topic_title: str = "") -> list[str]:
+    explicit = (
+        _as_segments(payload.get("semantic_category_path"))
+        or _as_segments(payload.get("category_path"))
+    )
+    if explicit:
+        return explicit[:8]
+
+    text = _category_text(payload, topic_title=topic_title)
+
+    # Domain-specific user topics outrank generic capture metadata. Provider,
+    # MS1, MF1, and OpenYggdrasil words often appear in machine fields and must
+    # not pull a Claude Code or biology article into memory-system topology.
+    for classifier in (_animal_ecology_segments, _claude_code_segments, _memory_system_segments):
+        segments = classifier(text)
+        if segments:
+            return segments[:8]
 
     node_type = str(payload.get("node_type") or payload.get("category") or "concept")
     return [normalize_category_segment(node_type)]

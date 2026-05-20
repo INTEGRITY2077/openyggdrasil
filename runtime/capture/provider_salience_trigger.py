@@ -253,25 +253,25 @@ def _has_reusable_boundary_signal(text: str, lowered: str) -> bool:
 
 
 def _has_instruction_boundary_correction_signal(text: str, lowered: str) -> bool:
-    instruction_terms = (
-        "prompt",
-        "command",
-        "instruction",
-        "trigger",
-        "forced",
-        "force",
-    )
-    korean_terms = (
-        "\ud504\ub86c\ud504\ud2b8",
-        "\uba85\ub839",
-        "\uc9c0\uc2dc",
-        "\ud2b8\ub9ac\uac70",
-        "\ud2b8\ub9ac\uae45",
-        "\uac15\uc81c",
-    )
-    autonomy_terms = (
+    explicit_boundary_phrases = (
         "not the trigger",
         "not a command",
+        "not an instruction",
+        "not a prompt",
+        "storage trigger",
+        "save trigger",
+        "memory trigger",
+        "\uc800\uc7a5 \ud2b8\ub9ac\uac70",
+        "\uae30\uc5b5 \ud2b8\ub9ac\uac70",
+        "\uba85\ub839\uc774 \uc544\ub2c8",
+        "\uc9c0\uc2dc\uac00 \uc544\ub2c8",
+    )
+    if _contains_any(lowered, explicit_boundary_phrases) or _contains_any(text, explicit_boundary_phrases):
+        return True
+
+    instruction_terms = ("command", "instruction", "trigger", "forced", "force")
+    korean_terms = ("\uba85\ub839", "\uc9c0\uc2dc", "\ud2b8\ub9ac\uac70", "\ud2b8\ub9ac\uae45", "\uac15\uc81c")
+    autonomy_terms = (
         "autonomous",
         "self-detect",
         "salience",
@@ -282,7 +282,18 @@ def _has_instruction_boundary_correction_signal(text: str, lowered: str) -> bool
     )
     has_instruction = _contains_any(lowered, instruction_terms) or _contains_any(text, korean_terms)
     has_autonomy_boundary = _contains_any(lowered, autonomy_terms) or _contains_any(text, autonomy_terms)
-    return has_instruction and has_autonomy_boundary
+    memory_surface_terms = (
+        "memory",
+        "storage",
+        "save",
+        "provider",
+        "openyggdrasil",
+        "\uae30\uc5b5",
+        "\uc800\uc7a5",
+        "\ubcf4\uc874",
+    )
+    has_memory_surface = _contains_any(lowered, memory_surface_terms) or _contains_any(text, memory_surface_terms)
+    return has_instruction and has_autonomy_boundary and has_memory_surface
 
 
 def _has_verification_gated_claim_signal(text: str, lowered: str) -> bool:
