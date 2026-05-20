@@ -830,8 +830,13 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
     topic = ring_node["canonical_topic"]
     ring = ring_node["provenance_rings"][0]
     community = ring_node["community"]
+    topic_key = topic["topic_id"].split(":", 1)[1]
+    semantic_category = ring_node.get("semantic_category_path") or {}
+    semantic_segments = list(semantic_category.get("segments") or [])
+    category_slug = semantic_segments[-1] if semantic_segments else topic_key
+    category_page_rel = category_page_relative_path(semantic_category, slug=category_slug)
+    category_page_path = vault / category_page_rel
     topic_path = vault / topic["page_path"]
-    topic_path.parent.mkdir(parents=True, exist_ok=True)
     existing_topic = topic_path.read_text(encoding="utf-8") if topic_path.exists() else ""
     merged_rings = _merge_provenance_rings(
         _existing_provenance_rings(existing_topic),
@@ -862,20 +867,17 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
         )
         ring_node = {**ring_node, "community": updated_community}
         community = updated_community
-    topic_path.write_text(_render_provenance_ring_page(ring_node=ring_node), encoding="utf-8")
+    write_legacy_topic_projection = os.environ.get("OPENYGGDRASIL_WRITE_LEGACY_QUERY_PROJECTION") == "1"
+    if write_legacy_topic_projection and topic_path != category_page_path:
+        topic_path.parent.mkdir(parents=True, exist_ok=True)
+        topic_path.write_text(_render_provenance_ring_page(ring_node=ring_node), encoding="utf-8")
 
-    # MF1 BM25 fixed path reads concepts/entities first, so keep one canonical concept mirror.
-    concept_path = vault / "concepts" / f"{ring_node['node_id']}.md"
-    concept_path.parent.mkdir(parents=True, exist_ok=True)
-    concept_rendered = _render_provenance_ring_page(ring_node=ring_node)
-    concept_path.write_text(concept_rendered, encoding="utf-8")
+    concept_path = None
+    if os.environ.get("OPENYGGDRASIL_WRITE_CONCEPT_MIRROR") == "1":
+        concept_path = vault / "concepts" / f"{ring_node['node_id']}.md"
+        concept_path.parent.mkdir(parents=True, exist_ok=True)
+        concept_path.write_text(_render_provenance_ring_page(ring_node=ring_node), encoding="utf-8")
 
-    topic_key = topic["topic_id"].split(":", 1)[1]
-    semantic_category = ring_node.get("semantic_category_path") or {}
-    semantic_segments = list(semantic_category.get("segments") or [])
-    category_slug = semantic_segments[-1] if semantic_segments else topic_key
-    category_page_rel = category_page_relative_path(semantic_category, slug=category_slug)
-    category_page_path = vault / category_page_rel
     category_page_path.parent.mkdir(parents=True, exist_ok=True)
     category_page_path.write_text(render_wiki_continent_page(ring_node=ring_node), encoding="utf-8")
 
@@ -887,7 +889,9 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
         "support_fact": ring_node["decision_capsule"]["decision"],
         "ring_id": ring["ring_id"],
         "community_id": community["community_id"],
-        "derived_from": topic["page_path"],
+        "derived_from": topic["page_path"]
+        if write_legacy_topic_projection and not str(topic["page_path"]).startswith("queries/")
+        else category_page_rel,
         "source_ref": ring["source_ref"],
         "origin_locator": ring["origin_locator"],
         "source_line_range": ring.get("source_line_range"),
@@ -948,9 +952,9 @@ def _write_provenance_ring_artifacts(vault: Path, *, ring_node: dict) -> dict:
         encoding="utf-8",
     )
     return {
-        "canonical_topic_path": topic_path.relative_to(vault).as_posix(),
+        "canonical_topic_path": category_page_path.relative_to(vault).as_posix(),
         "category_page_path": category_page_path.relative_to(vault).as_posix(),
-        "concept_path": concept_path.relative_to(vault).as_posix(),
+        "concept_path": concept_path.relative_to(vault).as_posix() if concept_path else None,
         "provenance_path": prov_path.relative_to(vault).as_posix(),
         "community_path": community_path.relative_to(vault).as_posix(),
     }
@@ -1236,6 +1240,16 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
         candidate_categories=payload.get("category_candidates") or [],
     )
     semantic_category_path = amundsen_route.get("semantic_category_path") or {}
+    semantic_community_hint = str(semantic_category_path.get("path") or "").strip()
+    community_key = _slugify_topic_key(
+        str(
+            payload.get("community")
+            or payload.get("community_id")
+            or semantic_community_hint
+            or "uncategorized-memory"
+        )
+    )
+    community_id = f"community:{community_key}"
     decision_timeline = build_memory_ticket_decision_timeline(
         provider_source_event=provider_source_event,
         ring_id=ring_id,
