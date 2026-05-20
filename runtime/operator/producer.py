@@ -1099,6 +1099,7 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
         "domain_evidence_resolved": domain_evidence_resolved,
         "related_nodes_present": bool(related_nodes),
         "quality_review_executed": review_executed,
+        "semantic_related_pages_present": bool(semantic_related_nodes),
     }
     hard_check_names = {
         "decision_capsule_present",
@@ -1113,6 +1114,10 @@ def _build_memory_ticket_quality_assessment(*, payload: dict, resolved: dict, ri
         "community_not_atomic",
         "node_taxonomy_valid",
         "raw_transcript_absent",
+        "external_source_synthesis_present",
+        "domain_evidence_resolved",
+        "quality_review_executed",
+        "semantic_related_pages_present",
     }
     hard_failed = [
         name
