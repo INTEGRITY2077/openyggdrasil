@@ -401,6 +401,210 @@ def _support_text(value) -> str:
     return str(value or "")
 
 
+NEGATION_CUES = ("아니라", "말고", "not ", "instead of", "rather than")
+SOFTWARE_DOMAIN_TERMS = {
+    "claude",
+    "claude code",
+    "claude.md",
+    "auto memory",
+    "hook",
+    "skill",
+    "mcp",
+    "plugin",
+    "agent",
+}
+ANIMAL_DOMAIN_TERMS = {"dog", "dogs", "강아지", "개", "반려견", "동물", "생태", "animal", "biology", "ecology"}
+ANIMAL_PATH_PREFIXES = (
+    "categories/biology/",
+    "communities/domestic-dog-ecology",
+    "communities/urban-animal-ecology",
+    "sources/fixtures/dog-ecology/",
+)
+SOFTWARE_PATH_PREFIXES = (
+    "categories/software-development/",
+)
+MEMORY_SYSTEM_PATH_PREFIXES = (
+    "categories/memory-systems/",
+    "communities/openyggdrasil-memory",
+)
+
+
+DOMAIN_PATH_ALLOWLISTS = {
+    "animal": ANIMAL_PATH_PREFIXES,
+    "software": SOFTWARE_PATH_PREFIXES,
+    "memory": MEMORY_SYSTEM_PATH_PREFIXES,
+}
+
+
+def _contains_phrase_or_token(text: str, terms: set[str]) -> bool:
+    lowered = f" {str(text or '').lower()} "
+    tokens = _tokens(text)
+    return any(term.lower() in lowered or term.lower() in tokens for term in terms)
+
+
+def _negated_path_prefixes_for_query(query_text: str) -> list[str]:
+    lowered = f" {str(query_text or '').lower()} "
+    if not any(cue in lowered for cue in NEGATION_CUES):
+        return []
+    has_software_target = _contains_phrase_or_token(query_text, SOFTWARE_DOMAIN_TERMS)
+    has_animal_negative_context = _contains_phrase_or_token(query_text, ANIMAL_DOMAIN_TERMS)
+    if has_software_target and has_animal_negative_context:
+        return list(ANIMAL_PATH_PREFIXES)
+    return []
+
+
+def _target_domains_for_query(query_text: str) -> set[str]:
+    domains: set[str] = set()
+    if _contains_phrase_or_token(query_text, ANIMAL_DOMAIN_TERMS):
+        domains.add("animal")
+    if _contains_phrase_or_token(query_text, SOFTWARE_DOMAIN_TERMS):
+        domains.add("software")
+    lowered = f" {str(query_text or '').lower()} "
+    memory_terms = {
+        "openyggdrasil",
+        "wiki ring",
+        "위키",
+        "장기기억",
+    }
+    if any(term in lowered for term in memory_terms):
+        domains.add("memory")
+    return domains
+
+
+def _path_matches_prefix(path_value: object, prefixes: list[str]) -> bool:
+    path = str(path_value or "").replace("\\", "/").lstrip("/")
+    if path.startswith("vault/"):
+        path = path[len("vault/") :]
+    return any(path.startswith(prefix) for prefix in prefixes)
+
+
+def _path_matches_any_prefix(path_value: object, prefixes: tuple[str, ...]) -> bool:
+    return _path_matches_prefix(path_value, list(prefixes))
+
+
+def _filter_negated_domain_support(*, query_text: str, bundle: dict) -> tuple[dict, dict]:
+    prefixes = _negated_path_prefixes_for_query(query_text)
+    if not prefixes or not isinstance(bundle, dict):
+        return bundle, {
+            "schema_version": "negated_domain_filter.v1",
+            "applied": False,
+            "removed_path_count": 0,
+        }
+
+    original_facts, original_paths = _support_facts_and_paths(bundle)
+    removed_paths = [str(path) for path in original_paths if _path_matches_prefix(path, prefixes)]
+    kept_paths = [path for path in original_paths if not _path_matches_prefix(path, prefixes)]
+
+    def keep_fact(fact: object) -> bool:
+        if isinstance(fact, dict):
+            for key in ("source_path", "path", "origin_locator"):
+                if _path_matches_prefix(fact.get(key), prefixes):
+                    return False
+        return True
+
+    kept_facts = [fact for fact in original_facts if keep_fact(fact)]
+    filtered = dict(bundle)
+    filtered["support_facts"] = kept_facts
+    filtered["source_paths"] = kept_paths
+    nested = filtered.get("support_bundle")
+    if isinstance(nested, dict):
+        nested = dict(nested)
+        nested["support_facts"] = kept_facts
+        nested["source_paths"] = kept_paths
+        filtered["support_bundle"] = nested
+    event = {
+        "schema_version": "negated_domain_filter.v1",
+        "applied": True,
+        "removed_path_count": len(removed_paths),
+        "removed_paths": removed_paths[:20],
+        "kept_path_count": len(kept_paths),
+        "reason_code": "negated_source_domain_in_query",
+        "hard_nonclaims": [
+            "negated_domain_filter_is_not_semantic_truth",
+            "provider_rejudgment_still_required",
+        ],
+    }
+    filtered["negated_domain_filter"] = event
+    if isinstance(filtered.get("support_bundle"), dict):
+        filtered["support_bundle"]["negated_domain_filter"] = event
+    return filtered, event
+
+
+def _filter_target_domain_support(*, query_text: str, bundle: dict) -> tuple[dict, dict]:
+    if not isinstance(bundle, dict):
+        return bundle, {
+            "schema_version": "target_domain_filter.v1",
+            "applied": False,
+            "removed_path_count": 0,
+        }
+    target_domains = _target_domains_for_query(query_text)
+    if len(target_domains) != 1:
+        return bundle, {
+            "schema_version": "target_domain_filter.v1",
+            "applied": False,
+            "removed_path_count": 0,
+            "target_domains": sorted(target_domains),
+        }
+    domain = next(iter(target_domains))
+    allowed_prefixes = DOMAIN_PATH_ALLOWLISTS.get(domain, ())
+    if not allowed_prefixes:
+        return bundle, {
+            "schema_version": "target_domain_filter.v1",
+            "applied": False,
+            "removed_path_count": 0,
+            "target_domains": sorted(target_domains),
+        }
+
+    original_facts, original_paths = _support_facts_and_paths(bundle)
+    removed_paths = [str(path) for path in original_paths if not _path_matches_any_prefix(path, allowed_prefixes)]
+    kept_paths = [path for path in original_paths if _path_matches_any_prefix(path, allowed_prefixes)]
+
+    def keep_fact(fact: object) -> bool:
+        if isinstance(fact, dict):
+            fact_paths = [fact.get(key) for key in ("source_path", "path", "origin_locator")]
+            visible_paths = [value for value in fact_paths if value]
+            if visible_paths:
+                return any(_path_matches_any_prefix(value, allowed_prefixes) for value in visible_paths)
+        return True
+
+    kept_facts = [fact for fact in original_facts if keep_fact(fact)]
+    if len(kept_paths) == len(original_paths) and len(kept_facts) == len(original_facts):
+        return bundle, {
+            "schema_version": "target_domain_filter.v1",
+            "applied": False,
+            "removed_path_count": 0,
+            "target_domains": sorted(target_domains),
+        }
+
+    filtered = dict(bundle)
+    filtered["support_facts"] = kept_facts
+    filtered["source_paths"] = kept_paths
+    nested = filtered.get("support_bundle")
+    if isinstance(nested, dict):
+        nested = dict(nested)
+        nested["support_facts"] = kept_facts
+        nested["source_paths"] = kept_paths
+        filtered["support_bundle"] = nested
+    event = {
+        "schema_version": "target_domain_filter.v1",
+        "applied": True,
+        "target_domain": domain,
+        "removed_path_count": len(removed_paths),
+        "removed_paths": removed_paths[:20],
+        "kept_path_count": len(kept_paths),
+        "reason_code": "single_domain_query_excludes_cross_continent_support",
+        "hard_nonclaims": [
+            "target_domain_filter_is_not_semantic_truth",
+            "multi_domain_questions_must_not_be_forced_into_one_domain",
+            "provider_rejudgment_still_required",
+        ],
+    }
+    filtered["target_domain_filter"] = event
+    if isinstance(filtered.get("support_bundle"), dict):
+        filtered["support_bundle"]["target_domain_filter"] = event
+    return filtered, event
+
+
 def _memory_finder_alignment(*, query_text: str, bundle: dict) -> dict:
     facts, paths = _support_facts_and_paths(bundle if isinstance(bundle, dict) else {})
     support_text = "\n".join(
@@ -734,7 +938,21 @@ def _boundary_fallback_bundle(
 
 def _prepare_memory_finder_bundle(*, query_text: str, bundle: dict, status: str) -> tuple[dict, str]:
     prepared = dict(bundle if isinstance(bundle, dict) else {})
+    prepared, negated_domain_filter = _filter_negated_domain_support(query_text=query_text, bundle=prepared)
+    prepared.setdefault("negated_domain_filter", negated_domain_filter)
+    prepared, target_domain_filter = _filter_target_domain_support(query_text=query_text, bundle=prepared)
+    prepared.setdefault("target_domain_filter", target_domain_filter)
     alignment = _memory_finder_alignment(query_text=query_text, bundle=prepared)
+    if negated_domain_filter.get("applied"):
+        alignment = {
+            **alignment,
+            "negated_domain_filter": negated_domain_filter,
+        }
+    if target_domain_filter.get("applied"):
+        alignment = {
+            **alignment,
+            "target_domain_filter": target_domain_filter,
+        }
     prepared["worker_query_alignment"] = alignment
     facts, _paths = _support_facts_and_paths(prepared)
     if status == "completed" and _support_facts_are_title_anchor_only(facts):
