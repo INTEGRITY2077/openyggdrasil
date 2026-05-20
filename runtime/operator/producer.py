@@ -79,7 +79,7 @@ except ImportError as exc:
     run_memory_saver_tst = None
 
 
-def run_producer(mailbox: Path, vault: Path):
+def run_producer(mailbox: Path, vault: Path, target_mail_id: str | None = None):
     """Mailbox에서 save-intent를 폴링하여 Vault에 적재."""
     t0 = datetime.now(timezone.utc)
 
@@ -117,6 +117,8 @@ def run_producer(mailbox: Path, vault: Path):
         if not line.strip():
             continue
         msg = json.loads(line)
+        if target_mail_id and msg.get("mail_id") != target_mail_id:
+            continue
         if msg.get("intent") not in ("save", "memory_ticket", "prune", "curate", "skill_update", "restore", "sandbox-exec", "promote") or msg["mail_id"] in completed:
             continue
 
@@ -556,6 +558,27 @@ def _semantic_related_nodes(values: list[str]) -> list[str]:
         for value in _as_list(values)
         if not _is_source_reference(value)
     ]
+
+
+def _existing_category_anchor_refs(vault: Path, semantic_category_path: dict) -> list[str]:
+    """Return existing production category pages that can anchor a new wiki page semantically.
+
+    A first promoted page in a community may not have sibling pages yet. In that
+    case, the category path itself is the semantic placement evidence, while
+    local-docs:// refs remain source evidence rather than related pages.
+    """
+
+    segments = [
+        _slugify_topic_key(str(item))
+        for item in semantic_category_path.get("segments") or []
+        if str(item).strip()
+    ]
+    anchors: list[str] = []
+    for end in range(len(segments), 0, -1):
+        rel = Path("categories").joinpath(*segments[:end]).with_suffix(".md")
+        if (vault / rel).exists():
+            anchors.append(f"oy-vault://{rel.as_posix()}")
+    return _merge_unique_values(anchors)
 
 
 def _render_provenance_ring_page(*, ring_node: dict) -> str:
@@ -1291,7 +1314,10 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
     )
     node_taxonomy["semantic_category_path"] = semantic_category_path.get("path", "")
     node_taxonomy["semantic_category_segments"] = list(semantic_category_path.get("segments") or [])
-    initial_related_nodes = _as_list(payload.get("related_nodes") or payload.get("related_pages"))
+    initial_related_nodes = _merge_unique_values([
+        *_as_list(payload.get("related_nodes") or payload.get("related_pages")),
+        *_existing_category_anchor_refs(vault, semantic_category_path),
+    ])
     existing_community_path = vault / "communities" / f"{community_key}.md"
     if existing_community_path.exists():
         existing_community_text = existing_community_path.read_text(encoding="utf-8", errors="replace")

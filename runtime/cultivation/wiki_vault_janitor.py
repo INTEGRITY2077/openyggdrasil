@@ -107,14 +107,29 @@ def _metadata_int(text: str, key: str) -> int | None:
 
 def _source_refs_from_related_nodes(vault_root: Path, related_nodes: list[str]) -> list[str]:
     refs: list[str] = []
+    category_texts_by_node: dict[str, str] = {}
     for node_id in related_nodes:
         node = str(node_id or "").strip()
         if not node:
             continue
         node_path = vault_root / "concepts" / f"{node}.md"
-        if not node_path.exists():
-            continue
-        refs.extend(SOURCE_REF_RE.findall(node_path.read_text(encoding="utf-8", errors="replace")))
+        text = ""
+        if node_path.exists():
+            text = node_path.read_text(encoding="utf-8", errors="replace")
+        else:
+            if not category_texts_by_node:
+                category_root = vault_root / "categories"
+                if category_root.exists():
+                    for path in sorted(category_root.rglob("*.md")):
+                        if "graphify-out" in path.parts:
+                            continue
+                        candidate_text = path.read_text(encoding="utf-8", errors="replace")
+                        match = re.search(r'"internal_node_id"\s*:\s*"([^"]+)"', candidate_text)
+                        if match:
+                            category_texts_by_node.setdefault(match.group(1), candidate_text)
+            text = category_texts_by_node.get(node, "")
+        if text:
+            refs.extend(SOURCE_REF_RE.findall(text))
     return _ordered_unique(refs)
 
 

@@ -37,6 +37,12 @@ def test_memory_ticket_writes_production_article_without_query_or_concept_suppor
 
     sessions_dir = tmp_path / "sessions"
     vault = tmp_path / "vault"
+    category_anchor = vault / "categories" / "biology" / "animal-ecology" / "domestic-dogs.md"
+    category_anchor.parent.mkdir(parents=True)
+    category_anchor.write_text(
+        "# Domestic Dogs\n\nDogs in human environments are part of animal ecology.",
+        encoding="utf-8",
+    )
     mailbox = tmp_path / "mailbox"
     user_text = (
         "I keep mixing dog walking smell work, walking shortage stress, breed differences, "
@@ -55,9 +61,6 @@ def test_memory_ticket_writes_production_article_without_query_or_concept_suppor
         assistant_text=assistant_text,
         sessions_dir=sessions_dir,
     )
-    payload["related_pages"] = [
-        "oy-vault://categories/biology/animal-ecology/domestic-dogs/domestic-dog-ecology.md"
-    ]
 
     result = _handle_memory_ticket(
         mailbox=mailbox,
