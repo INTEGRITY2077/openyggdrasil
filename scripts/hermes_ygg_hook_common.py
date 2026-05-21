@@ -49,7 +49,7 @@ WORKER_SURFACE_MARKERS = (
     "selected capabilities",
     "accepted evidence",
     "rejected evidence",
-    "route_only_no_semantic_payload",
+    "mailbox_notice_only",
     "worker judgment",
     "close decision",
     "mission:",

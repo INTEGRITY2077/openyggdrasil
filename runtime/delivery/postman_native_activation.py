@@ -192,12 +192,12 @@ def _activation_prompt(
             "process_step=run_role_owned_mailbox_processor_before_missing_receipt_close",
             "processor_entrypoint=configured role-owned mailbox processor",
             "surface_fields=selected capability class and bounded program hash from processor result when present",
-            f"same_mail_status_check=scripts/ygg receipt {delivery.get('mail_id') or 'unknown'}",
+            "same_mail_status_check=role_owned_worker_loop",
             completion_gate,
             "pending_or_zero_output_must_close_typed_unavailable",
             "missing_receipt_close_only_after_processor_attempt",
             "final_step=close_mailbox_receipt_or_typed_unavailable",
-            "route_only_no_semantic_payload",
+            "mailbox_notice_only",
         ]
     )
     validate_visible_notice_route_only(prompt)
@@ -217,8 +217,8 @@ def verify_visible_notice_contract() -> dict[str, Any]:
     return {
         "schema_version": "postman_visible_notice_contract_check.v1",
         "status": "pass" if not leaked else "fail",
-        "visible_by_default_env": "OY_POSTMAN_VISIBLE_CPR defaults to 1; set 0 only when a worker loop is independently observed",
-        "visible_mode_policy": "pane_centered_route_only_wakeup",
+        "visible_by_default_env": "OY_POSTMAN_VISIBLE_CPR defaults to 0; set 1 only for explicit dev fallback smoke",
+        "visible_mode_policy": "hidden_by_default_route_notice",
         "mission_summary_included": False,
         "semantic_material_terms_present": leaked,
         "cancel_existing_prompt": False,
@@ -275,7 +275,7 @@ def activate_native_lane(
     }
     _append_jsonl(sessions_dir / op / "work_history.jsonl", work_history)
 
-    visible_cpr = os.environ.get("OY_POSTMAN_VISIBLE_CPR", "1") != "0"
+    visible_cpr = os.environ.get("OY_POSTMAN_VISIBLE_CPR", "0") == "1"
     prompt = ""
     pane_status = _native_pane_status(target)
     if visible_cpr:

@@ -238,19 +238,9 @@ def _node_taxonomy_lines(support: Mapping[str, Any]) -> list[str]:
 def _build_provider_cpr_wakeup_prompt(result: Mapping[str, Any]) -> str:
     support = _support_metadata(result)
     facts_count = int(support.get("support_facts_count") or 0)
-    availability_note = (
-        "보강 후보가 도착했습니다. "
-        if facts_count > 0
-        else "보강 후보가 없거나 부족할 수 있습니다. "
-    )
-    return (
-        "OpenYggdrasil 결과 도착 알림입니다. 이 알림 자체는 답변 근거가 아니며 판단도 아닙니다. "
-        f"{availability_note}"
-        "Provider-bound 상태가 갱신되었으니, 필요하면 ./scripts/ygg cpr만 실행해 원 질문과 현재 답을 다시 비교하세요. "
-        "로컬 파일 탐색과 내부 경로 확인은 하지 말고, pipe/python/find/read는 쓰지 마세요. "
-        "충분하면 필요한 밀도로만 보강하고, 부족하거나 현재 답을 바꿀 근거가 없으면 부족하다고 짧게 닫으세요. "
-        "파일 경로, 노드 ID, receipt ID, 개수 목록은 사용자 답변에 쓰지 마세요."
-    )
+    if facts_count > 0:
+        return "OpenYggdrasil 보강 후보가 도착했습니다. 현재 답을 다시 살펴볼 수 있습니다."
+    return "OpenYggdrasil 보강 후보가 부족합니다. 현재 답을 바꿀 근거가 없으면 그대로 두세요."
 
 
 def _cpr_wakeup_ready(result: Mapping[str, Any]) -> tuple[bool, str]:
@@ -381,6 +371,28 @@ def wake_provider_with_cpr(
             "activation_owner": "postman",
             "autonomous_daemon_claimed": False,
             "full_ux_passed": False,
+        }
+        wakeup["internal_heartbeat_path"] = str(_write_internal_cpr_heartbeat(result, wakeup, registry_dir=registry_dir))
+        wakeup["log_path"] = str(_write_cpr_wakeup_log(result, wakeup, registry_dir=registry_dir))
+        return wakeup
+
+    if os.environ.get("OY_ALLOW_VISIBLE_PROVIDER_WAKEUP", "0") != "1":
+        wakeup = {
+            "schema_version": "postman_cpr_provider_wakeup.v1",
+            "created_at": created_at,
+            "status": "queued",
+            "reason_code": "visible_provider_wakeup_disabled",
+            "wakeup_id": wakeup_id,
+            "provider_session": provider_session,
+            "message_id": result.get("message_id"),
+            "scope": "internal_provider_heartbeat_state",
+            "delivery_mode": "internal_heartbeat",
+            "provider_context_window_written": False,
+            "tmux_injection_attempted": False,
+            "activation_owner": "postman",
+            "autonomous_daemon_claimed": False,
+            "full_ux_passed": False,
+            "hard_nonclaim": "Provider user-facing pane is not a Postman route-notice surface.",
         }
         wakeup["internal_heartbeat_path"] = str(_write_internal_cpr_heartbeat(result, wakeup, registry_dir=registry_dir))
         wakeup["log_path"] = str(_write_cpr_wakeup_log(result, wakeup, registry_dir=registry_dir))
