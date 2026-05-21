@@ -6,6 +6,7 @@ import re
 import sys
 
 from runtime.cli.ygg_config import _decode_b64_text, _provider_id
+from runtime.cli.ygg_compaction import cmd_compact_check
 from runtime.cli.ygg_cpr import cmd_cpr
 from runtime.cli.ygg_flow import cmd_flow, cmd_live, cmd_receipt, cmd_watch
 from runtime.cli.ygg_memory_lanes import (
@@ -50,6 +51,7 @@ def main():
         print("  ygg cpr --wake-provider    record an internal Provider heartbeat")
         print("  ygg cpr --wake-provider --inject-visible")
         print("                              dev fallback: type one bounded prompt into PRO1")
+        print("  ygg compact-check [--json] observe native preflight compression and write pointer memento only when proven")
         print("  ygg dev                    compatibility alias for ygg pro1")
         print("  ygg dev --doctor           compatibility alias for ygg pro1 --doctor")
         print("  ygg watch <ms1|mf1>        tail memory lane mailbox")
@@ -83,6 +85,8 @@ def main():
         cmd_provider_lane_doctor()
     elif cmd == "cpr":
         cmd_cpr(sys.argv[2:])
+    elif cmd == "compact-check":
+        cmd_compact_check(sys.argv[2:])
     elif cmd == "spawn":
         args = sys.argv[2:]
         force_new = False
