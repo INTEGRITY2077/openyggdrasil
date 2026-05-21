@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -68,6 +70,42 @@ def _receipt_run_id_exists(vault_root: Path, run_id: str) -> bool:
         if isinstance(row, Mapping) and str(row.get("run_id") or "") == run_id:
             return True
     return False
+
+
+def _receipt_compaction_event_id_exists(vault_root: Path, event_id: str) -> bool:
+    if not event_id:
+        return False
+    path = vault_root / CONTEXT_GUARD_RECEIPTS_RELATIVE_PATH
+    if not path.exists():
+        return False
+    for row in read_jsonl(path):
+        if not isinstance(row, Mapping):
+            continue
+        if str(row.get("compaction_event_id") or "") == event_id:
+            return True
+        event = row.get("actual_compaction_event")
+        if isinstance(event, Mapping) and str(event.get("event_id") or "") == event_id:
+            return True
+    return False
+
+
+def _compaction_event_id(pressure: Mapping[str, Any]) -> str:
+    event = pressure.get("compaction_event")
+    if not isinstance(event, Mapping):
+        return ""
+    event_basis = json.dumps(
+        {
+            "lane": str(event.get("lane") or "").strip(),
+            "marker": str(event.get("marker") or ""),
+            "token_estimate": int(event.get("token_estimate") or 0),
+            "threshold": int(event.get("threshold") or pressure.get("threshold_tokens") or 0),
+            "summary_failed": bool(event.get("summary_failed")),
+            "fallback_context_marker_inserted": bool(event.get("fallback_context_marker_inserted")),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    return f"compaction-event-{hashlib.sha256(event_basis.encode('utf-8')).hexdigest()[:8]}"
 
 
 def load_compaction_candidate_episodes(
@@ -167,6 +205,7 @@ def run_auto_compaction_controller_from_vault(
     vault_root = vault_root.resolve()
     pressure = parse_preflight_compression(preflight_text)
     episodes = load_compaction_candidate_episodes(vault_root=vault_root, limit=max_episodes)
+    event_id = _compaction_event_id(pressure)
     if _receipt_run_id_exists(vault_root, run_id):
         return {
             "schema_version": "auto_compaction_controller_result.v1",
@@ -177,6 +216,19 @@ def run_auto_compaction_controller_from_vault(
             "written": {"receipt": None, "mementos": []},
             "hard_nonclaims": [
                 "already_recorded_result_is_not_new_compaction_proof",
+            ],
+        }
+    if _receipt_compaction_event_id_exists(vault_root, event_id):
+        return {
+            "schema_version": "auto_compaction_controller_result.v1",
+            "run_id": run_id,
+            "status": "already_recorded_event",
+            "preflight_parse": pressure,
+            "compaction_event_id": event_id,
+            "episode_count": len(episodes),
+            "written": {"receipt": None, "mementos": []},
+            "hard_nonclaims": [
+                "same_native_compaction_event_must_not_write_duplicate_mementos",
             ],
         }
     if not pressure.get("threshold_reached"):

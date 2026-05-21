@@ -88,9 +88,11 @@ def test_auto_compaction_from_vault_writes_pointer_memento_from_boundary_ledger(
     assert result["episode_count"] == 1
     assert result["actual_compaction_event"]["proven"] is True
     assert result["receipt"]["actual_compaction_event_proven"] is True
+    assert result["receipt"]["compaction_event_id"].startswith("compaction-event-")
     assert result["written_memento_ids"]
     memento_rows = (tmp_path / "_meta" / "precompact_memento.jsonl").read_text(encoding="utf-8").splitlines()
     memento = json.loads(memento_rows[-1])
+    assert memento["compaction_event_id"] == result["receipt"]["compaction_event_id"]
     assert memento["summary_policy"] == "pointer_only_no_raw_transcript"
     assert memento["raw_transcript_included"] is False
     assert memento["source_ref"] == "hermes-session-json://20260520-dog-walk-stress"
@@ -112,4 +114,24 @@ def test_auto_compaction_from_vault_is_idempotent_by_run_id(tmp_path: Path) -> N
 
     assert first["status"] == "pass"
     assert second["status"] == "already_recorded"
+    assert len((tmp_path / "_meta" / "precompact_memento.jsonl").read_text(encoding="utf-8").splitlines()) == 1
+
+
+def test_auto_compaction_from_vault_is_idempotent_by_native_event_id(tmp_path: Path) -> None:
+    _append_jsonl(tmp_path / "_meta" / "pending_episode_ledger.jsonl", _ledger_row())
+
+    first = run_auto_compaction_controller_from_vault(
+        vault_root=tmp_path,
+        run_id="unit-event-first",
+        preflight_text="Preflight compression: ~142,570 tokens >= 136,000 threshold.",
+    )
+    second = run_auto_compaction_controller_from_vault(
+        vault_root=tmp_path,
+        run_id="unit-event-second",
+        preflight_text="Preflight compression: ~142,570 tokens >= 136,000 threshold.",
+    )
+
+    assert first["status"] == "pass"
+    assert second["status"] == "already_recorded_event"
+    assert second["compaction_event_id"] == first["receipt"]["compaction_event_id"]
     assert len((tmp_path / "_meta" / "precompact_memento.jsonl").read_text(encoding="utf-8").splitlines()) == 1

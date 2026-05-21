@@ -81,8 +81,21 @@ def _actual_compaction_event(context_pressure: Mapping[str, Any]) -> dict[str, A
     observed = bool(event.get("observed"))
     lane = str(event.get("lane") or "").strip()
     proven = observed and "Preflight compression" in marker and threshold > 0 and token_estimate >= threshold
+    event_basis = json.dumps(
+        {
+            "lane": lane,
+            "marker": marker,
+            "token_estimate": token_estimate,
+            "threshold": threshold,
+            "summary_failed": bool(event.get("summary_failed")),
+            "fallback_context_marker_inserted": bool(event.get("fallback_context_marker_inserted")),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
     return {
         "proven": proven,
+        "event_id": f"compaction-event-{_short_hash(event_basis)}",
         "lane": lane,
         "marker": marker,
         "token_estimate": token_estimate,
@@ -102,6 +115,7 @@ def build_context_guard_mementos(
     pressure = dict(context_pressure)
     threshold_reached = bool(pressure.get("threshold_reached"))
     actual_compaction_event = _actual_compaction_event(pressure)
+    compaction_event_id = str(actual_compaction_event.get("event_id") or "")
     decisions: list[dict[str, Any]] = []
     mementos: list[dict[str, Any]] = []
     for episode in episodes:
@@ -120,7 +134,8 @@ def build_context_guard_mementos(
                 {
                     "schema_version": "precompact_memento.v1",
                     "run_id": run_id,
-                    "memento_id": f"memento-{_short_hash(run_id + episode_id + pointer['anchor_hash'])}",
+                    "compaction_event_id": compaction_event_id,
+                    "memento_id": f"memento-{_short_hash(compaction_event_id + episode_id + pointer['anchor_hash'])}",
                     "episode_id": episode_id,
                     **pointer,
                     "triage_decision": score["decision"],
@@ -180,6 +195,7 @@ def write_context_guard_result(*, vault_root: Path, result: Mapping[str, Any]) -
             and result["actual_compaction_event"].get("proven") is True
         ),
         "actual_compaction_event": dict(result.get("actual_compaction_event") or {}),
+        "compaction_event_id": dict(result.get("actual_compaction_event") or {}).get("event_id"),
         "hard_nonclaims": list(result.get("hard_nonclaims") or []),
     }
     append_jsonl_atomic(vault_root / CONTEXT_GUARD_RECEIPTS_RELATIVE_PATH, receipt)
