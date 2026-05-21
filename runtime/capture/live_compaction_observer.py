@@ -8,7 +8,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from runtime.capture.auto_compaction_controller import (
     parse_preflight_compression,
-    run_auto_compaction_controller,
+    run_auto_compaction_controller_from_vault,
 )
 
 
@@ -178,19 +178,24 @@ def run_live_compaction_observer(
             )
             break
     if marker_text:
-        context_guard = run_auto_compaction_controller(
+        context_guard = run_auto_compaction_controller_from_vault(
             vault_root=vault_root,
             run_id=run_id,
             preflight_text=marker_text,
-            episodes=episodes,
         )
     else:
         context_guard = None
+    already_recorded_event = bool(
+        context_guard and context_guard.get("status") == "already_recorded_event"
+    )
     context_guard_memento_write_proven = bool(
-        context_guard
-        and context_guard.get("status") == "pass"
-        and context_guard.get("actual_compaction_event", {}).get("proven") is True
-        and context_guard.get("precompact_memento_or_source_ref") is True
+        (
+            context_guard
+            and context_guard.get("status") == "pass"
+            and context_guard.get("actual_compaction_event", {}).get("proven") is True
+            and context_guard.get("precompact_memento_or_source_ref") is True
+        )
+        or already_recorded_event
     )
     production_ready_axis_pass = bool(context_guard_memento_write_proven)
     compact_memento_blockers = list(observation.get("blockers") or [])
@@ -207,6 +212,7 @@ def run_live_compaction_observer(
             "pane_memento_marker_found": observation["pass_conditions"]["memento_marker_found"],
             "context_guard_memento_write_proven": context_guard_memento_write_proven,
             "memento_sot": "vault_context_guard_receipt",
+            "already_recorded_event": already_recorded_event,
         },
         "compact_memento_blockers": compact_memento_blockers,
         "production_ready_axis_pass": production_ready_axis_pass,

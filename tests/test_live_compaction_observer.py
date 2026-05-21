@@ -29,6 +29,13 @@ def _episode() -> dict:
     }
 
 
+def _append_ledger(vault: Path) -> None:
+    row = {**_episode(), "schema_version": "boundary_ledger_entry.v1", "state": "closed"}
+    path = vault / "_meta" / "pending_episode_ledger.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(__import__("json").dumps(row, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
 def test_parse_token_meter_is_not_compaction_proof() -> None:
     row = observe_compaction_text("⚕ gpt-5.5 │ 72.7K/272K │", lane="provider")
 
@@ -40,6 +47,7 @@ def test_parse_token_meter_is_not_compaction_proof() -> None:
 
 
 def test_preflight_marker_runs_pointer_memento(tmp_path: Path) -> None:
+    _append_ledger(tmp_path)
     result = run_live_compaction_observer(
         vault_root=tmp_path,
         run_id="unit-live-observer",
@@ -60,6 +68,39 @@ def test_preflight_marker_runs_pointer_memento(tmp_path: Path) -> None:
     assert "live_panes_no_memento_marker" not in result["compact_memento_blockers"]
     assert result["context_guard_result"]["receipt"]["actual_compaction_event_proven"] is True
     assert result["context_guard_result"]["written_memento_ids"]
+
+
+def test_preflight_marker_is_idempotent_by_native_event(tmp_path: Path) -> None:
+    _append_ledger(tmp_path)
+
+    def runner(command):
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="Preflight compression: ~142,570 tokens >= 136,000 threshold.",
+            stderr="",
+        )
+
+    first = run_live_compaction_observer(
+        vault_root=tmp_path,
+        run_id="unit-live-observer-first",
+        targets={"mf1": "ygg-mf1:1"},
+        episodes=[_episode()],
+        runner=runner,
+    )
+    second = run_live_compaction_observer(
+        vault_root=tmp_path,
+        run_id="unit-live-observer-second",
+        targets={"mf1": "ygg-mf1:1"},
+        episodes=[_episode()],
+        runner=runner,
+    )
+
+    assert first["production_ready_axis_pass"] is True
+    assert second["production_ready_axis_pass"] is True
+    assert second["context_guard_result"]["status"] == "already_recorded_event"
+    assert second["compaction_continuity_conditions"]["already_recorded_event"] is True
+    assert len((tmp_path / "_meta" / "precompact_memento.jsonl").read_text(encoding="utf-8").splitlines()) == 1
 
 
 def test_tmux_observer_keeps_missing_marker_blocked() -> None:
