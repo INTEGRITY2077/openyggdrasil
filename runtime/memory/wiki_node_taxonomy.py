@@ -7,6 +7,7 @@ from typing import Any, Mapping
 SCHEMA_VERSION = "wiki_node_taxonomy.v1"
 
 ALLOWED_CONTINENTS = (
+    "categories",
     "concepts",
     "entities",
     "comparisons",
@@ -125,10 +126,35 @@ def normalize_node_type(value: Any, *, default: str = "unknown") -> str:
 
 def normalize_continent(value: Any, *, default: str = "concepts") -> str:
     token = _token(value)
+    if token:
+        return token
+    fallback = _token(default)
+    return fallback or "concepts"
+
+
+def normalize_physical_continent(value: Any, *, default: str = "concepts") -> str:
+    token = _token(value)
     if token in ALLOWED_CONTINENTS:
         return token
     fallback = _token(default)
     return fallback if fallback in ALLOWED_CONTINENTS else "concepts"
+
+
+def semantic_continent_from_payload(payload: Mapping[str, Any]) -> str:
+    semantic = payload.get("semantic_category_path")
+    if isinstance(semantic, Mapping):
+        segments = semantic.get("segments")
+        if isinstance(segments, list) and segments:
+            return normalize_continent(segments[0])
+        path = semantic.get("path")
+        if isinstance(path, str) and path.strip():
+            return normalize_continent(path.split("/", 1)[0])
+    if isinstance(semantic, str) and semantic.strip():
+        return normalize_continent(semantic.split("/", 1)[0])
+    segments = payload.get("semantic_category_segments")
+    if isinstance(segments, list) and segments:
+        return normalize_continent(segments[0])
+    return ""
 
 
 def normalize_topography_level(value: Any, *, node_type: str = "concept") -> str:
@@ -207,13 +233,15 @@ def build_node_taxonomy(
 ) -> dict[str, Any]:
     payload = dict(payload or {})
     node_type, source = infer_node_type(payload, default=default_node_type)
-    continent = normalize_continent(payload.get("continent") or payload.get("physical_continent"), default=physical_continent)
+    semantic_continent = semantic_continent_from_payload(payload)
+    continent = normalize_continent(payload.get("continent") or semantic_continent or physical_continent, default=physical_continent)
+    physical = normalize_physical_continent(payload.get("physical_continent") or physical_continent, default=physical_continent)
     topography_level = normalize_topography_level(payload.get("topography_level"), node_type=node_type)
     community_role = normalize_community_role(payload.get("community_role"), node_type=node_type, topography_level=topography_level)
     return {
         "schema_version": SCHEMA_VERSION,
         "continent": continent,
-        "physical_continent": continent,
+        "physical_continent": physical,
         "node_type": node_type,
         "topography_level": topography_level,
         "community_role": community_role,
@@ -244,8 +272,10 @@ def validate_node_taxonomy(value: Any) -> dict[str, Any]:
     errors: list[str] = []
     if value.get("schema_version") != SCHEMA_VERSION:
         errors.append("invalid_schema_version")
-    if value.get("continent") not in ALLOWED_CONTINENTS:
+    if not _token(value.get("continent")):
         errors.append("invalid_continent")
+    if value.get("physical_continent") not in ALLOWED_CONTINENTS:
+        errors.append("invalid_physical_continent")
     if value.get("node_type") not in ALLOWED_NODE_TYPES:
         errors.append("invalid_node_type")
     if value.get("topography_level") not in ALLOWED_TOPOGRAPHY_LEVELS:

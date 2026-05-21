@@ -76,3 +76,23 @@ def test_memory_ticket_quality_pass_requires_domain_evidence_review_and_semantic
     assert quality["verdict"] == "pass"
     assert quality["quality_blocker_reason_codes"] == []
     assert quality["recallability"] == "community_and_source_path_retrievable"
+
+
+def test_wiki_node_taxonomy_keeps_semantic_continent_separate_from_physical_storage() -> None:
+    from runtime.memory.wiki_node_taxonomy import build_node_taxonomy, validate_node_taxonomy
+
+    taxonomy = build_node_taxonomy(
+        {
+            "category": "policy",
+            "semantic_category_path": {
+                "path": "software-development/claude-code/extension-placement/agents",
+                "segments": ["software-development", "claude-code", "extension-placement", "agents"],
+            },
+        },
+        physical_continent="categories",
+        default_node_type="policy",
+    )
+
+    assert taxonomy["continent"] == "software-development"
+    assert taxonomy["physical_continent"] == "categories"
+    assert validate_node_taxonomy(taxonomy)["valid"] is True

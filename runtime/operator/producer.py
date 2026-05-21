@@ -1308,8 +1308,8 @@ def _handle_memory_ticket(mailbox: Path, vault: Path, msg: dict) -> dict:
     )
     legacy_category = str(payload.get("category") or payload.get("移댄뀒怨좊━") or "policy")
     node_taxonomy = build_node_taxonomy(
-        {**payload, "category": legacy_category},
-        physical_continent="concepts",
+        {**payload, "category": legacy_category, "semantic_category_path": semantic_category_path},
+        physical_continent="categories",
         default_node_type="policy",
     )
     node_taxonomy["semantic_category_path"] = semantic_category_path.get("path", "")
