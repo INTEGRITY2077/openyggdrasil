@@ -33,6 +33,10 @@ BODY_CONTAMINATION_MARKERS = (
     "이 저장 내용이",
     "저장 처리 완료",
     "저장됨이라고 말할 수",
+    "이 소스가 노드에 충분한 이유",
+    "추출된 주장",
+    "커뮤니티와의 연결 방식",
+    "이것이 증명하지 못하는 것",
     "receipt",
     "produced_count",
     "mail_id",
@@ -110,9 +114,26 @@ def has_mojibake(markdown: str) -> bool:
         return True
     if any(chr(codepoint) in markdown for codepoint in LATIN1_ARTIFACT_CODEPOINTS):
         return True
+    known_bad_fragments = (
+        "?쒓",
+        "?먮",
+        "?꾨",
+        "?섏",
+        "?댁",
+        "吏",
+        "湲",
+        "怨",
+        "蹂",
+        "諛",
+        "媛",
+        "瑜",
+        "濡",
+    )
+    if any(fragment in markdown for fragment in known_bad_fragments):
+        return True
     cjk_count = sum(1 for char in markdown if "\u4e00" <= char <= "\u9fff")
     suspicious_question_count = len(re.findall(r"\?[^\s\n]{1,8}", markdown))
-    return cjk_count >= 5 or suspicious_question_count >= 20
+    return cjk_count >= 3 or suspicious_question_count >= 5
 
 
 def evaluate_content_first_wiki_article(markdown: str, *, path_hint: str = "") -> dict[str, Any]:

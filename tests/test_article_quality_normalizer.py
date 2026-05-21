@@ -4,6 +4,7 @@ import json
 
 from runtime.wiki.article_quality_normalizer import normalize_active_wiki_article, normalize_safe_cursor_articles
 from runtime.wiki.best_case_alignment_gate import evaluate_best_case_mock_alignment
+from runtime.wiki.content_first_gate import has_mojibake
 
 
 def test_normalizer_repairs_active_article_without_domain_hardcoding() -> None:
@@ -261,3 +262,13 @@ Use only for reusable, sourced, non-preference knowledge.
     assert appendix["message_index_range"] == "20..24"
     assert appendix["anchor_hash"] == "abc789"
     assert appendix["reason_codes"] == ["appendix_lineage"]
+
+
+def test_mojibake_detector_rejects_garbled_korean_fragments() -> None:
+    garbled = (
+        "## What This Page Decides\n"
+        "한국어 맥락처럼 보여도 ?쒓뎅??留λ씫 과 ?먮떒 같은 깨진 조각이 "
+        "본문에 섞이면 wiki article 품질 gate를 통과하면 안 됩니다."
+    )
+
+    assert has_mojibake(garbled)
