@@ -18,6 +18,7 @@ MAINTENANCE_RECEIPTS_RELATIVE_PATH = "_meta/maintenance_receipts.jsonl"
 MUTATION_LOG_RELATIVE_PATH = "_meta/mutation_log.jsonl"
 TOMBSTONES_RELATIVE_PATH = "_meta/tombstones.jsonl"
 REPAIR_QUEUE_RELATIVE_PATH = "_meta/repair_queue.jsonl"
+REPAIR_RECEIPTS_RELATIVE_PATH = "_meta/repair_receipts.jsonl"
 SOURCE_REF_RE = re.compile(r"hermes-session-json://[A-Za-z0-9_\-]+")
 PRIVATE_ABSOLUTE_PATH_RE = re.compile(r"(?<![A-Za-z])[A-Za-z]:[\\/]|/mnt/[a-z]/", re.IGNORECASE)
 REPORT_SCAFFOLD_MARKERS = (
@@ -142,6 +143,184 @@ def _source_refs_from_related_nodes(vault_root: Path, related_nodes: list[str]) 
         if text:
             refs.extend(SOURCE_REF_RE.findall(text))
     return _ordered_unique(refs)
+
+
+def _related_node_texts(vault_root: Path, related_nodes: list[str]) -> list[str]:
+    texts: list[str] = []
+    category_texts_by_node: dict[str, str] = {}
+    provenance_texts_by_node: dict[str, list[str]] = {}
+    for node_id in related_nodes:
+        node = str(node_id or "").strip()
+        if not node:
+            continue
+        node_path = vault_root / "concepts" / f"{node}.md"
+        if node_path.exists():
+            texts.append(node_path.read_text(encoding="utf-8", errors="replace"))
+            continue
+        if not category_texts_by_node:
+            category_root = vault_root / "categories"
+            if category_root.exists():
+                for path in sorted(category_root.rglob("*.md")):
+                    if "graphify-out" in path.parts:
+                        continue
+                    candidate_text = path.read_text(encoding="utf-8", errors="replace")
+                    match = re.search(r'"internal_node_id"\s*:\s*"([^"]+)"', candidate_text)
+                    if match:
+                        category_texts_by_node.setdefault(match.group(1), candidate_text)
+        text = category_texts_by_node.get(node)
+        if text:
+            texts.append(text)
+            continue
+        if not provenance_texts_by_node:
+            provenance_root = vault_root / "_meta" / "provenance"
+            if provenance_root.exists():
+                for path in sorted(provenance_root.rglob("*.md")):
+                    candidate_text = path.read_text(encoding="utf-8", errors="replace")
+                    for match in re.finditer(r'"claim_id"\s*:\s*"claim:([^"]+)"', candidate_text):
+                        provenance_texts_by_node.setdefault(match.group(1), []).append(candidate_text)
+        texts.extend(provenance_texts_by_node.get(node, []))
+    return texts
+
+
+def _ring_ids_for_source_refs_from_related_nodes(
+    vault_root: Path,
+    related_nodes: list[str],
+    source_refs: list[str],
+) -> dict[str, str]:
+    ring_ids: dict[str, str] = {}
+    for text in _related_node_texts(vault_root, related_nodes):
+        for line in text.splitlines():
+            ring_match = re.search(r'"ring_id"\s*:\s*"([^"]+)"', line)
+            if not ring_match:
+                continue
+            for ref in source_refs:
+                if ref in line and ref not in ring_ids:
+                    ring_ids[ref] = ring_match.group(1)
+    return ring_ids
+
+
+def _replace_metadata_line(text: str, key: str, value: str) -> str:
+    prefix = f"- {key}:"
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if line.startswith(prefix):
+            lines[index] = f"- {key}: {value}"
+            return "\n".join(lines) + ("\n" if text.endswith("\n") else "")
+    insert_at = 1 if lines and lines[0].startswith("# ") else 0
+    lines.insert(insert_at, f"- {key}: {value}")
+    return "\n".join(lines) + ("\n" if text.endswith("\n") else "")
+
+
+def _replace_first_json_block_payload(text: str, payload: Mapping[str, Any]) -> str:
+    rendered = json.dumps(payload, ensure_ascii=False, indent=2)
+    return re.sub(
+        r"```json\n.*?\n```",
+        f"```json\n{rendered}\n```",
+        text,
+        count=1,
+        flags=re.DOTALL,
+    )
+
+
+def _load_first_json_block(text: str) -> dict[str, Any]:
+    match = re.search(r"```json\n(.*?)\n```", text, flags=re.DOTALL)
+    if not match:
+        return {}
+    try:
+        loaded = json.loads(match.group(1))
+    except json.JSONDecodeError:
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def _repair_community_source_ref_drift(
+    *,
+    vault_root: Path,
+    run_id: str,
+    source: str,
+    write: bool,
+) -> list[dict[str, Any]]:
+    repairs: list[dict[str, Any]] = []
+    for candidate in _scan_community_source_ref_drift(vault_root):
+        community_rel_path = str(candidate.get("community_path") or "")
+        community_path = _vault_path(vault_root, community_rel_path)
+        if not community_path.exists():
+            continue
+        old_text = community_path.read_text(encoding="utf-8", errors="replace")
+        related_nodes = _metadata_values(old_text, "related_nodes")
+        source_refs = _source_refs_from_related_nodes(vault_root, related_nodes)
+        ring_ids_by_source_ref = _ring_ids_for_source_refs_from_related_nodes(
+            vault_root,
+            related_nodes,
+            source_refs,
+        )
+        payload = _load_first_json_block(old_text)
+        payload["schema_version"] = payload.get("schema_version") or "community_growth_history.v1"
+        payload["growth_events"] = [
+            {
+                "source_ref": ref,
+                "ring_id": ring_ids_by_source_ref.get(ref, ""),
+            }
+            for ref in source_refs
+        ]
+        payload["community_source_ref_rerender"] = {
+            "schema_version": "community_source_ref_rerender.v1",
+            "run_id": run_id,
+            "source": source,
+            "reason_codes": [
+                "rerender_source_refs_from_related_node_provenance",
+                "janitor_queue_item_addressed",
+            ],
+        }
+        new_text = old_text
+        new_text = _replace_metadata_line(new_text, "source_refs", ", ".join(source_refs))
+        new_text = _replace_metadata_line(new_text, "growth_event_count", str(len(source_refs)))
+        new_text = _replace_first_json_block_payload(new_text, payload)
+        old_sha = hashlib.sha256(old_text.encode("utf-8")).hexdigest()
+        new_sha = hashlib.sha256(new_text.encode("utf-8")).hexdigest()
+        receipt = {
+            "schema_version": "community_source_ref_rerender_receipt.v1",
+            "run_id": run_id,
+            "created_at": _now_iso(),
+            "community_path": community_rel_path,
+            "related_nodes": related_nodes,
+            "source_refs": source_refs,
+            "growth_event_count": len(source_refs),
+            "old_sha256": old_sha,
+            "new_sha256": new_sha,
+            "written": write and old_sha != new_sha,
+            "reason_codes": [
+                "rerender_source_refs_from_related_node_provenance",
+                "preserve_discontinuous_community_growth_history",
+                "janitor_queue_item_addressed",
+            ],
+            "hard_nonclaims": [
+                "community_rerender_is_not_live_provider_proof",
+                "community_rerender_is_not_graphify_product_ux",
+                "community_rerender_is_not_semantic_merge_or_split",
+            ],
+        }
+        if write and old_sha != new_sha:
+            community_path.write_text(new_text, encoding="utf-8")
+            append_jsonl_atomic(vault_root / REPAIR_RECEIPTS_RELATIVE_PATH, receipt)
+            append_jsonl_atomic(
+                vault_root / MUTATION_LOG_RELATIVE_PATH,
+                {
+                    "schema_version": "wiki_mutation_log_entry.v1",
+                    "run_id": run_id,
+                    "event_type": "community_source_ref_rerender",
+                    "created_at": receipt["created_at"],
+                    "community_path": community_rel_path,
+                    "old_sha256": old_sha,
+                    "new_sha256": new_sha,
+                    "source_refs": source_refs,
+                    "hard_nonclaims": [
+                        "community_source_ref_rerender_is_not_semantic_quality_review"
+                    ],
+                },
+            )
+        repairs.append(receipt)
+    return repairs
 
 
 def _scan_duplicate_titles(vault_root: Path) -> list[dict[str, Any]]:
@@ -419,8 +598,17 @@ def run_wiki_vault_janitor(
     source: str = "manual",
     write: bool = True,
     full_vault: bool = False,
+    repair_community_source_ref_drift: bool = False,
 ) -> dict[str, Any]:
     vault_root = vault_root.resolve()
+    community_source_ref_repair_results: list[dict[str, Any]] = []
+    if repair_community_source_ref_drift:
+        community_source_ref_repair_results = _repair_community_source_ref_drift(
+            vault_root=vault_root,
+            run_id=run_id,
+            source=source,
+            write=write,
+        )
     cursor = load_safe_index_cursor(vault_root)
     committed_paths = [str(item) for item in cursor.get("committed_paths") or []]
     checked: list[dict[str, Any]] = []
@@ -463,8 +651,10 @@ def run_wiki_vault_janitor(
         "pass"
         if cursor.get("status") == "configured"
         and not missing
+        and not community_source_ref_drift_candidates
         and not production_page_lineage_issues
         and not full_vault_health_issues
+        and not queued_repairs
         else "partial"
     )
     hard_nonclaims = [
@@ -491,6 +681,7 @@ def run_wiki_vault_janitor(
         "duplicate_repair_decisions": duplicate_repair_decisions,
         "community_source_ref_drift_candidates": community_source_ref_drift_candidates,
         "community_source_ref_repair_decisions": community_source_ref_repair_decisions,
+        "community_source_ref_repair_results": community_source_ref_repair_results,
         "production_page_lineage_issues": production_page_lineage_issues,
         "full_vault_scan_enabled": full_vault,
         "full_vault_health_issues": full_vault_health_issues,
@@ -518,6 +709,7 @@ def run_wiki_vault_janitor(
         "checked_paths": checked,
         "missing_committed_paths": missing,
         "community_source_ref_drift_count": len(community_source_ref_drift_candidates),
+        "community_source_ref_repair_result_count": len(community_source_ref_repair_results),
         "production_page_lineage_issue_count": len(production_page_lineage_issues),
         "full_vault_scan_enabled": full_vault,
         "full_vault_health_issue_count": len(full_vault_health_issues),
@@ -566,6 +758,7 @@ def main() -> int:
     parser.add_argument("--source", default="manual")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--full-vault", action="store_true")
+    parser.add_argument("--repair-community-source-ref-drift", action="store_true")
     args = parser.parse_args()
     result = run_wiki_vault_janitor(
         vault_root=args.vault_root,
@@ -573,6 +766,7 @@ def main() -> int:
         source=args.source,
         write=not args.dry_run,
         full_vault=args.full_vault,
+        repair_community_source_ref_drift=args.repair_community_source_ref_drift,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["maintenance_receipt"]["status"] == "pass" else 1
