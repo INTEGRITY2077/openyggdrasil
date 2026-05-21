@@ -100,10 +100,39 @@ def test_visible_provider_cpr_wakeup_is_disabled_by_default(tmp_path, monkeypatc
     )
 
     assert result["status"] == "queued"
-    assert result["reason_code"] == "visible_provider_wakeup_disabled"
+    assert result["reason_code"] == "provider_visible_wakeup_retired"
     assert result["delivery_mode"] == "internal_heartbeat"
     assert result["provider_context_window_written"] is False
     assert result["tmux_injection_attempted"] is False
+
+
+def test_visible_provider_cpr_wakeup_env_cannot_reenable_tmux_injection(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("OY_ALLOW_VISIBLE_PROVIDER_WAKEUP", "1")
+    result = wake_provider_with_cpr(
+        {
+            "status": "done",
+            "heartbeat_cpr_status": "ready",
+            "handoff_status": "ready_for_provider_current_dialogue",
+            "manual_prompt_injection_required": False,
+            "message_id": "msg-visible-retired",
+            "mf1_support_metadata": {
+                "status": "available",
+                "support_facts_count": 1,
+                "source_paths_count": 1,
+                "typed_unavailable_present": False,
+            },
+        },
+        registry_dir=tmp_path,
+        provider_session="missing-provider-session",
+        inject_visible=True,
+    )
+
+    assert result["status"] == "queued"
+    assert result["reason_code"] == "provider_visible_wakeup_retired"
+    assert result["delivery_mode"] == "internal_heartbeat"
+    assert result["provider_context_window_written"] is False
+    assert result["tmux_injection_attempted"] is False
+    assert "prompt_preview" not in result
 
 
 def test_postman_visible_notice_is_hidden_by_default_policy() -> None:
@@ -111,7 +140,7 @@ def test_postman_visible_notice_is_hidden_by_default_policy() -> None:
 
     assert result["status"] == "pass"
     assert "defaults to 0" in result["visible_by_default_env"]
-    assert result["visible_mode_policy"] == "hidden_by_default_route_notice"
+    assert result["visible_mode_policy"] == "hidden_by_default_mailbox_notice"
 
 
 def test_provider_rejudgment_clarification_question_is_readable_korean() -> None:

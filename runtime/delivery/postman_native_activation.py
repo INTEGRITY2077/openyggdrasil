@@ -218,7 +218,7 @@ def verify_visible_notice_contract() -> dict[str, Any]:
         "schema_version": "postman_visible_notice_contract_check.v1",
         "status": "pass" if not leaked else "fail",
         "visible_by_default_env": "OY_POSTMAN_VISIBLE_CPR defaults to 0; set 1 only for explicit dev fallback smoke",
-        "visible_mode_policy": "hidden_by_default_route_notice",
+        "visible_mode_policy": "hidden_by_default_mailbox_notice",
         "mission_summary_included": False,
         "semantic_material_terms_present": leaked,
         "cancel_existing_prompt": False,
@@ -304,7 +304,7 @@ def activate_native_lane(
         "semantic_receipt_included": False,
         "visible_notice_semantic_material_included": False,
         "cancel_existing_prompt": False,
-        "prompt_contract": "visible_by_default_route_only_notice",
+        "prompt_contract": "mailbox_first_worker_loop_owns_pane",
         "visible_cpr": visible_cpr,
         "native_pane_status": pane_status,
     }

@@ -12,7 +12,6 @@ from typing import Any, Mapping
 from runtime.common.role_aliases import LEGACY_MEMORY_FINDER_SUPPORT_METADATA_FIELD
 from runtime.common.portable_ref import LOCAL_PATH_RE
 from runtime.common.provider_wake_markers import PROVIDER_REJUDGMENT_WAKE_SENTINEL
-from runtime.delivery.tmux_lane_adapter import paste_text_enter
 
 
 PROVIDER_BUSY_MARKERS = (
@@ -355,98 +354,28 @@ def wake_provider_with_cpr(
         wakeup["log_path"] = str(_write_cpr_wakeup_log(result, wakeup, registry_dir=registry_dir))
         return wakeup
 
-    if not inject_visible:
-        wakeup = {
-            "schema_version": "postman_cpr_provider_wakeup.v1",
-            "created_at": created_at,
-            "status": "queued",
-            "reason_code": "provider_internal_heartbeat_recorded",
-            "wakeup_id": wakeup_id,
-            "provider_session": provider_session,
-            "message_id": result.get("message_id"),
-            "scope": "internal_provider_heartbeat_state",
-            "delivery_mode": "internal_heartbeat",
-            "provider_context_window_written": False,
-            "tmux_injection_attempted": False,
-            "activation_owner": "postman",
-            "autonomous_daemon_claimed": False,
-            "full_ux_passed": False,
-        }
-        wakeup["internal_heartbeat_path"] = str(_write_internal_cpr_heartbeat(result, wakeup, registry_dir=registry_dir))
-        wakeup["log_path"] = str(_write_cpr_wakeup_log(result, wakeup, registry_dir=registry_dir))
-        return wakeup
-
-    if os.environ.get("OY_ALLOW_VISIBLE_PROVIDER_WAKEUP", "0") != "1":
-        wakeup = {
-            "schema_version": "postman_cpr_provider_wakeup.v1",
-            "created_at": created_at,
-            "status": "queued",
-            "reason_code": "visible_provider_wakeup_disabled",
-            "wakeup_id": wakeup_id,
-            "provider_session": provider_session,
-            "message_id": result.get("message_id"),
-            "scope": "internal_provider_heartbeat_state",
-            "delivery_mode": "internal_heartbeat",
-            "provider_context_window_written": False,
-            "tmux_injection_attempted": False,
-            "activation_owner": "postman",
-            "autonomous_daemon_claimed": False,
-            "full_ux_passed": False,
-            "hard_nonclaim": "Provider user-facing pane is not a Postman route-notice surface.",
-        }
-        wakeup["internal_heartbeat_path"] = str(_write_internal_cpr_heartbeat(result, wakeup, registry_dir=registry_dir))
-        wakeup["log_path"] = str(_write_cpr_wakeup_log(result, wakeup, registry_dir=registry_dir))
-        return wakeup
-
-    lane_monitor, lane_monitor_attempts = _wait_for_provider_lane_ready(
-        provider_session,
-        attempts=wait_attempts,
-        interval_seconds=wait_interval_seconds,
-        settle_seconds=settle_seconds,
-    )
-    if not lane_monitor.get("ready"):
-        wakeup = {
-            "schema_version": "postman_cpr_provider_wakeup.v1",
-            "created_at": created_at,
-            "status": "deferred",
-            "reason_code": lane_monitor.get("reason_code", "provider_lane_not_ready"),
-            "wakeup_id": wakeup_id,
-            "provider_session": provider_session,
-            "message_id": result.get("message_id"),
-            "scope": "postman_visible_provider_wakeup",
-            "delivery_mode": "visible_tmux_injection",
-            "provider_context_window_written": False,
-            "tmux_injection_attempted": False,
-            "lane_monitor": lane_monitor,
-            "lane_monitor_attempts": lane_monitor_attempts,
-            "activation_owner": "postman",
-            "autonomous_daemon_claimed": False,
-            "full_ux_passed": False,
-        }
-        wakeup["log_path"] = str(_write_cpr_wakeup_log(result, wakeup, registry_dir=registry_dir))
-        return wakeup
-
-    prompt = _build_provider_cpr_wakeup_prompt(result)
-    sent = paste_text_enter(provider_session, prompt, reason="postman_cpr_wakeup")
     wakeup = {
         "schema_version": "postman_cpr_provider_wakeup.v1",
         "created_at": created_at,
-        "status": "sent" if sent.returncode == 0 else "blocked",
-        "reason_code": "sent" if sent.returncode == 0 else (sent.stderr or sent.stdout or "tmux_lane_adapter_failed").strip(),
+        "status": "queued",
+        "reason_code": (
+            "provider_visible_wakeup_retired"
+            if inject_visible
+            else "provider_internal_heartbeat_recorded"
+        ),
         "wakeup_id": wakeup_id,
         "provider_session": provider_session,
         "message_id": result.get("message_id"),
-        "prompt_preview": prompt[:360],
-        "scope": "postman_visible_provider_wakeup",
-        "delivery_mode": "visible_tmux_injection",
-        "provider_context_window_written": sent.returncode == 0,
-        "tmux_injection_attempted": True,
-        "lane_monitor": lane_monitor,
-        "lane_monitor_attempts": lane_monitor_attempts,
+        "scope": "internal_provider_heartbeat_state",
+        "delivery_mode": "internal_heartbeat",
+        "provider_context_window_written": False,
+        "tmux_injection_attempted": False,
         "activation_owner": "postman",
         "autonomous_daemon_claimed": False,
         "full_ux_passed": False,
+        "hard_nonclaim": "Provider user-facing pane is not a Postman route-notice surface.",
     }
+    wakeup["internal_heartbeat_path"] = str(_write_internal_cpr_heartbeat(result, wakeup, registry_dir=registry_dir))
     wakeup["log_path"] = str(_write_cpr_wakeup_log(result, wakeup, registry_dir=registry_dir))
     return wakeup
 
