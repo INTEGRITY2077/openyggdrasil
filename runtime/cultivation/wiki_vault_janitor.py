@@ -108,6 +108,7 @@ def _metadata_int(text: str, key: str) -> int | None:
 def _source_refs_from_related_nodes(vault_root: Path, related_nodes: list[str]) -> list[str]:
     refs: list[str] = []
     category_texts_by_node: dict[str, str] = {}
+    provenance_texts_by_node: dict[str, list[str]] = {}
     for node_id in related_nodes:
         node = str(node_id or "").strip()
         if not node:
@@ -128,6 +129,16 @@ def _source_refs_from_related_nodes(vault_root: Path, related_nodes: list[str]) 
                         if match:
                             category_texts_by_node.setdefault(match.group(1), candidate_text)
             text = category_texts_by_node.get(node, "")
+        if not text:
+            if not provenance_texts_by_node:
+                provenance_root = vault_root / "_meta" / "provenance"
+                if provenance_root.exists():
+                    for path in sorted(provenance_root.rglob("*.md")):
+                        candidate_text = path.read_text(encoding="utf-8", errors="replace")
+                        for match in re.finditer(r'"claim_id"\s*:\s*"claim:([^"]+)"', candidate_text):
+                            provenance_texts_by_node.setdefault(match.group(1), []).append(candidate_text)
+            for candidate_text in provenance_texts_by_node.get(node, []):
+                refs.extend(SOURCE_REF_RE.findall(candidate_text))
         if text:
             refs.extend(SOURCE_REF_RE.findall(text))
     return _ordered_unique(refs)
