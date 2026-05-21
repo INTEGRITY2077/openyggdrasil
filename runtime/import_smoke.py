@@ -44,6 +44,7 @@ CANONICAL_RUNTIME_MODULES = [
     "capture.boundary_ledger",
     "capture.decision_distiller",
     "capture.context_guard",
+    "capture.live_compaction_observer",
     "capture.provider_current_source_bridge",
     "capture.provider_runtime_integrity",
     "capture.session_structure_signal",
