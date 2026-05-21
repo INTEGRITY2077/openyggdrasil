@@ -34,7 +34,7 @@ Usage:
   ygg watch <ms1|mf1>           tail the memory lane mailbox
   ygg live <ms1|mf1>            optional MS/MF debug lens; not default Postman path
   ygg flow <ms1|mf1>            optional debug receipt tail; Hermes pane remains primary
-  ygg cpr [--json]              read the Provider-bound Status Brief
+  ygg cpr [--json]              read the current-dialogue support card
   ygg cpr --wake-provider       record an internal Provider heartbeat; never writes Provider pane
 
 Compatibility:

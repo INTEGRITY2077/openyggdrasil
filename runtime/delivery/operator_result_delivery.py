@@ -1,19 +1,12 @@
 from __future__ import annotations
 
 import os
-import subprocess
-import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from runtime.common.jsonl_io import append_jsonl
-from runtime.delivery.tmux_lane_adapter import (
-    cancel_prompt,
-    paste_text_enter,
-    validate_no_worker_judgment_payload,
-)
 from runtime.delivery.postman_work_order import append_worker_history_event
 from runtime.delivery.worker_result_spec import build_worker_result_spec
 
@@ -333,85 +326,14 @@ def _project_native_receipt_notice(
     result_bundle: dict[str, Any] | None,
     worker_result_spec: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    if os.environ.get("OY_POSTMAN_NATIVE_RESULT_PROJECTION", "0") != "1":
-        return {"enabled": False, "written": False, "status": "disabled"}
-    if os.environ.get("OY_ALLOW_UNSAFE_POSTMAN_RESULT_PROJECTION", "0") != "1":
-        return {
-            "enabled": False,
-            "written": False,
-            "status": "disabled_unsafe_postman_result_projection_guard",
-            "hard_nonclaim": "postman_result_projection_is_not_live_worker_judgment",
-        }
-    session = _worker_lane_session(mailbox)
-    if not session:
-        return {"enabled": True, "written": False, "status": "no_worker_lane"}
-    target = f"{session}:1"
-    text = _native_result_projection_text(
-        mailbox,
-        status=status,
-        produced_count=produced_count,
-        node_count=node_count,
-        result_bundle=result_bundle,
-        worker_result_spec=worker_result_spec,
-    )
-    try:
-        validate_no_worker_judgment_payload(text)
-    except ValueError as exc:
-        return {
-            "enabled": True,
-            "written": False,
-            "status": "blocked_worker_judgment_payload",
-            "session": session,
-            "reason": str(exc),
-        }
-    try:
-        has_session = subprocess.run(
-            ["tmux", "has-session", "-t", session],
-            capture_output=True,
-            text=True,
-            timeout=3,
-        )
-        if has_session.returncode != 0:
-            return {"enabled": True, "written": False, "status": "tmux_session_missing", "session": session}
-        wait_deadline = time.monotonic() + float(os.environ.get("OY_POSTMAN_NATIVE_RESULT_PROJECTION_IDLE_TIMEOUT", "180"))
-        while time.monotonic() < wait_deadline:
-            captured = subprocess.run(
-                ["tmux", "capture-pane", "-p", "-t", target, "-S", "-16"],
-                capture_output=True,
-                text=True,
-                timeout=3,
-            )
-            if captured.returncode == 0:
-                recent = [line.strip() for line in captured.stdout.splitlines()[-8:] if line.strip()]
-                prompt_mark = "\u276f"
-                separator_mark = "\u2500"
-                tail_is_prompt = bool(
-                    recent
-                    and (
-                        recent[-1] == prompt_mark
-                        or (
-                            len(recent) >= 2
-                            and recent[-1].startswith(separator_mark)
-                            and recent[-2] == prompt_mark
-                        )
-                    )
-                )
-                if tail_is_prompt and not any("msg=interrupt" in line for line in recent):
-                    break
-            time.sleep(1.0)
-        cancel_prompt(target, reason="operator_result_delivery")
-        result = paste_text_enter(target, text, reason="operator_result_delivery", timeout=3)
-        if result.returncode != 0:
-            raise RuntimeError((result.stderr or result.stdout or "tmux_lane_adapter_failed").strip())
-    except Exception as exc:  # noqa: BLE001 - result projection must never break receipt recording.
-        return {
-            "enabled": True,
-            "written": False,
-            "status": "projection_failed",
-            "session": session,
-            "reason": type(exc).__name__,
-        }
-    return {"enabled": True, "written": True, "status": "sent_to_native_pane", "session": session}
+    del mailbox, status, produced_count, node_count, result_bundle, worker_result_spec
+    return {
+        "enabled": False,
+        "written": False,
+        "status": "retired_postman_result_projection",
+        "tmux_pane_write_attempted": False,
+        "hard_nonclaim": "Postman must not write route or result notices into native Hermes panes.",
+    }
 
 
 def deliver_operator_result(

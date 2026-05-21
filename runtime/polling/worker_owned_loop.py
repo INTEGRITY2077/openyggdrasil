@@ -133,7 +133,7 @@ def _worker_owned_native_loop_text(event: dict) -> str:
         "accepted evidence:\n"
         + "".join(f"- {item}\n" for item in accepted)
         + "rejected evidence:\n"
-        "- route notice is not evidence\n"
+        "- mail arrival banner is not evidence\n"
         "- pane text alone is not storage or recall success\n"
         "- semantic answer material is not accepted before mailbox processing\n"
         "judgment: not_started\n"
@@ -274,7 +274,7 @@ def _worker_owned_structured_close_text(
             f"program_hash={_program_hash(supervisor)}",
         ]
     rejected = [
-        "route notice",
+        "mail arrival banner",
         "pane text alone",
         f"candidate_hard_gate_rejections={_candidate_rejection_count(receipt)}",
     ]

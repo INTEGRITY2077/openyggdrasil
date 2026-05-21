@@ -2,7 +2,7 @@
 """
 Optional MS/MF delivery debug lens for producer/consumer mailboxes.
 
-The default product path is Provider -> Postman -> MS/MF native pane. This
+The default product path is Provider -> Postman mailbox routing -> MS/MF worker loop. This
 module remains as a private proof/debug lens and must not be treated as the
 owner of delivery, wakeup, or worker goal progression.
 """

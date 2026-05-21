@@ -385,7 +385,7 @@ def cmd_status(op: str) -> None:
         creating="intent/receipt count and latest processing summary",
         created=f"intents={intent_count}, receipts={receipt_count}, pending={pending}; {last_summary}",
         evidence=evidence,
-        next_action="If pending remains, inspect Postman activation/live pane or Result Receipt ledger; do not treat the optional debug lens as the product owner",
+        next_action="If pending remains, inspect mailbox worker-loop status or the receipt ledger; do not treat the optional debug lens as the product owner",
         status="done",
     )
 

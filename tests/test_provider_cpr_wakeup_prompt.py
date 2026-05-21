@@ -155,6 +155,26 @@ def test_postman_native_env_cannot_reenable_worker_pane_notice(tmp_path: Path, m
     assert result["prompt_contract"] == "postman_does_not_write_worker_pane"
 
 
+def test_postman_result_projection_is_fully_retired(tmp_path: Path, monkeypatch) -> None:
+    from runtime.delivery.operator_result_delivery import _project_native_receipt_notice
+
+    monkeypatch.setenv("OY_POSTMAN_NATIVE_RESULT_PROJECTION", "1")
+    monkeypatch.setenv("OY_ALLOW_UNSAFE_POSTMAN_RESULT_PROJECTION", "1")
+
+    result = _project_native_receipt_notice(
+        tmp_path / "MF1",
+        status="delivered",
+        produced_count=0,
+        node_count=0,
+        result_bundle={"support_facts": ["must not appear"], "source_paths": ["must-not-appear.md"]},
+    )
+
+    assert result["enabled"] is False
+    assert result["written"] is False
+    assert result["status"] == "retired_postman_result_projection"
+    assert result["tmux_pane_write_attempted"] is False
+
+
 def test_provider_rejudgment_clarification_question_is_not_a_route_notice() -> None:
     result = build_provider_rejudgment(
         worker_result_spec={

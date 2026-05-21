@@ -102,7 +102,7 @@ def cmd_live(op: str) -> None:
             creating="no new MS/MF debug lens",
             created=f"already running pid={running_lines[0].split()[0]}",
             evidence=running_lines[0][:180] + "; flow=not_started_by_default",
-            next_action="Use this only as an optional debug lens; Postman/native pane remains the default product path",
+            next_action="Use this only as an optional debug lens; mailbox worker loop remains the default product path",
             status="done",
         )
         return
@@ -321,7 +321,7 @@ def cmd_receipt(mail_id: str) -> None:
         creating="처리 상태 판정",
         created=created,
         evidence=evidence,
-        next_action="pending이면 Postman activation/native pane/status를 확인하고, done이면 Vault 또는 support_facts 확인",
+        next_action="pending이면 mailbox worker-loop status를 확인하고, done이면 Vault 또는 support_facts 확인",
         status=status,
     )
 

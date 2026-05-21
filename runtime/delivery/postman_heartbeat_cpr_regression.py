@@ -239,7 +239,7 @@ def run_postman_heartbeat_cpr_regression(
 ) -> dict[str, Any]:
     """Run an isolated end-to-end Engine Heartbeat CPR regression check.
 
-    The default path uses a temporary workspace, injects a Provider-bound CPR
+    The default path uses a temporary workspace, injects an internal current-dialogue support
     packet, reads it back, and removes the workspace before returning.
     """
     if workspace_root is not None:

@@ -373,7 +373,7 @@ def _print_cpr_workflow(result: dict) -> None:
     }
     _workflow(
         "YGG CPR",
-        now="Read Provider-bound Postman heartbeat CPR packet",
+        now="Read internal current-dialogue support card",
         watching=f"session={PROVIDER_PAIR_SESSION}; workspace={REPO}",
         creating="bounded Provider current-dialogue CPR card",
         created=f"status={result.get('status')}; message_id={result.get('message_id') or 'none'}",

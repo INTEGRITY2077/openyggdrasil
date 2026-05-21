@@ -310,7 +310,7 @@ def _write_internal_cpr_heartbeat(result: Mapping[str, Any], wakeup: Mapping[str
             "provider_context_window_written": False,
             "tmux_injection_attempted": False,
             "provider_read_required": True,
-            "provider_read_contract": "Provider or runtime hook reads Provider-bound CPR state internally before answering.",
+            "provider_read_contract": "Provider or runtime hook reads internal current-dialogue support state before answering.",
             "activation_owner": "postman",
             "autonomous_daemon_claimed": False,
             "full_ux_passed": False,
