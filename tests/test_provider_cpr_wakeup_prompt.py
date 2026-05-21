@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -166,6 +167,30 @@ def test_postman_native_env_cannot_reenable_worker_pane_notice(tmp_path: Path, m
     assert result["visible_cpr_requested"] is True
     assert result["tmux_pane_write_attempted"] is False
     assert result["prompt_contract"] == "postman_does_not_write_worker_pane"
+
+
+def test_postman_native_tmux_probe_falls_back_to_wsl_on_windows(monkeypatch) -> None:
+    import runtime.delivery.postman_native_activation as activation
+
+    calls: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        calls.append(list(command))
+        if command[0] == "tmux":
+            raise FileNotFoundError("tmux")
+        assert command[:3] == ["wsl", "bash", "-lc"]
+        assert "tmux has-session -t ygg-ms1" in command[3]
+        return subprocess.CompletedProcess(command, 0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(activation.os, "name", "nt")
+    monkeypatch.setattr(activation.shutil, "which", lambda name: "wsl.exe" if name == "wsl" else None)
+    monkeypatch.setattr(activation.subprocess, "run", fake_run)
+
+    result = activation._tmux("has-session", "-t", "ygg-ms1")
+
+    assert result.returncode == 0
+    assert calls[0][0] == "tmux"
+    assert calls[1][0] == "wsl"
 
 
 def test_postman_result_projection_is_fully_retired(tmp_path: Path, monkeypatch) -> None:

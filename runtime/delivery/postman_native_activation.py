@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
+import shutil
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,7 +28,25 @@ VISIBLE_NOTICE_FORBIDDEN_TERMS = (
 
 
 def _tmux(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["tmux", *args], capture_output=True, text=True)
+    command = ["tmux", *args]
+    try:
+        return subprocess.run(command, capture_output=True, text=True)
+    except FileNotFoundError:
+        if os.name == "nt" and shutil.which("wsl"):
+            shell_command = " ".join(shlex.quote(part) for part in command)
+            result = subprocess.run(["wsl", "bash", "-lc", shell_command], capture_output=True)
+            stdout = (
+                result.stdout.decode("utf-8", errors="replace")
+                if isinstance(result.stdout, bytes)
+                else str(result.stdout or "")
+            )
+            stderr = (
+                result.stderr.decode("utf-8", errors="replace")
+                if isinstance(result.stderr, bytes)
+                else str(result.stderr or "")
+            )
+            return subprocess.CompletedProcess(command, result.returncode, stdout=stdout, stderr=stderr)
+        return subprocess.CompletedProcess(command, 127, stdout="", stderr="tmux executable not found")
 
 
 def _tmux_session_exists(session: str) -> bool:
