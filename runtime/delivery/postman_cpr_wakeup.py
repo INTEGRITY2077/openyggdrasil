@@ -217,10 +217,10 @@ def _node_taxonomy_lines(support: Mapping[str, Any]) -> list[str]:
 def _build_provider_cpr_wakeup_prompt(result: Mapping[str, Any]) -> str:
     del result
     return (
-        "OpenYggdrasil 보강 결과가 도착했습니다. "
-        "방금 답한 내용을 마지막 사용자 질문과 다시 비교하세요. "
-        "충분하면 필요한 밀도로만 보강하고, 부족하거나 현재 답을 바꿀 근거가 없으면 그렇게 짧게 닫으세요. "
-        "파일 경로, 내부 식별자, 개수 목록은 사용자 답변에 쓰지 마세요."
+        "OpenYggdrasil 결과 도착 알림입니다. 이 알림 자체는 답변 근거가 아닙니다. "
+        "Provider-bound brief를 먼저 확인하고, 원 질문과 현재 답을 다시 비교하세요. "
+        "근거가 충분하면 필요한 밀도로만 보강하고, 부족하거나 현재 답을 바꿀 근거가 없으면 그렇게 짧게 닫으세요. "
+        "파일 경로, 노드 ID, receipt ID, 개수 목록은 사용자 답변에 쓰지 마세요."
     )
 
 

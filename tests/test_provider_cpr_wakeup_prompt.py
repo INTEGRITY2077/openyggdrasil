@@ -9,23 +9,23 @@ from runtime.delivery.worker_result_spec import build_provider_rejudgment
 
 
 MOJIBAKE_MARKERS = (
+    "?꾧퉴",
     "蹂닿컯",
-    "?꾩갑",
     "留덉",
     "洹쇨굅",
-    "?뚯씪",
-    "媛쒖닔",
+    "寃곌낵",
+    "筌",
+    "�",
 )
 
 
 def test_provider_cpr_wakeup_prompt_is_readable_korean_and_marker_detectable() -> None:
     prompt = _build_provider_cpr_wakeup_prompt({})
 
-    assert "OpenYggdrasil 보강 결과가 도착했습니다" in prompt
-    assert "마지막 사용자 질문" in prompt
-    assert "파일 경로" in prompt
-    assert "내부 식별자" in prompt
-    assert "receipt ID" not in prompt
+    assert "OpenYggdrasil 결과 도착 알림입니다" in prompt
+    assert "원 질문과 현재 답을 다시 비교하세요" in prompt
+    assert "파일 경로, 노드 ID, receipt ID" in prompt
+    assert "답변 근거가 아닙니다" in prompt
     assert PROVIDER_REJUDGMENT_WAKE_SENTINEL not in prompt
     assert not any(marker in prompt for marker in MOJIBAKE_MARKERS)
     assert is_provider_rejudgment_wakeup_text(prompt)
