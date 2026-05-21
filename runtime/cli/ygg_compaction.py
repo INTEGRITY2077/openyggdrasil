@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -62,6 +63,7 @@ def run_compaction_check(
         "vault_root_resolved": str(resolved_vault),
         "candidate_episode_count": len(candidate_episodes),
         "writes_only_after_preflight_marker": True,
+        "watch_supported": True,
         "raw_pane_text_included": False,
     }
     if not result.get("production_ready_axis_pass"):
@@ -71,17 +73,71 @@ def run_compaction_check(
     return result
 
 
+def run_compaction_watch(
+    *,
+    vault_root: Path | None = None,
+    run_id: str | None = None,
+    targets: Mapping[str, str] | None = None,
+    lines: int = 320,
+    interval_seconds: float = 2.0,
+    timeout_seconds: float = 120.0,
+    max_attempts: int | None = None,
+    runner: Callable[[list[str]], Any] | None = None,
+) -> dict[str, Any]:
+    """Repeatedly observe lanes until real compaction proof appears or remains blocked."""
+
+    started = time.monotonic()
+    attempt = 0
+    last_result: dict[str, Any] | None = None
+    effective_run_id = run_id or _default_run_id()
+    while True:
+        attempt += 1
+        last_result = run_compaction_check(
+            vault_root=vault_root,
+            run_id=effective_run_id,
+            targets=targets,
+            lines=lines,
+            runner=runner,
+        )
+        last_result["watch"] = {
+            "schema_version": "ygg_compaction_watch.v1",
+            "attempts": attempt,
+            "interval_seconds": interval_seconds,
+            "timeout_seconds": timeout_seconds,
+            "max_attempts": max_attempts,
+            "completed_reason": "pass" if last_result.get("production_ready_axis_pass") else "still_blocked",
+            "raw_pane_text_included": False,
+        }
+        if last_result.get("production_ready_axis_pass"):
+            return last_result
+        if max_attempts is not None and attempt >= max(1, int(max_attempts)):
+            last_result["watch"]["completed_reason"] = "max_attempts_reached"
+            return last_result
+        if time.monotonic() - started >= max(0.0, float(timeout_seconds)):
+            last_result["watch"]["completed_reason"] = "timeout_reached"
+            return last_result
+        if interval_seconds > 0:
+            time.sleep(float(interval_seconds))
+
+
 def cmd_compact_check(args: list[str]) -> None:
     json_mode = False
+    watch_mode = False
     run_id: str | None = None
     vault_root: Path | None = None
     lines = 320
+    interval_seconds = 2.0
+    timeout_seconds = 120.0
+    max_attempts: int | None = None
     target_values: list[str] = []
     idx = 0
     while idx < len(args):
         arg = args[idx]
         if arg == "--json":
             json_mode = True
+            idx += 1
+        elif arg == "--watch":
+            watch_mode = True
             idx += 1
         elif arg == "--run-id" and idx + 1 < len(args):
             run_id = args[idx + 1]
@@ -96,6 +152,27 @@ def cmd_compact_check(args: list[str]) -> None:
                 print("Usage: ygg compact-check [--json] [--run-id ID] [--vault-root PATH] [--lines N] [--target lane=tmux-target]")
                 raise SystemExit(2)
             idx += 2
+        elif arg == "--interval" and idx + 1 < len(args):
+            try:
+                interval_seconds = max(0.0, float(args[idx + 1]))
+            except ValueError:
+                print("Usage: ygg compact-check [--watch] [--interval N] [--timeout N] [--max-attempts N]")
+                raise SystemExit(2)
+            idx += 2
+        elif arg == "--timeout" and idx + 1 < len(args):
+            try:
+                timeout_seconds = max(0.0, float(args[idx + 1]))
+            except ValueError:
+                print("Usage: ygg compact-check [--watch] [--interval N] [--timeout N] [--max-attempts N]")
+                raise SystemExit(2)
+            idx += 2
+        elif arg == "--max-attempts" and idx + 1 < len(args):
+            try:
+                max_attempts = max(1, int(args[idx + 1]))
+            except ValueError:
+                print("Usage: ygg compact-check [--watch] [--interval N] [--timeout N] [--max-attempts N]")
+                raise SystemExit(2)
+            idx += 2
         elif arg == "--target" and idx + 1 < len(args):
             target_values.append(args[idx + 1])
             idx += 2
@@ -107,12 +184,23 @@ def cmd_compact_check(args: list[str]) -> None:
     except ValueError as exc:
         print(f"Error: {exc}")
         raise SystemExit(2)
-    result = run_compaction_check(
-        vault_root=vault_root,
-        run_id=run_id,
-        targets=targets,
-        lines=lines,
-    )
+    if watch_mode:
+        result = run_compaction_watch(
+            vault_root=vault_root,
+            run_id=run_id,
+            targets=targets,
+            lines=lines,
+            interval_seconds=interval_seconds,
+            timeout_seconds=timeout_seconds,
+            max_attempts=max_attempts,
+        )
+    else:
+        result = run_compaction_check(
+            vault_root=vault_root,
+            run_id=run_id,
+            targets=targets,
+            lines=lines,
+        )
     if json_mode:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
@@ -128,6 +216,9 @@ def cmd_compact_check(args: list[str]) -> None:
             f"preflight={conditions.get('preflight_marker_found')}, "
             f"memento={conditions.get('context_guard_memento_write_proven')}"
         )
+        watch = result.get("watch") or {}
+        if watch:
+            print(f"watch: attempts={watch.get('attempts')}, reason={watch.get('completed_reason')}")
     if not result.get("production_ready_axis_pass"):
         raise SystemExit(1)
 
@@ -136,4 +227,5 @@ __all__ = [
     "DEFAULT_COMPACTION_TARGETS",
     "cmd_compact_check",
     "run_compaction_check",
+    "run_compaction_watch",
 ]
