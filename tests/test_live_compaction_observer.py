@@ -4,11 +4,13 @@ import subprocess
 from pathlib import Path
 
 from runtime.capture.live_compaction_observer import (
+    _default_runner,
     observe_compaction_text,
     observe_tmux_targets,
     parse_token_meter,
     run_live_compaction_observer,
 )
+import runtime.capture.live_compaction_observer as live_compaction_observer
 
 
 def _episode() -> dict:
@@ -126,3 +128,31 @@ def test_parse_token_meter_supports_integer_shape() -> None:
     assert row["used_tokens"] == 142570
     assert row["source_label"] == "142570/272000"
     assert row["raw_text_included"] is False
+
+
+def test_default_runner_uses_wsl_tmux_fallback_on_windows(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    monkeypatch.setattr(live_compaction_observer.os, "name", "nt", raising=False)
+    monkeypatch.setattr(
+        live_compaction_observer.shutil,
+        "which",
+        lambda name: "C:\\Windows\\System32\\wsl.exe" if name == "wsl" else None,
+    )
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        if command and command[0] == "tmux":
+            raise FileNotFoundError("tmux")
+        assert command[:3] == ["wsl", "bash", "-lc"]
+        assert "tmux capture-pane" in command[3]
+        return subprocess.CompletedProcess(command, 0, stdout=b"gpt-5.5 | 72.7K/272K", stderr=b"")
+
+    monkeypatch.setattr(live_compaction_observer.subprocess, "run", fake_run)
+
+    result = _default_runner(["tmux", "capture-pane", "-p", "-t", "ygg-pro1:1"])
+
+    assert result.returncode == 0
+    assert result.stdout == "gpt-5.5 | 72.7K/272K"
+    assert calls[0][0] == "tmux"
+    assert calls[1][:3] == ["wsl", "bash", "-lc"]

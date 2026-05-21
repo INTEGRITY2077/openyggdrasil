@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import shlex
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
@@ -226,7 +229,33 @@ def run_live_compaction_observer(
 
 
 def _default_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, capture_output=True, text=True, check=False)
+    try:
+        return subprocess.run(command, capture_output=True, text=True, check=False)
+    except FileNotFoundError:
+        if command and command[0] == "tmux" and os.name == "nt" and shutil.which("wsl"):
+            shell_command = " ".join(shlex.quote(part) for part in command)
+            result = subprocess.run(
+                ["wsl", "bash", "-lc", shell_command],
+                capture_output=True,
+                check=False,
+            )
+            stdout = (
+                result.stdout.decode("utf-8", errors="replace")
+                if isinstance(result.stdout, bytes)
+                else str(result.stdout or "")
+            )
+            stderr = (
+                result.stderr.decode("utf-8", errors="replace")
+                if isinstance(result.stderr, bytes)
+                else str(result.stderr or "")
+            )
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=result.returncode,
+                stdout=stdout,
+                stderr=stderr,
+            )
+        raise
 
 
 def main() -> int:
@@ -262,4 +291,5 @@ __all__ = [
     "observe_tmux_targets",
     "parse_token_meter",
     "run_live_compaction_observer",
+    "_default_runner",
 ]
