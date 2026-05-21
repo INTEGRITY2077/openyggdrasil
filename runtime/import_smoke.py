@@ -104,6 +104,7 @@ CANONICAL_RUNTIME_MODULES = [
     "reasoning.provider_reasoning_self_assessment",
     "reasoning.provider_resource_boundary",
     "reasoning.provider_reasoning_gate",
+    "reasoning.provider_support_consumption",
     "reasoning.process_sandbox_policy",
     "reasoning.reasoning_lease_contracts",
     "reasoning.typed_availability_metrics",

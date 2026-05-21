@@ -1,0 +1,291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openyggdrasil.local/contracts/provider_support_consumption_receipt.v1.schema.json",
+  "title": "openyggdrasil Provider Support Consumption Receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "consumption_id",
+    "run_id",
+    "status",
+    "unavailable_condition",
+    "reason_codes",
+    "provider_id",
+    "provider_profile",
+    "provider_session_id",
+    "support_packet_ref",
+    "answer_segment_ref",
+    "support_summary",
+    "route_free_surface",
+    "provider_rejudgment",
+    "route_free_consumption_proven",
+    "production_readiness_claimed",
+    "full_ux_passed",
+    "hard_nonclaims",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "provider_support_consumption_receipt.v1"
+    },
+    "consumption_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "run_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "consumed",
+        "typed_unavailable"
+      ]
+    },
+    "unavailable_condition": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 180
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "provider_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "provider_profile": {
+      "$ref": "#/$defs/identifier"
+    },
+    "provider_session_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "support_packet_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/safe_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "answer_segment_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/safe_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "support_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mail_id",
+        "message_id",
+        "support_facts_count",
+        "source_paths_count",
+        "typed_unavailable_present"
+      ],
+      "properties": {
+        "mail_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 180
+        },
+        "message_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 180
+        },
+        "support_facts_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_paths_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "typed_unavailable_present": {
+          "type": "boolean"
+        }
+      }
+    },
+    "route_free_surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visible_cpr_command_used",
+        "visible_route_notice_present",
+        "tmux_pane_write_attempted",
+        "manual_prompt_injection_required",
+        "provider_context_window_written",
+        "forbidden_marker_hits"
+      ],
+      "properties": {
+        "visible_cpr_command_used": {
+          "const": false
+        },
+        "visible_route_notice_present": {
+          "const": false
+        },
+        "tmux_pane_write_attempted": {
+          "const": false
+        },
+        "manual_prompt_injection_required": {
+          "const": false
+        },
+        "provider_context_window_written": {
+          "const": false
+        },
+        "forbidden_marker_hits": {
+          "type": "array",
+          "maxItems": 0
+        }
+      }
+    },
+    "provider_rejudgment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "answer_segment_present",
+        "answer_support_alignment",
+        "support_still_requires_provider_judgment"
+      ],
+      "properties": {
+        "answer_segment_present": {
+          "type": "boolean"
+        },
+        "answer_support_alignment": {
+          "type": "string",
+          "enum": [
+            "enough_with_limits",
+            "insufficient",
+            "mismatch",
+            "not_evaluated"
+          ]
+        },
+        "support_still_requires_provider_judgment": {
+          "const": true
+        }
+      }
+    },
+    "route_free_consumption_proven": {
+      "type": "boolean"
+    },
+    "production_readiness_claimed": {
+      "const": false
+    },
+    "full_ux_passed": {
+      "const": false
+    },
+    "hard_nonclaims": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "safe_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 700,
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^\\\\\\s]+$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^[Ff][Ii][Ll][Ee]://"
+          },
+          {
+            "pattern": "^[A-Za-z]:"
+          },
+          {
+            "pattern": "(?i)transcript"
+          },
+          {
+            "pattern": "(?i)credential"
+          },
+          {
+            "pattern": "(?i)receipt\\.json$"
+          }
+        ]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "consumed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "unavailable_condition": {
+            "type": "null"
+          },
+          "route_free_consumption_proven": {
+            "const": true
+          },
+          "support_packet_ref": {
+            "$ref": "#/$defs/safe_ref"
+          },
+          "answer_segment_ref": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "typed_unavailable"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "unavailable_condition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "route_free_consumption_proven": {
+            "const": false
+          }
+        }
+      }
+    }
+  ]
+}
