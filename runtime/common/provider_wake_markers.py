@@ -10,7 +10,45 @@ def is_provider_rejudgment_wakeup_text(text: object) -> bool:
         return False
     if PROVIDER_REJUDGMENT_WAKE_SENTINEL in normalized:
         return True
-    return normalized.startswith("OpenYggdrasil 보강 후보가 ")
+
+    lowered = normalized.lower()
+    answer_reference = (
+        "아까 답" in normalized
+        or "현재 답" in normalized
+        or "기존 답" in normalized
+        or "current answer" in lowered
+        or "previous answer" in lowered
+        or "existing answer" in lowered
+    )
+    arrived_support = (
+        "뒤에서 확인된" in normalized
+        or "보강 후보" in normalized
+        or "결과 도착" in normalized
+        or "support arrived" in lowered
+        or "result arrived" in lowered
+        or "provider-bound" in lowered
+    )
+    recompare_action = (
+        "비교" in normalized
+        or "다시 봐" in normalized
+        or "재비교" in normalized
+        or "rejudge" in lowered
+        or "recompare" in lowered
+        or "compare" in lowered
+    )
+    internal_id_limit = (
+        "내부 번호" in normalized
+        or "노드 id" in lowered
+        or "receipt" in lowered
+        or "local path" in lowered
+        or "file path" in lowered
+    )
+    if answer_reference and arrived_support and recompare_action:
+        return True
+    if arrived_support and recompare_action and internal_id_limit:
+        return True
+
+    return normalized.startswith("OpenYggdrasil 蹂닿컯 ?꾨낫媛 ")
 
 
 __all__ = [

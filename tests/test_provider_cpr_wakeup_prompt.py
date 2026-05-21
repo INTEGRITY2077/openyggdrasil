@@ -8,6 +8,7 @@ from runtime.common.provider_wake_markers import (
 )
 from runtime.delivery.postman_cpr_wakeup import _build_provider_cpr_wakeup_prompt
 from runtime.delivery.postman_cpr_wakeup import wake_provider_with_cpr
+from runtime.delivery.postman_native_activation import _activation_prompt
 from runtime.delivery.postman_native_activation import verify_visible_notice_contract
 from runtime.delivery.worker_result_spec import build_provider_rejudgment
 
@@ -29,7 +30,14 @@ def test_provider_cpr_wakeup_prompt_builder_is_retired() -> None:
 
 def test_provider_rejudgment_legacy_marker_is_detected_only_for_ignored_history() -> None:
     assert is_provider_rejudgment_wakeup_text(f"{PROVIDER_REJUDGMENT_WAKE_SENTINEL} legacy ignored")
+    assert is_provider_rejudgment_wakeup_text(
+        "아까 답을 뒤에서 확인된 기준과 비교해서 필요한 밀도로 다시 봐줘. "
+        "근거 이름이나 내부 번호를 나열하지는 마."
+    )
     assert not is_provider_rejudgment_wakeup_text("OpenYggdrasil result notice")
+    assert not is_provider_rejudgment_wakeup_text(
+        "위키 근거가 있으면 뒤에서 확인해줘. 없으면 부족하다고 말해줘."
+    )
 
 
 def test_visible_provider_cpr_wakeup_is_disabled_by_default(tmp_path, monkeypatch) -> None:
@@ -95,6 +103,36 @@ def test_postman_visible_notice_is_hidden_by_default_policy() -> None:
     assert result["status"] == "pass"
     assert "defaults to 0" in result["visible_by_default_env"]
     assert result["visible_mode_policy"] == "hidden_by_default_mailbox_notice"
+
+
+def test_worker_visible_notice_is_minimal_mail_arrival_only() -> None:
+    prompt = _activation_prompt(
+        label="MF1",
+        role_type="consumer",
+        message_type="query",
+        payload={"query_text": "semantic query must not appear"},
+        delivery={"mail_id": "ask-clean", "work_order_id": "work-clean"},
+    )
+
+    assert prompt.startswith("메일 도착 | lane=MF1")
+    assert "mail_id=ask-clean" in prompt
+    assert "work_order_id=work-clean" in prompt
+
+    forbidden = (
+        "SOT=",
+        "first_visible_step=",
+        "process_step=",
+        "processor_entrypoint=",
+        "surface_fields=",
+        "completion",
+        "result_requires",
+        "mailbox_notice_only",
+        "semantic query",
+        "answer",
+        "support",
+        "judgment",
+    )
+    assert not any(term.lower() in prompt.lower() for term in forbidden)
 
 
 def test_provider_rejudgment_clarification_question_is_not_a_route_notice() -> None:

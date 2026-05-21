@@ -171,33 +171,19 @@ def _activation_prompt(
     role = _worker_role(label, role_type)
     if role_type == "producer":
         request_name = "Save Request"
-        completion_gate = "completed_claim_requires_same_mail_done_and_nonzero_when_saving"
     elif message_type == "query":
         request_name = "Find Request"
-        completion_gate = "completed_claim_requires_same_mail_completed_with_fact_and_path_when_finding"
     else:
         request_name = "Work Request"
-        completion_gate = "completed_claim_requires_same_mail_completed_before_positive_close"
     prompt = " | ".join(
         [
-            "mailbox notice",
+            "메일 도착",
             f"lane={label}",
             f"role={role}",
             f"kind={request_name}",
             f"mailbox_ref={delivery.get('mailbox_ref') or '(mailbox-row)'}",
             f"mail_id={delivery.get('mail_id') or 'unknown'}",
             f"work_order_id={delivery.get('work_order_id') or 'unknown'}",
-            "SOT=mailbox work_order row before deciding",
-            "first_visible_step=mailbox_row_resolved then accepted/rejected evidence",
-            "process_step=run_role_owned_mailbox_processor_before_missing_receipt_close",
-            "processor_entrypoint=configured role-owned mailbox processor",
-            "surface_fields=selected capability class and bounded program hash from processor result when present",
-            "same_mail_status_check=role_owned_worker_loop",
-            completion_gate,
-            "pending_or_zero_output_must_close_typed_unavailable",
-            "missing_receipt_close_only_after_processor_attempt",
-            "final_step=close_mailbox_receipt_or_typed_unavailable",
-            "mailbox_notice_only",
         ]
     )
     validate_visible_notice_route_only(prompt)
@@ -270,7 +256,7 @@ def activate_native_lane(
         "phase": "postman_cpr_sent",
         "actor": "postman",
         "created_at": timestamp,
-        "summary": "Postman woke the native provider pane with a short mailbox work-order notice.",
+        "summary": "Postman recorded or woke the native worker pane with a short mailbox work-order notice.",
         "status": "cpr_sent",
     }
     _append_jsonl(sessions_dir / op / "work_history.jsonl", work_history)

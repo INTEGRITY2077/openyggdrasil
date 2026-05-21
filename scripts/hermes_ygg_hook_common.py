@@ -43,6 +43,7 @@ DEFAULT_RECIPIENT = "MS1"
 DEFAULT_RECALL_RECIPIENT = "MF1"
 STATE_DB_SOURCE_CACHE_DIR = Path.home() / ".yggdrasil" / "sessions" / "provider-source-cache"
 WORKER_SURFACE_MARKERS = (
+    "메일 도착",
     "mailbox_row_resolved",
     "work_order_id=",
     "bounded program",
