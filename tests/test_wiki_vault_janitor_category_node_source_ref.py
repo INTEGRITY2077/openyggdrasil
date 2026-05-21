@@ -106,3 +106,108 @@ def test_janitor_rerenders_community_source_refs_from_related_node_provenance(tm
     assert "- source_refs: hermes-session-json://session-2" in repaired
     assert "hermes-session-json://stale" not in repaired
     assert '"ring_id": "ring-1"' in repaired
+
+
+def test_janitor_queues_duplicate_active_category_articles(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    first = vault / "categories" / "software-development" / "claude-code" / "agents" / "agent-boundary-a.md"
+    second = vault / "categories" / "software-development" / "claude-code" / "agents" / "agent-boundary-b.md"
+    first.parent.mkdir(parents=True)
+    for path in (first, second):
+        path.write_text(
+            "\n".join(
+                [
+                    "---",
+                    "schema_version: wiki_article.v1",
+                    "article_role: representative_tree",
+                    "status: ACTIVE",
+                    "title: Claude Code agent and extension placement boundary",
+                    "---",
+                    "# Claude Code agent and extension placement boundary",
+                    "",
+                    "## What This Page Decides",
+                    "Agent runtime and definition location must remain separate.",
+                    "",
+                    "## Machine Appendix",
+                    "{}",
+                ]
+            ),
+            encoding="utf-8",
+        )
+    (vault / "_meta").mkdir(exist_ok=True)
+    (vault / "_meta" / "safe_index_cursor.json").write_text(
+        '{"schema_version":"safe_index_cursor.v1","status":"configured","cursor_id":"cursor:test","committed_paths":[]}',
+        encoding="utf-8",
+    )
+
+    result = run_wiki_vault_janitor(
+        vault_root=vault,
+        run_id="test-duplicate-category-articles",
+        source="unit-test",
+        write=False,
+    )
+
+    decisions = result["maintenance_receipt"]["duplicate_repair_decisions"]
+    assert result["maintenance_receipt"]["status"] == "partial"
+    assert any(
+        decision["suggested_action"] == "review_category_article_duplicate_or_tombstone_superseded_page"
+        and decision["repair_queue_status"] == "queued"
+        for decision in decisions
+    )
+
+
+def test_janitor_ignores_support_excluded_category_duplicate(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    first = vault / "categories" / "software-development" / "claude-code" / "agents" / "agent-boundary-a.md"
+    second = vault / "categories" / "software-development" / "claude-code" / "agents" / "agent-boundary-b.md"
+    first.parent.mkdir(parents=True)
+    for path in (first, second):
+        path.write_text(
+            "\n".join(
+                [
+                    "---",
+                    "schema_version: wiki_article.v1",
+                    "article_role: representative_tree",
+                    "status: ACTIVE",
+                    "title: Claude Code agent and extension placement boundary",
+                    "---",
+                    "# Claude Code agent and extension placement boundary",
+                ]
+            ),
+            encoding="utf-8",
+        )
+    (vault / "_meta").mkdir(exist_ok=True)
+    (vault / "_meta" / "safe_index_cursor.json").write_text(
+        '{"schema_version":"safe_index_cursor.v1","status":"configured","cursor_id":"cursor:test","committed_paths":[]}',
+        encoding="utf-8",
+    )
+    (vault / "_meta" / "support_exclusion_manifest.json").write_text(
+        """
+{
+  "schema_version": "support_exclusion_manifest.v1",
+  "entries": [
+    {
+      "path": "vault/categories/software-development/claude-code/agents/agent-boundary-b.md",
+      "exclusion_state": "superseded_duplicate_article",
+      "final_support_allowed": false,
+      "reason_codes": ["superseded_by_canonical_article"]
+    }
+  ],
+  "patterns": []
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = run_wiki_vault_janitor(
+        vault_root=vault,
+        run_id="test-excluded-duplicate-category-articles",
+        source="unit-test",
+        write=False,
+    )
+
+    assert result["maintenance_receipt"]["duplicate_title_candidates"] == []
+    assert not any(
+        decision["suggested_action"] == "review_category_article_duplicate_or_tombstone_superseded_page"
+        for decision in result["maintenance_receipt"]["duplicate_repair_decisions"]
+    )

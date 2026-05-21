@@ -4,7 +4,7 @@ import json
 
 from runtime.wiki.article_quality_normalizer import normalize_active_wiki_article, normalize_safe_cursor_articles
 from runtime.wiki.best_case_alignment_gate import evaluate_best_case_mock_alignment
-from runtime.wiki.content_first_gate import has_mojibake
+from runtime.wiki.content_first_gate import evaluate_content_first_wiki_article, has_mojibake
 
 
 def test_normalizer_repairs_active_article_without_domain_hardcoding() -> None:
@@ -216,6 +216,94 @@ This is the production-facing wiki page for a source-backed OpenYggdrasil memory
     assert receipt["failed_count"] == 0
     assert receipt["skipped_count"] == 1
     assert receipt["skipped"][0]["artifact_kind"] == "retrieval_guard_card"
+
+
+def test_generic_production_facing_scaffold_is_not_article_body() -> None:
+    markdown = """---
+schema_version: wiki_article.v1
+article_role: representative_tree
+status: ACTIVE
+title: Claude Code Hook Boundary
+root_claim: This is a production-facing wiki continent page.
+page_ref: oy-vault://categories/software-development/claude-code/extension-placement/hooks-skills-mcp-plugins/claude-code-hook-boundary.md
+semantic_category_path: software-development/claude-code/extension-placement/hooks-skills-mcp-plugins
+---
+# Claude Code Hook Boundary
+
+## What This Page Decides
+This is a production-facing wiki continent page. It groups safe-indexed OpenYggdrasil memories by semantic category instead of exposing internal hash filenames.
+
+## Operating Rule
+Hook belongs to automatic event behavior.
+
+## Source Synthesis
+The source explains Hook placement in Claude Code documentation.
+
+## Related Pages
+- Claude Code Skill Boundary
+
+## How This Changed Over Time
+- Early: the boundary was first captured.
+- Middle: the category was attached.
+- Later: the page stayed active.
+
+## Examples
+- Use this page for Hook placement.
+
+## Maintenance Notes
+- Run lint before final support.
+
+## Machine Appendix
+{}
+"""
+
+    result = evaluate_content_first_wiki_article(
+        markdown,
+        path_hint="vault/categories/software-development/claude-code/extension-placement/hooks-skills-mcp-plugins/claude-code-hook-boundary.md",
+    )
+
+    assert result["verdict"] == "fail"
+    assert "body_contains_proof_or_storage_self_talk" in result["blockers"]
+
+
+def test_normalizer_replaces_generic_page_scaffold_root_claim() -> None:
+    markdown = """---
+schema_version: wiki_article.v1
+article_role: representative_tree
+title: Claude Code Hook and Slash Command Placement Boundary
+root_claim: This is a production-facing wiki continent page.
+page_ref: oy-vault://categories/software-development/claude-code/extension-placement/hooks-skills-mcp-plugins/claude-code-hook-and-slash-command-placement-boundary.md
+semantic_category_path: software-development/claude-code/extension-placement/hooks-skills-mcp-plugins
+---
+# Claude Code Hook and Slash Command Placement Boundary
+
+## What This Page Is
+This is a production-facing wiki continent page. It groups safe-indexed OpenYggdrasil memories by semantic category instead of exposing internal hash filenames.
+
+## Operating Rule
+Put automatic lifecycle behavior in Hook and model-readable procedures in Skill.
+
+## Source Synthesis
+The source explains Hook placement and slash command placement as separate operational surfaces.
+
+## Related Pages
+- Claude Code Skill Boundary
+
+## Machine Appendix
+{}
+"""
+
+    repaired, gate = normalize_active_wiki_article(
+        markdown,
+        path_hint="vault/categories/software-development/claude-code/extension-placement/hooks-skills-mcp-plugins/claude-code-hook-and-slash-command-placement-boundary.md",
+        run_id="unit-normalizer",
+    )
+
+    assert gate["verdict"] == "pass"
+    body = repaired.partition("## Machine Appendix")[0].lower()
+    assert "this is a production-facing wiki continent page" not in body
+    assert 'root_claim: "This is a production-facing wiki continent page.' not in repaired
+    assert "Claude Code Hook and Slash Command Placement Boundary preserves the reusable boundary" in repaired
 
 
 def test_normalizer_preserves_existing_machine_appendix_lineage() -> None:

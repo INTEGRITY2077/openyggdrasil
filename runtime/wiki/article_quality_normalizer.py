@@ -34,6 +34,7 @@ ACTIVE_ARTICLE_SECTION_ORDER = (
     "Machine Appendix",
 )
 BODY_FORBIDDEN_TERMS = (
+    "this is a production-facing wiki continent page",
     "receipt",
     "produced_count",
     "mail_id",
@@ -59,16 +60,18 @@ def normalize_active_wiki_article(markdown: str, *, path_hint: str, run_id: str)
     sections = _sections(markdown)
     existing_appendix = _first_json_payload(markdown)
     title = _clean_inline(frontmatter.get("title") or _first_h1(markdown) or Path(path_hint).stem.replace("-", " ").title())
-    root_claim = _clean_sentence(
-        frontmatter.get("root_claim")
-        or _first_sentence(_section(sections, "What This Page Is"))
-        or f"{title} is a reusable wiki article."
-    )
-    page_ref = _page_ref(frontmatter, path_hint)
     semantic_category_path = _clean_inline(
         frontmatter.get("semantic_category_path")
         or _category_from_path_hint(path_hint)
     )
+    root_claim = _clean_sentence(
+        frontmatter.get("root_claim")
+        or _first_sentence(_section(sections, "What This Page Is"))
+        or f"{title} preserves a reusable distinction for later retrieval."
+    )
+    if _is_generic_page_scaffold(root_claim):
+        root_claim = f"{title} preserves the reusable boundary at {semantic_category_path or 'its semantic category'}."
+    page_ref = _page_ref(frontmatter, path_hint)
     retrieval_terms = _retrieval_terms(markdown, title=title, semantic_category_path=semantic_category_path)
     related_pages = _semantic_related_pages(markdown, semantic_category_path=semantic_category_path)
     appendix = _machine_appendix(
@@ -316,6 +319,18 @@ def _clean_sentence(value: Any) -> str:
     return text
 
 
+def _is_generic_page_scaffold(value: str) -> bool:
+    lowered = str(value or "").casefold()
+    return any(
+        marker in lowered
+        for marker in (
+            "this is a production-facing wiki continent page",
+            "groups safe-indexed openyggdrasil memories",
+            "instead of exposing internal hash filenames",
+        )
+    )
+
+
 def _paragraph(value: Any) -> str:
     lines = []
     for raw_line in str(value or "").splitlines():
@@ -348,6 +363,7 @@ def _split_key_points(value: str) -> list[str]:
     return _unique([part for part in parts if len(part) >= 20])[:5] or [text]
 
 
+
 def _article_intro(title: str, semantic_category_path: str, root_claim: str, sections: dict[str, str]) -> str:
     source_text = (
         _section(sections, "What This Page Explains")
@@ -358,15 +374,19 @@ def _article_intro(title: str, semantic_category_path: str, root_claim: str, sec
     base = _paragraph(source_text)
     return (
         f"{base}\n\n"
-        f"한국어 맥락: 이 page는 `{semantic_category_path}` 안에서 {title}를 다시 읽을 수 있는 "
-        "장기 지식으로 고정합니다. 사용자는 나중에 같은 말을 반복하지 않아도, Provider와 MF1이 "
-        "이 page를 통해 무엇을 같은 주제로 보고 무엇을 다른 주제로 분리해야 하는지 판단할 수 있어야 합니다. "
-        "따라서 이 문서는 예쁜 설명문이 아니라, 시간이 지난 뒤에도 같은 질문을 다시 만났을 때 "
-        "대륙, 산, 숲, 나무, 가지, 잎, 엽록체의 위치를 따라 재사용할 수 있는 판단 지도를 제공합니다. "
-        "LLM은 맥락이 길어질수록 가까운 단어를 같은 주제처럼 오인할 수 있으므로, 이 본문은 핵심 주제, "
-        "인접 주제, 분리해야 할 주제, 나중에 다시 확인해야 할 근거를 짧은 표식이 아니라 문장으로 남깁니다. "
-        "사람은 이 page를 읽고 왜 이 주제가 이 위치에 놓였는지 이해해야 하고, LLM은 같은 page를 검색해 "
-        "답변에 쓸 수 있는 주장과 아직 쓰면 안 되는 경계를 구분해야 합니다."
+        f"This page fixes `{title}` as a reusable Tree inside `{semantic_category_path}`. "
+        "It is not operation metadata. It explains the central subject, "
+        "the adjacent subjects that must stay separate, and the evidence boundary that "
+        "MF1 must re-check before Provider uses the page in an answer. The article should "
+        "help a human and an LLM decide what belongs here, what belongs nearby, and what "
+        "must remain unsupported.\n\n"
+        "한국어 맥락: 이 문서는 같은 질문이 나중에 다른 말로 다시 나왔을 때 무엇을 같은 주제로 "
+        "묶고, 무엇을 인접 주제로 분리해야 하는지 판단하게 해 주는 장기 지식 단위입니다. "
+        "사용자는 이 글을 읽고 전체 대화 기록을 다시 열지 않아도 핵심 경계, 적용 조건, "
+        "분리해야 할 오해를 빠르게 파악할 수 있어야 합니다. LLM은 제목만 보고 결론을 "
+        "확정하지 않고 본문과 근거 위치를 함께 읽어야 합니다. 특히 비슷한 단어가 반복되는 "
+        "대화에서는 같은 말처럼 보이는 질문이 실제로는 다른 원인, 다른 범위, 다른 판단 "
+        "축을 가질 수 있으므로 이 글은 합칠 기준과 나눌 기준을 함께 제공합니다."
     )
 
 
@@ -378,13 +398,16 @@ def _durability_text(title: str, semantic_category_path: str, sections: dict[str
     )
     return (
         f"{why}\n\n"
-        "이 지식은 단발 답변이 아니라 시간이 지난 뒤에도 재사용되는 판단 기준입니다. "
-        "대화가 끊기거나 주제가 느슨하게 돌아와도 같은 경계가 유지되어야 하며, 새로운 source가 들어오면 "
-        "attach, child, sibling, split, bridge, reject 중 하나로 기록되어야 합니다. "
-        "그 기록은 사람이 읽는 본문과 기계가 확인하는 부록을 동시에 갱신해야 하며, "
-        "어떤 근거가 판단을 바꾸었는지 시간 방향으로 추적 가능해야 합니다. "
-        "새로운 대화가 들어올 때마다 결론을 다시 쓰는 것이 아니라, 기존 판단이 유지되는지, 좁아지는지, "
-        "넓어지는지, 반례 때문에 갈라지는지를 남기는 것이 이 page의 장기 가치입니다."
+        "Durable knowledge is not a frozen answer. It is a reusable decision boundary "
+        "that can survive later context loss. When new sources arrive, the page must record "
+        "whether they attach, become a child, become a sibling, split, bridge, reject, or repair "
+        "the existing Tree. That time direction is part of the knowledge, not an audit extra.\n\n"
+        "시간 방향: 새 대화가 들어올 때마다 결론을 덮어쓰지 않고, 기존 판단이 유지되는지 "
+        "좁아지는지 넓어지는지 또는 별도 주제로 갈라지는지를 기록합니다. 이 기록이 있어야 "
+        "불연속적인 여러 세션에서 같은 주제가 돌아왔을 때 기존 글에 붙일지, 하위 글을 만들지, "
+        "형제 글로 나눌지, 전혀 다른 숲으로 보낼지를 판단할 수 있습니다. 나중에 답변을 만들 때는 "
+        "현재 질문이 어느 시점의 판단과 맞는지 다시 확인해야 하며, 오래된 판단이 새 근거로 "
+        "수정되었는지도 함께 확인해야 합니다."
     )
 
 
@@ -396,13 +419,14 @@ def _ontology_position_text(title: str, semantic_category_path: str) -> str:
     branch = " / ".join(segments[3:]) if len(segments) > 3 else title
     return "\n".join(
         [
-            f"- Continent: `{continent}` - 이 지식이 속한 가장 큰 세계입니다.",
-            f"- Mountain: `{mountain}` - 오래 반복되는 문제축 또는 관점축입니다.",
-            f"- Forest: `{forest}` - 함께 움직이는 community 후보입니다.",
-            f"- Tree: `{title}` - 사람이 먼저 읽어야 하는 대표 Wiki page입니다.",
-            f"- Branch: `{branch}` - 조건, 비교, 적용 경로가 갈라지는 판단 경로입니다.",
-            f"- Leaf: `{title} core reusable distinction` - 실제 답변에 다시 쓸 최소 주장입니다.",
-            "- Chloroplast: `source pointer / origin locator / anchor hash / provenance / timestamp` - Leaf를 살아 있게 하는 근거 장치입니다.",
+            f"- Continent: `{continent}` - the largest knowledge territory.",
+            f"- Mountain: `{mountain}` - the long-running problem axis inside that territory.",
+            f"- Forest: `{forest}` - the community of topics that move together.",
+            f"- Tree: `{title}` - the canonical page a human should read first.",
+            f"- Branch: `{branch}` - the decision path where conditions and comparisons diverge.",
+            f"- Leaf: `{title} core reusable distinction` - the smallest claim that can support an answer.",
+            "- Chloroplast: `source pointer / origin locator / anchor hash / provenance / timestamp` - the evidence cell that keeps the claim alive.",
+            "- Korean note: 이 계층은 지도 확대처럼 읽습니다. 먼저 대륙과 산으로 범위를 잡고, 숲과 나무에서 실제 읽을 문서를 고릅니다. 가지와 잎은 답변에 쓰이는 판단 경로와 최소 주장이며, 엽록체는 그 주장을 살리는 원본 근거입니다. 이 위치가 분명해야 MF1이 가까운 다른 주제를 잘못 끌어오지 않습니다.",
         ]
     )
 
@@ -419,10 +443,10 @@ def _decision_path_text(title: str, semantic_category_path: str) -> str:
             f"3. If the question moves with `{forest}`, attach or bridge it to this Tree.",
             "4. If the question changes cause, scope, or evidence type, create child, sibling, split, or reject rather than overmerging.",
             "5. Provider may answer only after MF1 returns safe source-backed support that still matches the current question.",
-            "6. 한국어 판단 기준: 제목이 비슷하다는 이유만으로 병합하지 말고, 질문의 원인축과 근거 종류가 같은지 먼저 확인합니다.",
+            "6. Do not merge pages only because titles look similar; first compare cause, scope, and evidence type.",
+            "7. 한국어 판단 기준: 제목이 비슷해도 원인, 범위, 근거 종류가 다르면 같은 Tree로 합치지 않습니다.",
         ]
     )
-
 
 def _common_confusions_text(title: str, sections: dict[str, str]) -> str:
     items = (
@@ -440,6 +464,7 @@ def _common_confusions_text(title: str, sections: dict[str, str]) -> str:
     return _bullets(items)
 
 
+
 def _community_growth_notes_text(title: str, semantic_category_path: str) -> str:
     return "\n".join(
         [
@@ -448,10 +473,10 @@ def _community_growth_notes_text(title: str, semantic_category_path: str) -> str
             "- Bridge when a later source returns after a time gap but still depends on the same distinction.",
             "- Split or create a sibling when the later source changes cause, scope, or evidence type.",
             f"- Community membership helps navigation around {title}, but community membership is not final answer support by itself.",
-            "- 한국어 운영 기준: 며칠 뒤 다른 Provider나 다른 세션에서 같은 주제가 돌아오면, 새 글을 무조건 만들지 말고 기존 community에 붙일지 분리할지 먼저 판단합니다.",
+            "- A time-separated source must update growth history before it is treated as community evidence.",
+            "- 한국어 운영 기준: 며칠 뒤 다른 Provider나 다른 세션에서 같은 주제가 돌아오면, 새 글을 바로 만들기 전에 기존 community에 붙일지 분리할지 먼저 판단합니다.",
         ]
     )
-
 
 def _bullets(items: list[str]) -> str:
     cleaned = _unique([_clean_sentence(item) for item in items if _clean_sentence(item)])
@@ -489,7 +514,16 @@ def _time_direction_text(frontmatter: dict[str, str], sections: dict[str, str]) 
     if existing:
         cleaned = _paragraph(existing)
         if all(marker.lower() in cleaned.lower() for marker in ("early", "middle", "later")):
-            return cleaned
+            items = _list_items(existing)
+            if len(items) >= 3:
+                return _bullets(items)
+            return "\n".join(
+                [
+                    f"- Early: {cleaned}",
+                    "- Middle: MS1 or Janitor separated source capture, category path, retrieval surface, and maintenance state.",
+                    "- Later: new evidence must be logged as attach, child, sibling, split, bridge, reject, or repair rather than silently overwriting the page.",
+                ]
+            )
     source_ref = frontmatter.get("source_ref") or ""
     message_range = frontmatter.get("message_index_range") or ""
     pointer_note = (

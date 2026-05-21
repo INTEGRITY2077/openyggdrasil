@@ -325,14 +325,20 @@ def _repair_community_source_ref_drift(
 
 def _scan_duplicate_titles(vault_root: Path) -> list[dict[str, Any]]:
     title_paths: dict[str, list[str]] = {}
-    for base in ("queries", "concepts", "communities"):
+    for base in ("queries", "concepts", "communities", "categories"):
         root = vault_root / base
         if not root.exists():
             continue
         for path in sorted(root.rglob("*.md")):
+            if "graphify-out" in path.parts:
+                continue
+            rel_path = _relative_vault_path(path, vault_root=vault_root)
+            exclusion = support_exclusion_for_path(vault_root=vault_root, path_value=rel_path)
+            if exclusion.get("excluded"):
+                continue
             title = _markdown_title(path)
             if title:
-                title_paths.setdefault(title.casefold(), []).append(_relative_vault_path(path, vault_root=vault_root))
+                title_paths.setdefault(title.casefold(), []).append(rel_path)
     return [
         {"title_key": key, "paths": paths, "conflict_kind": "duplicate_title_candidate"}
         for key, paths in sorted(title_paths.items())
@@ -394,6 +400,8 @@ def _scan_community_source_ref_drift(vault_root: Path) -> list[dict[str, Any]]:
 
 def _path_role(path: str) -> str:
     normalized = path.replace("\\", "/")
+    if normalized.startswith("vault/categories/"):
+        return "category_article"
     if normalized.startswith("vault/queries/"):
         return "query"
     if normalized.startswith("vault/concepts/PRN-"):
@@ -444,6 +452,10 @@ def _duplicate_repair_decision(vault_root: Path, duplicate: Mapping[str, Any]) -
         suggested_action = "keep_excluded_machine_mirrors_out_of_final_support"
         queue_status = "not_queued_support_excluded"
         reason_codes = ["duplicate_candidates_are_support_excluded_machine_mirrors"]
+    elif "category_article" in roles:
+        suggested_action = "review_category_article_duplicate_or_tombstone_superseded_page"
+        queue_status = "queued"
+        reason_codes = ["same_title_multiple_category_articles"]
     elif query_count == 1 and concept_count >= 1 and hash_group_count == 1:
         suggested_action = "treat_as_expected_query_concept_projection_group"
         queue_status = "not_queued_expected_projection"

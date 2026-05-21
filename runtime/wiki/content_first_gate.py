@@ -30,6 +30,7 @@ SELF_QUALITY_MARKERS = (
 )
 
 BODY_CONTAMINATION_MARKERS = (
+    "this is a production-facing wiki continent page",
     "이 저장 내용이",
     "저장 처리 완료",
     "저장됨이라고 말할 수",
