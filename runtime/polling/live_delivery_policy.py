@@ -321,8 +321,8 @@ def _write_goal_card(event: dict, phase: str, receipt: dict | None = None, log_r
 def _live_entry_mode() -> str:
     return "produce" if MODE == "produce" else "consume"
 
-def _live_operator_cmd(entry_mode: str) -> list[str]:
-    return [
+def _live_operator_cmd(entry_mode: str, mail_id: str | None = None) -> list[str]:
+    cmd = [
         sys.executable,
         "-m",
         "runtime.operator_entrypoint",
@@ -332,6 +332,9 @@ def _live_operator_cmd(entry_mode: str) -> list[str]:
         "--vault",
         str(VAULT),
     ]
+    if mail_id and mail_id != "?":
+        cmd.extend(["--mail-id", mail_id])
+    return cmd
 
 def _worker_trace_debug_enabled() -> bool:
     return os.environ.get("OY_WORKER_TRACE_DEBUG_JSON", "0") == "1"
@@ -429,7 +432,7 @@ def _run_operator_for_live_event(
     mail_id: str,
 ) -> tuple[object, int, dict, list[dict], str, dict]:
     result, elapsed_ms, receipt, attempts = _run_operator_entrypoint_until_goal(
-        _live_operator_cmd(entry_mode),
+        _live_operator_cmd(entry_mode, mail_id),
         mail_id,
     )
     status = "goal_closed" if result and result.returncode == 0 and receipt else "goal_blocked"

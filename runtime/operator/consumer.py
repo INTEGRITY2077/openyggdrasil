@@ -1255,7 +1255,7 @@ def _bm25_search_vault(vault: Path, query: str, top_k: int = 20) -> list[dict] |
         return None
 
 
-def run_consumer(mailbox: Path, vault: Path):
+def run_consumer(mailbox: Path, vault: Path, target_mail_id: str | None = None):
     """Read query intents from the mailbox and return Evidence Pack results.
 
     `build_ptc_retrieval_orchestrator_result` is the normal deterministic
@@ -1295,6 +1295,8 @@ def run_consumer(mailbox: Path, vault: Path):
         if not line.strip():
             continue
         msg = json.loads(line)
+        if target_mail_id and msg.get("mail_id") != target_mail_id:
+            continue
         if msg["mail_id"] in completed:
             continue
 

@@ -85,18 +85,18 @@ def _configure_runtime_state_for_entrypoint(mode: str, mailbox: Path, vault: Pat
     os.environ.setdefault("OPENYGGDRASIL_WORKSPACE_ROOT", str(vault.parent))
 
 
-def run_producer(mailbox: Path, vault: Path) -> None:
+def run_producer(mailbox: Path, vault: Path, target_mail_id: str | None = None) -> None:
     _configure_runtime_state_for_entrypoint("produce", mailbox, vault)
     from runtime.operator.producer import run_producer as _run_producer
 
-    _run_producer(mailbox, vault)
+    _run_producer(mailbox, vault, target_mail_id=target_mail_id)
 
 
-def run_consumer(mailbox: Path, vault: Path) -> None:
+def run_consumer(mailbox: Path, vault: Path, target_mail_id: str | None = None) -> None:
     _configure_runtime_state_for_entrypoint("consume", mailbox, vault)
     from runtime.operator.consumer import run_consumer as _run_consumer
 
-    _run_consumer(mailbox, vault)
+    _run_consumer(mailbox, vault, target_mail_id=target_mail_id)
 
 # ─── tests backward-compat re-exports (구현은 runtime/operator/ 아래에 있음) ───
 
@@ -137,10 +137,11 @@ if __name__ == "__main__":
     parser.add_argument("mode", choices=["produce", "consume"])
     parser.add_argument("--mailbox", required=True, type=Path)
     parser.add_argument("--vault", required=True, type=Path)
+    parser.add_argument("--mail-id", default=None, help="Optional single mailbox mail_id to process")
     args = parser.parse_args()
 
     _configure_runtime_state_for_entrypoint(args.mode, args.mailbox, args.vault)
     if args.mode == "produce":
-        run_producer(args.mailbox, args.vault)
+        run_producer(args.mailbox, args.vault, target_mail_id=args.mail_id)
     else:
-        run_consumer(args.mailbox, args.vault)
+        run_consumer(args.mailbox, args.vault, target_mail_id=args.mail_id)
