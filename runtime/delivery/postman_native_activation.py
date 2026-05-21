@@ -10,6 +10,9 @@ from typing import Any, Mapping
 from runtime.delivery.tmux_lane_adapter import paste_text_enter
 
 
+POSTMAN_PANE_NOTICE_RETIRED_REASON = "postman_pane_notice_retired_worker_loop_only"
+
+
 VISIBLE_NOTICE_FORBIDDEN_TERMS = (
     "answer",
     "support",
@@ -167,47 +170,21 @@ def _activation_prompt(
     payload: Mapping[str, Any],
     delivery: Mapping[str, Any],
 ) -> str:
-    del payload
-    role = _worker_role(label, role_type)
-    if role_type == "producer":
-        request_name = "Save Request"
-    elif message_type == "query":
-        request_name = "Find Request"
-    else:
-        request_name = "Work Request"
-    prompt = " | ".join(
-        [
-            "메일 도착",
-            f"lane={label}",
-            f"role={role}",
-            f"kind={request_name}",
-            f"mailbox_ref={delivery.get('mailbox_ref') or '(mailbox-row)'}",
-            f"mail_id={delivery.get('mail_id') or 'unknown'}",
-            f"work_order_id={delivery.get('work_order_id') or 'unknown'}",
-        ]
-    )
-    validate_visible_notice_route_only(prompt)
-    return prompt
+    del label, role_type, message_type, payload, delivery
+    raise RuntimeError(POSTMAN_PANE_NOTICE_RETIRED_REASON)
 
 
 def verify_visible_notice_contract() -> dict[str, Any]:
-    prompt = _activation_prompt(
-        label="MS1",
-        role_type="producer",
-        message_type="query",
-        payload={"query_text": "answer support judgment should not leak"},
-        delivery={"mail_id": "mail-test", "work_order_id": "work-test"},
-    )
-    lowered = prompt.lower()
-    leaked = [term for term in VISIBLE_NOTICE_FORBIDDEN_TERMS if term.lower() in lowered]
     return {
         "schema_version": "postman_visible_notice_contract_check.v1",
-        "status": "pass" if not leaked else "fail",
-        "visible_by_default_env": "OY_POSTMAN_VISIBLE_CPR defaults to 0; set 1 only for explicit dev fallback smoke",
-        "visible_mode_policy": "hidden_by_default_mailbox_notice",
+        "status": "pass",
+        "visible_by_default_env": "ignored; Postman pane notice is retired",
+        "visible_mode_policy": POSTMAN_PANE_NOTICE_RETIRED_REASON,
+        "tmux_pane_write_allowed": False,
         "mission_summary_included": False,
-        "semantic_material_terms_present": leaked,
+        "semantic_material_terms_present": [],
         "cancel_existing_prompt": False,
+        "worker_surface_owner": "MS1/MF1 worker loop after mailbox row read",
     }
 
 
@@ -253,45 +230,36 @@ def activate_native_lane(
         "delivery_id": delivery.get("delivery_id"),
         "mail_id": delivery.get("mail_id"),
         "recipient": op,
-        "phase": "postman_cpr_sent",
+        "phase": "postman_work_order_recorded",
         "actor": "postman",
         "created_at": timestamp,
-        "summary": "Postman recorded or woke the native worker pane with a short mailbox work-order notice.",
-        "status": "cpr_sent",
+        "summary": "Postman recorded the mailbox work order. It did not write to the worker pane.",
+        "status": "recorded",
+        "hard_nonclaim": "worker_pane_surface_must_be_authored_by_worker_after_mailbox_row_read",
     }
     _append_jsonl(sessions_dir / op / "work_history.jsonl", work_history)
 
-    visible_cpr = os.environ.get("OY_POSTMAN_VISIBLE_CPR", "0") == "1"
+    visible_cpr_requested = os.environ.get("OY_POSTMAN_VISIBLE_CPR", "0") == "1"
+    visible_cpr = False
     prompt = ""
     pane_status = _native_pane_status(target)
-    if visible_cpr:
-        if pane_status.get("status") == "busy":
-            written, reason = False, str(pane_status.get("reason_code") or "native_pane_busy")
-        else:
-            prompt = _activation_prompt(
-                label=label,
-                role_type=role_type,
-                message_type=message_type,
-                payload=payload,
-                delivery=delivery,
-            )
-            written, reason = _send_tmux_target_text(target, prompt)
-    else:
-        written, reason = False, "mailbox_work_order_recorded"
+    written, reason = False, POSTMAN_PANE_NOTICE_RETIRED_REASON
 
     result = {
         **base,
         "status": "sent_to_native_pane" if written else "recorded_for_worker_loop",
         "reason_code": "native_pane_activated" if written else reason,
         "target": target,
-        "activation_surface": "mailbox_work_order_notice.v1",
+        "activation_surface": "mailbox_work_order_recorded.worker_loop_only",
         "work_order_id": delivery.get("work_order_id"),
         "work_history_file": delivery.get("work_history_file"),
         "semantic_receipt_included": False,
         "visible_notice_semantic_material_included": False,
         "cancel_existing_prompt": False,
-        "prompt_contract": "mailbox_first_worker_loop_owns_pane",
+        "prompt_contract": "postman_does_not_write_worker_pane",
         "visible_cpr": visible_cpr,
+        "visible_cpr_requested": visible_cpr_requested,
+        "tmux_pane_write_attempted": False,
         "native_pane_status": pane_status,
     }
     _append_jsonl(registry_dir / "postman" / "activation_log.jsonl", result)
