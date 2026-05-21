@@ -14,7 +14,7 @@ COMPACTION_EPISODE_STATES = {"open", "cooling", "bridge", "chunked_continue", "c
 
 
 PREFLIGHT_COMPRESSION_RE = re.compile(
-    r"Preflight compression:\s*~?(?P<observed>[\d,]+)\s+tokens\s*>=\s*(?P<threshold>[\d,]+)\s+threshold",
+    r"Preflight compression:\s*(?:~|≈)?\s*(?P<observed>[\d,]+)\s*(?:tokens?)?\s*(?:>=|≥)\s*(?P<threshold>[\d,]+)\s*(?:tokens?)?\s*threshold",
     re.IGNORECASE,
 )
 

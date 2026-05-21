@@ -5,6 +5,7 @@ from pathlib import Path
 
 from runtime.capture.auto_compaction_controller import (
     load_compaction_candidate_episodes,
+    parse_preflight_compression,
     run_auto_compaction_controller_from_vault,
 )
 
@@ -35,6 +36,27 @@ def _ledger_row() -> dict:
             "weak_or_chitchat": False,
         },
     }
+
+
+def test_parse_preflight_compression_accepts_native_emoji_and_unicode_threshold() -> None:
+    result = parse_preflight_compression(
+        "📦 Preflight compression: ~142,570 tokens ≥ 136,000 threshold. This may take a moment."
+    )
+
+    assert result["threshold_reached"] is True
+    assert result["observed_tokens"] == 142570
+    assert result["threshold_tokens"] == 136000
+    assert result["raw_marker_included"] is False
+    assert result["compaction_event"]["marker"] == "Preflight compression"
+
+
+def test_parse_preflight_compression_accepts_compact_numeric_shape() -> None:
+    result = parse_preflight_compression("Preflight compression: 142570 >= 136000 threshold")
+
+    assert result["threshold_reached"] is True
+    assert result["observed_tokens"] == 142570
+    assert result["threshold_tokens"] == 136000
+    assert result["raw_marker_included"] is False
 
 
 def test_auto_compaction_from_vault_requires_ledger_backed_episode(tmp_path: Path) -> None:
