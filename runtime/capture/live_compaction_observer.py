@@ -34,6 +34,7 @@ def parse_token_meter(text: str) -> dict[str, Any]:
             "used_tokens": used,
             "max_tokens": max_tokens,
             "source_shape": "k_meter",
+            "source_label": f"{match.group('used')}K/{match.group('max')}K",
             "raw_text_included": False,
         }
     int_matches = list(TOKEN_INT_RE.finditer(text))
@@ -44,6 +45,7 @@ def parse_token_meter(text: str) -> dict[str, Any]:
             "used_tokens": int(match.group("used")),
             "max_tokens": int(match.group("max")),
             "source_shape": "int_meter",
+            "source_label": f"{match.group('used')}/{match.group('max')}",
             "raw_text_included": False,
         }
     return {
@@ -51,6 +53,7 @@ def parse_token_meter(text: str) -> dict[str, Any]:
         "used_tokens": 0,
         "max_tokens": 0,
         "source_shape": None,
+        "source_label": None,
         "raw_text_included": False,
     }
 

@@ -33,6 +33,7 @@ def test_parse_token_meter_is_not_compaction_proof() -> None:
     row = observe_compaction_text("⚕ gpt-5.5 │ 72.7K/272K │", lane="provider")
 
     assert row["token_meter"]["used_tokens"] == 72700
+    assert row["token_meter"]["source_label"] == "72.7K/272K"
     assert row["threshold_reached"] is False
     assert row["preflight_marker_found"] is False
     assert row["raw_pane_text_included"] is False
@@ -78,4 +79,5 @@ def test_parse_token_meter_supports_integer_shape() -> None:
 
     assert row["found"] is True
     assert row["used_tokens"] == 142570
+    assert row["source_label"] == "142570/272000"
     assert row["raw_text_included"] is False
