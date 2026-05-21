@@ -52,6 +52,7 @@ def main():
         print("  ygg cpr --wake-provider --inject-visible")
         print("                              dev fallback: type one bounded prompt into PRO1")
         print("  ygg compact-check [--json] observe native preflight compression and write pointer memento only when proven")
+        print("  ygg compact-check --watch   wait non-invasively for a native preflight marker")
         print("  ygg dev                    compatibility alias for ygg pro1")
         print("  ygg dev --doctor           compatibility alias for ygg pro1 --doctor")
         print("  ygg watch <ms1|mf1>        tail memory lane mailbox")
