@@ -7,9 +7,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
-from runtime.delivery.tmux_lane_adapter import paste_text_enter
-
-
 POSTMAN_PANE_NOTICE_RETIRED_REASON = "postman_pane_notice_retired_worker_loop_only"
 
 
@@ -79,23 +76,6 @@ def _native_pane_target(session: str) -> str:
         if row["name"] != "live-postman":
             return f"{session}:{row['index']}"
     return f"{session}:{parsed[0]['index']}"
-
-
-def _send_tmux_target_text(target: str, text: str) -> tuple[bool, str]:
-    try:
-        validate_visible_notice_route_only(text)
-    except ValueError as exc:
-        return False, str(exc)
-    result = paste_text_enter(
-        target,
-        text,
-        reason="postman_native_activation",
-        cancel_existing_prompt=False,
-        validate_worker_payload=True,
-    )
-    if result.returncode != 0:
-        return False, (result.stderr or result.stdout or "tmux_lane_adapter_failed").strip()
-    return True, "sent"
 
 
 def _capture_tmux_target_text(target: str, *, lines: int = 80) -> str:

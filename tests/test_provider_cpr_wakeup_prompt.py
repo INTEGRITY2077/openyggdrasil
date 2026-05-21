@@ -133,10 +133,7 @@ def test_postman_native_env_cannot_reenable_worker_pane_notice(tmp_path: Path, m
         lambda target: {"status": "idle", "reason_code": "test_idle"},
     )
 
-    def fail_send(*args, **kwargs):  # pragma: no cover - regression guard
-        raise AssertionError("Postman must not write worker pane notices")
-
-    monkeypatch.setattr(activation, "_send_tmux_target_text", fail_send)
+    assert not hasattr(activation, "_send_tmux_target_text")
 
     result = activate_native_lane(
         op="MS1",
