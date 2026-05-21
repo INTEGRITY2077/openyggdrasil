@@ -54,6 +54,10 @@ def test_preflight_marker_runs_pointer_memento(tmp_path: Path) -> None:
     )
 
     assert result["production_ready_axis_pass"] is True
+    assert result["compaction_continuity_conditions"]["pane_memento_marker_found"] is False
+    assert result["compaction_continuity_conditions"]["context_guard_memento_write_proven"] is True
+    assert result["compaction_continuity_conditions"]["memento_sot"] == "vault_context_guard_receipt"
+    assert "live_panes_no_memento_marker" not in result["compact_memento_blockers"]
     assert result["context_guard_result"]["receipt"]["actual_compaction_event_proven"] is True
     assert result["context_guard_result"]["written_memento_ids"]
 

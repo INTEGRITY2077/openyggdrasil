@@ -186,20 +186,34 @@ def run_live_compaction_observer(
         )
     else:
         context_guard = None
+    context_guard_memento_write_proven = bool(
+        context_guard
+        and context_guard.get("status") == "pass"
+        and context_guard.get("actual_compaction_event", {}).get("proven") is True
+        and context_guard.get("precompact_memento_or_source_ref") is True
+    )
+    production_ready_axis_pass = bool(context_guard_memento_write_proven)
+    compact_memento_blockers = list(observation.get("blockers") or [])
+    if context_guard_memento_write_proven and "live_panes_no_memento_marker" in compact_memento_blockers:
+        compact_memento_blockers.remove("live_panes_no_memento_marker")
     return {
         "schema_version": "live_compaction_observer_result.v1",
         "run_id": run_id,
         "observation": observation,
         "context_guard_result": context_guard,
-        "production_ready_axis_pass": bool(
-            context_guard
-            and context_guard.get("status") == "pass"
-            and context_guard.get("actual_compaction_event", {}).get("proven") is True
-            and context_guard.get("precompact_memento_or_source_ref") is True
-        ),
+        "compaction_continuity_conditions": {
+            "threshold_reached": observation["pass_conditions"]["threshold_reached"],
+            "preflight_marker_found": observation["pass_conditions"]["preflight_marker_found"],
+            "pane_memento_marker_found": observation["pass_conditions"]["memento_marker_found"],
+            "context_guard_memento_write_proven": context_guard_memento_write_proven,
+            "memento_sot": "vault_context_guard_receipt",
+        },
+        "compact_memento_blockers": compact_memento_blockers,
+        "production_ready_axis_pass": production_ready_axis_pass,
         "hard_nonclaims": [
             "observer_result_is_not_production_ready_by_itself",
             "absence_of_marker_must_remain_blocked",
+            "pane_visible_memento_text_is_not_the_sot",
             "graphify_product_ux_is_unrelated_to_compaction_observer",
         ],
     }
