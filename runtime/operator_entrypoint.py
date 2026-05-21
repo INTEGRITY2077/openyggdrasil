@@ -85,7 +85,23 @@ def _configure_runtime_state_for_entrypoint(mode: str, mailbox: Path, vault: Pat
     os.environ.setdefault("OPENYGGDRASIL_WORKSPACE_ROOT", str(vault.parent))
 
 
+def _allow_missing_vault_root() -> bool:
+    return os.environ.get("OY_ALLOW_MISSING_VAULT_ROOT", "").strip() == "1"
+
+
+def _require_existing_vault_root(vault: Path) -> None:
+    if vault.exists():
+        return
+    if _allow_missing_vault_root():
+        return
+    raise FileNotFoundError(
+        "openyggdrasil vault root does not exist; set OPENYGGDRASIL_VAULT_ROOT/OY_VAULT "
+        "to the active vault, or set OY_ALLOW_MISSING_VAULT_ROOT=1 for an explicit bootstrap run"
+    )
+
+
 def run_producer(mailbox: Path, vault: Path, target_mail_id: str | None = None) -> None:
+    _require_existing_vault_root(vault)
     _configure_runtime_state_for_entrypoint("produce", mailbox, vault)
     from runtime.operator.producer import run_producer as _run_producer
 
@@ -93,6 +109,7 @@ def run_producer(mailbox: Path, vault: Path, target_mail_id: str | None = None) 
 
 
 def run_consumer(mailbox: Path, vault: Path, target_mail_id: str | None = None) -> None:
+    _require_existing_vault_root(vault)
     _configure_runtime_state_for_entrypoint("consume", mailbox, vault)
     from runtime.operator.consumer import run_consumer as _run_consumer
 
