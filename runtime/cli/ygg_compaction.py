@@ -60,6 +60,7 @@ def run_compaction_check(
     result["cli"] = {
         "schema_version": "ygg_compaction_check_cli.v1",
         "command": "ygg compact-check",
+        "mode": "check",
         "vault_root_resolved": str(resolved_vault),
         "candidate_episode_count": len(candidate_episodes),
         "writes_only_after_preflight_marker": True,
@@ -108,13 +109,18 @@ def run_compaction_watch(
             "completed_reason": "pass" if last_result.get("production_ready_axis_pass") else "still_blocked",
             "raw_pane_text_included": False,
         }
+        last_result.setdefault("cli", {})["mode"] = "watch"
+        last_result["cli"]["watch_attempts"] = attempt
+        last_result["cli"]["watch_completed_reason"] = last_result["watch"]["completed_reason"]
         if last_result.get("production_ready_axis_pass"):
             return last_result
         if max_attempts is not None and attempt >= max(1, int(max_attempts)):
             last_result["watch"]["completed_reason"] = "max_attempts_reached"
+            last_result["cli"]["watch_completed_reason"] = last_result["watch"]["completed_reason"]
             return last_result
         if time.monotonic() - started >= max(0.0, float(timeout_seconds)):
             last_result["watch"]["completed_reason"] = "timeout_reached"
+            last_result["cli"]["watch_completed_reason"] = last_result["watch"]["completed_reason"]
             return last_result
         if interval_seconds > 0:
             time.sleep(float(interval_seconds))

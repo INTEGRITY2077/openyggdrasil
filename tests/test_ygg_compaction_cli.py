@@ -42,6 +42,7 @@ def test_compact_check_stays_blocked_without_preflight_marker(tmp_path: Path) ->
     assert "live_panes_no_preflight_marker" in result["compact_memento_blockers"]
     assert not (tmp_path / "_meta" / "precompact_memento.jsonl").exists()
     assert result["cli"]["raw_pane_text_included"] is False
+    assert result["cli"]["mode"] == "check"
 
 
 def test_compact_check_writes_pointer_memento_after_real_preflight_marker(tmp_path: Path) -> None:
@@ -92,6 +93,9 @@ def test_compact_watch_waits_until_real_marker_then_writes_memento(tmp_path: Pat
     assert result["production_ready_axis_pass"] is True
     assert result["watch"]["attempts"] == 3
     assert result["watch"]["completed_reason"] == "pass"
+    assert result["cli"]["mode"] == "watch"
+    assert result["cli"]["watch_attempts"] == 3
+    assert result["cli"]["watch_completed_reason"] == "pass"
     assert (tmp_path / "_meta" / "precompact_memento.jsonl").exists()
 
 
@@ -114,4 +118,7 @@ def test_compact_watch_keeps_blocked_when_marker_never_appears(tmp_path: Path) -
     assert result["production_ready_axis_pass"] is False
     assert result["watch"]["attempts"] == 2
     assert result["watch"]["completed_reason"] == "max_attempts_reached"
+    assert result["cli"]["mode"] == "watch"
+    assert result["cli"]["watch_attempts"] == 2
+    assert result["cli"]["watch_completed_reason"] == "max_attempts_reached"
     assert not (tmp_path / "_meta" / "precompact_memento.jsonl").exists()
