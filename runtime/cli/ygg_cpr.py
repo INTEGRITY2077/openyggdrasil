@@ -140,6 +140,8 @@ def _bridge_latest_provider_handoff_to_cpr(record: dict, packets: list[dict]) ->
                 "receipt_id": handoff.get("receipt_id") or handoff.get("mail_id"),
                 "status": handoff.get("status"),
                 "bundle": handoff.get("bundle") or handoff.get("result_bundle") or {},
+                "worker_result_spec": handoff.get("worker_result_spec") or {},
+                "provider_rejudgment": handoff.get("provider_rejudgment"),
             },
             created_at=str(handoff.get("timestamp") or ""),
         )
@@ -181,6 +183,25 @@ def _provider_cpr_blocked_result(record: dict, *, reason_code: str) -> dict:
             "postman_semantic_quality_owner": False,
         },
     }
+
+
+def _support_facts_preview(support_facts: object, *, limit: int = 5, width: int = 360) -> list[str]:
+    if not isinstance(support_facts, list):
+        return []
+    preview: list[str] = []
+    for item in support_facts[:limit]:
+        if isinstance(item, dict):
+            text = item.get("text") or item.get("support_fact") or item.get("fact") or ""
+        else:
+            text = item
+        text = " ".join(str(text).split())
+        if not text:
+            continue
+        if len(text) > width:
+            text = text[: width - 1].rstrip() + "…"
+        preview.append(text)
+    return preview
+
 
 def _latest_provider_cpr_result(record: dict) -> dict:
     if not record or "unparseable_record" in record:
@@ -227,6 +248,7 @@ def _latest_provider_cpr_result(record: dict) -> dict:
     korean_query_expansion = support.get("korean_query_expansion") if isinstance(support, dict) else None
     recall_digest = support.get("recall_digest") if isinstance(support, dict) else None
     node_taxonomy = support.get("node_taxonomy") if isinstance(support, dict) else None
+    provider_rejudgment = support.get("provider_rejudgment") if isinstance(support, dict) else None
     return {
         "schema_version": "ygg_provider_cpr_inbox_read.v1",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -271,8 +293,10 @@ def _latest_provider_cpr_result(record: dict) -> dict:
             "community_edges_count": support.get("community_edges_count") if isinstance(support, dict) else None,
             "semantic_edges_count": support.get("semantic_edges_count") if isinstance(support, dict) else None,
             "support_facts_count": len(support_facts) if isinstance(support_facts, list) else 0,
+            "support_facts_preview": _support_facts_preview(support_facts),
             "korean_query_expansion": korean_query_expansion if isinstance(korean_query_expansion, dict) else None,
             "recall_digest": recall_digest if isinstance(recall_digest, dict) else None,
+            "provider_rejudgment": provider_rejudgment if isinstance(provider_rejudgment, dict) else None,
             "node_taxonomy": node_taxonomy if isinstance(node_taxonomy, dict) else None,
             "continent": support.get("continent") if isinstance(support, dict) else None,
             "node_type": support.get("node_type") if isinstance(support, dict) else None,
@@ -280,6 +304,8 @@ def _latest_provider_cpr_result(record: dict) -> dict:
             "community_role": support.get("community_role") if isinstance(support, dict) else None,
             "typed_unavailable_present": bool(support.get("typed_unavailable")) if isinstance(support, dict) else False,
         },
+        "support_facts_preview": _support_facts_preview(support_facts),
+        "provider_rejudgment": provider_rejudgment if isinstance(provider_rejudgment, dict) else None,
         "hard_nonclaims": {
             "full_ux_passed": bool(hard_nonclaims.get("full_ux_passed")) if isinstance(hard_nonclaims, dict) else False,
             "graphify_full_topology_passed": bool(hard_nonclaims.get("graphify_full_topology_passed")) if isinstance(hard_nonclaims, dict) else False,
@@ -308,6 +334,8 @@ def _provider_cpr_status_summary_for_op(op: str, reg: dict) -> str | None:
     source_paths = support.get("source_paths") if isinstance(support.get("source_paths"), list) else []
     recall_digest = support.get("recall_digest") if isinstance(support, dict) else None
     recall_status = recall_digest.get("status") if isinstance(recall_digest, dict) else "none"
+    provider_rejudgment = support.get("provider_rejudgment") if isinstance(support, dict) else None
+    provider_action = provider_rejudgment.get("provider_action") if isinstance(provider_rejudgment, dict) else "none"
     receipt_id = "none"
     if isinstance(correlation, dict):
         receipt_id = correlation.get("mf1_query_receipt_id") or correlation.get("receipt_id") or "none"
@@ -316,25 +344,33 @@ def _provider_cpr_status_summary_for_op(op: str, reg: dict) -> str | None:
         f"schema={support.get('support_schema_version') or 'none'} "
         f"receipt={receipt_id} "
         f"recall_digest={recall_status} "
+        f"provider_action={provider_action} "
         f"support_facts={support.get('support_facts_count', 0)} "
         f"source_paths={len(source_paths)} "
         f"typed_unavailable={str(bool(support.get('typed_unavailable_present'))).lower()}"
     )
 
 def _print_cpr_workflow(result: dict) -> None:
-    evidence_keys = [
-        "provider_session_id",
-        "provider_session_id_source",
-        "inbox_path",
-        "message_id",
-        "heartbeat_cpr_status",
-        "handoff_status",
-        "mailbox_correlation",
-        "mf1_support_metadata",
-        "hard_nonclaims",
-        "reason_code",
-    ]
-    evidence = {key: result.get(key) for key in evidence_keys if key in result}
+    support = result.get("mf1_support_metadata")
+    if not isinstance(support, dict):
+        support = {}
+    provider_rejudgment = result.get("provider_rejudgment")
+    if not isinstance(provider_rejudgment, dict):
+        provider_rejudgment = support.get("provider_rejudgment") if isinstance(support.get("provider_rejudgment"), dict) else {}
+    source_paths = support.get("source_paths") if isinstance(support.get("source_paths"), list) else []
+    evidence = {
+        "provider_session_id": result.get("provider_session_id"),
+        "heartbeat_cpr_status": result.get("heartbeat_cpr_status"),
+        "handoff_status": result.get("handoff_status"),
+        "support_status": support.get("status"),
+        "support_schema_version": support.get("support_schema_version"),
+        "support_facts_preview": result.get("support_facts_preview") or support.get("support_facts_preview") or [],
+        "source_path_count": len(source_paths),
+        "node_taxonomy": support.get("node_taxonomy"),
+        "provider_action": provider_rejudgment.get("provider_action"),
+        "provider_reason_code": provider_rejudgment.get("reason_code"),
+        "hard_nonclaims": result.get("hard_nonclaims"),
+    }
     _workflow(
         "YGG CPR",
         now="Read Provider-bound Postman heartbeat CPR packet",

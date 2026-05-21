@@ -67,6 +67,7 @@ ARTICLE_SECTION_GROUPS = {
     "change": (
         "## How This Changed",
         "## How This Changed Over The Conversation",
+        "## How This Changed Over Time",
         "## Time Direction",
         "## Log",
         "## Decision Timeline",

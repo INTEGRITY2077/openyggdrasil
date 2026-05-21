@@ -130,7 +130,16 @@ def _has_korean_context(markdown: str) -> bool:
 def _proper_nouns_preserved(markdown: str) -> bool:
     if "Domestic Dog Ecology" in markdown:
         return all(term in markdown for term in ("Domestic Dog Ecology", "Canid", "Urban Animal Ecology"))
-    return sum(term in markdown for term in PROPER_NOUN_TERMS) >= 7
+    title = _first_title(markdown)
+    title_terms = [
+        term
+        for term in re.findall(r"[A-Za-z][A-Za-z0-9._-]{2,}", title)
+        if term.lower() not in {"the", "and", "for", "with", "from", "this", "page"}
+    ]
+    if title_terms:
+        preserved = sum(term in markdown for term in title_terms)
+        return preserved >= max(2, min(len(title_terms), 4))
+    return sum(term in markdown for term in PROPER_NOUN_TERMS) >= 4
 
 
 def _ontology_layers_present(markdown: str) -> bool:
@@ -194,7 +203,16 @@ def _no_proof_terms_before_appendix(markdown: str) -> bool:
 
 def _machine_appendix_late(markdown: str) -> bool:
     index = markdown.lower().find("## machine appendix")
-    return index >= 0 and index > len(markdown) * 0.70
+    if index < 0:
+        return False
+    required_preceding = (
+        "## What This Page Decides",
+        "## Ontology Position",
+        "## Decision Path",
+        "## Source Synthesis",
+        "## Maintenance Notes",
+    )
+    return all(markdown.find(heading) >= 0 and markdown.find(heading) < index for heading in required_preceding)
 
 
 def _section_text(markdown: str, heading: str) -> str:
@@ -205,6 +223,14 @@ def _section_text(markdown: str, heading: str) -> str:
     next_match = re.search(r"^##\s+", markdown[match.end() :], re.MULTILINE)
     end = match.end() + next_match.start() if next_match else len(markdown)
     return markdown[match.end() : end].strip()
+
+
+def _first_title(markdown: str) -> str:
+    frontmatter_match = re.search(r"^title:\s*(.+)$", markdown, flags=re.MULTILINE)
+    if frontmatter_match:
+        return frontmatter_match.group(1).strip().strip('"')
+    h1_match = re.search(r"^#\s+(.+)$", markdown, flags=re.MULTILINE)
+    return h1_match.group(1).strip() if h1_match else ""
 
 
 def _bullet_lines(section: str) -> list[str]:

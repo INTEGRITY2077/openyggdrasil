@@ -75,6 +75,24 @@ def _busy_marker(text: str) -> str | None:
     return None
 
 
+def _ready_prompt_after_busy_marker(text: str) -> bool:
+    lines = text.splitlines()
+    last_busy = -1
+    last_ready = -1
+    for index, line in enumerate(lines):
+        if _busy_marker(line):
+            last_busy = index
+        stripped = line.strip()
+        if stripped in {"❯", "⚕ ❯"} or (
+            stripped.endswith("❯")
+            and "⚠" not in stripped
+            and "msg=" not in stripped
+            and "↑/↓" not in stripped
+        ):
+            last_ready = index
+    return last_busy >= 0 and last_ready > last_busy
+
+
 def _pane_tail(text: str, *, line_limit: int = 12, char_limit: int = 1200) -> str:
     tail = "\n".join(text.splitlines()[-line_limit:])
     return tail[-char_limit:]
@@ -104,7 +122,10 @@ def _provider_lane_monitor_status(session: str, *, settle_seconds: float) -> dic
             "provider_session": session,
             "capture_error": first_capture,
         }
-    marker = _busy_marker("\n".join(first_capture.splitlines()[-30:]))
+    monitor_slice = "\n".join(first_capture.splitlines()[-30:])
+    marker = _busy_marker(monitor_slice)
+    if marker and _ready_prompt_after_busy_marker(monitor_slice):
+        marker = None
     if marker:
         return {
             "ready": False,
@@ -215,10 +236,27 @@ def _node_taxonomy_lines(support: Mapping[str, Any]) -> list[str]:
 
 
 def _build_provider_cpr_wakeup_prompt(result: Mapping[str, Any]) -> str:
-    del result
+    support = _support_metadata(result)
+    facts_count = int(support.get("support_facts_count") or 0)
+    provider_rejudgment = support.get("provider_rejudgment")
+    provider_action = ""
+    if isinstance(provider_rejudgment, Mapping):
+        provider_action = str(provider_rejudgment.get("provider_action") or "")
+    fact_note = (
+        "support_facts_preview가 있으면 그 요지만 현재 질문과 대조하세요. "
+        if facts_count > 0
+        else "support_facts_preview가 없으면 근거 부족으로 닫으세요. "
+    )
+    action_note = (
+        f"provider_rejudgment action은 {provider_action}입니다. "
+        if provider_action
+        else "provider_rejudgment가 없으면 근거를 확정하지 마세요. "
+    )
     return (
         "OpenYggdrasil 결과 도착 알림입니다. 이 알림 자체는 답변 근거가 아닙니다. "
-        "Provider-bound brief를 먼저 확인하고, 원 질문과 현재 답을 다시 비교하세요. "
+        "Provider-bound CPR state의 support_facts_preview와 provider_rejudgment만 확인하고, 원 질문과 현재 답을 다시 비교하세요. "
+        f"{fact_note}{action_note}"
+        "로컬 파일을 찾거나 읽지 마세요. 필요하면 ./scripts/ygg cpr만 실행하고 pipe/python/find/read는 쓰지 마세요. "
         "근거가 충분하면 필요한 밀도로만 보강하고, 부족하거나 현재 답을 바꿀 근거가 없으면 그렇게 짧게 닫으세요. "
         "파일 경로, 노드 ID, receipt ID, 개수 목록은 사용자 답변에 쓰지 마세요."
     )

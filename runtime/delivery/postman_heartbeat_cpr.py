@@ -579,6 +579,10 @@ def _taxonomy_value(
 def _support_metadata(mf1_receipt: Mapping[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
     receipt = dict(mf1_receipt or {})
     support = _select_support(receipt)
+    worker_result_spec = receipt.get("worker_result_spec")
+    if not isinstance(worker_result_spec, Mapping):
+        worker_result_spec = {}
+    provider_rejudgment = receipt.get("provider_rejudgment") or worker_result_spec.get("provider_rejudgment")
     typed_unavailable = _typed_unavailable_from(support) or _typed_unavailable_from(receipt)
     facts = _support_fact_texts(support, receipt)
     source_paths = _safe_source_paths(support.get("source_paths") or receipt.get("source_paths") or ())
@@ -666,6 +670,8 @@ def _support_metadata(mf1_receipt: Mapping[str, Any] | None) -> tuple[dict[str, 
     recall_digest = _safe_recall_digest(support.get("recall_digest"))
     if recall_digest:
         metadata["recall_digest"] = recall_digest
+    if isinstance(provider_rejudgment, Mapping):
+        metadata["provider_rejudgment"] = _safe_recall_digest_value(provider_rejudgment)
     missing: list[str] = []
     if not receipt:
         missing.append("mf1_receipt")

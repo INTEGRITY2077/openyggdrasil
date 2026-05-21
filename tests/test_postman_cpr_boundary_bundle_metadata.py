@@ -19,6 +19,13 @@ def test_boundary_fallback_support_preserves_source_lineage_and_category_taxonom
         mf1_receipt={
             "in_reply_to": "ask-boundary",
             "receipt_id": "receipt-1",
+            "worker_result_spec": {
+                "provider_rejudgment": {
+                    "schema_version": "provider_result_rejudgment.v1",
+                    "provider_action": "use_with_limits",
+                    "reason_code": "support_aligned_with_work_anchor",
+                },
+            },
             "bundle": {
                 "schema_version": "boundary_fallback_support_bundle.v1",
                 "topic_key": "domestic-dog-ecology-boundary",
@@ -77,6 +84,8 @@ def test_boundary_fallback_support_preserves_source_lineage_and_category_taxonom
     assert metadata["anchor_hash_present"] is True
     assert metadata["commit_watermark"] == "session:dog-session:message_index:103"
     assert metadata["support_facts"] == ["품종 차이는 child 후보이고 보호자 개입은 welfare sibling 후보이다."]
+    assert metadata["provider_rejudgment"]["provider_action"] == "use_with_limits"
+    assert metadata["provider_rejudgment"]["reason_code"] == "support_aligned_with_work_anchor"
     assert metadata["continent"] == "biology"
     assert metadata["node_type"] == "wiki_article"
     assert taxonomy["continent"] == "biology"

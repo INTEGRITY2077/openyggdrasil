@@ -12,6 +12,7 @@ from runtime.wiki.operation import (
     validate_support_bundle_v2,
 )
 from runtime.wiki.content_first_gate import evaluate_content_first_wiki_article
+from runtime.wiki.best_case_alignment_gate import evaluate_best_case_mock_alignment
 
 
 ANCHOR_HASH = hashlib.sha256(b"wiki-operation-contract-test").hexdigest()
@@ -74,7 +75,7 @@ def test_wiki_page_contract_renders_prose_first_markdown() -> None:
         machine_appendix={"index_entry": index_entry, "log_entry": log_entry},
     )
     assert "# Wiki operation contract separates page content from proof metadata" in markdown
-    assert markdown.index("## What This Page Is") < markdown.index("## Machine Appendix")
+    assert markdown.index("## What This Page Decides") < markdown.index("## Machine Appendix")
     assert lint_wiki_page_markdown(markdown)["status"] == "pass"
 
 
@@ -121,6 +122,61 @@ def test_wiki_continent_renderer_keeps_lineage_contract_markers_in_machine_appen
     assert '"schema_version": "decision_timeline_event.v1"' in markdown
     assert '"schema_version": "semantic_category_path.v1"' in markdown
     assert '"schema_version": "community_growth_event.v1"' in markdown
+
+
+def test_wiki_continent_renderer_meets_best_case_article_gate() -> None:
+    from runtime.operator.wiki_page_renderer import render_wiki_continent_page
+
+    ring_node = _ring_node()
+    ring_node["semantic_category_path"] = {
+        "schema_version": "semantic_category_path.v1",
+        "path": "software-development/contracts/wiki-operation",
+        "segments": ["software-development", "contracts", "wiki-operation"],
+        "category_authority": {"owner": "amundsen"},
+    }
+    ring_node["provider_source_events"] = [
+        {
+            "schema_version": "provider_source_event.v1",
+            "event_id": "pse-test",
+            "source_ref": SOURCE_REF,
+            "message_index_range": {"start": 0, "end": 3},
+            "anchor_hash": ANCHOR_HASH,
+        }
+    ]
+    ring_node["decision_timeline"] = [
+        {
+            "schema_version": "decision_timeline_event.v1",
+            "timeline_event_id": "dte-test",
+            "decision_owner": "provider",
+            "event_kind": "initial_claim",
+            "reason_codes": ["provider_source_event_captured"],
+        },
+        {
+            "schema_version": "decision_timeline_event.v1",
+            "timeline_event_id": "dte-test-ms",
+            "decision_owner": "ms",
+            "event_kind": "storage_admission",
+            "reason_codes": ["source_ref_resolved"],
+        },
+    ]
+    ring_node["community_growth_events"] = [
+        {
+            "schema_version": "community_growth_event.v1",
+            "growth_event_id": "cge-test",
+            "event_kind": "attached",
+            "community_id": "community:wiki-operation",
+            "created_at": "2026-05-21T00:00:00+09:00",
+        }
+    ]
+    markdown = render_wiki_continent_page(ring_node=ring_node)
+
+    gate = evaluate_best_case_mock_alignment(
+        markdown,
+        path_hint="vault/categories/software-development/contracts/wiki-operation/wiki-operation-contract.md",
+    )
+
+    assert gate["verdict"] == "pass", gate
+    assert gate["score"] >= 90
 
 
 def test_lint_blocks_proof_marker_before_machine_appendix() -> None:
