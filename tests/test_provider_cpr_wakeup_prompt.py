@@ -14,6 +14,7 @@ from runtime.delivery.postman_native_activation import _activation_prompt
 from runtime.delivery.postman_native_activation import activate_native_lane
 from runtime.delivery.postman_native_activation import verify_visible_notice_contract
 from runtime.delivery.worker_result_spec import build_provider_rejudgment
+import runtime.common.provider_wake_markers as provider_wake_markers
 
 
 def test_provider_cpr_wakeup_prompt_builder_is_retired() -> None:
@@ -37,10 +38,22 @@ def test_provider_rejudgment_legacy_marker_is_detected_only_for_ignored_history(
         "아까 답을 뒤에서 확인된 기준과 비교해서 필요한 밀도로 다시 봐줘. "
         "근거 이름이나 내부 번호를 나열하지는 마."
     )
+    assert is_provider_rejudgment_wakeup_text(
+        "OpenYggdrasil 결과 도착 알림입니다. 이 알림 자체는 답변 근거가 아닙니다."
+    )
     assert not is_provider_rejudgment_wakeup_text("OpenYggdrasil result notice")
     assert not is_provider_rejudgment_wakeup_text(
         "위키 근거가 있으면 뒤에서 확인해줘. 없으면 부족하다고 말해줘."
     )
+
+
+def test_provider_wake_marker_source_has_no_mojibake_tokens() -> None:
+    source = Path(provider_wake_markers.__file__).read_text(encoding="utf-8")
+
+    assert "결과 도착" in source
+    assert "보강 후보" in source
+    for token in ("酒鳖", "翠", "氤搓", "?꾧", "搬苞"):
+        assert token not in source
 
 
 def test_visible_provider_cpr_wakeup_is_disabled_by_default(tmp_path, monkeypatch) -> None:
