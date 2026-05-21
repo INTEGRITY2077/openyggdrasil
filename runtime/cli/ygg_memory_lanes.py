@@ -784,6 +784,38 @@ def _recall_workflow_evidence(delivery: dict, support: dict, activation: dict, *
 def _provider_sync_recall_allowed() -> bool:
     return os.environ.get("YGG_ALLOW_PROVIDER_SYNC_RECALL", "").strip().lower() in {"1", "true", "yes"}
 
+
+def _current_tmux_session_name() -> str:
+    if not os.environ.get("TMUX"):
+        return ""
+    override = os.environ.get("YGG_TMUX_SESSION_NAME", "").strip()
+    if override:
+        return override
+    try:
+        result = subprocess.run(
+            ["tmux", "display-message", "-p", "#{session_name}"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
+def _in_provider_lane_context() -> bool:
+    if os.environ.get("YGG_PROVIDER_SESSION_ID") or os.environ.get("OY_PROVIDER_SESSION_ID"):
+        return True
+    return _current_tmux_session_name() == PROVIDER_PAIR_SESSION
+
+
+def _provider_recall_wait_should_downgrade() -> bool:
+    return _in_provider_lane_context() and not _provider_sync_recall_allowed()
+
+
 def _print_recall_workflow(
     *,
     label: str,
@@ -833,7 +865,7 @@ def cmd_recall(
         print(json.dumps({"status": "blocked", "reason_code": "recipient_not_memory_finder", "recipient": label}, ensure_ascii=False) if json_mode else f"Error: {label} is {r['type']}, use a Memory Finder")
         sys.exit(1)
     provider_sync_wait_downgraded = False
-    if wait_for_receipt and os.environ.get("YGG_PROVIDER_SESSION_ID") and not _provider_sync_recall_allowed():
+    if wait_for_receipt and _provider_recall_wait_should_downgrade():
         wait_for_receipt = False
         provider_sync_wait_downgraded = True
 
