@@ -235,11 +235,7 @@ def _node_taxonomy_lines(support: Mapping[str, Any]) -> list[str]:
 
 
 def _build_provider_cpr_wakeup_prompt(result: Mapping[str, Any]) -> str:
-    support = _support_metadata(result)
-    facts_count = int(support.get("support_facts_count") or 0)
-    if facts_count > 0:
-        return "OpenYggdrasil 보강 후보가 도착했습니다. 현재 답을 다시 살펴볼 수 있습니다."
-    return "OpenYggdrasil 보강 후보가 부족합니다. 현재 답을 바꿀 근거가 없으면 그대로 두세요."
+    raise RuntimeError("provider_visible_wakeup_prompt_retired")
 
 
 def _cpr_wakeup_ready(result: Mapping[str, Any]) -> tuple[bool, str]:

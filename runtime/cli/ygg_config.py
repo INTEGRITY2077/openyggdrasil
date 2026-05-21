@@ -35,9 +35,7 @@ Usage:
   ygg live <ms1|mf1>            optional MS/MF debug lens; not default Postman path
   ygg flow <ms1|mf1>            optional debug receipt tail; Hermes pane remains primary
   ygg cpr [--json]              read the Provider-bound Status Brief
-  ygg cpr --wake-provider       record an internal Provider heartbeat, no context injection
-  ygg cpr --wake-provider --inject-visible
-                                dev fallback: type one bounded prompt into PRO1
+  ygg cpr --wake-provider       record an internal Provider heartbeat; never writes Provider pane
 
 Compatibility:
   MSN/MFN are the active registry and mailbox ids.

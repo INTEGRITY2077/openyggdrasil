@@ -268,36 +268,13 @@ def _inject_provider_cpr_handoff(
         "message_id": delivery.get("message_id"),
     }
     if os.environ.get("OY_PROVIDER_VISIBLE_REJUDGMENT_WAKE", "0") == "1":
-        try:
-            from runtime.delivery.postman_cpr_wakeup import wake_provider_with_cpr
-
-            result["visible_rejudgment_wakeup"] = wake_provider_with_cpr(
-                {
-                    "status": "done",
-                    "heartbeat_cpr_status": result.get("heartbeat_cpr_status"),
-                    "handoff_status": result.get("handoff_status"),
-                    "manual_prompt_injection_required": (
-                        handoff.get("manual_prompt_injection_required")
-                        if isinstance(handoff, dict)
-                        else None
-                    ),
-                    "mf1_support_metadata": (
-                        payload.get("mf1_support_metadata") if isinstance(payload, dict) else {}
-                    ),
-                    "message_id": delivery.get("message_id"),
-                    "mailbox_correlation": (
-                        payload.get("mailbox_correlation") if isinstance(payload, dict) else {}
-                    ),
-                },
-                registry_dir=_registry_dir_for_mailbox(mailbox),
-                provider_session=provider_wakeup_target,
-                inject_visible=True,
-            )
-        except Exception as exc:  # noqa: BLE001 - visible wakeup must not break receipt recording.
-            result["visible_rejudgment_wakeup"] = {
-                "status": "failed",
-                "reason_code": exc.__class__.__name__,
-            }
+        result["visible_rejudgment_wakeup"] = {
+            "status": "blocked",
+            "reason_code": "provider_visible_wakeup_retired",
+            "provider_context_window_written": False,
+            "tmux_injection_attempted": False,
+            "hard_nonclaim": "Provider user-facing pane is not a Postman route-notice surface.",
+        }
     return result
 
 

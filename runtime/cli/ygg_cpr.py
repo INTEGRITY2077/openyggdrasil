@@ -404,9 +404,9 @@ def _wake_provider_with_cpr(
 def _print_cpr_wakeup_workflow(wakeup: dict) -> None:
     _workflow(
         "YGG CPR WAKE",
-        now="Send one bounded letter wake-up into Provider Lane 1",
+        now="Record internal Provider heartbeat only",
         watching=f"session={PROVIDER_PAIR_SESSION}; wakeup_id={wakeup.get('wakeup_id')}",
-        creating="natural Provider continuation prompt without local paths or internal commands",
+        creating="side-channel state for runtime hook; no Provider pane text",
         created=f"status={wakeup.get('status')}; reason={wakeup.get('reason_code')}",
         evidence=json.dumps(
             {
@@ -425,21 +425,18 @@ def _print_cpr_wakeup_workflow(wakeup: dict) -> None:
             },
             ensure_ascii=False,
         ),
-        next_action="Capture Provider same-turn CPR read before making any UX claim",
+        next_action="Provider pane must remain user/provider dialogue only",
         status=wakeup.get("status", "blocked"),
     )
 
 def cmd_cpr(args: list[str]) -> None:
-    allowed_args = {"--json", "--wake-provider", "--inject-visible"}
+    allowed_args = {"--json", "--wake-provider"}
     if any(arg not in allowed_args for arg in args) or len(args) != len(set(args)):
-        print("Usage: ygg cpr [--json] [--wake-provider] [--inject-visible]")
+        print("Usage: ygg cpr [--json] [--wake-provider]")
         sys.exit(1)
     json_mode = "--json" in args
     wake_mode = "--wake-provider" in args
-    inject_visible = "--inject-visible" in args
-    if inject_visible and not wake_mode:
-        print("Usage: ygg cpr [--json] --wake-provider [--inject-visible]")
-        sys.exit(1)
+    inject_visible = False
     session = PROVIDER_PAIR_SESSION
     if not _tmux_session_exists(session):
         result = _provider_cpr_blocked_result(_read_provider_lane_record(session), reason_code="provider_tmux_lane_missing")
