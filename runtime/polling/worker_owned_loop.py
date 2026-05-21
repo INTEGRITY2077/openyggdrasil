@@ -9,6 +9,11 @@ import time
 from pathlib import Path
 from typing import Any
 
+from runtime.capture.auto_compaction_controller import (
+    parse_preflight_compression,
+    run_auto_compaction_controller_from_vault,
+)
+from runtime.common.vault_root import resolve_vault_root
 from runtime.delivery.tmux_lane_adapter import paste_text_enter
 from runtime.polling.mailbox_summary import _append_goal_log, _mark_live_delivered
 from runtime.polling.receipt_quality import (
@@ -478,6 +483,8 @@ def _wait_context_card_lane_ready(timeout_seconds: float = 120.0) -> dict:
         last_tail = captured.stdout[-2000:] if captured.returncode == 0 else (captured.stderr or "")
         tail_lines = [line for line in last_tail.splitlines() if line.strip()]
         recent = "\n".join(tail_lines[-6:])
+        if "Preflight compression" in recent or "Preflight compression" in last_tail:
+            _maybe_record_preflight_compaction(last_tail)
         has_prompt = any(line.strip() == "❯" or line.strip().endswith("❯") for line in tail_lines[-4:])
         busy = any(marker in recent for marker in busy_markers)
         if has_prompt and not busy:
@@ -490,6 +497,57 @@ def _wait_context_card_lane_ready(timeout_seconds: float = 120.0) -> dict:
             ready_since = None
         time.sleep(1.0)
     return {"ready": False, "evidence": _short(last_tail, 300)}
+
+
+def _maybe_record_preflight_compaction(pane_tail: str) -> None:
+    pressure = parse_preflight_compression(pane_tail)
+    event = pressure.get("compaction_event") if isinstance(pressure, dict) else None
+    if not isinstance(event, dict):
+        return
+    observed = event.get("token_estimate") or 0
+    threshold = event.get("threshold") or 0
+    run_id = "live-precompact-{role}-{digest}".format(
+        role=role,
+        digest=hashlib.sha256(f"{tmux_target}:{observed}:{threshold}".encode("utf-8")).hexdigest()[:10],
+    )
+    try:
+        result = run_auto_compaction_controller_from_vault(
+            vault_root=resolve_vault_root(),
+            run_id=run_id,
+            preflight_text=pane_tail,
+        )
+        receipt = result.get("receipt") if isinstance(result, dict) else None
+        _append_worker_owned_loop_log(
+            {
+                "timestamp": time.time(),
+                "mode": "produce" if MODE == "produce" else "consume",
+                "role": role,
+                "tmux_target": tmux_target,
+                "phase": "precompact_memento_observer",
+                "run_id": run_id,
+                "status": result.get("status"),
+                "episode_count": result.get("episode_count"),
+                "written_memento_ids": result.get("written_memento_ids") or [],
+                "actual_compaction_event_proven": bool(
+                    isinstance(receipt, dict) and receipt.get("actual_compaction_event_proven") is True
+                ),
+                "raw_pane_text_included": False,
+            }
+        )
+    except Exception as exc:
+        _append_worker_owned_loop_log(
+            {
+                "timestamp": time.time(),
+                "mode": "produce" if MODE == "produce" else "consume",
+                "role": role,
+                "tmux_target": tmux_target,
+                "phase": "precompact_memento_observer",
+                "run_id": run_id,
+                "status": "failed",
+                "error": str(exc)[:240],
+                "raw_pane_text_included": False,
+            }
+        )
 
 
 __all__ = [
