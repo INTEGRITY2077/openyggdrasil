@@ -76,3 +76,48 @@ def test_worker_owned_loop_preflight_marker_writes_pointer_memento(
     assert loop_log["phase"] == "precompact_memento_observer"
     assert loop_log["actual_compaction_event_proven"] is True
     assert loop_log["raw_pane_text_included"] is False
+
+
+def test_worker_owned_loop_wait_uses_capture_adapter_for_preflight_memento(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    mailbox = tmp_path / "mailbox"
+    vault = tmp_path / "vault"
+    mailbox.mkdir()
+    vault.mkdir()
+    _append_jsonl(vault / "_meta" / "pending_episode_ledger.jsonl", _ledger_row())
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["ygg_poll.py", "produce", str(mailbox), str(vault)],
+    )
+    monkeypatch.setenv("OY_ALLOW_PUBLIC_RUNTIME_VAULT", "1")
+    import runtime.polling.worker_owned_loop as worker_owned_loop
+
+    worker_owned_loop = importlib.reload(worker_owned_loop)
+    monkeypatch.setattr(worker_owned_loop, "resolve_vault_root", lambda: vault)
+    monkeypatch.setattr(worker_owned_loop.time, "sleep", lambda _seconds: None)
+
+    calls: list[tuple[str, int]] = []
+
+    def fake_capture(target: str, *, lines: int = 320, runner=None):
+        del runner
+        calls.append((target, lines))
+        return (
+            True,
+            "Preflight compression: ~142,570 tokens >= 136,000 threshold.\n",
+            "",
+        )
+
+    monkeypatch.setattr(worker_owned_loop, "capture_tmux_target", fake_capture)
+
+    readiness = worker_owned_loop._wait_context_card_lane_ready(timeout_seconds=0.01)
+
+    assert readiness["ready"] is False
+    assert calls
+    assert all(call[1] == 30 for call in calls)
+    assert (vault / "_meta" / "precompact_memento.jsonl").exists()
+    receipt = json.loads((vault / "_meta" / "context_guard_receipts.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    assert receipt["actual_compaction_event_proven"] is True

@@ -4,11 +4,11 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import time
 from pathlib import Path
 from typing import Any
 
+from runtime.capture.live_compaction_observer import capture_tmux_target
 from runtime.capture.auto_compaction_controller import (
     parse_preflight_compression,
     run_auto_compaction_controller_from_vault,
@@ -438,15 +438,10 @@ def _paste_context_prompt(prompt: str) -> dict:
 
 
 def _extract_session_id_from_tmux() -> str | None:
-    result = subprocess.run(
-        ["tmux", "capture-pane", "-p", "-t", tmux_target, "-S", "-180"],
-        capture_output=True,
-        text=True,
-        timeout=5,
-    )
-    if result.returncode != 0:
+    ok, text, _error = capture_tmux_target(tmux_target, lines=180)
+    if not ok:
         return None
-    matches = re.findall(r"\bSession:\s*([A-Za-z0-9_-]+)", result.stdout)
+    matches = re.findall(r"\bSession:\s*([A-Za-z0-9_-]+)", text)
     return matches[-1] if matches else None
 
 
@@ -474,13 +469,8 @@ def _wait_context_card_lane_ready(timeout_seconds: float = 120.0) -> dict:
     ready_since = None
     ready_evidence = ""
     while time.time() <= deadline:
-        captured = subprocess.run(
-            ["tmux", "capture-pane", "-t", tmux_target, "-p", "-S", "-30"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        last_tail = captured.stdout[-2000:] if captured.returncode == 0 else (captured.stderr or "")
+        ok, text, error = capture_tmux_target(tmux_target, lines=30)
+        last_tail = text[-2000:] if ok else error
         tail_lines = [line for line in last_tail.splitlines() if line.strip()]
         recent = "\n".join(tail_lines[-6:])
         if "Preflight compression" in recent or "Preflight compression" in last_tail:
