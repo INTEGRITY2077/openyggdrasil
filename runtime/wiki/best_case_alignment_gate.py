@@ -128,8 +128,6 @@ def _has_korean_context(markdown: str) -> bool:
 
 
 def _proper_nouns_preserved(markdown: str) -> bool:
-    if "Domestic Dog Ecology" in markdown:
-        return all(term in markdown for term in ("Domestic Dog Ecology", "Canid", "Urban Animal Ecology"))
     title = _first_title(markdown)
     title_terms = [
         term

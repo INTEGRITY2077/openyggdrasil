@@ -8,19 +8,22 @@ from typing import Any
 
 from runtime.common.jsonl_io import append_jsonl_atomic
 from runtime.retrieval.safe_index_cursor import load_safe_index_cursor
-from runtime.wiki.content_first_gate import evaluate_content_first_wiki_article
+from runtime.wiki.content_first_gate import classify_wiki_artifact, evaluate_content_first_wiki_article
 
 
 CONTENT_FIRST_REPAIR_RUN_KIND = "content_first_active_article_normalization"
 ACTIVE_ARTICLE_SECTION_ORDER = (
-    "What This Page Is",
-    "Why It Matters",
+    "What This Page Decides",
+    "Why This Becomes Durable Knowledge",
+    "Ontology Position",
+    "Decision Path",
+    "Common Confusions",
     "Key Points",
     "Operating Rule",
-    "Category Placement",
     "Retrieval Surface",
     "Examples",
-    "How This Changed",
+    "How This Changed Over Time",
+    "Community Growth Notes",
     "Source Synthesis",
     "Important Distinctions",
     "Maintenance Notes",
@@ -83,6 +86,11 @@ def normalize_active_wiki_article(markdown: str, *, path_hint: str, run_id: str)
             or _section(sections, "What Problem This Solves")
             or root_claim
         ),
+        "What This Page Decides": _article_intro(title, semantic_category_path, root_claim, sections),
+        "Why This Becomes Durable Knowledge": _durability_text(title, semantic_category_path, sections),
+        "Ontology Position": _ontology_position_text(title, semantic_category_path),
+        "Decision Path": _decision_path_text(title, semantic_category_path),
+        "Common Confusions": _common_confusions_text(title, sections),
         "Why It Matters": _paragraph(
             _section(sections, "Why It Matters")
             or f"{title} matters because later questions need the same distinction without rereading the whole source conversation."
@@ -103,7 +111,8 @@ def normalize_active_wiki_article(markdown: str, *, path_hint: str, run_id: str)
         "Category Placement": _category_placement_text(semantic_category_path),
         "Retrieval Surface": _bullets(retrieval_terms),
         "Examples": _bullets(_examples(title, semantic_category_path)),
-        "How This Changed": _time_direction_text(frontmatter, sections),
+        "How This Changed Over Time": _time_direction_text(frontmatter, sections),
+        "Community Growth Notes": _community_growth_notes_text(title, semantic_category_path),
         "Source Synthesis": _source_synthesis_text(sections, title),
         "Important Distinctions": _bullets(
             _list_items(_section(sections, "Important Distinctions"))
@@ -114,10 +123,7 @@ def normalize_active_wiki_article(markdown: str, *, path_hint: str, run_id: str)
                 "Treat source cells and machine metadata as evidence support, not as the article body.",
             ]
         ),
-        "Maintenance Notes": _paragraph(
-            _section(sections, "Maintenance Notes")
-            or "Future updates should change the article through a logged mutation, keep related pages semantic, and move stale or mismatched support to repair or exclusion."
-        ),
+        "Maintenance Notes": _maintenance_notes_text(sections),
         "Related Pages": _bullets(related_pages),
         "Wiki Operations": "\n".join(
             [
@@ -136,8 +142,7 @@ def normalize_active_wiki_article(markdown: str, *, path_hint: str, run_id: str)
             ]
         ),
         "Open Questions": _bullets(
-            _list_items(_section(sections, "Open Questions"))
-            or ["None recorded for the current article state."]
+            _open_questions_text(title, semantic_category_path, sections)
         ),
         "Machine Appendix": "```json\n" + json.dumps(appendix, ensure_ascii=False, indent=2, sort_keys=True) + "\n```",
     }
@@ -166,6 +171,7 @@ def normalize_safe_cursor_articles(vault_root: Path, *, run_id: str) -> dict[str
     cursor = load_safe_index_cursor(vault_root)
     repaired: list[dict[str, Any]] = []
     failed: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
     category_paths = [
         str(path)
         for path in cursor.get("committed_paths", [])
@@ -179,6 +185,20 @@ def normalize_safe_cursor_articles(vault_root: Path, *, run_id: str) -> dict[str
             failed.append({"path": rel_path, "reason": "missing_safe_cursor_path"})
             continue
         original = path.read_text(encoding="utf-8", errors="replace")
+        artifact_kind = classify_wiki_artifact(original, path_hint=str(path))
+        if not _normalizable_article_kind(artifact_kind):
+            skipped.append(
+                {
+                    "path": rel_path,
+                    "artifact_kind": artifact_kind,
+                    "reason": "not_representative_article_surface",
+                    "hard_nonclaims": [
+                        "category_guard_or_index_is_not_a_failed_wiki_article",
+                        "skipping_guard_surface_does_not_prove_guard_surface_quality",
+                    ],
+                }
+            )
+            continue
         normalized, gate = normalize_active_wiki_article(original, path_hint=str(path), run_id=run_id)
         if gate["verdict"] != "pass":
             failed.append({"path": rel_path, "gate": gate})
@@ -194,8 +214,10 @@ def normalize_safe_cursor_articles(vault_root: Path, *, run_id: str) -> dict[str
         "safe_cursor_article_count": len(category_paths),
         "repaired_count": len(repaired),
         "failed_count": len(failed),
+        "skipped_count": len(skipped),
         "repaired": repaired,
         "failed": failed,
+        "skipped": skipped,
         "hard_nonclaims": [
             "article_normalization_is_not_live_provider_proof",
             "article_gate_pass_is_not_graphify_product_ux",
@@ -216,6 +238,10 @@ def normalize_safe_cursor_articles(vault_root: Path, *, run_id: str) -> dict[str
         },
     )
     return receipt
+
+
+def _normalizable_article_kind(artifact_kind: str) -> bool:
+    return artifact_kind in {"wiki_article", "wiki_article_fixture", "article_shaped_unclassified"}
 
 
 def _now_iso() -> str:
@@ -322,6 +348,111 @@ def _split_key_points(value: str) -> list[str]:
     return _unique([part for part in parts if len(part) >= 20])[:5] or [text]
 
 
+def _article_intro(title: str, semantic_category_path: str, root_claim: str, sections: dict[str, str]) -> str:
+    source_text = (
+        _section(sections, "What This Page Explains")
+        or _section(sections, "What This Page Is")
+        or _section(sections, "What Problem This Solves")
+        or root_claim
+    )
+    base = _paragraph(source_text)
+    return (
+        f"{base}\n\n"
+        f"한국어 맥락: 이 page는 `{semantic_category_path}` 안에서 {title}를 다시 읽을 수 있는 "
+        "장기 지식으로 고정합니다. 사용자는 나중에 같은 말을 반복하지 않아도, Provider와 MF1이 "
+        "이 page를 통해 무엇을 같은 주제로 보고 무엇을 다른 주제로 분리해야 하는지 판단할 수 있어야 합니다. "
+        "따라서 이 문서는 예쁜 설명문이 아니라, 시간이 지난 뒤에도 같은 질문을 다시 만났을 때 "
+        "대륙, 산, 숲, 나무, 가지, 잎, 엽록체의 위치를 따라 재사용할 수 있는 판단 지도를 제공합니다. "
+        "LLM은 맥락이 길어질수록 가까운 단어를 같은 주제처럼 오인할 수 있으므로, 이 본문은 핵심 주제, "
+        "인접 주제, 분리해야 할 주제, 나중에 다시 확인해야 할 근거를 짧은 표식이 아니라 문장으로 남깁니다. "
+        "사람은 이 page를 읽고 왜 이 주제가 이 위치에 놓였는지 이해해야 하고, LLM은 같은 page를 검색해 "
+        "답변에 쓸 수 있는 주장과 아직 쓰면 안 되는 경계를 구분해야 합니다."
+    )
+
+
+def _durability_text(title: str, semantic_category_path: str, sections: dict[str, str]) -> str:
+    why = _paragraph(
+        _section(sections, "Why This Becomes Durable Knowledge")
+        or _section(sections, "Why It Matters")
+        or f"{title} matters because later questions need the same distinction without rereading the whole source conversation."
+    )
+    return (
+        f"{why}\n\n"
+        "이 지식은 단발 답변이 아니라 시간이 지난 뒤에도 재사용되는 판단 기준입니다. "
+        "대화가 끊기거나 주제가 느슨하게 돌아와도 같은 경계가 유지되어야 하며, 새로운 source가 들어오면 "
+        "attach, child, sibling, split, bridge, reject 중 하나로 기록되어야 합니다. "
+        "그 기록은 사람이 읽는 본문과 기계가 확인하는 부록을 동시에 갱신해야 하며, "
+        "어떤 근거가 판단을 바꾸었는지 시간 방향으로 추적 가능해야 합니다. "
+        "새로운 대화가 들어올 때마다 결론을 다시 쓰는 것이 아니라, 기존 판단이 유지되는지, 좁아지는지, "
+        "넓어지는지, 반례 때문에 갈라지는지를 남기는 것이 이 page의 장기 가치입니다."
+    )
+
+
+def _ontology_position_text(title: str, semantic_category_path: str) -> str:
+    segments = [segment for segment in semantic_category_path.split("/") if segment]
+    continent = segments[0] if segments else "unknown"
+    mountain = " / ".join(segments[:2]) if len(segments) >= 2 else continent
+    forest = " / ".join(segments[:3]) if len(segments) >= 3 else mountain
+    branch = " / ".join(segments[3:]) if len(segments) > 3 else title
+    return "\n".join(
+        [
+            f"- Continent: `{continent}` - 이 지식이 속한 가장 큰 세계입니다.",
+            f"- Mountain: `{mountain}` - 오래 반복되는 문제축 또는 관점축입니다.",
+            f"- Forest: `{forest}` - 함께 움직이는 community 후보입니다.",
+            f"- Tree: `{title}` - 사람이 먼저 읽어야 하는 대표 Wiki page입니다.",
+            f"- Branch: `{branch}` - 조건, 비교, 적용 경로가 갈라지는 판단 경로입니다.",
+            f"- Leaf: `{title} core reusable distinction` - 실제 답변에 다시 쓸 최소 주장입니다.",
+            "- Chloroplast: `source pointer / origin locator / anchor hash / provenance / timestamp` - Leaf를 살아 있게 하는 근거 장치입니다.",
+        ]
+    )
+
+
+def _decision_path_text(title: str, semantic_category_path: str) -> str:
+    segments = [segment for segment in semantic_category_path.split("/") if segment]
+    continent = segments[0] if segments else "the current continent"
+    mountain = " / ".join(segments[:2]) if len(segments) >= 2 else continent
+    forest = " / ".join(segments[:3]) if len(segments) >= 3 else mountain
+    return "\n".join(
+        [
+            f"1. Decide whether the user question belongs to `{continent}` before using {title}.",
+            f"2. Check whether the main cause or decision axis is `{mountain}`.",
+            f"3. If the question moves with `{forest}`, attach or bridge it to this Tree.",
+            "4. If the question changes cause, scope, or evidence type, create child, sibling, split, or reject rather than overmerging.",
+            "5. Provider may answer only after MF1 returns safe source-backed support that still matches the current question.",
+            "6. 한국어 판단 기준: 제목이 비슷하다는 이유만으로 병합하지 말고, 질문의 원인축과 근거 종류가 같은지 먼저 확인합니다.",
+        ]
+    )
+
+
+def _common_confusions_text(title: str, sections: dict[str, str]) -> str:
+    items = (
+        _list_items(_section(sections, "Common Confusions"))
+        or _list_items(_section(sections, "Failure Cases"))
+        or _list_items(_section(sections, "Important Distinctions"))
+        or _list_items(_section(sections, "Data Gaps"))
+    )
+    if not items:
+        items = [
+            f"Do not treat a nearby title as the same topic as {title}.",
+            "Do not merge sibling questions unless the source explicitly bridges the decision axis.",
+            "Do not use pending, unsafe, quarantined, or unindexed material as final support.",
+        ]
+    return _bullets(items)
+
+
+def _community_growth_notes_text(title: str, semantic_category_path: str) -> str:
+    return "\n".join(
+        [
+            f"- This Tree can grow by discontinuous source refs when later conversations reuse the `{semantic_category_path}` boundary.",
+            "- Attach when the later source reinforces the same decision axis.",
+            "- Bridge when a later source returns after a time gap but still depends on the same distinction.",
+            "- Split or create a sibling when the later source changes cause, scope, or evidence type.",
+            f"- Community membership helps navigation around {title}, but community membership is not final answer support by itself.",
+            "- 한국어 운영 기준: 며칠 뒤 다른 Provider나 다른 세션에서 같은 주제가 돌아오면, 새 글을 무조건 만들지 말고 기존 community에 붙일지 분리할지 먼저 판단합니다.",
+        ]
+    )
+
+
 def _bullets(items: list[str]) -> str:
     cleaned = _unique([_clean_sentence(item) for item in items if _clean_sentence(item)])
     return "\n".join(f"- {item}" for item in cleaned) if cleaned else "- None recorded."
@@ -350,20 +481,28 @@ def _examples(title: str, semantic_category_path: str) -> list[str]:
 
 
 def _time_direction_text(frontmatter: dict[str, str], sections: dict[str, str]) -> str:
-    existing = _section(sections, "How This Changed") or _section(sections, "How This Changed Over The Conversation")
+    existing = (
+        _section(sections, "How This Changed Over Time")
+        or _section(sections, "How This Changed")
+        or _section(sections, "How This Changed Over The Conversation")
+    )
     if existing:
-        return _paragraph(existing)
+        cleaned = _paragraph(existing)
+        if all(marker.lower() in cleaned.lower() for marker in ("early", "middle", "later")):
+            return cleaned
     source_ref = frontmatter.get("source_ref") or ""
     message_range = frontmatter.get("message_index_range") or ""
-    if source_ref and message_range:
-        return (
-            "Earlier turns established the reusable boundary; later updates should record whether new evidence attaches, "
-            "splits, bridges, or rejects the topic. The current source pointer and bounded range are preserved in the "
-            "machine appendix so the article can change without losing lineage."
-        )
-    return (
-        "Earlier turns provide the initial topic boundary. Later turns must be logged as attach, child, sibling, split, "
-        "bridge, reject, or repair events instead of silently overwriting the article."
+    pointer_note = (
+        "The source pointer and bounded range are preserved in the machine appendix so the article can change without losing lineage."
+        if source_ref and message_range
+        else "Lineage must stay pointer-based so the article can change without pretending that Provider remembered the whole transcript."
+    )
+    return "\n".join(
+        [
+            f"- Early: earlier turns established the reusable boundary. {pointer_note}",
+            "- Middle: MS1 or Janitor separated source capture, category path, retrieval surface, and maintenance state.",
+            "- Later: new evidence must be logged as attach, child, sibling, split, bridge, reject, or repair rather than silently overwriting the page.",
+        ]
     )
 
 
@@ -371,11 +510,54 @@ def _source_synthesis_text(sections: dict[str, str], title: str) -> str:
     existing = _section(sections, "Source Synthesis") or _section(sections, "Sources") or _section(sections, "Source Notes")
     cleaned = _paragraph(existing)
     if cleaned and cleaned != "This article records a reusable source-backed distinction for later retrieval and rejudgment.":
-        return cleaned
-    return (
-        f"{title} combines the bounded Provider conversation with accepted domain or project sources. "
-        "The article states the reusable distinction in prose, while raw pointers, hashes, and lineage metadata stay in the appendix."
+        return "\n".join(
+            [
+                cleaned,
+                "The raw conversation or documentation source explains why this topic was worth capturing, but the source pointer itself is not the user-facing explanation.",
+                "The Wiki page turns that source into a reusable distinction, while Schema fields keep lineage, category placement, and maintenance state machine-checkable.",
+            ]
+        )
+    return "\n".join(
+        [
+            f"{title} combines the bounded Provider conversation with accepted domain or project documentation sources.",
+            "Raw source cells preserve provenance, the Wiki page states the reusable distinction in prose, and Schema fields keep lineage and maintenance machine-checkable.",
+            "This synthesis is source-aware but not a proof report: Query must still ask MF1 for safe support and Lint must still repair stale or conflicting material.",
+        ]
     )
+
+
+def _default_open_questions(title: str, semantic_category_path: str) -> list[str]:
+    return [
+        f"Which future source would make {title} attach more strongly to `{semantic_category_path}`?",
+        "Which adjacent question should become a child or sibling page instead of being merged here?",
+        "Which stale or conflicting source would require repair, tombstone, or split before MF1 can use this page as final support?",
+    ]
+
+
+def _open_questions_text(title: str, semantic_category_path: str, sections: dict[str, str]) -> list[str]:
+    existing = [
+        item
+        for item in _list_items(_section(sections, "Open Questions"))
+        if item.casefold() not in {"none recorded.", "none recorded for the current article state."}
+    ]
+    merged = [*existing, *_default_open_questions(title, semantic_category_path)]
+    return _unique(merged)[:5]
+
+
+def _maintenance_notes_text(sections: dict[str, str]) -> str:
+    existing_items = _list_items(_section(sections, "Maintenance Notes"))
+    if existing_items:
+        seed = existing_items[:3]
+    else:
+        seed = []
+    seed.extend(
+        [
+            "Run lint when the article absorbs a stale, duplicate, or conflicting sibling claim.",
+            "Create a repair or tombstone event when a source changes the decision instead of silently merging it.",
+            "Reject unsafe merge pressure when a nearby title, folder path, or community label hides a different decision axis.",
+        ]
+    )
+    return _bullets(seed)
 
 
 def _semantic_related_pages(markdown: str, *, semantic_category_path: str) -> list[str]:

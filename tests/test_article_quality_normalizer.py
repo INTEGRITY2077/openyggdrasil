@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 
-from runtime.wiki.article_quality_normalizer import normalize_active_wiki_article
+from runtime.wiki.article_quality_normalizer import normalize_active_wiki_article, normalize_safe_cursor_articles
+from runtime.wiki.best_case_alignment_gate import evaluate_best_case_mock_alignment
 
 
 def test_normalizer_repairs_active_article_without_domain_hardcoding() -> None:
@@ -64,6 +65,20 @@ Use this page for ordinary dog ecology; split welfare and urban wildlife questio
     assert "## how this changed" in body
     assert "earlier turns" in body
     assert "Urban Animal Ecology" in repaired
+    assert "??" not in repaired
+
+    best_case = evaluate_best_case_mock_alignment(
+        repaired,
+        path_hint="vault/categories/biology/animal-ecology/domestic-dogs/domestic-dog-ecology.md",
+    )
+    assert best_case["verdict"] == "pass"
+    assert "Continent" in repaired
+    assert "Mountain" in repaired
+    assert "Forest" in repaired
+    assert "Tree" in repaired
+    assert "Branch" in repaired
+    assert "Leaf" in repaired
+    assert "Chloroplast" in repaired
 
 
 def test_normalizer_records_source_lineage_in_machine_appendix() -> None:
@@ -113,6 +128,93 @@ Hook is automatic event behavior, Skill is model-readable procedure, MCP is exte
     assert appendix["lineage_contracts"]["community_growth_event"]["schema_version"] == "community_growth_event.v1"
     assert appendix["lineage_contracts"]["wiki_continent_page"]["schema_version"] == "wiki_continent_page.v1"
     assert "C:/" not in appendix["original_path_hint"]
+
+
+def test_normalizer_best_case_gate_generalizes_to_memory_system_article() -> None:
+    markdown = """---
+schema_version: wiki_article.v1
+article_role: representative_tree
+title: Provider Durable Reuse Boundary
+root_claim: Provider should trigger long-term memory only for reusable sourced knowledge.
+page_ref: oy-vault://categories/memory-systems/openyggdrasil/wiki-ring/provider-durable-reuse-boundary.md
+semantic_category_path: memory-systems/openyggdrasil/wiki-ring
+source_ref: hermes-session-json://memory-test
+message_index_range: 20..24
+anchor_hash: abc789
+---
+# Provider Durable Reuse Boundary
+
+## What This Page Is
+This page records when Provider should ask for long-term memory support.
+
+## Operating Rule
+Use only for reusable, sourced, non-preference knowledge.
+
+## Source Synthesis
+The operation notes and conversation source define the boundary.
+
+## Related Pages
+- [[OpenYggdrasil Memory Community]]
+
+## Machine Appendix
+{}
+"""
+
+    repaired, gate = normalize_active_wiki_article(
+        markdown,
+        path_hint="vault/categories/memory-systems/openyggdrasil/wiki-ring/provider-durable-reuse-boundary.md",
+        run_id="unit-normalizer",
+    )
+
+    best_case = evaluate_best_case_mock_alignment(
+        repaired,
+        path_hint="vault/categories/memory-systems/openyggdrasil/wiki-ring/provider-durable-reuse-boundary.md",
+    )
+
+    assert gate["verdict"] == "pass"
+    assert best_case["verdict"] == "pass"
+    assert "Canid" not in repaired
+    assert "??" not in repaired
+
+
+def test_safe_cursor_normalizer_skips_guard_card_without_counting_as_failed(tmp_path) -> None:
+    vault = tmp_path
+    (vault / "_meta").mkdir(parents=True)
+    (vault / "categories" / "software-development" / "claude-code").mkdir(parents=True)
+    guard = vault / "categories" / "software-development" / "claude-code" / "agents.md"
+    guard.write_text(
+        """---
+id: N-guard
+title: Claude Code agent and extension placement boundary
+semantic_category_path: software-development/claude-code/extension-placement/agents
+---
+# Claude Code agent and extension placement boundary
+
+## What This Page Is
+This is the production-facing wiki page for a source-backed OpenYggdrasil memory.
+
+## Maintenance Notes
+- quality_verdict: pass
+""",
+        encoding="utf-8",
+    )
+    (vault / "_meta" / "safe_index_cursor.json").write_text(
+        """{
+  "schema_version": "safe_index_cursor.v1",
+  "cursor_id": "cursor-test",
+  "source": "unit",
+  "committed_paths": ["vault/categories/software-development/claude-code/agents.md"]
+}
+""",
+        encoding="utf-8",
+    )
+
+    receipt = normalize_safe_cursor_articles(vault, run_id="unit-skip-guard")
+
+    assert receipt["repaired_count"] == 0
+    assert receipt["failed_count"] == 0
+    assert receipt["skipped_count"] == 1
+    assert receipt["skipped"][0]["artifact_kind"] == "retrieval_guard_card"
 
 
 def test_normalizer_preserves_existing_machine_appendix_lineage() -> None:
