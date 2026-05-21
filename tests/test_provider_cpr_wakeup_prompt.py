@@ -34,14 +34,15 @@ def test_provider_cpr_wakeup_prompt_is_readable_korean_and_marker_detectable() -
     )
 
     assert "OpenYggdrasil 결과 도착 알림입니다" in prompt
-    assert "support_facts_preview와 provider_rejudgment만 확인하고" in prompt
+    assert "Provider-bound 상태가 갱신" in prompt
     assert "원 질문과 현재 답을 다시 비교하세요" in prompt
-    assert "provider_rejudgment action은 use_with_limits입니다" in prompt
-    assert "로컬 파일을 찾거나 읽지 마세요" in prompt
+    assert "support_facts_preview" not in prompt
+    assert "provider_rejudgment action" not in prompt
+    assert "로컬 파일 탐색" in prompt
     assert "./scripts/ygg cpr만 실행" in prompt
     assert "pipe/python/find/read는 쓰지 마세요" in prompt
     assert "파일 경로, 노드 ID, receipt ID" in prompt
-    assert "답변 근거가 아닙니다" in prompt
+    assert "답변 근거가 아니며 판단도 아닙니다" in prompt
     assert PROVIDER_REJUDGMENT_WAKE_SENTINEL not in prompt
     assert not any(marker in prompt for marker in MOJIBAKE_MARKERS)
     assert is_provider_rejudgment_wakeup_text(prompt)

@@ -238,26 +238,17 @@ def _node_taxonomy_lines(support: Mapping[str, Any]) -> list[str]:
 def _build_provider_cpr_wakeup_prompt(result: Mapping[str, Any]) -> str:
     support = _support_metadata(result)
     facts_count = int(support.get("support_facts_count") or 0)
-    provider_rejudgment = support.get("provider_rejudgment")
-    provider_action = ""
-    if isinstance(provider_rejudgment, Mapping):
-        provider_action = str(provider_rejudgment.get("provider_action") or "")
-    fact_note = (
-        "support_facts_preview가 있으면 그 요지만 현재 질문과 대조하세요. "
+    availability_note = (
+        "보강 후보가 도착했습니다. "
         if facts_count > 0
-        else "support_facts_preview가 없으면 근거 부족으로 닫으세요. "
-    )
-    action_note = (
-        f"provider_rejudgment action은 {provider_action}입니다. "
-        if provider_action
-        else "provider_rejudgment가 없으면 근거를 확정하지 마세요. "
+        else "보강 후보가 없거나 부족할 수 있습니다. "
     )
     return (
-        "OpenYggdrasil 결과 도착 알림입니다. 이 알림 자체는 답변 근거가 아닙니다. "
-        "Provider-bound CPR state의 support_facts_preview와 provider_rejudgment만 확인하고, 원 질문과 현재 답을 다시 비교하세요. "
-        f"{fact_note}{action_note}"
-        "로컬 파일을 찾거나 읽지 마세요. 필요하면 ./scripts/ygg cpr만 실행하고 pipe/python/find/read는 쓰지 마세요. "
-        "근거가 충분하면 필요한 밀도로만 보강하고, 부족하거나 현재 답을 바꿀 근거가 없으면 그렇게 짧게 닫으세요. "
+        "OpenYggdrasil 결과 도착 알림입니다. 이 알림 자체는 답변 근거가 아니며 판단도 아닙니다. "
+        f"{availability_note}"
+        "Provider-bound 상태가 갱신되었으니, 필요하면 ./scripts/ygg cpr만 실행해 원 질문과 현재 답을 다시 비교하세요. "
+        "로컬 파일 탐색과 내부 경로 확인은 하지 말고, pipe/python/find/read는 쓰지 마세요. "
+        "충분하면 필요한 밀도로만 보강하고, 부족하거나 현재 답을 바꿀 근거가 없으면 부족하다고 짧게 닫으세요. "
         "파일 경로, 노드 ID, receipt ID, 개수 목록은 사용자 답변에 쓰지 마세요."
     )
 

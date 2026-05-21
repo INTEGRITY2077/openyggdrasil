@@ -12,6 +12,7 @@ def is_provider_rejudgment_wakeup_text(text: object) -> bool:
         return True
     return (
         "OpenYggdrasil 결과 도착 알림입니다" in normalized
+        and "Provider-bound 상태가 갱신" in normalized
         and "원 질문과 현재 답을 다시 비교" in normalized
         and "파일 경로, 노드 ID, receipt ID" in normalized
     ) or (
